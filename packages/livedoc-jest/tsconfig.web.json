@@ -1,0 +1,14 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "target": "es5",
+        "lib": [
+            "es5",
+            "ES2015.Promise"
+        ],
+        "module": "System",
+        "outFile": "out/abus.js",
+        "importHelpers": false,
+        "declaration": false
+    }
+}

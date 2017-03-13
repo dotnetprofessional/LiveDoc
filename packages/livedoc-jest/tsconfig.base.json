@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "experimentalDecorators": true,
+        "noImplicitAny": false,
+        "sourceMap": true,
+        "noUnusedParameters": false,
+        "noUnusedLocals": true,
+        "skipLibCheck": true,
+        "emitDecoratorMetadata": false,
+        "stripInternal": true,
+        "removeComments": false,
+        "declaration": true,
+        "importHelpers": false
+    },
+    "include": [
+        "app/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}

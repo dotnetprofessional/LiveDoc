@@ -1,0 +1,12 @@
+node_modules
+dist
+typings
+coverage
+compile
+out
+/.vs
+*.user
+npm-debug.log
+*.tgz
+*.log
+/build

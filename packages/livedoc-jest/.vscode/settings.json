@@ -1,0 +1,8 @@
+// Place your settings in this file to overwrite default and user settings.
+{
+    "typescript.check.tscVersion": false,
+    "typescript.tsdk": "./node_modules/typescript/lib",
+    "markdown.styles": [
+        ".vscode/markdown.css"
+    ]
+}

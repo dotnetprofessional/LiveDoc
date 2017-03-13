@@ -1,0 +1,10 @@
+//.npmignore
+/app
+Tests
+/compile
+/out
+.vscode
+wallaby.js
+*.log
+tsconfig*.json
+*.tgz
