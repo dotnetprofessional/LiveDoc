@@ -1,10 +1,9 @@
 //.npmignore
-/app
-Tests
-/compile
-/out
+/_src
+/build
 .vscode
 wallaby.js
 *.log
 tsconfig*.json
 *.tgz
+*.json

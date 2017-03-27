@@ -3,18 +3,18 @@
         "module": "commonjs",
         "experimentalDecorators": true,
         "noImplicitAny": false,
-        "sourceMap": true,
+        "sourceMap": false,
         "noUnusedParameters": false,
         "noUnusedLocals": true,
         "skipLibCheck": true,
         "emitDecoratorMetadata": false,
         "stripInternal": true,
         "removeComments": false,
-        "declaration": true,
+        "declaration": false,
         "importHelpers": false
     },
     "include": [
-        "app/**/*.ts"
+        "_src/app/**/*.ts"
     ],
     "exclude": [
         "node_modules"

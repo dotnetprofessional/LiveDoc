@@ -6,9 +6,9 @@
             "es5",
             "ES2015.Promise"
         ],
-        "outDir": "build",
-        "removeComments": false,
-        "declaration": true,
-        "importHelpers": false
+        "module": "System",
+        "outFile": "dist/web/livedoc-mocha.js",
+        "importHelpers": false,
+        "declaration": false
     }
 }

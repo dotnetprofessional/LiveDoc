@@ -1,0 +1,40 @@
+{
+  "name": "livedoc-mocha",
+  "version": "0.1.0",
+  "author": "Garry McGlennon",
+  "description": "BDD extensions for Mocha that support LiveDoc reporting.",
+  "repository": {
+    "url": ""
+  },
+  "main": "dist/livedoc.js",
+  "typings": "dist/livedoc.d.ts",
+  "keywords": [
+    "livedoc",
+    "mocha",
+    "bdd"
+  ],
+  "engines": {
+    "node": "*"
+  },
+  "scripts": {
+    "test": "mocha --colors --require build/app/livedoc --ui livedoc-mocha --recursive build/test/",
+    "release-web": "npm run compile-web && npm run compile-web-minify",
+    "compile-web": "rimraf dist/web && tsc -p tsconfig.web.json",
+    "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
+    "compile": "rimraf dist && tsc -d -t ES5 -p tsconfig.npm.json",
+    "xprepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/chai": "^3.4.35",
+    "@types/mocha": "^2.2.40",
+    "@types/node": "^7.0.5",
+    "chai": "^3.5.0",
+    "rimraf": "^2.6.1",
+    "tslint": "^4.4.2",
+    "typescript": "^2.1.6",
+    "uglify-js": "^2.8.7"
+  },
+  "dependencies": {
+    "mocha": "^3.2.0"
+  }
+}
