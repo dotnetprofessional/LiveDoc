@@ -139,6 +139,32 @@ feature(`Step statement
             })
         });
 
+        scenario("Step statement has a single column of values as a table", () => {
+            let stepTitle = "";
+            let list: string[];
+            when(`a simple title has a table of values
+
+                | 17   |
+                | 42   |
+                | 4711 |
+
+                This is a table above!!
+            `, () => {
+                    stepTitle = stepContext.title;
+                    list = stepContext.tableToList();
+                });
+
+            then("the table should be convertible to a list using stepContext.tableToList", () => {
+                // Add the numbers up
+                let total = 0;
+                for (let i = 0; i < list.length; i++) {
+                    total += Number(list[i]);
+                }
+
+                total.should.be.equal(4770);
+            })
+        });
+
         scenario("Step statement uses quoted \" values to define values ", () => {
             let stepValues: string[];
             when(`a title has "this value" and "that value"`, () => {
