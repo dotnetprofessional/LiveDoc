@@ -31,6 +31,28 @@ class ScenarioContext extends FeatureContext {
 class StepContext {
     title: string;
     table: Row[];
+    tableToEntity(): Row {
+        let entity = {};
+        if (this.table.length > 0) {
+            if (Object.keys(this.table[0]).length !== 2) {
+                throw TypeError("tables must be two columns to convert to an entity.");
+            }
+
+            let headers = [];
+            for (var property in this.table[0]) {
+                headers.push(property);
+            }
+            // Assign the first property/value from headers
+            entity[headers[0]] = headers[1];
+
+            for (let i = 0; i < this.table.length; i++) {
+                const prop = this.table[i][headers[0]];
+                const value = this.table[i][headers[1]];
+                entity[prop] = value;
+            }
+        }
+        return entity;
+    };
     docString: string;
     type: string;
     values: string[];
@@ -207,9 +229,7 @@ function createStepAlias(file, suites, mocha) {
                         docLines.push(arrayOfLines[i]);
                         i++;
                     }
-                    docLines
                     docString = docLines.join('\n');
-                    docString
                 }
             }
         }
