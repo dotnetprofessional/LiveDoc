@@ -1,6 +1,8 @@
 ///<reference path="../app/livedoc.ts" />
 
-require('chai').should();
+var chai = require('chai')
+    , expect = chai.expect
+    , should = chai.should();
 
 feature(`Step statement
 
@@ -78,6 +80,8 @@ feature(`Step statement
         scenario("Step statement has a title and a table", () => {
             let stepTitle = "";
             let table: Row[];
+            let whenContext: StepContext;
+
             when(`a simple title has a table
 
                 | name   | email              | twitter         |
@@ -89,6 +93,7 @@ feature(`Step statement
             `, () => {
                     stepTitle = stepContext.title;
                     table = stepContext.table;
+                    whenContext = stepContext;
                 });
 
             then("the title should match stepContext.title", () => {
@@ -103,6 +108,34 @@ feature(`Step statement
                 table[2].name.should.be.equal("Matt");
                 table[2].email.should.be.equal("matt@cucumber.io");
                 table[2].twitter.should.be.equal("@mattwynne");
+            });
+
+            but("not be convertible to an entity using stepContext.tableToEntity", () => {
+                should.throw(() => { whenContext.tableToEntity() }, "tables must be two columns")
+            });
+        });
+
+        scenario("Step statement has a two column table with names in first column", () => {
+            let stepTitle = "";
+            let entity: Row;
+            when(`a simple title has a table
+
+                | name    | Aslak              |
+                | email   | aslak@cucumber.io  |
+                | twitter | @aslak_hellesoy    |
+                | address | 1 street           |
+
+                This is a table above!!
+            `, () => {
+                    stepTitle = stepContext.title;
+                    entity = stepContext.tableToEntity();
+                });
+
+            then("the table should be convertible to an entity using stepContext.tableToEntity", () => {
+                entity.name.should.be.equal("Aslak");
+                entity.email.should.be.equal("aslak@cucumber.io");
+                entity.twitter.should.be.equal("@aslak_hellesoy");
+                entity.address.should.be.equal("1 street");
             })
         });
 
