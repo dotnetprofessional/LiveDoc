@@ -53,6 +53,27 @@ class StepContext {
         }
         return entity;
     };
+
+    tableToList(): string[] {
+        let list = [];
+        if (this.table.length > 0) {
+            if (Object.keys(this.table[0]).length !== 1) {
+                throw TypeError("table must be single column to convert to a list.");
+            }
+
+            let headers = [];
+            for (var property in this.table[0]) {
+                headers.push(property);
+            }
+            // Assign the first property/value from headers
+            list.push(headers[0]);
+
+            for (let i = 0; i < this.table.length; i++) {
+                list.push(this.table[i][headers[0]]);
+            }
+        }
+        return list;
+    };
     docString: string;
     type: string;
     values: string[];
