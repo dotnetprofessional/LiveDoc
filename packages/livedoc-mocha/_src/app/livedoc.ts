@@ -26,57 +26,34 @@ class FeatureContext {
 }
 
 class ScenarioContext extends FeatureContext {
+    given: StepContext;
 }
 
 class StepContext {
     title: string;
     table: Row[];
-    tableToEntity(): Row {
-        let entity = {};
-        if (this.table.length > 0) {
-            if (Object.keys(this.table[0]).length !== 2) {
-                throw TypeError("tables must be two columns to convert to an entity.");
-            }
 
-            let headers = [];
-            for (var property in this.table[0]) {
-                headers.push(property);
-            }
-            // Assign the first property/value from headers
-            entity[headers[0]] = headers[1];
-
-            for (let i = 0; i < this.table.length; i++) {
-                const prop = this.table[i][headers[0]];
-                const value = this.table[i][headers[1]];
-                entity[prop] = value;
-            }
-        }
-        return entity;
-    };
-
-    tableToList(): string[] {
-        let list = [];
-        if (this.table.length > 0) {
-            if (Object.keys(this.table[0]).length !== 1) {
-                throw TypeError("table must be single column to convert to a list.");
-            }
-
-            let headers = [];
-            for (var property in this.table[0]) {
-                headers.push(property);
-            }
-            // Assign the first property/value from headers
-            list.push(headers[0]);
-
-            for (let i = 0; i < this.table.length; i++) {
-                list.push(this.table[i][headers[0]]);
-            }
-        }
-        return list;
-    };
     docString: string;
     type: string;
     values: string[];
+
+    tableAsEntity: Row;
+
+    tableAsList: string[][];
+
+    tableAsSingleList: string[];
+
+    clone(): StepContext {
+        var step = new StepContext();
+        step.title = this.title;
+        step.table = this.table;
+        step.docString = this.docString;
+        step.type = this.type;
+        step.values = this.values;
+        step.tableAsEntity = this.tableAsEntity
+        step.tableAsList = this.tableAsList;
+        return step;
+    }
 }
 
 class BackgroundContext extends StepContext {
@@ -149,11 +126,18 @@ function createStepAlias(file, suites, mocha) {
             suite = suites[0];
             let context = new StepContext();
             const parts = getStepParts(title);
-            const table = getTable(title);
+            const tableAsList = getTableAsList(title);
+            const table = getTable(tableAsList)
+            const tableAsEntity = getTableAsEntity(tableAsList);
+            const tableAsSingleList = getTableAsSingleList(tableAsList);
             context.title = parts.title;
             context.docString = parts.docString;
             context.values = parts.values;
             context.table = table;
+            context.tableAsEntity = tableAsEntity;
+            context.tableAsList = tableAsList;
+            context.tableAsSingleList = tableAsSingleList;
+
 
             // Format the original title for better display output
             testName = formatBlock(testName, 10);
@@ -164,6 +148,13 @@ function createStepAlias(file, suites, mocha) {
                 fn1 = function (...args) {
                     featureContext = suite.ctx.featureContext;
                     stepContext = context;
+
+                    // A Given step is treated differently as its the primary way to setup
+                    // state for a Spec, so it gets its own property on the scenarioContext
+                    if (scenarioContext && type === "Given") {
+                        scenarioContext.given = context.clone();
+                    }
+
                     fn(args)
                 }
             }
@@ -187,36 +178,74 @@ function createStepAlias(file, suites, mocha) {
         return testType;
     };
 
-    function getTable(text: string): Row[] {
+    function getTableAsList(text: string): string[][] {
         let arrayOfLines = text.match(/[^\r\n]+/g);
-        let table: Row[] = [];
+        let tableArray: string[][] = [];
 
         if (arrayOfLines.length > 1) {
-            let header = [];
             for (let i = 1; i < arrayOfLines.length; i++) {
                 let line = arrayOfLines[i];
-                if (line.startsWith(" ")) {
-                    line = line.trim();
-                }
+                line = line.trim();
+                line
                 if (line.startsWith("|") && line.endsWith("|")) {
                     // Looks like part of a table
-                    // Check if this is the first line of the table
-                    if (header.length === 0) {
-                        // First line is the header
-                        header = line.split("|");
-                    } else {
-                        const rowData = line.split("|");
-                        let row: Row = {};
-                        for (let column = 1; column < rowData.length - 1; column++) {
-                            // Copy column to header key
-                            row[header[column].trim()] = rowData[column].trim();
-                        }
-                        table.push(row);
+                    const rowData = line.split("|");
+                    let row: string[] = [];
+                    for (let i = 1; i < rowData.length - 1; i++) {
+                        row.push(rowData[i].trim());
                     }
+                    tableArray.push(row);
                 }
             }
         }
+        return tableArray;
+    }
+
+    function getTable(tableArray: string[][]): Row[] {
+        let table: Row[] = [];
+
+        if (tableArray.length === 0) {
+            return table;
+        }
+
+        let header = tableArray[0];
+        for (let i = 1; i < tableArray.length; i++) {
+            let rowData = tableArray[i];
+            let row: Row = {};
+            for (let column = 0; column < rowData.length; column++) {
+                // Copy column to header key
+                row[header[column]] = rowData[column];
+            }
+            table.push(row);
+        }
         return table;
+    }
+
+    function getTableAsEntity(tableArray: string[][]): object {
+
+        if (tableArray.length === 0 || tableArray[0].length > 2) {
+            return;
+        }
+
+        let entity = {};
+        for (let row = 0; row < tableArray.length; row++) {
+            // Copy column to header key
+            entity[tableArray[row][0]] = tableArray[row][1];
+        }
+        return entity;
+    }
+
+    function getTableAsSingleList(tableArray: string[][]): string[] {
+        if (tableArray.length === 0) {
+            return;
+        }
+
+        let list = [];
+        for (let row = 0; row < tableArray.length; row++) {
+            // Copy column to header key
+            list.push(tableArray[row][0]);
+        }
+        return list;
     }
 
     function getStepParts(text: string) {
@@ -297,13 +326,23 @@ function createDescribeAlias(file, suites, context, mocha) {
             var suite = _suite.create(suites[0], createLabel(title));
 
             suite.file = file;
-            const context = new FeatureContext();
             const parts = getDescribeParts(title);
-            context.title = parts.title;
-            context.description = parts.description;
-            context.filename = file.replace(/^.*[\\\/]/, '');
-            suite.ctx.featureContext = context;
-            featureContext = context;
+            if (type === "Feature") {
+                const context = new FeatureContext();
+                context.title = parts.title;
+                context.description = parts.description;
+                context.filename = file.replace(/^.*[\\\/]/, '');
+                suite.ctx.featureContext = context;
+                featureContext = context;
+            } else {
+                // Scenario
+                const context = new ScenarioContext();
+                context.title = parts.title;
+                context.description = parts.description;
+                suite.ctx.scenarioContext = context;
+                scenarioContext = context;
+                scenarioContext
+            }
             suites.unshift(suite);
             fn.call(suite);
 
@@ -362,7 +401,6 @@ function formatBlock(text: string, indent: number): string {
             arrayOfLines[i] = " ".repeat(indent) + line.trim();
 
         }
-        arrayOfLines.push("");
         return arrayOfLines.join("\n");
     } else {
         return text;

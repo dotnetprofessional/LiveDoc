@@ -101,6 +101,7 @@ feature(`Step statement
             });
 
             and("the table should match stepContext.table", () => {
+                table
                 table.length.should.be.equal(3);
                 table[0].name.should.be.equal("Aslak");
                 table[0].email.should.be.equal("aslak@cucumber.io");
@@ -108,10 +109,6 @@ feature(`Step statement
                 table[2].name.should.be.equal("Matt");
                 table[2].email.should.be.equal("matt@cucumber.io");
                 table[2].twitter.should.be.equal("@mattwynne");
-            });
-
-            but("not be convertible to an entity using stepContext.tableToEntity", () => {
-                should.throw(() => { whenContext.tableToEntity() }, "tables must be two columns")
             });
         });
 
@@ -128,7 +125,7 @@ feature(`Step statement
                 This is a table above!!
             `, () => {
                     stepTitle = stepContext.title;
-                    entity = stepContext.tableToEntity();
+                    entity = stepContext.tableAsEntity;
                 });
 
             then("the table should be convertible to an entity using stepContext.tableToEntity", () => {
@@ -151,7 +148,7 @@ feature(`Step statement
                 This is a table above!!
             `, () => {
                     stepTitle = stepContext.title;
-                    list = stepContext.tableToList();
+                    list = stepContext.tableAsSingleList;
                 });
 
             then("the table should be convertible to a list using stepContext.tableToList", () => {
