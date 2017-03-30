@@ -92,7 +92,3 @@ There are others too, however they typically fall into the two categories above,
 There are pros and cons to both approaches, however LiveDoc-mocha went with the combining spec and implementation as the additional separation can be hard to maintain. However, if having separate files is your preferred style, then you should consider using [Cucumber.js](https://github.com/cucumber/cucumber-js) for your projects.
 
 While [mocha-cakes-2](https://github.com/iensu/mocha-cakes-2) provides a great starting point, its feature list was limited to simple aliasing. LiveDoc-mocha tries to deliver as much of the full spec as possible. The addition of more advanced features such as Tables, Values, docStrings and Backgrounds brings the experience much closer to the full Gherkin experience without the context switch you can experience with libraries like [Cucumber.js](https://github.com/cucumber/cucumber-js).
-
-
-livedoc-mocha is a tool for running automated tests written in plain language. Because they're written in plain language, they can be read by anyone on your team. Because they can be read by anyone, you can use them to help improve communication, collaboration and trust on your team.
-Cucumber.js is the JavaScript implementation of Cucumber and runs on both Node.js (4 and above) and modern web browsers.
