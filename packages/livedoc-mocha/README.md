@@ -72,11 +72,11 @@ feature("Account Holder withdraws cash", () => {
 ```
 When run with mocha will produce the following output:
 
-![Mocha Test Result](docs/images/feature.png)
+![Mocha Test Result](docs/images/Feature.PNG)
 
 As can be seen by this simple example the actual test code is small and concise as much of the test setup was included as part of the test narrative. This in turn makes the rest easier to understand and makes for excellent documentation.
 
-This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](/docs/API.md).
+This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](docs/API.md).
 
 The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Example.ts).
 
