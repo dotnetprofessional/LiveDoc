@@ -38,36 +38,46 @@ class ATM {
     }
 }
 
-feature("Account Holder withdraws cash", () => {
-    scenario("Account has sufficient funds", () => {
-        let atm = new ATM();
-        let accountHolder: any;
-        let cashReceived: number;
+feature(`Account Holder withdraws cash
 
-        given(`the account holders account has the following:
+        Account Holders should be able to withdraw cash at any of the
+        companies ATMs.
+
+        Rules:
+        * Account Holders should have a valid keycard
+        * Have sufficient available funds
+        * The ATM has the necessary funds
+        `, () => {
+
+        scenario("Account has sufficient funds", () => {
+            let atm = new ATM();
+            let accountHolder: any;
+            let cashReceived: number;
+
+            given(`the account holders account has the following:
             | account | 12345 |
             | balance | 100   |
             | status  | valid |
         `, () => {
-                accountHolder = stepContext.tableAsEntity;
-                atm.setStatus(accountHolder.account, accountHolder.status);
-                atm.deposit(accountHolder.account, Number(accountHolder.balance))
+                    accountHolder = stepContext.tableAsEntity;
+                    atm.setStatus(accountHolder.account, accountHolder.status);
+                    atm.deposit(accountHolder.account, Number(accountHolder.balance))
+                });
+
+            and("the machine contains '1000' dollars", () => {
+                atm.addCash(Number(stepContext.values[0]));
             });
 
-        and("the machine contains '1000' dollars", () => {
-            atm.addCash(Number(stepContext.values[0]));
-        });
+            when("the Account Holder requests '20' dollars", () => {
+                cashReceived = atm.withDraw(accountHolder.account, Number(stepContext.values[0]));
+            });
 
-        when("the Account Holder requests '20' dollars", () => {
-            cashReceived = atm.withDraw(accountHolder.account, Number(stepContext.values[0]));
-        });
+            then("the ATM should dispense '20' dollars", () => {
+                cashReceived.should.be.equal(Number(stepContext.values[0]));
+            });
 
-        then("the ATM should dispense '20' dollars", () => {
-            cashReceived.should.be.equal(Number(stepContext.values[0]));
-        });
-
-        and("the account balance should be '80' dollars", () => {
-            atm.getBalance(accountHolder.account).should.be.equal(Number(stepContext.values[0]));
+            and("the account balance should be '80' dollars", () => {
+                atm.getBalance(accountHolder.account).should.be.equal(Number(stepContext.values[0]));
+            });
         });
     });
-});

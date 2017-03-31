@@ -25,7 +25,9 @@ class FeatureContext {
     description: string;
 }
 
-class ScenarioContext extends FeatureContext {
+class ScenarioContext {
+    title: string;
+    description: string;
     given: StepContext;
 }
 
@@ -120,7 +122,7 @@ function liveDocMocha(suite) {
 /** @internal */
 function createStepAlias(file, suites, mocha) {
     return function testTypeCreator(type) {
-        function testType(title, fn?) {
+        function testType(title, stepDefinitionFunction?) {
             var suite, test;
             var testName = type ? type + ' ' + title : title;
             suite = suites[0];
@@ -142,11 +144,12 @@ function createStepAlias(file, suites, mocha) {
             // Format the original title for better display output
             testName = formatBlock(testName, 10);
 
-            if (suite.pending) fn = null;
-            let fn1 = fn
-            if (fn) {
-                fn1 = function (...args) {
+            if (suite.pending) stepDefinitionFunction = null;
+            let stepDefinitionContextWrapper = stepDefinitionFunction
+            if (stepDefinitionFunction) {
+                stepDefinitionContextWrapper = function (...args) {
                     featureContext = suite.ctx.featureContext;
+                    scenarioContext = suite.ctx.scenarioContext;
                     stepContext = context;
 
                     // A Given step is treated differently as its the primary way to setup
@@ -155,11 +158,11 @@ function createStepAlias(file, suites, mocha) {
                         scenarioContext.given = context.clone();
                     }
 
-                    fn(args)
+                    stepDefinitionFunction(args)
                 }
             }
 
-            test = new _test(testName, fn1);
+            test = new _test(testName, stepDefinitionContextWrapper);
             test.file = file;
             suite.addTest(test);
 
@@ -341,7 +344,6 @@ function createDescribeAlias(file, suites, context, mocha) {
                 context.description = parts.description;
                 suite.ctx.scenarioContext = context;
                 scenarioContext = context;
-                scenarioContext
             }
             suites.unshift(suite);
             fn.call(suite);

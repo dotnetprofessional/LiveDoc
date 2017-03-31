@@ -19,24 +19,41 @@ mocha --ui livedoc-mocha tests/
 ## So what does this look like?
 If we take the following feature which describes an account holder withdrawing money from an ATM. The format is the same as you might use in Cucumber.js, Cucumber, SpecFlow etc.
 
-```js
+```Gherkin
 Feature: Account Holder withdraws cash
+
+        Account Holders should be able to withdraw cash at any of the
+        companies ATMs.
+
+        Rules:
+        * Account Holders should have a valid keycard
+        * Have sufficient available funds
+        * The ATM has the necessary funds
 
   Scenario: Account has sufficient funds
     Given the account holders account has the following:
         | account | 12345 |
         | balance | 100   |
         | status  | valid |
-      and the machine contains 1000 dollars
+      And the machine contains 1000 dollars
     When the Account Holder requests 20 dollars
     Then the ATM should dispense 20 dollars
-     and the account balance should be 80 dollars
+      And the account balance should be 80 dollars
 ```
 
 Converting this to livedoc-mocha would produce the following:
 
 ```js
-feature("Account Holder withdraws cash", () => {
+feature(`Account Holder withdraws cash
+
+        Account Holders should be able to withdraw cash at any of the
+        companies ATMs.
+
+        Rules:
+        * Account Holders should have a valid keycard
+        * Have sufficient available funds
+        * The ATM has the necessary funds`, () => {
+
     scenario("Account has sufficient funds", () => {
         let atm = new ATM();
         let accountHolder: any;
