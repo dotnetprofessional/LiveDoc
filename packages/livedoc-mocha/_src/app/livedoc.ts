@@ -29,6 +29,7 @@ class ScenarioContext {
     title: string;
     description: string;
     given: StepContext;
+    and: StepContext[] = [];
 }
 
 class StepContext {
@@ -37,13 +38,13 @@ class StepContext {
 
     docString: string;
     type: string;
-    values: string[];
+    values: any[];
 
     tableAsEntity: Row;
 
-    tableAsList: string[][];
+    tableAsList: any[][];
 
-    tableAsSingleList: string[];
+    tableAsSingleList: any[];
 
     clone(): StepContext {
         var step = new StepContext();
@@ -80,18 +81,20 @@ function liveDocMocha(suite) {
 
     suite.on('pre-require', function (context, file, mocha) {
 
-        function liveDocBackground(name, fn) {
-            let title = `Background:
-                         ${name}`;
+        /*
+                function liveDocBackground(name, fn) {
+                    let title = `Background:
+                                 ${name}`;
 
-            title
-            const result = common.before(fn);
-            given(title, () => {
+                    name
+                    backgroundContext = getStepContext(name);
+                    const result = common.beforeEach(fn);
+                    given(title, () => {
+                    });
 
-            });
-            return result;
-        }
-
+                    return result;
+                }
+        */
         var common = require('mocha/lib/interfaces/common')(suites, context, mocha);
 
         context.run = mocha.options.delay && common.runWithSuite(suite);
@@ -104,11 +107,12 @@ function liveDocMocha(suite) {
         context.afterEach = common.afterEach;
         context.before = common.before;
         context.beforeEach = common.beforeEach;
-        context.background = liveDocBackground;
 
         context.feature = describeAliasBuilder('Feature');
         context.scenario = describeAliasBuilder('Scenario');
         context.describe = describeAliasBuilder('');
+        context.background = describeAliasBuilder('Background');
+        context.backgroundGiven = stepAliasBuilder('Background');
 
         context.given = stepAliasBuilder('Given');
         context.when = stepAliasBuilder('When');
@@ -126,20 +130,8 @@ function createStepAlias(file, suites, mocha) {
             var suite, test;
             var testName = type ? type + ' ' + title : title;
             suite = suites[0];
-            let context = new StepContext();
-            const parts = getStepParts(title);
-            const tableAsList = getTableAsList(title);
-            const table = getTable(tableAsList)
-            const tableAsEntity = getTableAsEntity(tableAsList);
-            const tableAsSingleList = getTableAsSingleList(tableAsList);
-            context.title = parts.title;
-            context.docString = parts.docString;
-            context.values = parts.values;
-            context.table = table;
-            context.tableAsEntity = tableAsEntity;
-            context.tableAsList = tableAsList;
-            context.tableAsSingleList = tableAsSingleList;
 
+            let context = getStepContext(title);
 
             // Format the original title for better display output
             testName = formatBlock(testName, 10);
@@ -150,12 +142,25 @@ function createStepAlias(file, suites, mocha) {
                 stepDefinitionContextWrapper = function (...args) {
                     featureContext = suite.ctx.featureContext;
                     scenarioContext = suite.ctx.scenarioContext;
+                    backgroundContext = suite.ctx.backgroundContext;
                     stepContext = context;
+
+                    // Check if a background has been defined, and if so only execute it once per scenario
+                    if (suite.ctx.backgroundFunc && !suite.ctx.backgroundFunExec) {
+                        // execute function
+                        suite.ctx.backgroundFunExec = true;
+                        suite.ctx.backgroundFunc();
+                    }
 
                     // A Given step is treated differently as its the primary way to setup
                     // state for a Spec, so it gets its own property on the scenarioContext
                     if (scenarioContext && type === "Given") {
-                        scenarioContext.given = context.clone();
+                        suite.ctx.processingGiven = true;
+                        scenarioContext.given = context;
+                    } else if (["When", "Then"].indexOf(type) >= 0) {
+                        suite.ctx.processingGiven = false;
+                    } else if (suite.ctx.processingGiven) {
+                        scenarioContext.and.push(context);
                     }
 
                     stepDefinitionFunction(args)
@@ -181,130 +186,6 @@ function createStepAlias(file, suites, mocha) {
         return testType;
     };
 
-    function getTableAsList(text: string): string[][] {
-        let arrayOfLines = text.match(/[^\r\n]+/g);
-        let tableArray: string[][] = [];
-
-        if (arrayOfLines.length > 1) {
-            for (let i = 1; i < arrayOfLines.length; i++) {
-                let line = arrayOfLines[i];
-                line = line.trim();
-                line
-                if (line.startsWith("|") && line.endsWith("|")) {
-                    // Looks like part of a table
-                    const rowData = line.split("|");
-                    let row: string[] = [];
-                    for (let i = 1; i < rowData.length - 1; i++) {
-                        row.push(rowData[i].trim());
-                    }
-                    tableArray.push(row);
-                }
-            }
-        }
-        return tableArray;
-    }
-
-    function getTable(tableArray: string[][]): Row[] {
-        let table: Row[] = [];
-
-        if (tableArray.length === 0) {
-            return table;
-        }
-
-        let header = tableArray[0];
-        for (let i = 1; i < tableArray.length; i++) {
-            let rowData = tableArray[i];
-            let row: Row = {};
-            for (let column = 0; column < rowData.length; column++) {
-                // Copy column to header key
-                row[header[column]] = rowData[column];
-            }
-            table.push(row);
-        }
-        return table;
-    }
-
-    function getTableAsEntity(tableArray: string[][]): object {
-
-        if (tableArray.length === 0 || tableArray[0].length > 2) {
-            return;
-        }
-
-        let entity = {};
-        for (let row = 0; row < tableArray.length; row++) {
-            // Copy column to header key
-            entity[tableArray[row][0]] = tableArray[row][1];
-        }
-        return entity;
-    }
-
-    function getTableAsSingleList(tableArray: string[][]): string[] {
-        if (tableArray.length === 0) {
-            return;
-        }
-
-        let list = [];
-        for (let row = 0; row < tableArray.length; row++) {
-            // Copy column to header key
-            list.push(tableArray[row][0]);
-        }
-        return list;
-    }
-
-    function getStepParts(text: string) {
-        let arrayOfLines = text.match(/[^\r\n]+/g);
-        let docString = "";
-        let title = "";
-        let values: string[];
-
-        if (arrayOfLines.length > 0) {
-            for (let i = 0; i < arrayOfLines.length; i++) {
-                let line = arrayOfLines[i];
-                if (line.startsWith(" ")) {
-                    arrayOfLines[i] = line.trim();
-                }
-            }
-
-            title = arrayOfLines[0];
-            values = getValuesFromTitle(title);
-            arrayOfLines.shift();
-            // Check if there's a docString present
-            for (let i = 0; i < arrayOfLines.length; i++) {
-                let line = arrayOfLines[i];
-                if (line.startsWith('"""')) {
-                    let docLines = [];
-                    i++;
-                    for (let y = 0; y < arrayOfLines.length - i; y++) {
-                        if (arrayOfLines[i].startsWith('"""')) {
-                            // end of docString
-                            break;
-                        }
-                        docLines.push(arrayOfLines[i]);
-                        i++;
-                    }
-                    docString = docLines.join('\n');
-                }
-            }
-        }
-        let result = {
-            title,
-            docString,
-            values
-        };
-        return result;
-    };
-
-    function getValuesFromTitle(text: string) {
-        let arrayOfValues = text.match(/(["'](.*?)["'])+/g);
-        arrayOfValues
-        let results = [];
-        if (arrayOfValues) {
-            arrayOfValues.forEach(element => {
-                results.push(element.substr(1, element.length - 2));
-            });
-        }
-        return results;
-    }
 }
 
 /** @internal */
@@ -337,6 +218,14 @@ function createDescribeAlias(file, suites, context, mocha) {
                 context.filename = file.replace(/^.*[\\\/]/, '');
                 suite.ctx.featureContext = context;
                 featureContext = context;
+            } else if (type === "Background") {
+                backgroundContext = getStepContext(title);
+                // Need to put the context on the parent or it won't be available
+                // to the scenarios
+                suite.parent.ctx.backgroundContext = backgroundContext;
+                suite.parent.ctx.backgroundFunc = fn;
+                debugger;
+                console.log(fn.toString())
             } else {
                 // Scenario
                 const context = new ScenarioContext();
@@ -407,4 +296,160 @@ function formatBlock(text: string, indent: number): string {
     } else {
         return text;
     }
+}
+
+function getStepContext(title: string): StepContext {
+    let context = new StepContext();
+    const parts = getStepParts(title);
+    const tableAsList = getTableAsList(title);
+
+    const table = getTable(tableAsList)
+    const tableAsEntity = getTableAsEntity(tableAsList);
+    const tableAsSingleList = getTableAsSingleList(tableAsList);
+    context.title = parts.title;
+    context.docString = parts.docString;
+    context.values = parts.values;
+    context.table = table;
+    context.tableAsEntity = tableAsEntity;
+    context.tableAsList = tableAsList;
+    context.tableAsSingleList = tableAsSingleList;
+
+    return context;
+}
+
+function getTableAsList(text: string): any[][] {
+    let arrayOfLines = text.match(/[^\r\n]+/g);
+    let tableArray: string[][] = [];
+
+    if (arrayOfLines.length > 1) {
+        for (let i = 1; i < arrayOfLines.length; i++) {
+            let line = arrayOfLines[i];
+            line = line.trim();
+            if (line.startsWith("|") && line.endsWith("|")) {
+                // Looks like part of a table
+                const rowData = line.split("|");
+                let row: any[] = [];
+                for (let i = 1; i < rowData.length - 1; i++) {
+                    // Convert the values to the best primitive type
+                    const valueString = rowData[i].trim();
+                    const value = +valueString;
+                    if (value) {
+                        row.push(value)
+                    } else {
+                        row.push(valueString);
+                    }
+                }
+                tableArray.push(row);
+            }
+        }
+    }
+    return tableArray;
+}
+
+function getTable(tableArray: any[][]): Row[] {
+    let table: Row[] = [];
+
+    if (tableArray.length === 0) {
+        return table;
+    }
+
+    let header = tableArray[0];
+    for (let i = 1; i < tableArray.length; i++) {
+        let rowData = tableArray[i];
+        let row: Row = {};
+        for (let column = 0; column < rowData.length; column++) {
+            // Copy column to header key
+            row[header[column]] = rowData[column];
+        }
+        table.push(row);
+    }
+    return table;
+}
+
+function getTableAsEntity(tableArray: any[][]): object {
+
+    if (tableArray.length === 0 || tableArray[0].length > 2) {
+        return;
+    }
+
+    let entity = {};
+    for (let row = 0; row < tableArray.length; row++) {
+        // Copy column to header key
+        entity[tableArray[row][0].toString()] = tableArray[row][1];
+    }
+    return entity;
+}
+
+function getTableAsSingleList(tableArray: any[][]): any[] {
+    if (tableArray.length === 0) {
+        return;
+    }
+
+    let list = [];
+    for (let row = 0; row < tableArray.length; row++) {
+        // Copy column to header key
+        list.push(tableArray[row][0]);
+    }
+    return list;
+}
+
+function getStepParts(text: string) {
+    let arrayOfLines = text.match(/[^\r\n]+/g);
+    let docString = "";
+    let title = "";
+    let values: string[];
+
+    if (arrayOfLines.length > 0) {
+        for (let i = 0; i < arrayOfLines.length; i++) {
+            let line = arrayOfLines[i];
+            if (line.startsWith(" ")) {
+                arrayOfLines[i] = line.trim();
+            }
+        }
+
+        title = arrayOfLines[0];
+        values = getValuesFromTitle(title);
+        arrayOfLines.shift();
+        // Check if there's a docString present
+        for (let i = 0; i < arrayOfLines.length; i++) {
+            let line = arrayOfLines[i];
+            if (line.startsWith('"""')) {
+                let docLines = [];
+                i++;
+                for (let y = 0; y < arrayOfLines.length - i; y++) {
+                    if (arrayOfLines[i].startsWith('"""')) {
+                        // end of docString
+                        break;
+                    }
+                    docLines.push(arrayOfLines[i]);
+                    i++;
+                }
+                docString = docLines.join('\n');
+            }
+        }
+    }
+    let result = {
+        title,
+        docString,
+        values
+    };
+    return result;
+};
+
+function getValuesFromTitle(text: string) {
+    let arrayOfValues = text.match(/(["'](.*?)["'])+/g);
+    arrayOfValues
+    let results = [];
+    if (arrayOfValues) {
+        arrayOfValues.forEach(element => {
+            const valueString = element.substr(1, element.length - 2).trim();
+            const value = +valueString;
+            if (value) {
+                results.push(value)
+            } else {
+                results.push(valueString);
+            }
+        });
+    }
+    return results;
 }

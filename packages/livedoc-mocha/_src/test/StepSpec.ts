@@ -78,11 +78,8 @@ feature(`Step statement
         });
 
         scenario("Step statement has a title and a table", () => {
-            let stepTitle = "";
-            let table: Row[];
-            let whenContext: StepContext;
 
-            when(`a simple title has a table
+            given(`a simple title has a table
 
                 | name   | email              | twitter         |
                 | Aslak  | aslak@cucumber.io  | @aslak_hellesoy |
@@ -90,18 +87,14 @@ feature(`Step statement
                 | Matt   | matt@cucumber.io   | @mattwynne      |
 
                 This is a table above!!
-            `, () => {
-                    stepTitle = stepContext.title;
-                    table = stepContext.table;
-                    whenContext = stepContext;
-                });
+            `, () => { });
 
             then("the title should match stepContext.title", () => {
-                stepTitle.should.be.equal("a simple title has a table");
+                scenarioContext.given.title.should.be.equal("a simple title has a table");
             });
 
             and("the table should match stepContext.table", () => {
-                table
+                const table = scenarioContext.given.table;
                 table.length.should.be.equal(3);
                 table[0].name.should.be.equal("Aslak");
                 table[0].email.should.be.equal("aslak@cucumber.io");
@@ -137,25 +130,21 @@ feature(`Step statement
         });
 
         scenario("Step statement has a single column of values as a table", () => {
-            let stepTitle = "";
-            let list: string[];
-            when(`a simple title has a table of values
+            given(`a simple title has a table of values
 
                 | 17   |
                 | 42   |
                 | 4711 |
 
                 This is a table above!!
-            `, () => {
-                    stepTitle = stepContext.title;
-                    list = stepContext.tableAsSingleList;
-                });
+            `, () => { });
 
             then("the table should be convertible to a list using stepContext.tableToList", () => {
                 // Add the numbers up
                 let total = 0;
+                const list = scenarioContext.given.tableAsSingleList;
                 for (let i = 0; i < list.length; i++) {
-                    total += Number(list[i]);
+                    total += list[i];
                 }
 
                 total.should.be.equal(4770);
@@ -169,7 +158,7 @@ feature(`Step statement
             });
 
             then("contextStep.values should have '2' items", () => {
-                stepValues.length.should.be.equal(Number(stepContext.values[0]));
+                stepValues.length.should.be.equal(stepContext.values[0]);
             });
 
             and("the two values should be available via contextStep.values", () => {
@@ -186,7 +175,7 @@ feature(`Step statement
             });
 
             then("contextStep.values should have '2' items", () => {
-                stepValues.length.should.be.equal(Number(stepContext.values[0]));
+                stepValues.length.should.be.equal(stepContext.values[0]);
             });
 
             and("the two values should be available via contextStep.values", () => {
