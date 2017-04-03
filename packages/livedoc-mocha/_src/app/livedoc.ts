@@ -59,7 +59,7 @@ class StepContext {
     }
 }
 
-class BackgroundContext extends StepContext {
+class BackgroundContext extends ScenarioContext {
 
 }
 
@@ -112,7 +112,6 @@ function liveDocMocha(suite) {
         context.scenario = describeAliasBuilder('Scenario');
         context.describe = describeAliasBuilder('');
         context.background = describeAliasBuilder('Background');
-        context.backgroundGiven = stepAliasBuilder('Background');
 
         context.given = stepAliasBuilder('Given');
         context.when = stepAliasBuilder('When');
@@ -142,25 +141,50 @@ function createStepAlias(file, suites, mocha) {
                 stepDefinitionContextWrapper = function (...args) {
                     featureContext = suite.ctx.featureContext;
                     scenarioContext = suite.ctx.scenarioContext;
-                    backgroundContext = suite.ctx.backgroundContext;
+                    if (suite.parent.ctx.backgroundSuite) {
+                        backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
+                    }
                     stepContext = context;
 
-                    // Check if a background has been defined, and if so only execute it once per scenario
-                    if (suite.ctx.backgroundFunc && !suite.ctx.backgroundFunExec) {
-                        // execute function
-                        suite.ctx.backgroundFunExec = true;
-                        suite.ctx.backgroundFunc();
+                    if (suite.ctx.type == "Background") {
+                        suite.ctx.backgroundFunc.push(stepDefinitionFunction);
+                    } else {
+                        // Check if a background has been defined, and if so only execute it once per scenario
+                        if (suite.parent.ctx.backgroundSuite && !suite.ctx.backgroundFunExec) {
+                            // execute function
+                            suite.ctx.backgroundFunExec = true;
+                            backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
+                            suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(fn => {
+                                fn();
+                            });
+                        }
+                    }
+
+
+                    // A Given step is treated differently as its the primary way to setup
+                    // state for a Spec, so it gets its own property on the scenarioContext
+                    if (scenarioContext) {
+                        if (type === "Given") {
+                            suite.ctx.processingGiven = true;
+                            scenarioContext.given = context;
+                        } else if (["When", "Then"].indexOf(type) >= 0) {
+                            suite.ctx.processingGiven = false;
+                        } else if (suite.ctx.processingGiven) {
+                            scenarioContext.and.push(context);
+                        }
                     }
 
                     // A Given step is treated differently as its the primary way to setup
                     // state for a Spec, so it gets its own property on the scenarioContext
-                    if (scenarioContext && type === "Given") {
-                        suite.ctx.processingGiven = true;
-                        scenarioContext.given = context;
-                    } else if (["When", "Then"].indexOf(type) >= 0) {
-                        suite.ctx.processingGiven = false;
-                    } else if (suite.ctx.processingGiven) {
-                        scenarioContext.and.push(context);
+                    if (backgroundContext && suite.ctx.type === "Background") {
+                        if (type === "Given") {
+                            suite.ctx.processingGiven = true;
+                            backgroundContext.given = context;
+                        } else if (["When", "Then"].indexOf(type) >= 0) {
+                            suite.ctx.processingGiven = false;
+                        } else if (suite.ctx.processingGiven) {
+                            backgroundContext.and.push(context);
+                        }
                     }
 
                     stepDefinitionFunction(args)
@@ -219,13 +243,19 @@ function createDescribeAlias(file, suites, context, mocha) {
                 suite.ctx.featureContext = context;
                 featureContext = context;
             } else if (type === "Background") {
-                backgroundContext = getStepContext(title);
+                const context = new BackgroundContext();
+                context.title = parts.title;
+                context.description = parts.description;
+                suite.ctx.backgroundContext = context;
+                backgroundContext = context;
                 // Need to put the context on the parent or it won't be available
                 // to the scenarios
-                suite.parent.ctx.backgroundContext = backgroundContext;
-                suite.parent.ctx.backgroundFunc = fn;
-                debugger;
-                console.log(fn.toString())
+                suite.ctx.backgroundContext = backgroundContext;
+                suite.ctx.backgroundFunc = [];
+                suite.ctx.backgroundFunc.push(fn);
+
+                // Make this suite available via the parent
+                suite.parent.ctx.backgroundSuite = suite;
             } else {
                 // Scenario
                 const context = new ScenarioContext();
@@ -234,6 +264,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 suite.ctx.scenarioContext = context;
                 scenarioContext = context;
             }
+            suite.ctx.type = type;
             suites.unshift(suite);
             fn.call(suite);
 

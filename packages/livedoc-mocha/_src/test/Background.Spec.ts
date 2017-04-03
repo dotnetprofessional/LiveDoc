@@ -10,16 +10,18 @@ feature(`Background statement
 
         let someValue = 0;
 
-        background(" ", () => {
-            someValue = 100;
-            given("This will be executed before each test somevalue = '100", () => {
-                //someValue = 100;
+        background("This will be executed before each test", () => {
+            given("somevalue = '30'", () => {
+                someValue = backgroundContext.given.values[0];
+            })
+
+            and("we add '70' to somevalue", () => {
+                someValue += backgroundContext.and[0].values[0];
             })
         });
 
         scenario("Add 10 to someValue", () => {
             when(`someValue is increased by '10'`, () => {
-                someValue
                 someValue += stepContext.values[0];
             });
 
@@ -29,7 +31,7 @@ feature(`Background statement
         });
 
         scenario("Add 20 to someValue", () => {
-            console.log(backgroundContext.values[0]);
+            //console.log(backgroundContext.given.values[0]);
             when(`someValue is increased by '20'`, () => {
                 someValue += stepContext.values[0];
             });
@@ -40,7 +42,7 @@ feature(`Background statement
         });
 
         scenario("Add 200 to someValue", () => {
-            console.log(backgroundContext.values[0]);
+            //console.log(backgroundContext.given.values[0]);
             when(`someValue is increased by '200'`, () => {
                 someValue += stepContext.values[0];
             });
