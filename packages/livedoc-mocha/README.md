@@ -52,40 +52,40 @@ feature(`Account Holder withdraws cash
         Rules:
         * Account Holders should have a valid keycard
         * Have sufficient available funds
-        * The ATM has the necessary funds`, () => {
+        * The ATM has the necessary funds
+        `, () => {
 
-    scenario("Account has sufficient funds", () => {
-        let atm = new ATM();
-        let accountHolder: any;
-        let cashReceived: number;
+        scenario("Account has sufficient funds", () => {
+            let atm = new ATM();
+            let cashReceived: number;
 
-        given(`the account holders account has the following:
+            given(`the account holders account has the following:
             | account | 12345 |
             | balance | 100   |
             | status  | valid |
         `, () => {
-                accountHolder = stepContext.tableAsEntity;
-                atm.setStatus(accountHolder.account, accountHolder.status);
-                atm.deposit(accountHolder.account, Number(accountHolder.balance))
+                    const accountHolder = stepContext.tableAsEntity;
+                    atm.setStatus(accountHolder.account, accountHolder.status);
+                    atm.deposit(accountHolder.account, accountHolder.balance)
+                });
+
+            and("the machine contains '1000' dollars", () => {
+                atm.addCash(stepContext.values[0]);
             });
 
-        and("the machine contains '1000' dollars", () => {
-            atm.addCash(Number(stepContext.values[0]));
-        });
+            when("the Account Holder requests '20' dollars", () => {
+                cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);
+            });
 
-        when("the Account Holder requests '20' dollars", () => {
-            cashReceived = atm.withDraw(accountHolder.account, Number(stepContext.values[0]));
-        });
+            then("the ATM should dispense '20' dollars", () => {
+                cashReceived.should.be.equal(stepContext.values[0]);
+            });
 
-        then("the ATM should dispense '20' dollars", () => {
-            cashReceived.should.be.equal(Number(stepContext.values[0]));
-        });
-
-        and("the account balance should be '80' dollars", () => {
-            atm.getBalance(accountHolder.account).should.be.equal(Number(stepContext.values[0]));
+            and("the account balance should be '80' dollars", () => {
+                atm.getBalance(scenarioContext.given.tableAsEntity.account).should.be.equal(stepContext.values[0]);
+            });
         });
     });
-});
 ```
 When run with mocha will produce the following output:
 
