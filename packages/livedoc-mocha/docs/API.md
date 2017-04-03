@@ -218,7 +218,7 @@ A point to note about the javascript above is that it makes use of the back-tick
 const docString = stepContext.docString;
 ```
 # [Backgound](https://cucumber.io/docs/reference#background)
-Backgrounds are an alias for mocha's before hook. They provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall.
+Backgrounds provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall. Backgrounds have a <code>backgroundContext</code> that share the same properties as the <code>scenarioContext</code>, see details on scenarios for details.
 
 __Gherkin__
 ```Gherkin
@@ -229,11 +229,14 @@ Background:
 
 __livedoc-mocha__
 ```js
-background(`Given a $100 microwave was sold on 2015-11-03
-  And today is 2015-11-18`, () => { });
-```
+background("This will be executed before each test", () => {
+    given("Given a '100' dollar microwave was sold on '2015-11-03'", () => {
+    });
 
-Support for backgrounds is currently limited, as you can't mix other step definitions with them currently. However, they do support the same features of a step definition for defining data. Accessing data from a background is via the <code>backgroundContext</code> global variable.
+    and("today is '2015-11-18'", () => {
+    });
+});
+```
 
 # Scenario Outlines
 
