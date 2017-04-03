@@ -139,7 +139,7 @@ Each step has a context which is defined by the global variable <code>stepContex
 * values: contains an array of values that were provided by specifying a quoted string (" or ') in a step definition title. This is useful when needing to pass only one or two values.
 * type: the step definition type given, when then, but, and.
 
-The example shows a number of important values within the titles and descriptions including a table. Livedoc-mocha supports the following features for extracting data from your descriptions and titles. Each of the features below and the <code>values</values> property support number coercion when returning values. So that values returned will be in the most usable format. If for some reason you require a string instead of the number returned, simply convert it back to a string using <code>.toString()</code>.
+The example shows a number of important values within the titles and descriptions including a table. Livedoc-mocha supports the following features for extracting data from your descriptions and titles. Each of the features below and the <code>values</code> property support number coercion when returning values. So that values returned will be in the most usable format. If for some reason you require a string instead of the number returned, simply convert it back to a string using <code>.toString()</code>.
 
 ## [Data Tables](https://cucumber.io/docs/reference#data-tables)
 Data Tables are handy for passing a list of values to a step definition. Livedoc-mocha has fully support for Data Tables and several helper methods to make working with them easier. Refer to the context section for more details on the additional properties.
@@ -194,7 +194,7 @@ _Methods_
 
 <code>stepContext.tableAsSingleList</code> returns the table as a simple list of strings. This would be the recommended option to use for this style of table.
 
-# [DocStrings](https://cucumber.io/docs/reference#doc-strings)
+## [DocStrings](https://cucumber.io/docs/reference#doc-strings)
 Doc Strings are useful for passing a larger piece of text to a step definition. A Doc String must start on a new line and contain with three double-quote marks and be on their own. The subsequent lines should start under the first quote of the line above. When parsing the additional whitespace will be removed so each line begins where the first double-quote mark begins. To end a Doc String, another new line with double-quotes is used.
 
 _Gherkin_

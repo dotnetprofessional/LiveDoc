@@ -16,6 +16,9 @@ To have mocha understand the new syntax you must specify livedoc-mocha as the ui
 mocha --ui livedoc-mocha tests/
 ```
 
+For full details of what's supported see the [__API reference__](/docs/API.md)
+
+
 ## So what does this look like?
 If we take the following feature which describes an account holder withdrawing money from an ATM. The format is the same as you might use in Cucumber.js, Cucumber, SpecFlow etc.
 
