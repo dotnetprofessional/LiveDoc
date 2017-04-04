@@ -4,7 +4,7 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 ## Installing
 This library builds off the mocha.js library as a custom ui. To setup, follow these steps.
 
-# NB: There is an issue with the installed packge, please wait until an update is published. This should be fixed by April 6, 2017.
+# NB: There is an issue with the NPM packge, please wait until an update is published. This should be fixed by April 6, 2017.
 __NPM__
 ```
 npm install --save-dev livedoc-mocha
