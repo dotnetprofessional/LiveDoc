@@ -2,11 +2,7 @@
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
         "target": "es5",
-        "lib": [
-            "es5",
-            "ES2015.Promise"
-        ],
-        "outDir": "dist",
+        "outDir": "release",
         "removeComments": true,
         "declaration": true,
         "importHelpers": false

@@ -7,7 +7,7 @@
             "ES2015.Promise"
         ],
         "module": "System",
-        "outFile": "dist/web/livedoc-mocha.js",
+        "outFile": "release/web/livedoc-mocha.js",
         "importHelpers": false,
         "declaration": false
     }

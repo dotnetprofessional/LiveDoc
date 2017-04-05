@@ -2,21 +2,36 @@
     Typescript definitions
 */
 declare var feature: Mocha.IContextDefinition;
+declare var background: Mocha.IContextDefinition;
 declare var scenario: Mocha.IContextDefinition;
+
 declare var given: Mocha.ITestDefinition;
 declare var when: Mocha.ITestDefinition;
 declare var then: Mocha.ITestDefinition;
 declare var and: Mocha.ITestDefinition;
 declare var but: Mocha.ITestDefinition;
 
-declare var background: IBackground;
+// Polyfils
+if (!String.prototype.startsWith) {
+    String.prototype.startsWith = function (searchString, position) {
+        position = position || 0;
+        return this.substr(position, searchString.length) === searchString;
+    };
+}
+if (!String.prototype.endsWith) {
+    String.prototype.endsWith = function (searchString, position) {
+        var subjectString = this.toString();
+        if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
+            position = subjectString.length;
+        }
+        position -= searchString.length;
+        var lastIndex = subjectString.lastIndexOf(searchString, position);
+        return lastIndex !== -1 && lastIndex === position;
+    };
+}
 
 interface Row {
     [prop: string]: any;
-}
-
-interface IBackground {
-    (description: string, callback: (this: Mocha.IBeforeAndAfterContext, done: MochaDone) => any): void;
 }
 
 class FeatureContext {
@@ -45,18 +60,6 @@ class StepContext {
     tableAsList: any[][];
 
     tableAsSingleList: any[];
-
-    clone(): StepContext {
-        var step = new StepContext();
-        step.title = this.title;
-        step.table = this.table;
-        step.docString = this.docString;
-        step.type = this.type;
-        step.values = this.values;
-        step.tableAsEntity = this.tableAsEntity
-        step.tableAsList = this.tableAsList;
-        return step;
-    }
 }
 
 class BackgroundContext extends ScenarioContext {
@@ -67,6 +70,12 @@ declare var featureContext: FeatureContext;
 declare var scenarioContext: ScenarioContext;
 declare var stepContext: StepContext;
 declare var backgroundContext: BackgroundContext;
+
+// initialize context variables
+featureContext = undefined;
+scenarioContext = undefined;
+stepContext = undefined;
+backgroundContext = undefined;
 
 /** @internal */
 var _mocha = require('mocha'),
@@ -81,20 +90,6 @@ function liveDocMocha(suite) {
 
     suite.on('pre-require', function (context, file, mocha) {
 
-        /*
-                function liveDocBackground(name, fn) {
-                    let title = `Background:
-                                 ${name}`;
-
-                    name
-                    backgroundContext = getStepContext(name);
-                    const result = common.beforeEach(fn);
-                    given(title, () => {
-                    });
-
-                    return result;
-                }
-        */
         var common = require('mocha/lib/interfaces/common')(suites, context, mocha);
 
         context.run = mocha.options.delay && common.runWithSuite(suite);
@@ -314,6 +309,7 @@ function createDescribeAlias(file, suites, context, mocha) {
     };
 }
 
+/** @internal */
 function formatBlock(text: string, indent: number): string {
     let arrayOfLines = text.split(/\r?\n/);
     if (arrayOfLines.length > 1) {
@@ -329,6 +325,7 @@ function formatBlock(text: string, indent: number): string {
     }
 }
 
+/** @internal */
 function getStepContext(title: string): StepContext {
     let context = new StepContext();
     const parts = getStepParts(title);
@@ -348,6 +345,7 @@ function getStepContext(title: string): StepContext {
     return context;
 }
 
+/** @internal */
 function getTableAsList(text: string): any[][] {
     let arrayOfLines = text.match(/[^\r\n]+/g);
     let tableArray: string[][] = [];
@@ -377,6 +375,7 @@ function getTableAsList(text: string): any[][] {
     return tableArray;
 }
 
+/** @internal */
 function getTable(tableArray: any[][]): Row[] {
     let table: Row[] = [];
 
@@ -397,6 +396,7 @@ function getTable(tableArray: any[][]): Row[] {
     return table;
 }
 
+/** @internal */
 function getTableAsEntity(tableArray: any[][]): object {
 
     if (tableArray.length === 0 || tableArray[0].length > 2) {
@@ -411,6 +411,7 @@ function getTableAsEntity(tableArray: any[][]): object {
     return entity;
 }
 
+/** @internal */
 function getTableAsSingleList(tableArray: any[][]): any[] {
     if (tableArray.length === 0) {
         return;
@@ -424,6 +425,7 @@ function getTableAsSingleList(tableArray: any[][]): any[] {
     return list;
 }
 
+/** @internal */
 function getStepParts(text: string) {
     let arrayOfLines = text.match(/[^\r\n]+/g);
     let docString = "";
@@ -467,6 +469,7 @@ function getStepParts(text: string) {
     return result;
 };
 
+/** @internal */
 function getValuesFromTitle(text: string) {
     let arrayOfValues = text.match(/(["'](.*?)["'])+/g);
     arrayOfValues

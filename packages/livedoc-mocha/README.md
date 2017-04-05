@@ -5,15 +5,22 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 This library builds off the mocha.js library as a custom ui. To setup, follow these steps.
 
 __NPM__
-```
+```bat
 npm install --save-dev livedoc-mocha
 ```
 
 __Mocha__
 
 To have mocha understand the new syntax you must specify livedoc-mocha as the ui to use.
-```
+```bat
 mocha --ui livedoc-mocha tests/
+```
+
+__Typescript__
+
+If you are using typescript and the keywords are not being recognized add the following imports.
+```js
+import "livedoc-mocha";
 ```
 
 For full details of what's supported see the [__API reference__](/docs/API.md)
@@ -92,7 +99,7 @@ feature(`Account Holder withdraws cash
 ```
 When run with mocha will produce the following output:
 
-![Mocha Test Result](docs/images/Feature.PNG)
+![Mocha Test Result](https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha/docs/images/Feature.PNG)
 
 As can be seen by this simple example the actual test code is small and concise as much of the test setup was included as part of the test narrative. This in turn makes the rest easier to understand and makes for excellent documentation.
 
