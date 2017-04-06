@@ -224,7 +224,7 @@ A point to note about the javascript above is that it makes use of the back-tick
 ```js
 const docString = stepContext.docString;
 ```
-# [Backgound](https://cucumber.io/docs/reference#background)
+# [Background](https://cucumber.io/docs/reference#background)
 Backgrounds provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall. Backgrounds have a <code>backgroundContext</code> that share the same properties as the <code>scenarioContext</code>, see details on scenarios for details.
 
 __Gherkin__
@@ -245,6 +245,58 @@ background("This will be executed before each test", () => {
 });
 ```
 
-# Scenario Outlines
+# Scenario Outlines(https://cucumber.io/docs/reference#scenario-outline)
+There are occasions where you want to validate several values against the same scenario. Creating the individual scenarios would require a lot of duplicate code. If there are many examples, this becomes tedious. We can simplify it with a Scenario Outline:
 
-__** Coming Soon! **__
+__Gherkin__
+``` Gherkin
+Scenario Outline: feeding a suckler cow
+  Given the cow weighs <weight> kg
+  When we calculate the feeding requirements
+  Then the energy should be <energy> MJ
+  And the protein should be <protein> kg
+
+  Examples:
+    | weight | energy | protein |
+    |    450 |  26500 |     215 |
+    |    500 |  29500 |     245 |
+    |    575 |  31500 |     255 |
+    |    600 |  37000 |     305 |
+```
+
+__livedoc-mocha__
+```js
+scenarioOutline(`feeding a suckler cow
+
+Examples:
+    | weight | energy | protein |
+    |    450 |  26500 |     215 |
+    |    500 |  29500 |     245 |
+    |    575 |  31500 |     255 |
+    |    600 |  37000 |     305 |
+`, () => {
+        given("the cow weighs <weight> kg", () => {
+        });
+
+        when("we calculate the feeding requirements", () => {
+
+        });
+
+        then("the energy should be <energy> MJ", () => {
+
+        });
+
+        and("the protein should be <protein> kg", () => {
+
+        });
+    });
+```
+
+Unlike Cucumber, examples are not defined at the end of the Scenario Outline, but are included as part of the Scenario Outline narrative. This tends to make it easier to reason about the examples as its not lost at the bottom of the scenario.
+
+In the same way as Cucumber uses angle brackets \<name\> are used to define the value placeholders in the titles.
+
+## Context
+Each step within a Scenario Outline has a access to context which is defined by the global variable <code>scenarioOutlineContext</code>. This context object has the same properties as <code>scenarioContext</code> with the additional following properties:
+
+* example: the row from the example expressed as an entity.

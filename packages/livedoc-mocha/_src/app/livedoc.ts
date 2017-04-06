@@ -4,6 +4,7 @@
 declare var feature: Mocha.IContextDefinition;
 declare var background: Mocha.IContextDefinition;
 declare var scenario: Mocha.IContextDefinition;
+declare var scenarioOutline: Mocha.IContextDefinition;
 
 declare var given: Mocha.ITestDefinition;
 declare var when: Mocha.ITestDefinition;
@@ -66,16 +67,22 @@ class BackgroundContext extends ScenarioContext {
 
 }
 
+class ScenarioOutlineContext extends ScenarioContext {
+    example: Row;
+}
+
 declare var featureContext: FeatureContext;
 declare var scenarioContext: ScenarioContext;
 declare var stepContext: StepContext;
 declare var backgroundContext: BackgroundContext;
+declare var scenarioOutlineContext: ScenarioOutlineContext;
 
 // initialize context variables
 featureContext = undefined;
 scenarioContext = undefined;
 stepContext = undefined;
 backgroundContext = undefined;
+scenarioOutlineContext = undefined;
 
 /** @internal */
 var _mocha = require('mocha'),
@@ -107,6 +114,7 @@ function liveDocMocha(suite) {
         context.scenario = describeAliasBuilder('Scenario');
         context.describe = describeAliasBuilder('');
         context.background = describeAliasBuilder('Background');
+        context.scenarioOutline = describeAliasBuilder('Scenario Outline');
 
         context.given = stepAliasBuilder('Given');
         context.when = stepAliasBuilder('When');
@@ -136,6 +144,8 @@ function createStepAlias(file, suites, mocha) {
                 stepDefinitionContextWrapper = function (...args) {
                     featureContext = suite.ctx.featureContext;
                     scenarioContext = suite.ctx.scenarioContext;
+                    scenarioOutlineContext = suite.ctx.scenarioOutlineContext;
+
                     if (suite.parent.ctx.backgroundSuite) {
                         backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
                     }
@@ -170,7 +180,7 @@ function createStepAlias(file, suites, mocha) {
                     }
 
                     // A Given step is treated differently as its the primary way to setup
-                    // state for a Spec, so it gets its own property on the scenarioContext
+                    // state for a Spec, so it gets its own property on the backgroundContext
                     if (backgroundContext && suite.ctx.type === "Background") {
                         if (type === "Given") {
                             suite.ctx.processingGiven = true;
@@ -182,8 +192,28 @@ function createStepAlias(file, suites, mocha) {
                         }
                     }
 
+                    // A Given step is treated differently as its the primary way to setup
+                    // state for a Spec, so it gets its own property on the scenarioOutlineContext
+                    if (scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
+                        // Scenario Outlines also require that their titles be data bound
+                        testName = bind(testName, scenarioOutlineContext.example);
+
+                        if (type === "Given") {
+                            suite.ctx.processingGiven = true;
+                            scenarioOutlineContext.given = context;
+                        } else if (["When", "Then"].indexOf(type) >= 0) {
+                            suite.ctx.processingGiven = false;
+                        } else if (suite.ctx.processingGiven) {
+                            scenarioOutlineContext.and.push(context);
+                        }
+                    }
+
                     stepDefinitionFunction(args)
                 }
+            }
+            if (scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
+                // Scenario Outlines also require that their titles be data bound
+                testName = bind(testName, scenarioOutlineContext.example);
             }
 
             test = new _test(testName, stepDefinitionContextWrapper);
@@ -251,6 +281,28 @@ function createDescribeAlias(file, suites, context, mocha) {
 
                 // Make this suite available via the parent
                 suite.parent.ctx.backgroundSuite = suite;
+            } else if (type === "Scenario Outline") {
+                // Setup the basic context for the scenarioOutline
+                const context = new ScenarioOutlineContext();
+                context.title = parts.title;
+                context.description = parts.description;
+
+                // Extract the Examples:
+                const table = getTableAsList(title);
+                for (let i = 1; i < table.length; i++) {
+                    scenarioOutlineContext = context;
+                    scenarioOutlineContext.example = getTableRowAsEntity(table, 1);
+                    var outlineSuite = _suite.create(suites[0], createLabel(scenarioOutlineContext.title));
+                    outlineSuite.ctx.scenarioOutlineContext = context;
+                    suite.ctx.type = type;
+                    outlineSuite.ctx.type = type;
+                    suites.unshift(outlineSuite);
+                    fn.call(outlineSuite);
+                    suites.shift();
+                }
+
+                return outlineSuite;
+
             } else {
                 // Scenario
                 const context = new ScenarioContext();
@@ -307,8 +359,27 @@ function createDescribeAlias(file, suites, context, mocha) {
         };
         return result;
     };
+
+
 }
 
+// Used to bind the model to the values.
+/** @internal */
+function bind(content, model) {
+    var regex = new RegExp("<[\\w\\d]+>", "g");
+    return content.replace(regex, (item, pos, originalText) => {
+        return applyBinding(item, model);
+    });
+}
+
+function applyBinding(item, model) {
+    var key = item.replace("<", "").replace(">", "");
+    if (model.hasOwnProperty(key))
+        return model[key];
+    else {
+        return item;
+    }
+}
 /** @internal */
 function formatBlock(text: string, indent: number): string {
     let arrayOfLines = text.split(/\r?\n/);
@@ -375,6 +446,7 @@ function getTableAsList(text: string): any[][] {
     return tableArray;
 }
 
+
 /** @internal */
 function getTable(tableArray: any[][]): Row[] {
     let table: Row[] = [];
@@ -407,6 +479,18 @@ function getTableAsEntity(tableArray: any[][]): object {
     for (let row = 0; row < tableArray.length; row++) {
         // Copy column to header key
         entity[tableArray[row][0].toString()] = tableArray[row][1];
+    }
+    return entity;
+}
+
+/** @internal */
+function getTableRowAsEntity(tableArray: any[][], rowIndex: number): object {
+    let entity = {};
+    const rowHeader = tableArray[0];
+    const row = tableArray[rowIndex];
+    for (let p = 0; p < rowHeader.length; p++) {
+        // Copy column to header key
+        entity[rowHeader[p].toString()] = row[p];
     }
     return entity;
 }

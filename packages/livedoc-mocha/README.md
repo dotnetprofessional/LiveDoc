@@ -23,7 +23,7 @@ If you are using typescript and the keywords are not being recognized add the fo
 import "livedoc-mocha";
 ```
 
-For full details of what's supported see the [__API reference__](/docs/API.md)
+For full details of what's supported see the [__API reference__](docs/API.md)
 
 
 ## So what does this look like?
