@@ -103,7 +103,6 @@ function liveDocMocha(suite) {
 
         var describeAliasBuilder = createDescribeAlias(file, suites, context, mocha);
         var stepAliasBuilder = createStepAlias(file, suites, mocha);
-        //var beforeEachAliasBuilder = createBeforeEachAlias(file, suites, mocha);
 
         context.after = common.after;
         context.afterEach = common.afterEach;
@@ -113,6 +112,7 @@ function liveDocMocha(suite) {
         context.feature = describeAliasBuilder('Feature');
         context.scenario = describeAliasBuilder('Scenario');
         context.describe = describeAliasBuilder('');
+        context.context = describeAliasBuilder('');
         context.background = describeAliasBuilder('Background');
         context.scenarioOutline = describeAliasBuilder('Scenario Outline');
 
@@ -291,7 +291,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 const table = getTableAsList(title);
                 for (let i = 1; i < table.length; i++) {
                     scenarioOutlineContext = context;
-                    scenarioOutlineContext.example = getTableRowAsEntity(table, 1);
+                    scenarioOutlineContext.example = getTableRowAsEntity(table, i);
                     var outlineSuite = _suite.create(suites[0], createLabel(scenarioOutlineContext.title));
                     outlineSuite.ctx.scenarioOutlineContext = context;
                     suite.ctx.type = type;
