@@ -156,15 +156,19 @@ function createStepAlias(file, suites, mocha) {
                     } else {
                         // Check if a background has been defined, and if so only execute it once per scenario
                         if (suite.parent.ctx.backgroundSuite && !suite.ctx.backgroundFunExec) {
-                            // execute function
+                            // Skip the first scenario as its already been executed
+                            if (suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount !== 1) {
+                                console.log(suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount);
+                                backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
+                                // execute all functions of the background
+                                suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(fn => {
+                                    fn();
+                                });
+                            }
                             suite.ctx.backgroundFunExec = true;
-                            backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
-                            suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(fn => {
-                                fn();
-                            });
+                            suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount++;
                         }
                     }
-
 
                     // A Given step is treated differently as its the primary way to setup
                     // state for a Spec, so it gets its own property on the scenarioContext
@@ -278,6 +282,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 suite.ctx.backgroundContext = backgroundContext;
                 suite.ctx.backgroundFunc = [];
                 suite.ctx.backgroundFunc.push(fn);
+                suite.ctx.backgroundFunExecCount = 1;
 
                 // Make this suite available via the parent
                 suite.parent.ctx.backgroundSuite = suite;

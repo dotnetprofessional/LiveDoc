@@ -9,19 +9,24 @@ feature(`Background statement
         `, () => {
 
         let someValue = 0;
-
+        let count = 0;
         background("This will be executed before each test", () => {
+
             given("somevalue = '30'", () => {
+                count++;
+                console.log(count)
                 someValue = backgroundContext.given.values[0];
             })
 
             and("we add '70' to somevalue", () => {
+                console.log(count)
                 someValue += backgroundContext.and[0].values[0];
             })
         });
 
         scenario("Add 10 to someValue", () => {
             when(`someValue is increased by '10'`, () => {
+                count
                 someValue += stepContext.values[0];
             });
 
@@ -33,6 +38,7 @@ feature(`Background statement
         scenario("Add 20 to someValue", () => {
             //console.log(backgroundContext.given.values[0]);
             when(`someValue is increased by '20'`, () => {
+                count
                 someValue += stepContext.values[0];
             });
 
@@ -50,5 +56,9 @@ feature(`Background statement
             then("someValue should be '300'", () => {
                 someValue.should.be.equal(stepContext.values[0]);
             });
+
+            and("the background should be executed '3' times", () => {
+                stepContext.values[0].should.be.equal(count);
+            })
         });
     });
