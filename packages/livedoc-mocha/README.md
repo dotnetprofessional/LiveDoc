@@ -1,6 +1,8 @@
 # LiveDoc-mocha
 LiveDoc-mocha is a library for adding behavior using a language called [Gherkin](https://cucumber.io/docs/reference#gherkin) to the mocha testing library. The [Gherkin](https://cucumber.io/docs/reference#gherkin) syntax uses a combination of keywords and natural language. The specifications are written in plain english and are meant to be read by anyone on your team and used to aid in improving collaboration, communication and trust within the team. These specifications also help to reduce ambiguity, confusion about what needs to be built, the rules and importantly why its being built. This is the first step to the concept of [Living Documentation](https://leanpub.com/livingdocumentation).
 
+> NB: If you are viewing this from npmjs.com, links and images may be broken. Please visit the [project site](https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha#readme) to view this document.
+
 ## Installing
 This library builds off the mocha.js library as a custom ui. To setup, follow these steps.
 
@@ -11,20 +13,37 @@ npm install --save-dev livedoc-mocha
 
 __Mocha__
 
-To have mocha understand the new syntax you must specify livedoc-mocha as the ui to use.
-```bat
-mocha --ui livedoc-mocha tests/
+Livedoc-mocha as the name suggests extends mocha which is a very popular javascript testing library. You will need to install mocha to use livedoc-mocha. You can install mocha with the following command:
+
+``` bat
+npm install mocha --save-dev
 ```
+Once you have mocha installed you need to configure mocha to run your tests and to use livedoc-mocha, a basic setup would be running this command from the command line:
+```bat
+mocha --ui livedoc-mocha --recursive path-to-my-tests/
+```
+For more details configuring mocha see the official [mocha.js site](http://mochajs.org/).
 
 __Typescript__
 
-If you are using typescript and the keywords are not being recognized add the following imports.
+If you are using typescript and the keywords are not being recognized add the following import statement to your test file.
 ```js
 import "livedoc-mocha";
 ```
 
-For full details of what's supported see the [__API reference__](/docs/API.md)
+__Wallaby.js__
 
+If you use [wallaby.js](https://wallabyjs.com/) you can configure livedoc-mocha by adding the following setup to your wallaby.js configuration file. If you already have a setup section then just include the two lines within your existing configuration file, otherwise copy this section to your file.
+```js
+setup: function (wallaby) {
+    require("livedoc-mocha");
+    wallaby.testFramework.ui('livedoc-mocha');
+}
+```
+## API
+For full details of what's supported see the [__API reference__](docs/API.md)
+
+Release notes can be found [here](docs/ReleaseNotes.md)
 
 ## So what does this look like?
 If we take the following feature which describes an account holder withdrawing money from an ATM. The format is the same as you might use in Cucumber.js, Cucumber, SpecFlow etc.
@@ -99,9 +118,9 @@ feature(`Account Holder withdraws cash
 ```
 When run with mocha will produce the following output:
 
-![Mocha Test Result](https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha/docs/images/Feature.PNG)
+![Mocha Test Result](docs/images/Feature.PNG)
 
-As can be seen by this simple example the actual test code is small and concise as much of the test setup was included as part of the test narrative. This in turn makes the rest easier to understand and makes for excellent documentation.
+As can be seen by this simple example the actual test code is small and concise as much of the test setup was included as part of the test narrative. This in turn makes the test easier to understand and makes for excellent documentation.
 
 This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](docs/API.md).
 
