@@ -199,7 +199,7 @@ _Methods_
 ## [DocStrings](https://cucumber.io/docs/reference#doc-strings)
 Doc Strings are useful for passing a larger piece of text to a step definition. A Doc String must start on a new line and start with three double-quote marks and be on their own. The subsequent lines should start under the first quote of the line above. When parsing the additional whitespace will be removed so each line begins where the first double-quote mark begins. To end a Doc String, another new line with three double-quotes is used.
 
-__Gherkin__
+_Gherkin_
 ``` Gherkin
 Given a blog post named "Random" with Markdown body
   """
@@ -210,7 +210,7 @@ Given a blog post named "Random" with Markdown body
   """
 ```
 
-__livedoc-mocha__
+_livedoc-mocha_
 ``` js
 given(`a blog post named "Random" with Markdown body
     """
@@ -229,14 +229,14 @@ const docString = stepContext.docString;
 # [Background](https://cucumber.io/docs/reference#background)
 Backgrounds provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall. Backgrounds have a <code>backgroundContext</code> that share the same properties as the <code>scenarioContext</code>, see details on scenarios for details.
 
-__Gherkin__
+_Gherkin_
 ```Gherkin
 Background:
   Given a $100 microwave was sold on 2015-11-03
   And today is 2015-11-18
 ```
 
-__livedoc-mocha__
+_livedoc-mocha_
 ```js
 background("This will be executed before each test", () => {
     given("Given a '100' dollar microwave was sold on '2015-11-03'", () => {
@@ -250,7 +250,7 @@ background("This will be executed before each test", () => {
 # [Scenario Outlines](https://cucumber.io/docs/reference#scenario-outline)
 There are occasions where you want to validate several values against the same scenario. Creating the individual scenarios would require a lot of duplicate code. If there are many examples, this becomes tedious. We can simplify it with a Scenario Outline:
 
-__Gherkin__
+_Gherkin_
 ``` Gherkin
 Scenario Outline: feeding a suckler cow
   Given the cow weighs <weight> kg
@@ -266,7 +266,7 @@ Scenario Outline: feeding a suckler cow
     |    600 |  37000 |     305 |
 ```
 
-__livedoc-mocha__
+_livedoc-mocha_
 ```js
 scenarioOutline(`feeding a suckler cow
 
