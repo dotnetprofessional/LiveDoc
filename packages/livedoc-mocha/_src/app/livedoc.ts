@@ -158,7 +158,6 @@ function createStepAlias(file, suites, mocha) {
                         if (suite.parent.ctx.backgroundSuite && !suite.ctx.backgroundFunExec) {
                             // Skip the first scenario as its already been executed
                             if (suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount !== 1) {
-                                console.log(suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount);
                                 backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
                                 // execute all functions of the background
                                 suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(fn => {
