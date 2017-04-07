@@ -245,7 +245,7 @@ background("This will be executed before each test", () => {
 });
 ```
 
-# Scenario Outlines(https://cucumber.io/docs/reference#scenario-outline)
+# [Scenario Outlines](https://cucumber.io/docs/reference#scenario-outline)
 There are occasions where you want to validate several values against the same scenario. Creating the individual scenarios would require a lot of duplicate code. If there are many examples, this becomes tedious. We can simplify it with a Scenario Outline:
 
 __Gherkin__
