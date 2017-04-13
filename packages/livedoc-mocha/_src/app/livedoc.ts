@@ -317,6 +317,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                     var outlineSuite = _suite.create(suites[0], createLabel(scenarioOutlineContext.title));
                     outlineSuite.ctx.scenarioOutlineContext = context;
                     suite.ctx.type = type;
+                    suite.ctx.scenarioOutlineContext = context;
                     outlineSuite.ctx.type = type;
                     suites.unshift(outlineSuite);
                     if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {

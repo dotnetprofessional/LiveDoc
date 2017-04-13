@@ -21,8 +21,12 @@
                 "--recursive",
                 "--require",
                 "build/app/livedoc",
+                "--require",
+                "build/app/reporter",
                 "--ui",
                 "livedoc-mocha",
+                "--reporter",
+                "build/app/reporter",
                 "${workspaceRoot}/build/test"
             ],
             "sourceMaps": true,

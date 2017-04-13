@@ -12,6 +12,7 @@
     },
     "include": [
         "_src/app/**/*.ts",
-        "_src/test/**/*.ts"
+        "_src/test/**/*.ts",
+        "_src/reporterTest/**/*.ts"
     ]
 }

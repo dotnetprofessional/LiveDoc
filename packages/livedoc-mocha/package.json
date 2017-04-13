@@ -27,7 +27,7 @@
     "node": "*"
   },
   "scripts": {
-    "test": "mocha --colors --require build/app/livedoc --ui livedoc-mocha --recursive build/test/",
+    "test": "mocha --colors --require build/app/livedoc --ui livedoc-mocha --recursive build/reporterTest/Reporter.Spec.js",
     "release-web": "npm run compile-web && npm run compile-web-minify",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
@@ -39,6 +39,7 @@
     "@types/mocha": "^2.2.40",
     "@types/node": "^7.0.5",
     "chai": "^3.5.0",
+    "mochawesome": "^2.0.4",
     "rimraf": "^2.6.1",
     "tslint": "^4.4.2",
     "typescript": "^2.1.6",
