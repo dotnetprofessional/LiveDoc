@@ -39,6 +39,7 @@ class FeatureContext {
     filename: string;
     title: string;
     description: string;
+    tags: string[];
 }
 
 class ScenarioContext {
@@ -46,6 +47,7 @@ class ScenarioContext {
     description: string;
     given: StepContext;
     and: StepContext[] = [];
+    tags: string[];
 }
 
 class StepContext {
@@ -267,6 +269,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 const context = new FeatureContext();
                 context.title = parts.title;
                 context.description = parts.description;
+                context.tags = parts.tags;
                 context.filename = file.replace(/^.*[\\\/]/, '');
                 suite.ctx.featureContext = context;
                 featureContext = context;
@@ -275,6 +278,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 context.title = parts.title;
                 context.description = parts.description;
                 suite.ctx.backgroundContext = context;
+                context.tags = parts.tags;
                 backgroundContext = context;
                 // Need to put the context on the parent or it won't be available
                 // to the scenarios
@@ -290,6 +294,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 const context = new ScenarioOutlineContext();
                 context.title = parts.title;
                 context.description = parts.description;
+                context.tags = parts.tags;
 
                 // Extract the Examples:
                 const table = getTableAsList(title);
@@ -312,6 +317,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 const context = new ScenarioContext();
                 context.title = parts.title;
                 context.description = parts.description;
+                context.tags = parts.tags;
                 suite.ctx.scenarioContext = context;
                 scenarioContext = context;
             }
@@ -345,11 +351,23 @@ function createDescribeAlias(file, suites, context, mocha) {
         let arrayOfLines = text.match(/[^\r\n]+/g);
         let description = "";
         let title = "";
+        let tags: string[] = [];
+
         if (arrayOfLines.length > 0) {
             for (let i = 0; i < arrayOfLines.length; i++) {
                 let line = arrayOfLines[i];
                 if (line.startsWith(" ")) {
                     arrayOfLines[i] = line.trim();
+                }
+
+                // Look for tags
+                if (arrayOfLines[i].startsWith("@")) {
+                    debugger;
+                    tags.push(...arrayOfLines[i].substr(1).split(' '));
+                    // remove tags from description
+                    arrayOfLines.splice(i, 1);
+                    // As the array lost an element need to reprocess this index
+                    i--;
                 }
             }
 
@@ -357,9 +375,11 @@ function createDescribeAlias(file, suites, context, mocha) {
             arrayOfLines.shift();
             description = arrayOfLines.join("\n");
         }
+
         let result = {
             title,
-            description
+            description,
+            tags
         };
         return result;
     };
@@ -389,9 +409,15 @@ function formatBlock(text: string, indent: number): string {
     let arrayOfLines = text.split(/\r?\n/);
     if (arrayOfLines.length > 1) {
         for (let i = 1; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            // Apply indentation
-            arrayOfLines[i] = " ".repeat(indent) + line.trim();
+            let line = arrayOfLines[i].trim();
+            // Skip tags
+            if (line.startsWith("@")) {
+                arrayOfLines.splice(i, 1);
+                i--;
+            } else {
+                // Apply indentation
+                arrayOfLines[i] = " ".repeat(indent) + line;
+            }
 
         }
         return arrayOfLines.join("\n");

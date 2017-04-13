@@ -1,11 +1,6 @@
 ///<reference path="../app/livedoc.ts" />
 
-var chai = require('chai')
-    , expect = chai.expect
-    , should = chai.should();
-
 feature(`Step statement
-
     Step statements are used to define the details of a test, the supported steps are:
         given - sets up the state for the scenario
         when  - defines an action performed by a user/system
@@ -56,7 +51,7 @@ feature(`Step statement
             });
         });
 
-        scenario.only("Step statement has a title and a docString", () => {
+        scenario("Step statement has a title and a docString", () => {
             let givenTitle = "";
             let docString = "";
             given(`a simple title
