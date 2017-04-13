@@ -56,24 +56,28 @@ feature(`Step statement
             });
         });
 
-        scenario("Step statement has a title and a docString", () => {
-            let whenTitle = "";
+        scenario.only("Step statement has a title and a docString", () => {
+            let givenTitle = "";
             let docString = "";
-            when(`a simple title
+            given(`a simple title
                 """
                 With this docString that
                 has multiple lines
+                1
+                2
+                3
+                4
                 """`, () => {
-                    whenTitle = stepContext.title;
+                    givenTitle = stepContext.title;
                     docString = stepContext.docString;
                 });
 
             then("the title should match stepContext.title", () => {
-                whenTitle.should.be.equal("a simple title");
+                givenTitle.should.be.equal("a simple title");
             });
 
             and("the docString should match stepContext.docString", () => {
-                docString.should.be.equal("With this docString that\nhas multiple lines");
+                docString.should.be.equal("With this docString that\nhas multiple lines\n1\n2\n3\n4");
             })
         });
 

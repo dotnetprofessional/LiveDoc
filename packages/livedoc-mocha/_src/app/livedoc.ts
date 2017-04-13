@@ -536,14 +536,12 @@ function getStepParts(text: string) {
             let line = arrayOfLines[i];
             if (line.startsWith('"""')) {
                 let docLines = [];
-                i++;
-                for (let y = 0; y < arrayOfLines.length - i; y++) {
+                for (i = i + 1; i < arrayOfLines.length; i++) {
                     if (arrayOfLines[i].startsWith('"""')) {
                         // end of docString
                         break;
                     }
                     docLines.push(arrayOfLines[i]);
-                    i++;
                 }
                 docString = docLines.join('\n');
             }
