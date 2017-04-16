@@ -1,12 +1,13 @@
 
 export class Feature {
-    id: string;
+    id: number;
     filename: string;
     background: Background;
     title: string;
     description: string;
     scenarios: Scenario[] = [];
     status: Status;
+    tags: string[];
 
     executionTime: number;
     statistics: Statistics;
@@ -14,13 +15,14 @@ export class Feature {
 }
 
 export class Scenario {
-    id: string;
+    id: number;
     title: string;
     description: string;
-    steps: StepDefinition[];
+    steps: StepDefinition[] = [];
     status: Status;
+    tags: string[];
 
-    associatedFeatureId: string;
+    associatedFeatureId: number;
     executionTime: number;
     statistics: Statistics;
 }
@@ -29,19 +31,35 @@ export class Background extends Scenario {
 
 }
 
+export class ScenarioOutline extends Scenario {
+    examples: example[] = [];
+}
+
+export class example {
+    name: string;
+    rows: Row[];
+}
+
 export class StepDefinition {
-    id: string;
+    id: number;
     title: string;
     type: string;
-    description: string;
+    docString: string;
+    table: Row[]
     status: Status;
     code: string;
-    error: string;
+    error: Exception = new Exception();
 
-    associatedScenarioId: string;
+    associatedScenarioId: number;
     executionTime: number;
 }
 
+export class Exception {
+    actual: string;
+    expected: string;
+    message: string;
+    stackTrace: string;
+}
 export class Statistics {
     public passed: number = 0;
     public failed: number = 0;

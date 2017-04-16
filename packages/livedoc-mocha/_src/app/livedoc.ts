@@ -77,7 +77,22 @@ class BackgroundContext extends ScenarioContext {
 }
 
 class ScenarioOutlineContext extends ScenarioContext {
-    example: Row;
+    get example() {
+        if (this.examples.length > 0) {
+            return this.examples[0];
+        } else {
+            throw TypeError("No examples have been defined for this scenario.");
+        }
+    };
+
+    examples: Row[] = [];
+
+    exampleTables: exampleTable[] = [];
+}
+
+class exampleTable {
+    name: string;
+    rows: Row[];
 }
 
 declare var featureContext: FeatureContext;
@@ -161,7 +176,9 @@ function createStepAlias(file, suites, mocha) {
                     if (suite.parent.ctx.backgroundSuite) {
                         backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
                     }
-
+                    stepContext = context;
+                    // This is used by the reporter - its not needed by the tests
+                    suite.ctx.stepContext = context;
                     if (suite.ctx.type == "Background") {
                         // Record the details necessary to execute the steps later on
                         const stepDetail = { func: stepDefinitionFunction, context: context };
@@ -236,6 +253,7 @@ function createStepAlias(file, suites, mocha) {
             }
 
             test = new _test(testName, stepDefinitionContextWrapper);
+            test.originalFunction = stepDefinitionFunction;
             test.file = file;
             suite.addTest(test);
 
@@ -311,9 +329,11 @@ function createDescribeAlias(file, suites, context, mocha) {
 
                 // Extract the Examples:
                 const table = getTableAsList(title);
+                context.exampleTables.push({ name: "example", rows: table });
+
                 for (let i = 1; i < table.length; i++) {
                     scenarioOutlineContext = context;
-                    scenarioOutlineContext.example = getTableRowAsEntity(table, i);
+                    scenarioOutlineContext.examples[0] = getTableRowAsEntity(table, i);
                     var outlineSuite = _suite.create(suites[0], createLabel(scenarioOutlineContext.title));
                     outlineSuite.ctx.scenarioOutlineContext = context;
                     suite.ctx.type = type;

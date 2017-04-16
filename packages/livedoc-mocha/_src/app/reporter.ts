@@ -1,4 +1,6 @@
 import * as model from "./model/Feature";
+import * as fs from "fs-extra";
+
 /**
  * Module dependencies.
  */
@@ -20,7 +22,7 @@ exports = module.exports = JSONReporter;
 function JSONReporter(runner) {
     Base.call(this, runner);
 
-    var self = this;
+    //var self = this;
     var tests = [];
     var pending = [];
     var failures = [];
@@ -33,6 +35,12 @@ function JSONReporter(runner) {
         uniqueId++;
         return uniqueId;
     }
+
+    // Done function will be called before mocha exits
+
+    // This is where we will save JSON and generate the report
+
+    this.done = (failures, exit) => done(features, failures, exit);
 
     runner.on('test', test => (test.id = getUniqueId()));
 
@@ -63,6 +71,18 @@ function JSONReporter(runner) {
         process.stdout.write(JSON.stringify(features, null, 2));
     });
 }
+async function done(output, failures, exit) {
+    try {
+        // Save the JSON to disk
+        const filename = './livedoc.json';
+        await saveFile(filename, output);
+        console.log(`Report JSON saved to ${filename}`);
+
+    } catch (err) {
+        console.log(err, 'error');
+    }
+    exit && exit(failures);
+}
 
 // The typescript definition isn't complete enough
 function processFeature(suiteFeature: any): model.Feature {
@@ -74,10 +94,11 @@ function processFeature(suiteFeature: any): model.Feature {
         const livedocFeature = suiteFeature.ctx.featureContext;
         feature.title = livedocFeature.title;
         feature.description = livedocFeature.description;
+        feature.tags = suiteFeature.tags;
     }
 
     suiteFeature.suites.forEach(suiteScenario => {
-        const scenario = processScenario(suiteScenario);
+        const scenario = processScenario(suiteScenario, feature.id);
         if (scenario instanceof model.Background) {
             feature.background = scenario;
         } else {
@@ -87,46 +108,86 @@ function processFeature(suiteFeature: any): model.Feature {
     return feature;
 }
 
-function processScenario(suiteScenario): model.Scenario {
+function processScenario(suiteScenario, parentId: number): model.Scenario {
     let scenario: model.Scenario;
+    let scenarioContext: ScenarioContext;
+
     if (suiteScenario.ctx) {
-        let livedocScenario: model.Scenario;
-        if (suiteScenario.ctx.type === "Scenario") {
-            scenario = new model.Scenario();
-            livedocScenario = suiteScenario.ctx.scenarioContext;
-        } else if (suiteScenario.ctx.type === "Scenario Outline") {
-            scenario = new model.Scenario();
-            livedocScenario = suiteScenario.ctx.scenarioOutlineContext;
-        } else {
-            scenario = new model.Background();
-            livedocScenario = suiteScenario.ctx.backgroundContext;
+        switch (suiteScenario.ctx.type) {
+            case "Scenario":
+                scenario = new model.Scenario();
+                scenarioContext = suiteScenario.ctx.scenarioContext;
+                break;
+            case "Scenario Outline":
+                scenario = new model.ScenarioOutline();
+                scenarioContext = suiteScenario.ctx.scenarioOutlineContext;
+                (scenario as model.ScenarioOutline).examples = (scenarioContext as ScenarioOutlineContext).exampleTables;
+                break;
+            case "Background":
+                scenario = new model.Background();
+                scenarioContext = suiteScenario.ctx.backgroundContext;
+                break;
+            default:
+                break;
         }
-        // This is a livedoc-mocha feature
-        scenario.title = livedocScenario.title;
-        scenario.description = livedocScenario.description;
+        // This is a livedoc-mocha scenario
+        scenario.title = scenarioContext.title;
+        scenario.description = scenarioContext.description;
+        scenario.tags = suiteScenario.tags;
+    } else {
+        scenario.title = suiteScenario.title;
     }
 
     scenario.id = suiteScenario.id;
-    scenario.associatedFeatureId = suiteScenario.parent.id;
+    scenario.associatedFeatureId = parentId;
+
+    suiteScenario.tests.forEach(test => {
+        scenario.steps.push(processTest(test, scenario.id));
+    });
+
     return scenario;
 }
 
-/**
- * Return a plain-object representation of `test`
- * free of cyclic properties etc.
- *
- * @api private
- * @param {Object} test
- * @return {Object}
- */
-function clean(test) {
-    return {
-        title: test.title,
-        fullTitle: test.fullTitle(),
-        duration: test.duration,
-        currentRetry: test.currentRetry(),
-        err: errorJSON(test.err || {})
-    };
+function processTest(test, parentId: number): model.StepDefinition {
+    let stepDefinition = new model.StepDefinition();
+    const statusMap = { "passed": "Pass", "failed": "Failed" }
+    if (test.ctx.type && test.ctx.stepContext) {
+        const context = test.ctx.stepContext as StepContext;
+        stepDefinition.title = context.title;
+        stepDefinition.docString = context.docString;
+        stepDefinition.table = context.table;
+        stepDefinition.code = test.originalFunction ? test.originalFunction.toString() : "";
+    } else {
+        stepDefinition.title = test.title;
+    }
+    stepDefinition.id = test.id;
+    if (test.pending) {
+        stepDefinition.status = model.Status.Pending;
+    } else {
+        stepDefinition.status = statusMap[test.state];
+    }
+    stepDefinition.associatedScenarioId = parentId;
+    stepDefinition.executionTime = test.duration || 0;
+
+
+    if (test.err) {
+        stepDefinition.error.actual = test.err.actual || "";
+        stepDefinition.error.expected = test.err.expected || "";
+        stepDefinition.error.stackTrace = test.err.stack || "";
+        stepDefinition.error.message = test.err.message || "";
+    }
+
+    return stepDefinition;
+}
+
+function saveFile(filename, data) {
+    return new Promise((resolve, reject) => {
+        fs.writeJson(filename, data, err => {
+            if (err) return console.error(err)
+
+            console.log('success!')
+        });
+    });
 }
 
 /**
@@ -136,10 +197,11 @@ function clean(test) {
  * @param {Error} err
  * @return {Object}
  */
-function errorJSON(err) {
+/*function errorJSON(err) {
     var res = {};
     Object.getOwnPropertyNames(err).forEach(function (key) {
         res[key] = err[key];
     }, err);
     return res;
 }
+*/

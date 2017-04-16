@@ -27,7 +27,8 @@
     "node": "*"
   },
   "scripts": {
-    "test": "mocha --colors --require build/app/livedoc --ui livedoc-mocha --recursive build/reporterTest/Reporter.Spec.js",
+    "test": "mocha --colors --require build/app/livedoc --require build/app/reporter --ui livedoc-mocha --reporter build/app/reporter --recursive build/test/",
+    "test-reporter": "mocha --colors --require build/app/livedoc --require build/app/reporter --ui livedoc-mocha --reporter build/app/reporter --recursive build/test/",
     "release-web": "npm run compile-web && npm run compile-web-minify",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
@@ -47,5 +48,8 @@
   },
   "peerDependencies": {
     "mocha": "3.x"
+  },
+  "dependencies": {
+    "fs-extra": "^2.1.2"
   }
 }

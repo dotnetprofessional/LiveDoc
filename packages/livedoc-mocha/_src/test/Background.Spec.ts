@@ -2,8 +2,10 @@
 
 require('chai').should();
 
-feature(`Background statement
+feature("Test of a feature that does nothing", () => { });
 
+feature(`Background statement
+        @sample-tag another-tag
         Background statements are used to define a common given that is
         applied to each scenario. The background is executed before each scenario
         `, () => {
@@ -83,6 +85,20 @@ feature(`Background statement
                 afterBackgroundCheck.should.be.equal(stepContext.values[0]);
             });
         });
+
+        scenario("Something will fail here", () => {
+            given("A failure", () => {
+                throw TypeError("I just had to fail!");
+            });
+
+            and("another failure by an assert", () => {
+                let expected = "Hello World";
+                let actual = "Hello Cruel World";
+                actual.should.be.equal(expected);
+            })
+
+            and("this is not ready so skip!");
+        })
     });
 
 feature("Background works with Scenario Outlines", () => {
