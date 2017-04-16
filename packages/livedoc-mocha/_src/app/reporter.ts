@@ -94,7 +94,8 @@ function processFeature(suiteFeature: any): model.Feature {
         const livedocFeature = suiteFeature.ctx.featureContext;
         feature.title = livedocFeature.title;
         feature.description = livedocFeature.description;
-        feature.tags = suiteFeature.tags;
+        feature.tags = livedocFeature.tags;
+
     }
 
     suiteFeature.suites.forEach(suiteScenario => {
@@ -125,6 +126,7 @@ function processScenario(suiteScenario, parentId: number): model.Scenario {
                 break;
             case "Background":
                 scenario = new model.Background();
+
                 scenarioContext = suiteScenario.ctx.backgroundContext;
                 break;
             default:
@@ -133,7 +135,7 @@ function processScenario(suiteScenario, parentId: number): model.Scenario {
         // This is a livedoc-mocha scenario
         scenario.title = scenarioContext.title;
         scenario.description = scenarioContext.description;
-        scenario.tags = suiteScenario.tags;
+        scenario.tags = scenarioContext.tags;
     } else {
         scenario.title = suiteScenario.title;
     }

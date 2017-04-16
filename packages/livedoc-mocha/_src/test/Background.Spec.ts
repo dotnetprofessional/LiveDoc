@@ -38,19 +38,20 @@ feature(`Background statement
             });
         });
 
-        scenario("Add 10 to someValue", () => {
-            when(`someValue is increased by '10'`, () => {
-                someValue += stepContext.values[0];
-            });
+        scenario(`Add 10 to someValue
+        @scenario-tag`, () => {
+                when(`someValue is increased by '10'`, () => {
+                    someValue += stepContext.values[0];
+                });
 
-            then("someValue should be '110'", () => {
-                someValue.should.be.equal(stepContext.values[0]);
-            });
+                then("someValue should be '110'", () => {
+                    someValue.should.be.equal(stepContext.values[0]);
+                });
 
-            and("afterBackgroundCheck should be '10'", () => {
-                afterBackgroundCheck.should.be.equal(stepContext.values[0]);
+                and("afterBackgroundCheck should be '10'", () => {
+                    afterBackgroundCheck.should.be.equal(stepContext.values[0]);
+                });
             });
-        });
 
         scenario("Add 20 to someValue", () => {
             //console.log(backgroundContext.given.values[0]);
