@@ -12,6 +12,8 @@ declare var then: Mocha.ITestDefinition;
 declare var and: Mocha.ITestDefinition;
 declare var but: Mocha.ITestDefinition;
 
+declare var afterBackground: (fn) => void;
+
 // Polyfils
 if (!String.prototype.startsWith) {
     String.prototype.startsWith = function (searchString, position) {
@@ -55,6 +57,11 @@ class StepContext {
     table: Row[];
 
     docString: string;
+
+    get docStringAsEntity() {
+        return JSON.parse(this.docString);
+    }
+
     type: string;
     values: any[];
 
@@ -110,6 +117,9 @@ function liveDocMocha(suite) {
         context.afterEach = common.afterEach;
         context.before = common.before;
         context.beforeEach = common.beforeEach;
+        context.afterBackground = function (fn) {
+            suites[0].afterBackground = fn;
+        };
 
         context.feature = describeAliasBuilder('Feature');
         context.scenario = describeAliasBuilder('Scenario');
@@ -151,7 +161,6 @@ function createStepAlias(file, suites, mocha) {
                     if (suite.parent.ctx.backgroundSuite) {
                         backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
                     }
-                    stepContext = context;
 
                     if (suite.ctx.type == "Background") {
                         // Record the details necessary to execute the steps later on
@@ -217,6 +226,7 @@ function createStepAlias(file, suites, mocha) {
                         }
                     }
 
+                    stepContext = context;
                     stepDefinitionFunction(args)
                 }
             }
@@ -309,6 +319,9 @@ function createDescribeAlias(file, suites, context, mocha) {
                     suite.ctx.type = type;
                     outlineSuite.ctx.type = type;
                     suites.unshift(outlineSuite);
+                    if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
+                        outlineSuite.afterAll(() => { suite.parent.ctx.backgroundSuite.afterBackground(); });
+                    }
                     fn.call(outlineSuite);
                     suites.shift();
                 }
@@ -326,9 +339,17 @@ function createDescribeAlias(file, suites, context, mocha) {
             }
             suite.ctx.type = type;
             suites.unshift(suite);
+
+            if (type === "Scenario" &&
+                suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
+                // Add the afterBackground function to each scenario's afterAll function
+                suite.afterAll(() => { suite.parent.ctx.backgroundSuite.afterBackground(); });
+            }
+
             fn.call(suite);
 
             suites.shift();
+
 
             return suite;
         }

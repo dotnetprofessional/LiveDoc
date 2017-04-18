@@ -76,6 +76,29 @@ feature(`Step statement
             })
         });
 
+        scenario("Step statement has a title and a docString that is valid json", () => {
+            let givenTitle = "";
+            given(`a simple title
+                """
+                {
+                    "name":"John",
+                    "address": "123 Street"
+                }
+                """`, () => {
+                    givenTitle = stepContext.title;
+                });
+
+            then("the title should match stepContext.title", () => {
+                givenTitle.should.be.equal("a simple title");
+            });
+
+            and("the docStringAsEntity should return an object with the correct properties", () => {
+                const docString = scenarioContext.given.docStringAsEntity;
+                docString.name.should.be.equal("John");
+                docString.address.should.be.equal("123 Street");
+            })
+        });
+
         scenario("Step statement has a title and a table", () => {
 
             given(`a simple title has a table
