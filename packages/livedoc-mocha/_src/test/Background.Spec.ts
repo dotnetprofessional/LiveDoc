@@ -2,7 +2,7 @@
 
 require('chai').should();
 
-feature(`Background statement
+feature.only(`Background statement
 
         Background statements are used to define a common given that is
         applied to each scenario. The background is executed before each scenario
@@ -15,10 +15,15 @@ feature(`Background statement
             given("somevalue = '30'", () => {
                 count++;
                 someValue = backgroundContext.given.values[0];
-            })
+            });
 
             and("we add '70' to somevalue", () => {
                 someValue += backgroundContext.and[0].values[0];
+            });
+
+            and("the stepContext is available so should get '10' from this step", () => {
+                console.log(stepContext.values[0]);
+                stepContext.values[0].should.be.equal(10);
             })
         });
 

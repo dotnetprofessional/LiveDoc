@@ -1,5 +1,12 @@
 # Release Notes
 
+## 0.2.2 - beta
+* Bug: [#14](https://github.com/dotnetprofessional/LiveDoc/issues/14) - stepContext incorrect while in Background steps
+
+## 0.2.1 - beta
+* Bug: [#10](https://github.com/dotnetprofessional/LiveDoc/issues/10) - docString on stepContext not returning full result
+* Feature [#11](https://github.com/dotnetprofessional/LiveDoc/issues/11) - adding tag support
+
 ## 0.2.0
 * Feature complete - support for all important Gherkin language features
 * Added support for Scenario Outlines issue: [#6](https://github.com/dotnetprofessional/LiveDoc/issues/6)

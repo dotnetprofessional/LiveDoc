@@ -154,7 +154,9 @@ function createStepAlias(file, suites, mocha) {
                     stepContext = context;
 
                     if (suite.ctx.type == "Background") {
-                        suite.ctx.backgroundFunc.push(stepDefinitionFunction);
+                        // Record the details necessary to execute the steps later on
+                        const stepDetail = { func: stepDefinitionFunction, context: context };
+                        suite.ctx.backgroundFunc.push(stepDetail);
                     } else {
                         // Check if a background has been defined, and if so only execute it once per scenario
                         if (suite.parent.ctx.backgroundSuite && !suite.ctx.backgroundFunExec) {
@@ -162,8 +164,10 @@ function createStepAlias(file, suites, mocha) {
                             if (suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount !== 1) {
                                 backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
                                 // execute all functions of the background
-                                suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(fn => {
-                                    fn();
+                                suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(stepDetails => {
+                                    // reset the stepContext for this step
+                                    stepContext = stepDetails.context;
+                                    stepDetails.func();
                                 });
                             }
                             suite.ctx.backgroundFunExec = true;
@@ -284,7 +288,6 @@ function createDescribeAlias(file, suites, context, mocha) {
                 // to the scenarios
                 suite.ctx.backgroundContext = backgroundContext;
                 suite.ctx.backgroundFunc = [];
-                suite.ctx.backgroundFunc.push(fn);
                 suite.ctx.backgroundFunExecCount = 1;
 
                 // Make this suite available via the parent
@@ -362,7 +365,6 @@ function createDescribeAlias(file, suites, context, mocha) {
 
                 // Look for tags
                 if (arrayOfLines[i].startsWith("@")) {
-                    debugger;
                     tags.push(...arrayOfLines[i].substr(1).split(' '));
                     // remove tags from description
                     arrayOfLines.splice(i, 1);
