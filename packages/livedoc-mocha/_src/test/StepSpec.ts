@@ -132,10 +132,10 @@ feature(`Step statement
             let entity: Row;
             when(`a simple title has a table
 
-                | name    | Aslak              |
-                | email   | aslak@cucumber.io  |
-                | twitter | @aslak_hellesoy    |
-                | address | 1 street           |
+                | name    | Aslak             |
+                | email   | aslak@cucumber.io |
+                | twitter | @aslak_hellesoy   |
+                | address |          1 street |
 
                 This is a table above!!
             `, () => {
@@ -154,8 +154,8 @@ feature(`Step statement
         scenario("Step statement has a single column of values as a table", () => {
             given(`a simple title has a table of values
 
-                | 17   |
-                | 42   |
+                |   17 |
+                |   42 |
                 | 4711 |
 
                 This is a table above!!
@@ -170,6 +170,32 @@ feature(`Step statement
                 }
 
                 total.should.be.equal(4770);
+            })
+        });
+
+        scenario("Step statement has a column of values of different intrinsic types as a table", () => {
+            given(`a simple title has a table of values
+
+                | string       | test                 |
+                | number       |                 1234 |
+                | booleanTrue  | true                 |
+                | booleanFalse | false                |
+                | array        | ["hello", "Goodbye"] |
+
+            `, () => { });
+
+            then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", () => {
+                // Add the numbers up
+                const entity = scenarioContext.given.tableAsEntity;
+
+                (typeof entity.string).should.be.equal("string");
+                (typeof entity.number).should.be.equal("number");
+                (typeof entity.booleanTrue).should.be.equal("boolean");
+                (typeof entity.booleanFalse).should.be.equal("boolean");
+                (typeof entity.array).should.be.equal("object");
+                entity.array[0].should.be.equal("hello");
+                entity.array[1].should.be.equal("Goodbye");
+                
             })
         });
 

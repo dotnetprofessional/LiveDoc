@@ -489,7 +489,20 @@ function getTableAsList(text: string): any[][] {
                     if (value) {
                         row.push(value)
                     } else {
-                        row.push(valueString);
+                        // check if its a boolean
+                        const literals = ["true", true, "false", false];
+                        const index = literals.indexOf(valueString);
+                        if (index >= 0) {
+                            row.push(literals[index + 1]);
+                        } else {
+                            // Check if its an array
+                            if (valueString.startsWith("[") && valueString.endsWith("]")) {
+                                const array = JSON.parse(valueString);
+                                row.push(array);
+                            } else {
+                                row.push(valueString);
+                            }
+                        }
                     }
                 }
                 tableArray.push(row);
