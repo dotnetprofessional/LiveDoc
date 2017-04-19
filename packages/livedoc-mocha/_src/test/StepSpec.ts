@@ -231,5 +231,18 @@ feature(`Step statement
                 stepValues[1].should.be.equal("that value2");
             });
 
+            and("quoted values should support multiple types: number: '1234'", () => {
+                (typeof stepContext.values[0]).should.be.equal("number");
+            });
+
+            and("quoted values should support multiple types: boolean: 'true' or 'false'", () => {
+                (typeof stepContext.values[0]).should.be.equal("boolean");
+            });
+
+            and("quoted values should support multiple types: array: '[1, 3, 4, 5]'", () => {
+                (typeof stepContext.values[0]).should.be.equal("object");
+                stepContext.values[0][0].should.be.equal(1);
+            });
         });
     });
+

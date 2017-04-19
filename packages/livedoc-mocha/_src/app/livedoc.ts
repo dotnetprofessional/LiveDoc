@@ -485,25 +485,7 @@ function getTableAsList(text: string): any[][] {
                 for (let i = 1; i < rowData.length - 1; i++) {
                     // Convert the values to the best primitive type
                     const valueString = rowData[i].trim();
-                    const value = +valueString;
-                    if (value) {
-                        row.push(value)
-                    } else {
-                        // check if its a boolean
-                        const literals = ["true", true, "false", false];
-                        const index = literals.indexOf(valueString);
-                        if (index >= 0) {
-                            row.push(literals[index + 1]);
-                        } else {
-                            // Check if its an array
-                            if (valueString.startsWith("[") && valueString.endsWith("]")) {
-                                const array = JSON.parse(valueString);
-                                row.push(array);
-                            } else {
-                                row.push(valueString);
-                            }
-                        }
-                    }
+                    row.push(coerceValue(valueString));
                 }
                 tableArray.push(row);
             }
@@ -512,6 +494,27 @@ function getTableAsList(text: string): any[][] {
     return tableArray;
 }
 
+function coerceValue(valueString: string): any {
+    const value = +valueString;
+    if (value) {
+        return value;
+    } else {
+        // check if its a boolean
+        const literals = ["true", true, "false", false];
+        const index = literals.indexOf(valueString);
+        if (index >= 0) {
+            return literals[index + 1];
+        } else {
+            // Check if its an array
+            if (valueString.startsWith("[") && valueString.endsWith("]")) {
+                const array = JSON.parse(valueString);
+                return array;
+            } else {
+                return valueString;
+            }
+        }
+    }
+}
 
 /** @internal */
 function getTable(tableArray: any[][]): Row[] {
@@ -625,12 +628,7 @@ function getValuesFromTitle(text: string) {
     if (arrayOfValues) {
         arrayOfValues.forEach(element => {
             const valueString = element.substr(1, element.length - 2).trim();
-            const value = +valueString;
-            if (value) {
-                results.push(value)
-            } else {
-                results.push(valueString);
-            }
+            results.push(coerceValue(valueString));
         });
     }
     return results;
