@@ -10,6 +10,10 @@ __NPM__
 ```bat
 npm install --save-dev livedoc-mocha
 ```
+To get the latest code and bug fixes, you can install the current beta. You can find details of the releases on the [releases tab](https://github.com/dotnetprofessional/LiveDoc/releases).
+```bat
+npm install --save-dev livedoc-mocha@beta
+```
 
 __Mocha__
 
