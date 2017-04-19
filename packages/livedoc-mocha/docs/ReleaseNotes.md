@@ -4,6 +4,7 @@
 * Bug: [#14](https://github.com/dotnetprofessional/LiveDoc/issues/14) - stepContext incorrect while in Background steps
 * Feature: [#15](https://github.com/dotnetprofessional/LiveDoc/issues/15) - Support Background cleanup
 * Feature: [#12](https://github.com/dotnetprofessional/LiveDoc/issues/12) - Add docStringAsEntity
+* Added additional support for coercion of values for tables and quoted values
 
 ## 0.2.1 - beta
 * Bug: [#10](https://github.com/dotnetprofessional/LiveDoc/issues/10) - docString on stepContext not returning full result
