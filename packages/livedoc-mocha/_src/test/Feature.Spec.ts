@@ -3,6 +3,8 @@
 require('chai').should();
 
 feature(`Feature statement
+        @tag-sample:test tag-sample:test2
+        @even-more
 
         Features are used to define a feature that requires testing`, () => {
 
@@ -10,6 +12,7 @@ feature(`Feature statement
         let featureTitleExpected = "Feature statement";
         let filename = "Feature.Spec.js";
         let description = "Features are used to define a feature that requires testing";
+        let tags = ["tag-sample:test", "tag-sample:test2", "even-more"];
 
         given(`a spec file named ${filename}`, () => { });
 
@@ -29,6 +32,10 @@ feature(`Feature statement
 
         and(`the global variable featureContext.description should match '${description}'`, () => {
             featureContext.description.should.be.equal(description);
+        });
+
+        and(`the global variable featureContext.tags should match '${tags}'`, () => {
+            featureContext.tags.should.be.eql(tags);
         })
     });
 

@@ -16,8 +16,8 @@ There are a few extra keywords as well:
 
 * """ (Doc Strings) : Used in docStrings.
 * | (Data Tables) : Used to define tables
-* @ (Tags): not supported
-* \# (Comments) : not supported
+* @ (Tags): Used by reporting tools to navigate specs and to provide cross references
+* \# (Comments) :
 
 # Feature
 Each file should contain only one feature, although there is no restriction on this. It is more of a convention, which makes finding your features easier. Features have a title and a description.
@@ -226,6 +226,25 @@ A point to note about the javascript above is that it makes use of the back-tick
 ```js
 const docString = stepContext.docString;
 ```
+
+As a convienience, there is also a method that will automatically convert the docString into an entity if its in a valid JSON format.
+
+``` js
+given(`an address with valid JSON
+    """
+    {
+        "name":"John",
+        "address": "123 Street"
+    }
+    """
+`, () => { });
+```
+
+```js
+const docString = stepContext.docStringAsEntity;
+let name = docString.name;
+```
+
 # [Background](https://cucumber.io/docs/reference#background)
 Backgrounds provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall. Backgrounds have a <code>backgroundContext</code> that share the same properties as the <code>scenarioContext</code>, see details on scenarios for details.
 
@@ -243,6 +262,23 @@ background("This will be executed before each test", () => {
     });
 
     and("today is '2015-11-18'", () => {
+    });
+});
+```
+
+There may be times when you need to reset some state tht was created by the Background after each scenario has run. Typically in mocha you might use the <code>after</code> function. However, this applies to tests or <code>it</code> statements. Backgrounds work at the scenario or <code>describe</code> level. It would therefore be necessary to repeat the same clean up code within each scenario using the default mocha approach.  Livedoc-mocha provides an additional function which will work at the scenario level.
+
+_livedoc-mocha_
+```js
+background("This will be executed before each test", () => {
+    given("Given a '100' dollar microwave was sold on '2015-11-03'", () => {
+    });
+
+    and("today is '2015-11-18'", () => {
+    });
+
+    afterBackground(() => {
+        // Clean up code here...
     });
 });
 ```
@@ -302,3 +338,41 @@ To reference values from the example you can specify the name in angle brackets 
 Each step within a Scenario Outline has a access to context which is defined by the global variable <code>scenarioOutlineContext</code>. This context object has the same properties as <code>scenarioContext</code> with the additional property:
 
 * __example:__ the row from the example expressed as an entity object, that is currently being used by the scenario.
+
+# [Tags](https://cucumber.io/docs/reference#tags)
+Tags are a way to group Scenarios. They are @-prefixed strings and you can place as many tags as you like within a Feature, Scenario or Scenario Outline. Using a space character is not allowed in tags and are instead used to separate them.
+
+Using the first example, you would add tags in the following way:
+
+_Gherkin_
+``` Gherkin
+@account @atm @important
+Feature: Account Holder withdraws cash
+
+    Account Holders should be able to withdraw cash at any of the
+    companies ATMs.
+
+    Rules:
+    * Account Holders should have a valid keycard
+    * Have sufficient available funds
+    * The ATM has the necessary funds`s ago
+```
+
+_livedoc-mocha_
+```js
+feature(`Account Holder withdraws cash
+        @account atm
+        @important
+
+        Account Holders should be able to withdraw cash at any of the
+        companies ATMs.
+
+        Rules:
+        * Account Holders should have a valid keycard
+        * Have sufficient available funds
+        * The ATM has the necessary funds`, () => {
+
+    });
+```
+
+Livedoc-mocha forgoes the need to prefix each tag with an @ sign, as is done in Cucumber. It is also possible to use multiple lines for your tags. When doing so the first tag must be prefixed with an @.

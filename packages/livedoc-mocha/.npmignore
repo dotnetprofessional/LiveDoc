@@ -7,3 +7,5 @@ wallaby.js
 tsconfig*.json
 *.tgz
 *.json
+/mochawesome-reports
+test.hml

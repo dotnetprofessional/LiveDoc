@@ -21,11 +21,15 @@ feature(`Scenario statement
         });
 
         scenario(`The global variable scenarioContext is set
+                @mytag:test another-tag
                 with this description`, () => {
+
                 let givenContext;
+                let tags = ["mytag:test", "another-tag"];
+
                 given(`the current scenario has these properties:
                 | title       | The global variable scenarioContext is set |
-                | description | with this description                      |
+                | description | with this description                   |
                 `, () => {
                         givenContext = stepContext;
                     });
@@ -33,9 +37,13 @@ feature(`Scenario statement
                     givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);
                 })
 
-                then("the scenarioContext.description should match description", () => {
+                and("the scenarioContext.description should match description", () => {
                     givenContext.tableAsEntity.description.should.be.equal(scenarioContext.description);
-                })
+                });
+
+                and(`the scenarioContext.tags should match '${tags}'`, () => {
+                    scenarioContext.tags.should.be.eql(tags);
+                });
             });
 
         scenario(`The global variable scenarioContext is set for a different scenario

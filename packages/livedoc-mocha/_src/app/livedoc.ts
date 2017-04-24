@@ -12,6 +12,8 @@ declare var then: Mocha.ITestDefinition;
 declare var and: Mocha.ITestDefinition;
 declare var but: Mocha.ITestDefinition;
 
+declare var afterBackground: (fn) => void;
+
 // Polyfils
 if (!String.prototype.startsWith) {
     String.prototype.startsWith = function (searchString, position) {
@@ -39,6 +41,7 @@ class FeatureContext {
     filename: string;
     title: string;
     description: string;
+    tags: string[];
 }
 
 class ScenarioContext {
@@ -46,6 +49,7 @@ class ScenarioContext {
     description: string;
     given: StepContext;
     and: StepContext[] = [];
+    tags: string[];
 }
 
 class StepContext {
@@ -53,6 +57,11 @@ class StepContext {
     table: Row[];
 
     docString: string;
+
+    get docStringAsEntity() {
+        return JSON.parse(this.docString);
+    }
+
     type: string;
     values: any[];
 
@@ -108,6 +117,9 @@ function liveDocMocha(suite) {
         context.afterEach = common.afterEach;
         context.before = common.before;
         context.beforeEach = common.beforeEach;
+        context.afterBackground = function (fn) {
+            suites[0].afterBackground = fn;
+        };
 
         context.feature = describeAliasBuilder('Feature');
         context.scenario = describeAliasBuilder('Scenario');
@@ -149,10 +161,11 @@ function createStepAlias(file, suites, mocha) {
                     if (suite.parent.ctx.backgroundSuite) {
                         backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
                     }
-                    stepContext = context;
 
                     if (suite.ctx.type == "Background") {
-                        suite.ctx.backgroundFunc.push(stepDefinitionFunction);
+                        // Record the details necessary to execute the steps later on
+                        const stepDetail = { func: stepDefinitionFunction, context: context };
+                        suite.ctx.backgroundFunc.push(stepDetail);
                     } else {
                         // Check if a background has been defined, and if so only execute it once per scenario
                         if (suite.parent.ctx.backgroundSuite && !suite.ctx.backgroundFunExec) {
@@ -160,8 +173,10 @@ function createStepAlias(file, suites, mocha) {
                             if (suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount !== 1) {
                                 backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
                                 // execute all functions of the background
-                                suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(fn => {
-                                    fn();
+                                suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(stepDetails => {
+                                    // reset the stepContext for this step
+                                    stepContext = stepDetails.context;
+                                    stepDetails.func();
                                 });
                             }
                             suite.ctx.backgroundFunExec = true;
@@ -211,6 +226,7 @@ function createStepAlias(file, suites, mocha) {
                         }
                     }
 
+                    stepContext = context;
                     stepDefinitionFunction(args)
                 }
             }
@@ -267,6 +283,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 const context = new FeatureContext();
                 context.title = parts.title;
                 context.description = parts.description;
+                context.tags = parts.tags;
                 context.filename = file.replace(/^.*[\\\/]/, '');
                 suite.ctx.featureContext = context;
                 featureContext = context;
@@ -275,12 +292,12 @@ function createDescribeAlias(file, suites, context, mocha) {
                 context.title = parts.title;
                 context.description = parts.description;
                 suite.ctx.backgroundContext = context;
+                context.tags = parts.tags;
                 backgroundContext = context;
                 // Need to put the context on the parent or it won't be available
                 // to the scenarios
                 suite.ctx.backgroundContext = backgroundContext;
                 suite.ctx.backgroundFunc = [];
-                suite.ctx.backgroundFunc.push(fn);
                 suite.ctx.backgroundFunExecCount = 1;
 
                 // Make this suite available via the parent
@@ -290,6 +307,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 const context = new ScenarioOutlineContext();
                 context.title = parts.title;
                 context.description = parts.description;
+                context.tags = parts.tags;
 
                 // Extract the Examples:
                 const table = getTableAsList(title);
@@ -301,6 +319,9 @@ function createDescribeAlias(file, suites, context, mocha) {
                     suite.ctx.type = type;
                     outlineSuite.ctx.type = type;
                     suites.unshift(outlineSuite);
+                    if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
+                        outlineSuite.afterAll(() => { suite.parent.ctx.backgroundSuite.afterBackground(); });
+                    }
                     fn.call(outlineSuite);
                     suites.shift();
                 }
@@ -312,14 +333,23 @@ function createDescribeAlias(file, suites, context, mocha) {
                 const context = new ScenarioContext();
                 context.title = parts.title;
                 context.description = parts.description;
+                context.tags = parts.tags;
                 suite.ctx.scenarioContext = context;
                 scenarioContext = context;
             }
             suite.ctx.type = type;
             suites.unshift(suite);
+
+            if (type === "Scenario" &&
+                suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
+                // Add the afterBackground function to each scenario's afterAll function
+                suite.afterAll(() => { suite.parent.ctx.backgroundSuite.afterBackground(); });
+            }
+
             fn.call(suite);
 
             suites.shift();
+
 
             return suite;
         }
@@ -345,11 +375,22 @@ function createDescribeAlias(file, suites, context, mocha) {
         let arrayOfLines = text.match(/[^\r\n]+/g);
         let description = "";
         let title = "";
+        let tags: string[] = [];
+
         if (arrayOfLines.length > 0) {
             for (let i = 0; i < arrayOfLines.length; i++) {
                 let line = arrayOfLines[i];
                 if (line.startsWith(" ")) {
                     arrayOfLines[i] = line.trim();
+                }
+
+                // Look for tags
+                if (arrayOfLines[i].startsWith("@")) {
+                    tags.push(...arrayOfLines[i].substr(1).split(' '));
+                    // remove tags from description
+                    arrayOfLines.splice(i, 1);
+                    // As the array lost an element need to reprocess this index
+                    i--;
                 }
             }
 
@@ -357,9 +398,11 @@ function createDescribeAlias(file, suites, context, mocha) {
             arrayOfLines.shift();
             description = arrayOfLines.join("\n");
         }
+
         let result = {
             title,
-            description
+            description,
+            tags
         };
         return result;
     };
@@ -389,9 +432,15 @@ function formatBlock(text: string, indent: number): string {
     let arrayOfLines = text.split(/\r?\n/);
     if (arrayOfLines.length > 1) {
         for (let i = 1; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            // Apply indentation
-            arrayOfLines[i] = " ".repeat(indent) + line.trim();
+            let line = arrayOfLines[i].trim();
+            // Skip tags
+            if (line.startsWith("@")) {
+                arrayOfLines.splice(i, 1);
+                i--;
+            } else {
+                // Apply indentation
+                arrayOfLines[i] = " ".repeat(indent) + line;
+            }
 
         }
         return arrayOfLines.join("\n");
@@ -436,12 +485,7 @@ function getTableAsList(text: string): any[][] {
                 for (let i = 1; i < rowData.length - 1; i++) {
                     // Convert the values to the best primitive type
                     const valueString = rowData[i].trim();
-                    const value = +valueString;
-                    if (value) {
-                        row.push(value)
-                    } else {
-                        row.push(valueString);
-                    }
+                    row.push(coerceValue(valueString));
                 }
                 tableArray.push(row);
             }
@@ -450,6 +494,27 @@ function getTableAsList(text: string): any[][] {
     return tableArray;
 }
 
+function coerceValue(valueString: string): any {
+    const value = +valueString;
+    if (value) {
+        return value;
+    } else {
+        // check if its a boolean
+        const literals = ["true", true, "false", false];
+        const index = literals.indexOf(valueString);
+        if (index >= 0) {
+            return literals[index + 1];
+        } else {
+            // Check if its an array
+            if (valueString.startsWith("[") && valueString.endsWith("]")) {
+                const array = JSON.parse(valueString);
+                return array;
+            } else {
+                return valueString;
+            }
+        }
+    }
+}
 
 /** @internal */
 function getTable(tableArray: any[][]): Row[] {
@@ -536,14 +601,12 @@ function getStepParts(text: string) {
             let line = arrayOfLines[i];
             if (line.startsWith('"""')) {
                 let docLines = [];
-                i++;
-                for (let y = 0; y < arrayOfLines.length - i; y++) {
+                for (i = i + 1; i < arrayOfLines.length; i++) {
                     if (arrayOfLines[i].startsWith('"""')) {
                         // end of docString
                         break;
                     }
                     docLines.push(arrayOfLines[i]);
-                    i++;
                 }
                 docString = docLines.join('\n');
             }
@@ -565,12 +628,7 @@ function getValuesFromTitle(text: string) {
     if (arrayOfValues) {
         arrayOfValues.forEach(element => {
             const valueString = element.substr(1, element.length - 2).trim();
-            const value = +valueString;
-            if (value) {
-                results.push(value)
-            } else {
-                results.push(valueString);
-            }
+            results.push(coerceValue(valueString));
         });
     }
     return results;
