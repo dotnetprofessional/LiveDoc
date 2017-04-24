@@ -97,3 +97,75 @@ Examples:
 ```
 
 This style provides a number of benefits, namely that its very clear how GST is calculated and who is eligible for free shipping and _why_. Using a feature in Gherkin called _Scenario Outlines_ a set of examples were used to describe the different combinations without having to write them all out, as was the case in the more technical version.
+
+This would result in the final feature being defined as the following:
+
+``` Gherkin
+Feature: Beautiful Tea Shipping Costs
+
+    * Australian customers pay GST
+    * Overseas customers don’t pay GST
+    * Australian customers get free shipping for orders $100 and above
+    * Overseas customers all pay the same shipping rate regardless of order size
+
+Scenario Outline: Calculate GST status and shipping rate
+
+Given the customer is from <customer’s country>
+When the customer’s order totals <order total>
+Then the customer <pays GST>
+  And they are charged <shipping rate>
+
+Examples:
+
+| customer’s country| pays GST | order total| shipping rate          |
+| Australia         | Must     |     $99.99 | Standard Domestic      |
+| Australia         | Must     |    $100.00 | Free                   |
+| New Zealand       | Must Not |     $99.99 | Standard International |
+| New Zealand       | Must Not |    $100.00 | Standard International |
+| Zimbabwe          | Must Not |    $100.00 | Standard International |
+```
+
+This version of the requirements, can now be used for both validation of the system, but also serve as documentation which __anyone__ on the team can understand.
+
+## livedoc-mocha
+Having arrived at our feature and scenarios, implementing them in livedoc-mocha is quite straightforward as it follows the Gherkin layout quite closely. 
+
+### Features
+Taking the example and converting the feature would result in the following code:
+
+```js
+feature(`Feature: Beautiful Tea Shipping Costs
+
+    * Australian customers pay GST
+    * Overseas customers don’t pay GST
+    * Australian customers get free shipping for orders $100 and above
+    * Overseas customers all pay the same shipping rate regardless of order size`, () => { });
+```
+
+Points to note here are that the back tick (`) is used support multi-line descriptions.
+
+### Scenarios
+Next adding scenarios are done is a similar fashion with each scenario being a child function of the feature function. This gives us the following:
+
+```js
+feature(`Feature: Beautiful Tea Shipping Costs
+
+    * Australian customers pay GST
+    * Overseas customers don’t pay GST
+    * Australian customers get free shipping for orders $100 and above
+    * Overseas customers all pay the same shipping rate regardless of order size`, () => {
+
+        scenarioOutline("Calculate GST status and shipping rate", () => {
+
+        });
+    });
+```
+
+### Steps
+Each scenario must have a set of steps to execute, this is where the actual testing begins. If you're coming from a TDD or more traditional unit testing background and are familiar with the AAA syntax (Arrange, Act, Assert). Then you can translate thos to the following step definitions:
+
+* Arrange: Given
+* Act: When
+* Assert: Then
+
+Translating our feature's steps into code would look like the following:
