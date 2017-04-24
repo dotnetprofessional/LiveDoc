@@ -1,0 +1,11 @@
+//.npmignore
+/_src
+/build
+.vscode
+wallaby.js
+*.log
+tsconfig*.json
+*.tgz
+*.json
+/mochawesome-reports
+test.hml

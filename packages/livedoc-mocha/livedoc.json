@@ -1,0 +1,1149 @@
+[
+  {
+    "scenarios": [],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
+    "title": "Test of a feature that does nothing",
+    "description": "",
+    "tags": []
+  },
+  {
+    "scenarios": [
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "someValue should be '110'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            someValue += stepContext.values[0];\r\n        }",
+            "id": 3,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "someValue should be '110'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            someValue.should.be.equal(stepContext.values[0]);\r\n        }",
+            "id": 4,
+            "status": "Pass",
+            "executionTime": 1
+          }
+        ],
+        "title": "Add 10 to someValue",
+        "description": "",
+        "tags": [
+          "scenario-tag"
+        ]
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "someValue should be '120'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            someValue += stepContext.values[0];\r\n        }",
+            "id": 5,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "someValue should be '120'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            someValue.should.be.equal(stepContext.values[0]);\r\n        }",
+            "id": 6,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Add 20 to someValue",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the background should be executed '3' times",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            someValue += stepContext.values[0];\r\n        }",
+            "id": 7,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the background should be executed '3' times",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            someValue.should.be.equal(stepContext.values[0]);\r\n        }",
+            "id": 8,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the background should be executed '3' times",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepContext.values[0].should.be.equal(count);\r\n        }",
+            "id": 9,
+            "status": "Pass",
+            "executionTime": 1
+          }
+        ],
+        "title": "Add 200 to someValue",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {
+              "actual": "",
+              "expected": "",
+              "stackTrace": "TypeError: I just had to fail!\n    at given (build\\test\\Background.Spec.js:49:19)\n    at Context.stepDefinitionContextWrapper (build\\app\\livedoc.js:152:21)",
+              "message": "I just had to fail!"
+            },
+            "title": "another failure by an assert",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            throw TypeError(\"I just had to fail!\");\r\n        }",
+            "id": 10,
+            "status": "Failed",
+            "executionTime": 0
+          },
+          {
+            "error": {
+              "actual": "Hello Cruel World",
+              "expected": "Hello World",
+              "stackTrace": "AssertionError: expected 'Hello Cruel World' to equal 'Hello World'\n    at and (build\\test\\Background.Spec.js:54:30)\n    at Context.stepDefinitionContextWrapper (build\\app\\livedoc.js:152:21)",
+              "message": "expected 'Hello Cruel World' to equal 'Hello World'"
+            },
+            "title": "another failure by an assert",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            let expected = \"Hello World\";\r\n            let actual = \"Hello Cruel World\";\r\n            actual.should.be.equal(expected);\r\n        }",
+            "id": 11,
+            "status": "Failed",
+            "executionTime": 2
+          },
+          {
+            "error": {},
+            "title": "another failure by an assert",
+            "docString": "",
+            "table": [],
+            "code": "",
+            "id": 12,
+            "status": 2,
+            "executionTime": 0
+          }
+        ],
+        "title": "Something will fail here",
+        "description": "",
+        "tags": []
+      }
+    ],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
+    "title": "Background statement",
+    "description": "Background statements are used to define a common given that is\napplied to each scenario. The background is executed before each scenario\n",
+    "tags": [
+      "sample-tag",
+      "another-tag"
+    ],
+    "background": {
+      "steps": [
+        {
+          "error": {},
+          "title": "we add '70' to somevalue",
+          "docString": "",
+          "table": [],
+          "code": "() => {\r\n            count++;\r\n            someValue = backgroundContext.given.values[0];\r\n        }",
+          "id": 1,
+          "status": "Pass",
+          "executionTime": 1
+        },
+        {
+          "error": {},
+          "title": "we add '70' to somevalue",
+          "docString": "",
+          "table": [],
+          "code": "() => {\r\n            someValue += backgroundContext.and[0].values[0];\r\n        }",
+          "id": 2,
+          "status": "Pass",
+          "executionTime": 0
+        }
+      ],
+      "title": "This will be executed before each test",
+      "description": "",
+      "tags": []
+    }
+  },
+  {
+    "scenarios": [
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the account balance should be '80' dollars",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            const accountHolder = stepContext.tableAsEntity;\r\n            atm.setStatus(accountHolder.account, accountHolder.status);\r\n            atm.deposit(accountHolder.account, accountHolder.balance);\r\n        }",
+            "id": 13,
+            "status": "Pass",
+            "executionTime": 1
+          },
+          {
+            "error": {},
+            "title": "the account balance should be '80' dollars",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            atm.addCash(stepContext.values[0]);\r\n        }",
+            "id": 14,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the account balance should be '80' dollars",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);\r\n        }",
+            "id": 15,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the account balance should be '80' dollars",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            cashReceived.should.be.equal(stepContext.values[0]);\r\n        }",
+            "id": 16,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the account balance should be '80' dollars",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            atm.getBalance(scenarioContext.given.tableAsEntity.account).should.be.equal(stepContext.values[0]);\r\n        }",
+            "id": 17,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Account has sufficient funds",
+        "description": "",
+        "tags": []
+      }
+    ],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Example.js",
+    "title": "Account Holder withdraws cash",
+    "description": "Account Holders should be able to withdraw cash at any of the\ncompanies ATMs.\nRules:\n* Account Holders should have a valid keycard\n* Have sufficient available funds\n* The ATM has the necessary funds\n",
+    "tags": []
+  },
+  {
+    "scenarios": [],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Feature.Spec.js",
+    "title": "Feature statement",
+    "description": "Features are used to define a feature that requires testing",
+    "tags": [
+      "tag-sample:test",
+      "tag-sample:test2",
+      "even-more"
+    ]
+  },
+  {
+    "scenarios": [],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Feature.Spec.js",
+    "title": "Feature statement contexts are isolated",
+    "description": "Features are used to define a feature that requires testing",
+    "tags": []
+  },
+  {
+    "scenarios": [
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the feature context should be available",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 28,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the feature context should be available",
+            "docString": "",
+            "table": [],
+            "code": "() => { }",
+            "id": 29,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the feature context should be available",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            context.title.should.be.equal(\"Scenario statement\");\r\n        }",
+            "id": 30,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Able to access featureContext from scenario",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the scenarioContext.tags should match 'mytag:test,another-tag'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenContext = stepContext;\r\n        }",
+            "id": 31,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.tags should match 'mytag:test,another-tag'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);\r\n        }",
+            "id": 32,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.tags should match 'mytag:test,another-tag'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenContext.tableAsEntity.description.should.be.equal(scenarioContext.description);\r\n        }",
+            "id": 33,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.tags should match 'mytag:test,another-tag'",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            scenarioContext.tags.should.be.eql(tags);\r\n        }",
+            "id": 34,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "The global variable scenarioContext is set",
+        "description": "with this description",
+        "tags": [
+          "mytag:test",
+          "another-tag"
+        ]
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the scenarioContext.description should match description",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenContext = stepContext;\r\n        }",
+            "id": 35,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.description should match description",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);\r\n        }",
+            "id": 36,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.description should match description",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenContext.tableAsEntity.description.should.be.equal(scenarioContext.description);\r\n        }",
+            "id": 37,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "The global variable scenarioContext is set for a different scenario",
+        "description": "with this description2",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the scenarioContext.and[0].values should contain a '1' and a '2' from the given's and",
+            "docString": "",
+            "table": [],
+            "code": "() => { }",
+            "id": 38,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.and[0].values should contain a '1' and a '2' from the given's and",
+            "docString": "",
+            "table": [],
+            "code": "() => { }",
+            "id": 39,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.and[0].values should contain a '1' and a '2' from the given's and",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            const entity = scenarioContext.given.tableAsEntity;\r\n            entity.property1.should.be.equal(\"value1\");\r\n            entity.property2.should.be.equal(\"value2\");\r\n        }",
+            "id": 40,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.and[0].values should contain a '1' and a '2' from the given's and",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            scenarioContext.and.length.should.be.equal(1);\r\n        }",
+            "id": 41,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.and[0].values should contain a '1' and a '2' from the given's and",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            scenarioContext.and[0].values[0].should.be.equal(stepContext.values[0]);\r\n            scenarioContext.and[0].values[1].should.be.equal(stepContext.values[1]);\r\n        }",
+            "id": 42,
+            "status": "Pass",
+            "executionTime": 1
+          }
+        ],
+        "title": "Given step is associated with scenarioContext.given",
+        "description": "As the given step and its associated ands and buts provide the context for\nsubsequent steps, its helpful to have easy access to this information rather\nthan forcing the consumer to record the values manually.\n",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the scenarioContext.given should contain the table from the given statement",
+            "docString": "",
+            "table": [],
+            "code": "() => { }",
+            "id": 43,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the scenarioContext.given should contain the table from the given statement",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            const entity = scenarioContext.given.tableAsEntity;\r\n            entity.property3.should.be.equal(\"value3\");\r\n            entity.property4.should.be.equal(\"value4\");\r\n        }",
+            "id": 44,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Given step is associated with scenarioContext.given with isolation",
+        "description": "Ensure that each scenario is isolated from the other.\n",
+        "tags": []
+      }
+    ],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Scenario.Spec.js",
+    "title": "Scenario statement",
+    "description": "Scenarios are used to define the actions or events of a feature",
+    "tags": []
+  },
+  {
+    "scenarios": [
+      {
+        "steps": [],
+        "examples": [
+          {
+            "name": "example",
+            "rows": [
+              [
+                "weight",
+                "energy",
+                "protein"
+              ],
+              [
+                450,
+                26500,
+                215
+              ],
+              [
+                500,
+                29500,
+                245
+              ],
+              [
+                575,
+                31500,
+                255
+              ],
+              [
+                600,
+                37000,
+                305
+              ]
+            ]
+          }
+        ],
+        "title": "feeding a suckler cow",
+        "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 45,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 46,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 47,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 48,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "examples": [
+          {
+            "name": "example",
+            "rows": [
+              [
+                "weight",
+                "energy",
+                "protein"
+              ],
+              [
+                450,
+                26500,
+                215
+              ],
+              [
+                500,
+                29500,
+                245
+              ],
+              [
+                575,
+                31500,
+                255
+              ],
+              [
+                600,
+                37000,
+                305
+              ]
+            ]
+          }
+        ],
+        "title": "feeding a suckler cow",
+        "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 49,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 50,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 51,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 52,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "examples": [
+          {
+            "name": "example",
+            "rows": [
+              [
+                "weight",
+                "energy",
+                "protein"
+              ],
+              [
+                450,
+                26500,
+                215
+              ],
+              [
+                500,
+                29500,
+                245
+              ],
+              [
+                575,
+                31500,
+                255
+              ],
+              [
+                600,
+                37000,
+                305
+              ]
+            ]
+          }
+        ],
+        "title": "feeding a suckler cow",
+        "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 53,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 54,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 55,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 56,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "examples": [
+          {
+            "name": "example",
+            "rows": [
+              [
+                "weight",
+                "energy",
+                "protein"
+              ],
+              [
+                450,
+                26500,
+                215
+              ],
+              [
+                500,
+                29500,
+                245
+              ],
+              [
+                575,
+                31500,
+                255
+              ],
+              [
+                600,
+                37000,
+                305
+              ]
+            ]
+          }
+        ],
+        "title": "feeding a suckler cow",
+        "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 57,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 58,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 59,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the protein should be <protein> kg",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n        }",
+            "id": 60,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "examples": [
+          {
+            "name": "example",
+            "rows": [
+              [
+                "weight",
+                "energy",
+                "protein"
+              ],
+              [
+                450,
+                26500,
+                215
+              ],
+              [
+                500,
+                29500,
+                245
+              ],
+              [
+                575,
+                31500,
+                255
+              ],
+              [
+                600,
+                37000,
+                305
+              ]
+            ]
+          }
+        ],
+        "title": "feeding a suckler cow",
+        "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
+        "tags": []
+      }
+    ],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\ScenarioOutline.Spec.js",
+    "title": "Scenario Outline statement",
+    "description": "",
+    "tags": []
+  },
+  {
+    "scenarios": [
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the title should match stepContext.title",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenTitle = stepContext.title;\r\n        }",
+            "id": 61,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the title should match stepContext.title",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "id": 62,
+            "status": "Pass",
+            "executionTime": 1
+          }
+        ],
+        "title": "Step statement is just a title",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the docString should match stepContext.docString",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenTitle = stepContext.title;\r\n            docString = stepContext.docString;\r\n        }",
+            "id": 63,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the docString should match stepContext.docString",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "id": 64,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the docString should match stepContext.docString",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            docString.should.be.equal(\"With this docString that\\nhas multiple lines\");\r\n        }",
+            "id": 65,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Step statement has a title and a docString",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the title should match stepContext.title",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            whenTitle = stepContext.title;\r\n        }",
+            "id": 66,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the title should match stepContext.title",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            whenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "id": 67,
+            "status": "Pass",
+            "executionTime": 1
+          }
+        ],
+        "title": "Step statement is just a title",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the docString should match stepContext.docString",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenTitle = stepContext.title;\r\n            docString = stepContext.docString;\r\n        }",
+            "id": 68,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the docString should match stepContext.docString",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "id": 69,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the docString should match stepContext.docString",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            docString.should.be.equal(\"With this docString that\\nhas multiple lines\\n1\\n2\\n3\\n4\");\r\n        }",
+            "id": 70,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Step statement has a title and a docString",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the table should match stepContext.table",
+            "docString": "",
+            "table": [],
+            "code": "() => { }",
+            "id": 71,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the table should match stepContext.table",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            scenarioContext.given.title.should.be.equal(\"a simple title has a table\");\r\n        }",
+            "id": 72,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the table should match stepContext.table",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            const table = scenarioContext.given.table;\r\n            table.length.should.be.equal(3);\r\n            table[0].name.should.be.equal(\"Aslak\");\r\n            table[0].email.should.be.equal(\"aslak@cucumber.io\");\r\n            table[0].twitter.should.be.equal(\"@aslak_hellesoy\");\r\n            table[2].name.should.be.equal(\"Matt\");\r\n            table[2].email.should.be.equal(\"matt@cucumber.io\");\r\n            table[2].twitter.should.be.equal(\"@mattwynne\");\r\n        }",
+            "id": 73,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Step statement has a title and a table",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the table should be convertible to an entity using stepContext.tableToEntity",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepTitle = stepContext.title;\r\n            entity = stepContext.tableAsEntity;\r\n        }",
+            "id": 74,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the table should be convertible to an entity using stepContext.tableToEntity",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            entity.name.should.be.equal(\"Aslak\");\r\n            entity.email.should.be.equal(\"aslak@cucumber.io\");\r\n            entity.twitter.should.be.equal(\"@aslak_hellesoy\");\r\n            entity.address.should.be.equal(\"1 street\");\r\n        }",
+            "id": 75,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Step statement has a two column table with names in first column",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the table should be convertible to a list using stepContext.tableToList",
+            "docString": "",
+            "table": [],
+            "code": "() => { }",
+            "id": 76,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the table should be convertible to a list using stepContext.tableToList",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            let total = 0;\r\n            const list = scenarioContext.given.tableAsSingleList;\r\n            for (let i = 0; i < list.length; i++) {\r\n                total += list[i];\r\n            }\r\n            total.should.be.equal(4770);\r\n        }",
+            "id": 77,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Step statement has a single column of values as a table",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the two values should be available via contextStep.values",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepValues = stepContext.values;\r\n        }",
+            "id": 78,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the two values should be available via contextStep.values",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepValues.length.should.be.equal(stepContext.values[0]);\r\n        }",
+            "id": 79,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the two values should be available via contextStep.values",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepValues[0].should.be.equal(\"this value\");\r\n            stepValues[1].should.be.equal(\"that value\");\r\n        }",
+            "id": 80,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Step statement uses quoted \" values to define values ",
+        "description": "",
+        "tags": []
+      },
+      {
+        "steps": [
+          {
+            "error": {},
+            "title": "the two values should be available via contextStep.values",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepValues = stepContext.values;\r\n        }",
+            "id": 81,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the two values should be available via contextStep.values",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepValues.length.should.be.equal(stepContext.values[0]);\r\n        }",
+            "id": 82,
+            "status": "Pass",
+            "executionTime": 0
+          },
+          {
+            "error": {},
+            "title": "the two values should be available via contextStep.values",
+            "docString": "",
+            "table": [],
+            "code": "() => {\r\n            stepValues[0].should.be.equal(\"this value2\");\r\n            stepValues[1].should.be.equal(\"that value2\");\r\n        }",
+            "id": 83,
+            "status": "Pass",
+            "executionTime": 0
+          }
+        ],
+        "title": "Step statement uses quoted ' values to define values ",
+        "description": "",
+        "tags": []
+      }
+    ],
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\StepSpec.js",
+    "title": "Step statement",
+    "description": "Step statements are used to define the details of a test, the supported steps are:\ngiven - sets up the state for the scenario\nwhen  - defines an action performed by a user/system\nthen  - defines the outcome of the when steps\nand   - used by given/when/then to add additional context\nbut   - used by given/when/then to provide an exclusion context",
+    "tags": []
+  }
+]

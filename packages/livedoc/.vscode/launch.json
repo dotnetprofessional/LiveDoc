@@ -1,0 +1,45 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
+            "name": "Mocha Tests",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "tsc",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha.cmd"
+            },
+            "runtimeArgs": [
+                "-u",
+                "tdd",
+                "--timeout",
+                "999999",
+                "--colors",
+                "--recursive",
+                "--require",
+                "build/app/livedoc",
+                "--require",
+                "build/app/reporter",
+                "--ui",
+                "livedoc-mocha",
+                "--reporter",
+                "build/app/reporter",
+                "${workspaceRoot}/build/test"
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/build"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            // Prevents debugger from stepping into this code :)
+            "skipFiles": [
+                "node_modules/**/*.js",
+                "<node_internals>/**/*.js"
+            ]
+        }
+    ]
+}

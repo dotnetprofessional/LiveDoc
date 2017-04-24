@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "experimentalDecorators": true,
+        "noImplicitAny": false,
+        "sourceMap": false,
+        "noUnusedParameters": false,
+        "noUnusedLocals": true,
+        "skipLibCheck": true,
+        "emitDecoratorMetadata": false,
+        "stripInternal": true,
+        "removeComments": false,
+        "declaration": false,
+        "importHelpers": false,
+        "jsx": "react"
+    },
+    "include": [
+        "_src/app/**/*.ts",
+        "_src/app/**/*.tsx"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
