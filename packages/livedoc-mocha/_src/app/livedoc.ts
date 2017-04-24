@@ -213,9 +213,7 @@ function createStepAlias(file, suites, mocha) {
                     // A Given step is treated differently as its the primary way to setup
                     // state for a Spec, so it gets its own property on the scenarioOutlineContext
                     if (scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
-                        // Scenario Outlines also require that their titles be data bound
-                        testName = bind(testName, scenarioOutlineContext.example);
-
+                        scenarioOutlineContext.example = this.test.example;
                         if (type === "Given") {
                             suite.ctx.processingGiven = true;
                             scenarioOutlineContext.given = context;
@@ -226,17 +224,22 @@ function createStepAlias(file, suites, mocha) {
                         }
                     }
 
+                    debugger;
                     stepContext = context;
                     stepDefinitionFunction(args)
                 }
             }
-            if (scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
+            if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
                 // Scenario Outlines also require that their titles be data bound
-                testName = bind(testName, scenarioOutlineContext.example);
+                testName = bind(testName, suite.ctx.scenarioOutlineContext.example);
             }
 
             test = new _test(testName, stepDefinitionContextWrapper);
             test.file = file;
+            if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
+                // Scenario Outlines also require that their titles be data bound
+                test.example = suite.ctx.scenarioOutlineContext.example;
+            }
             suite.addTest(test);
 
             return test;
@@ -311,17 +314,22 @@ function createDescribeAlias(file, suites, context, mocha) {
 
                 // Extract the Examples:
                 const table = getTableAsList(title);
+                // Push each iteration to the suite as only the last one is recognized when the test is actually executed
+
+                //outlineSuite.ctx.scenarioOutlineExamples = [];
+
+
                 for (let i = 1; i < table.length; i++) {
-                    scenarioOutlineContext = context;
-                    scenarioOutlineContext.example = getTableRowAsEntity(table, i);
-                    var outlineSuite = _suite.create(suites[0], createLabel(scenarioOutlineContext.title));
+                    var outlineSuite = _suite.create(suites[0], createLabel(context.title));
+                    context.example = getTableRowAsEntity(table, i);
                     outlineSuite.ctx.scenarioOutlineContext = context;
                     suite.ctx.type = type;
                     outlineSuite.ctx.type = type;
                     suites.unshift(outlineSuite);
                     if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
-                        outlineSuite.afterAll(() => { suite.parent.ctx.backgroundSuite.afterBackground(); });
+                        outlineSuite.afterAll(() => { outlineSuite.parent.ctx.backgroundSuite.afterBackground(); });
                     }
+
                     fn.call(outlineSuite);
                     suites.shift();
                 }
@@ -349,7 +357,6 @@ function createDescribeAlias(file, suites, context, mocha) {
             fn.call(suite);
 
             suites.shift();
-
 
             return suite;
         }
