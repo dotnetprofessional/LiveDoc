@@ -88,12 +88,12 @@ Then the customer <pays GST>
 
 Examples:
 
-| customer’s country| pays GST | order total| shipping rate          |
-| Australia         | Must     |     $99.99 | Standard Domestic      |
-| Australia         | Must     |    $100.00 | Free                   |
-| New Zealand       | Must Not |     $99.99 | Standard International |
-| New Zealand       | Must Not |    $100.00 | Standard International |
-| Zimbabwe          | Must Not |    $100.00 | Standard International |
+    | customer’s country  | GSTamount  | order total  | shipping rate           |
+    | Australia           |      9.999 |        99.99 | Standard Domestic       |
+    | Australia           |      10.00 |       100.00 | Free                    |
+    | New Zealand         |          0 |        99.99 | Standard International  |
+    | New Zealand         |          0 |       100.00 | Standard International  |
+    | Zimbabwe            |          0 |       100.00 | Standard International  |
 ```
 
 This style provides a number of benefits, namely that its very clear how GST is calculated and who is eligible for free shipping and _why_. Using a feature in Gherkin called _Scenario Outlines_ a set of examples were used to describe the different combinations without having to write them all out, as was the case in the more technical version.
@@ -117,12 +117,12 @@ Then the customer <pays GST>
 
 Examples:
 
-| customer’s country| pays GST | order total| shipping rate          |
-| Australia         | Must     |     $99.99 | Standard Domestic      |
-| Australia         | Must     |    $100.00 | Free                   |
-| New Zealand       | Must Not |     $99.99 | Standard International |
-| New Zealand       | Must Not |    $100.00 | Standard International |
-| Zimbabwe          | Must Not |    $100.00 | Standard International |
+    | customer’s country  | GSTamount  | order total  | shipping rate           |
+    | Australia           |      9.999 |        99.99 | Standard Domestic       |
+    | Australia           |      10.00 |       100.00 | Free                    |
+    | New Zealand         |          0 |        99.99 | Standard International  |
+    | New Zealand         |          0 |       100.00 | Standard International  |
+    | Zimbabwe            |          0 |       100.00 | Standard International  |
 ```
 
 This version of the requirements, can now be used for both validation of the system, but also serve as documentation which __anyone__ on the team can understand.
@@ -169,3 +169,42 @@ Each scenario must have a set of steps to execute, this is where the actual test
 * Assert: Then
 
 Translating our feature's steps into code would look like the following:
+
+```js
+scenarioOutline(`Calculate GST status and shipping rate
+
+    Examples:
+
+    | customer’s country  | GSTamount  | order total  | shipping rate           |
+    | Australia           |      9.999 |        99.99 | Standard Domestic       |
+    | Australia           |      10.00 |       100.00 | Free                    |
+    | New Zealand         |          0 |        99.99 | Standard International  |
+    | New Zealand         |          0 |       100.00 | Standard International  |
+    | Zimbabwe            |          0 |       100.00 | Standard International  |
+`, () => {
+        const cart = new ShoppingCart();
+
+        given("the customer is from <customer’s country>", () => {
+            cart.country = scenarioOutlineContext.example["customer’s country"];
+        });
+
+        when("the customer’s order totals <order total>", () => {
+            const item = new CartItem();
+            item.quantity = 1;
+            item.price = scenarioOutlineContext.example["order total"];
+            item.product = "tea";
+            cart.items.push(item);
+            cart.calculateInvoice();
+        });
+
+        then("the customer <pays GST>", () => {
+            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GSTamount);
+        });
+
+        and("they are charged <shipping rate>", () => {
+            const rate = shippingRates[scenarioOutlineContext.example["shipping rate"].replace(" ", "")];
+            cart.shipping.should.be.equal(rate);
+        });
+    });
+```
+
