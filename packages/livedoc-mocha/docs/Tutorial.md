@@ -7,7 +7,7 @@ Let assume we have a shipping company in Australia that wants to ship tea. The b
 
 _We need to charge a different amount for our customers overseas to what we do here in Australia. The tax office tells us we have to charge GST for Australian customers but not for our overseas ones. So we need to add this to our shopping cart. Also, we got a great deal with a local shipping company so we can ship to anywhere in Australia for free if they spend more than AUD$100, but we still have to charge the overseas customers._
 
-You've read that using Ghekin is a great way to test these features. You've also ready that there are the following parts to a Gherkin spec.
+You've read that using Gherkin is a great way to test these features. You've also ready that there are the following parts to a Gherkin spec.
 
 * feature
 * scenario
@@ -162,7 +162,7 @@ feature(`Feature: Beautiful Tea Shipping Costs
 ```
 
 ### Steps
-Each scenario must have a set of steps to execute, this is where the actual testing begins. If you're coming from a TDD or more traditional unit testing background and are familiar with the AAA syntax (Arrange, Act, Assert). Then you can translate thos to the following step definitions:
+Each scenario must have a set of steps to execute, this is where the actual testing begins. If you're coming from a TDD or more traditional unit testing background and are familiar with the AAA syntax (Arrange, Act, Assert). Then you can translate those to the following step definitions:
 
 * Arrange: Given
 * Act: When
