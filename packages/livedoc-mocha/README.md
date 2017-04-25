@@ -47,6 +47,8 @@ setup: function (wallaby) {
 ## API
 For full details of what's supported see the [__API reference__](docs/API.md)
 
+Also for a brief tutorial on how to write Gherkin specs using livedoc-mocha see the [tutorial](docs/Tutorial.md).
+
 Release notes can be found [here](docs/ReleaseNotes.md)
 
 ## So what does this look like?
