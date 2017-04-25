@@ -128,7 +128,7 @@ Examples:
 This version of the requirements, can now be used for both validation of the system, but also serve as documentation which __anyone__ on the team can understand.
 
 ## livedoc-mocha
-Having arrived at our feature and scenarios, implementing them in livedoc-mocha is quite straightforward as it follows the Gherkin layout quite closely. 
+Having arrived at our feature and scenarios, implementing them in livedoc-mocha is quite straightforward as it follows the Gherkin layout quite closely.
 
 ### Features
 Taking the example and converting the feature would result in the following code:
@@ -175,7 +175,7 @@ scenarioOutline(`Calculate GST status and shipping rate
 
     Examples:
 
-    | customer’s country  | GSTamount  | order total  | shipping rate           |
+    | customer’s country  | GST_amount  | order total  | shipping rate           |
     | Australia           |      9.999 |        99.99 | Standard Domestic       |
     | Australia           |      10.00 |       100.00 | Free                    |
     | New Zealand         |          0 |        99.99 | Standard International  |
@@ -198,7 +198,7 @@ scenarioOutline(`Calculate GST status and shipping rate
         });
 
         then("the customer <pays GST>", () => {
-            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GSTamount);
+            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount);
         });
 
         and("they are charged <shipping rate>", () => {
@@ -207,4 +207,11 @@ scenarioOutline(`Calculate GST status and shipping rate
         });
     });
 ```
+
+This example shows that using the array indexer of the scenarioOutline, you can use any type of name. However, if you use names that are can be valid property names like the GST_amount header, then you can also use the dot syntax as shown in the <code>then</code> function.
+
+This has been a brief tutorial on how to write specifications using livedoc-mocha. For more details on how to use livedoc-mocha refer to the [API reference](API.md) documentation.
+
+You can find the full source code for this [example here](../_src/test/Tutorial.Spec.ts).
+
 

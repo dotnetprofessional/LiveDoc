@@ -52,7 +52,7 @@ feature(`Feature: Beautiful Tea Shipping Costs
 
             Examples:
 
-            | customer’s country  | GSTamount  | order total  | shipping rate           |
+            | customer’s country  | GST_amount  | order total  | shipping rate           |
             | Australia           |      9.999 |        99.99 | Standard Domestic       |
             | Australia           |      10.00 |       100.00 | Free                    |
             | New Zealand         |          0 |        99.99 | Standard International  |
@@ -74,8 +74,8 @@ feature(`Feature: Beautiful Tea Shipping Costs
                     cart.calculateInvoice();
                 });
 
-                then("the customer <pays GST>", () => {
-                    cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GSTamount);
+                then("the customer <GST_amount>", () => {
+                    cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount));
                 });
 
                 and("they are charged <shipping rate>", () => {
