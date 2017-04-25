@@ -213,5 +213,3 @@ This example shows that using the array indexer of the scenarioOutline, you can 
 This has been a brief tutorial on how to write specifications using livedoc-mocha. For more details on how to use livedoc-mocha refer to the [API reference](API.md) documentation.
 
 You can find the full source code for this [example here](../_src/test/Tutorial.Spec.ts).
-
-

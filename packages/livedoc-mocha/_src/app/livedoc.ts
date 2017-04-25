@@ -224,7 +224,6 @@ function createStepAlias(file, suites, mocha) {
                         }
                     }
 
-                    debugger;
                     stepContext = context;
                     stepDefinitionFunction(args)
                 }
@@ -314,10 +313,6 @@ function createDescribeAlias(file, suites, context, mocha) {
 
                 // Extract the Examples:
                 const table = getTableAsList(title);
-                // Push each iteration to the suite as only the last one is recognized when the test is actually executed
-
-                //outlineSuite.ctx.scenarioOutlineExamples = [];
-
 
                 for (let i = 1; i < table.length; i++) {
                     var outlineSuite = _suite.create(suites[0], createLabel(context.title));
