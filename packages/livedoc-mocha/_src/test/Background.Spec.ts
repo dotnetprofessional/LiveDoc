@@ -51,7 +51,6 @@ feature(`Background statement
         });
 
         scenario("Add 20 to someValue", () => {
-            //console.log(backgroundContext.given.values[0]);
             when(`someValue is increased by '20'`, () => {
                 someValue
                 someValue += stepContext.values[0];
