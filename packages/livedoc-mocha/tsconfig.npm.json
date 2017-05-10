@@ -5,6 +5,10 @@
         "outDir": "release",
         "removeComments": true,
         "declaration": true,
-        "importHelpers": false
+        "importHelpers": false,
+        "lib": [
+            "es5",
+            "es2015.promise"
+        ]
     }
 }

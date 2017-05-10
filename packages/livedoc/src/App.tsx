@@ -1,10 +1,10 @@
 import * as React from 'react';
-//import './App.css';
+// import './App.css';
 var View = require('react-native-web').View;
 import { Header, FeatureSummary } from './Components';
-import * as model from './model/Feature';
+import * as model from 'livedoc-model';
 
-//const logo = require('./logo.svg');
+// const logo = require('./logo.svg');
 const data: model.Feature[] = require('./livedoc.json');
 
 const features: model.Feature[] = [];

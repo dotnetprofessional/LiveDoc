@@ -34,16 +34,20 @@
     "react": "^15.5.4",
     "react-bootstrap": "^0.31.0",
     "react-dom": "^15.5.4",
-    "react-native-web": "0.0.93"
+    "react-native-web": "0.0.93",
+    "livedoc-model": "^0.1.0"
   },
   "devDependencies": {
     "@types/react-bootstrap": "0.0.49",
-    "react-scripts-ts": "1.3.0"
+    "react-scripts-ts": "1.3.0",
+    "livedoc-mocha": "^0.2.2"
   },
   "scripts": {
     "start": "react-scripts-ts start",
-    "build": "react-scripts-ts build",
+    "build": "rimraf build && react-scripts-ts build",
     "test": "react-scripts-ts test --env=jsdom",
-    "eject": "react-scripts-ts eject"
+    "eject": "react-scripts-ts eject",
+    "release": " tsc -d -p tsconfig.npm.json",
+    "prepublish": "npm run build"
   }
 }

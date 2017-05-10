@@ -1,4 +1,4 @@
-import * as model from "./model/Feature";
+import * as model from "livedoc-model"
 import * as fs from "fs-extra";
 
 /**

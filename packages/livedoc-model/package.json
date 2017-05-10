@@ -29,7 +29,7 @@
   "scripts": {
     "test": "mocha --colors --require build/app/livedoc --require build/app/reporter --ui livedoc-mocha --reporter build/app/reporter --recursive build/test/",
     "release": "rimraf release && tsc -d -p tsconfig.npm.json",
-    "xprepublish": "npm run release"
+    "prepublish": "npm run release"
   },
   "devDependencies": {
     "@types/chai": "^3.4.35",
