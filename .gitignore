@@ -1,13 +1,15 @@
 # See https://help.github.com/ignore-files/ for more about ignoring files.
+# This file covers all packages associated with the Lerna Monorepo
+# packages should only have to include unique items in their own ignore file.
 
 # dependencies
-/node_modules
+node_modules
 
 # testing
-/coverage
+coverage
 
 # production
-/build
+build
 
 # misc
 .DS_Store

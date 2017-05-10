@@ -1,0 +1,43 @@
+{
+  "name": "livedoc-model",
+  "version": "0.1.0",
+  "author": "Garry McGlennon",
+  "description": "Object model used by livedoc javascript implementations.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git"
+  },
+  "homepage": "https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha#readme",
+  "bugs": {
+    "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "main": "release/index.js",
+  "typings": "release/index.d.ts",
+  "keywords": [
+    "livedoc",
+    "mocha",
+    "bdd",
+    "gherkin",
+    "cucumber",
+    "javascript",
+    "testing",
+    "tests"
+  ],
+  "engines": {
+    "node": "*"
+  },
+  "scripts": {
+    "test": "mocha --colors --require build/app/livedoc --require build/app/reporter --ui livedoc-mocha --reporter build/app/reporter --recursive build/test/",
+    "release": "rimraf release && tsc -d -p tsconfig.npm.json",
+    "xprepublish": "npm run release"
+  },
+  "devDependencies": {
+    "@types/chai": "^3.4.35",
+    "@types/mocha": "^2.2.40",
+    "@types/node": "^7.0.5",
+    "chai": "^3.5.0",
+    "rimraf": "^2.6.1",
+    "tslint": "^4.4.2",
+    "typescript": "^2.1.6"
+  }
+}

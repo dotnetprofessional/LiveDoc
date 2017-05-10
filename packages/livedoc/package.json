@@ -1,8 +1,8 @@
 {
-  "name": "livedoc-mocha",
-  "version": "0.2.2",
+  "name": "livedoc",
+  "version": "0.1.0",
   "author": "Garry McGlennon",
-  "description": "BDD extensions for Mocha that support LiveDoc reporting.",
+  "description": "LiveDoc HTML reporting system.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dotnetprofessional/LiveDoc.git"
@@ -15,8 +15,8 @@
   "typings": "release/livedoc.d.ts",
   "keywords": [
     "livedoc",
-    "mocha",
     "bdd",
+    "report",
     "gherkin",
     "cucumber",
     "javascript",
@@ -26,48 +26,24 @@
   "engines": {
     "node": "*"
   },
-  "scripts": {
-    "test": "mocha --colors --require build/app/livedoc --require build/app/reporter --ui livedoc-mocha --reporter build/app/reporter --recursive build/test/",
-    "test-reporter": "mocha --colors --require build/app/livedoc --require build/app/reporter --ui livedoc-mocha --reporter build/app/reporter --recursive build/test/",
-    "release-web": "npm run compile-web && npm run compile-web-minify",
-    "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
-    "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
-    "release": "rimraf release && tsc -d -p tsconfig.npm.json",
-    "xprepublish": "npm run release"
+  "dependencies": {
+    "@types/jest": "^19.2.2",
+    "@types/node": "^7.0.14",
+    "@types/react": "^15.0.23",
+    "@types/react-dom": "^15.5.0",
+    "react": "^15.5.4",
+    "react-bootstrap": "^0.31.0",
+    "react-dom": "^15.5.4",
+    "react-native-web": "0.0.93"
   },
   "devDependencies": {
-    "@types/chai": "^3.4.35",
-    "@types/mocha": "^2.2.40",
-    "@types/node": "^7.0.5",
-    "@types/react": "^15.0.22",
-    "@types/react-bootstrap": "0.0.47",
-    "@types/react-dom": "^15.5.0",
-    "awesome-typescript-loader": "^3.1.2",
-    "babel-cli": "^6.24.1",
-    "babel-core": "^6.24.1",
-    "babel-loader": "^6.4.1",
-    "babel-preset-es2015": "^6.24.1",
-    "babel-preset-react": "^6.24.1",
-    "babel-preset-react-hmre": "^1.1.1",
-    "babel-register": "^6.24.1",
-    "chai": "^3.5.0",
-    "rimraf": "^2.6.1",
-    "source-map-loader": "^0.2.1",
-    "tslint": "^4.4.2",
-    "typescript": "^2.2.2",
-    "webpack": "^2.4.1",
-    "webpack-dev-middleware": "^1.10.1",
-    "webpack-hot-middleware": "^2.18.0"
+    "@types/react-bootstrap": "0.0.49",
+    "react-scripts-ts": "1.3.0"
   },
-  "peerDependencies": {
-    "mocha": "3.x"
-  },
-  "dependencies": {
-    "babel-polyfill": "^6.23.0",
-    "react": "^15.5.4",
-    "react-bootstrap": "^0.30.9",
-    "react-dom": "^15.5.4",
-    "react-router": "^4.1.1",
-    "toastr": "^2.1.2"
+  "scripts": {
+    "start": "react-scripts-ts start",
+    "build": "react-scripts-ts build",
+    "test": "react-scripts-ts test --env=jsdom",
+    "eject": "react-scripts-ts eject"
   }
 }

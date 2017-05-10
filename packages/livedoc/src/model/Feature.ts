@@ -1,10 +1,46 @@
 
 export interface Row {
-    [prop: string]: any;
+    [prop: string]: {};
+}
+
+export class CalcStatistics {
+
+    public static feature(feature: Feature): Statistics {
+        console.log('Getting statistics');
+        var stats = new Statistics();
+        feature.scenarios.forEach(scenario => {
+            const scenarioStats = this.scenario(scenario);
+            stats.passed += scenarioStats.passed;
+            stats.failed += scenarioStats.failed;
+            stats.pending += scenarioStats.pending;
+        });
+        console.log('calulated stats', stats);
+        console.log('returning stats');
+        return stats;
+    }
+
+    public static scenario(scenario: Scenario): Statistics {
+        var stats = new Statistics();
+        scenario.steps.forEach(step => {
+            switch (step.status) {
+                case Status.Pass:
+                    stats.passed++;
+                    break;
+                case Status.Failed:
+                    stats.failed++;
+                    break;
+                case Status.Pending:
+                    stats.pending++;
+                    break;
+                default:
+                    break;
+            }
+        });
+        return stats;
+    }
 }
 
 export class Feature {
-    private _statistics: Statistics;
 
     public id: number;
     public filename: string;
@@ -16,27 +52,9 @@ export class Feature {
     public tags: string[];
 
     public executionTime: number;
-
-    public get statistics(): Statistics {
-        console.log("Getting statistics");
-        if (!this._statistics) {
-            var stats = new Statistics();
-            this.scenarios.forEach(scenario => {
-                stats.passed += scenario.statistics.passed;
-                stats.failed += scenario.statistics.failed;
-                stats.pending += scenario.statistics.pending;
-            });
-            this._statistics = stats;
-            console.log("calulated stats", stats);
-        }
-        console.log("returning stats");
-        return this._statistics;
-    };
-
 }
 
 export class Scenario {
-    private _statistics: Statistics;
 
     public id: number;
     public title: string;
@@ -47,27 +65,6 @@ export class Scenario {
 
     public associatedFeatureId: number;
     public executionTime: number;
-
-    public get statistics(): Statistics {
-        if (!this._statistics) {
-            var stats = new Statistics();
-            this.steps.forEach(step => {
-                switch (step.status) {
-                    case Status.Pass:
-                        stats.passed++;
-                        break;
-                    case Status.Failed:
-                        stats.failed++;
-                        break;
-                    case Status.Pending:
-                        stats.pending++;
-                }
-            });
-            this._statistics = stats;
-        }
-
-        return this._statistics;
-    };
 }
 
 export class Background extends Scenario {
@@ -88,7 +85,7 @@ export class StepDefinition {
     title: string;
     type: string;
     docString: string;
-    table: Row[]
+    table: Row[];
     status: Status;
     code: string;
     error: Exception = new Exception();
@@ -109,7 +106,7 @@ export class Statistics {
     public pending: number = 0;
 
     public get total(): number {
-        return this.passed + this.failed + this.pending
+        return this.passed + this.failed + this.pending;
     }
 
     public get passedPercent() {

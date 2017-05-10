@@ -33,7 +33,7 @@
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
     "release": "rimraf release && tsc -d -p tsconfig.npm.json",
-    "xprepublish": "npm run release"
+    "prepublish": "npm run release"
   },
   "devDependencies": {
     "@types/chai": "^3.4.35",
@@ -50,6 +50,7 @@
     "mocha": "3.x"
   },
   "dependencies": {
+    "livedoc-model": "^0.1.0",
     "fs-extra": "^2.1.2"
   }
 }

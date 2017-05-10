@@ -1,0 +1,17 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "target": "es6",
+        "allowJs": false,
+        "lib": [
+            "es6"
+        ],
+        "outDir": "build",
+        "declaration": true,
+        "removeComments": true
+    },
+    "include": [
+        "src/app/**/*.ts",
+        "src/test/**/*.ts"
+    ]
+}

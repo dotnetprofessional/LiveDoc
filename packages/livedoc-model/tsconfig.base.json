@@ -11,12 +11,10 @@
         "stripInternal": true,
         "removeComments": false,
         "declaration": false,
-        "importHelpers": false,
-        "jsx": "react"
+        "importHelpers": false
     },
     "include": [
-        "_src/app/**/*.ts",
-        "_src/app/**/*.tsx"
+        "src/app/**/*.ts"
     ],
     "exclude": [
         "node_modules"
