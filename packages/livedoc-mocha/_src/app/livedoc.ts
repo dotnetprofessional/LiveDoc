@@ -140,7 +140,7 @@ function liveDocMocha(suite) {
 /** @internal */
 function createStepAlias(file, suites, mocha) {
     return function testTypeCreator(type) {
-        function testType(title, stepDefinitionFunction?) {
+        async function testType(title, stepDefinitionFunction?) {
             var suite, test;
             var testName = type ? type + ' ' + title : title;
             suite = suites[0];
@@ -151,9 +151,10 @@ function createStepAlias(file, suites, mocha) {
             testName = formatBlock(testName, 10);
 
             if (suite.pending) stepDefinitionFunction = null;
+
             let stepDefinitionContextWrapper = stepDefinitionFunction
             if (stepDefinitionFunction) {
-                stepDefinitionContextWrapper = function (...args) {
+                stepDefinitionContextWrapper = async function (...args) {
                     featureContext = suite.ctx.featureContext;
                     scenarioContext = suite.ctx.scenarioContext;
                     scenarioOutlineContext = suite.ctx.scenarioOutlineContext;
@@ -225,7 +226,10 @@ function createStepAlias(file, suites, mocha) {
                     }
 
                     stepContext = context;
-                    stepDefinitionFunction(args)
+                    const funcResult = stepDefinitionFunction(args);
+                    if (funcResult && funcResult["then"]) {
+                        await funcResult;
+                    }
                 }
             }
             if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
@@ -250,7 +254,11 @@ function createStepAlias(file, suites, mocha) {
 
         (testType as any).only = function only(title, fn) {
             var test = testType(title, fn);
-            mocha.grep(test.fullTitle());
+            if (test && test["then"]) {
+                test.then((test) => {
+                    mocha.grep(test.fullTitle());
+                });
+            }
         };
 
         return testType;
@@ -276,7 +284,7 @@ function createDescribeAlias(file, suites, context, mocha) {
             }
             return testName;
         }
-        function wrapper(title, fn) {
+        async function wrapper(title, fn) {
             var suite = _suite.create(suites[0], createLabel(title));
 
             suite.file = file;
@@ -322,10 +330,20 @@ function createDescribeAlias(file, suites, context, mocha) {
                     outlineSuite.ctx.type = type;
                     suites.unshift(outlineSuite);
                     if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
-                        outlineSuite.afterAll(() => { outlineSuite.parent.ctx.backgroundSuite.afterBackground(); });
+                        outlineSuite.afterAll(async () => {
+                            const funcResult = outlineSuite.parent.ctx.backgroundSuite.afterBackground();
+                            if (funcResult && funcResult["then"]) {
+                                debugger;
+                                await funcResult;
+                            }
+                        });
                     }
 
-                    fn.call(outlineSuite);
+
+                    const funcResult = fn.call(outlineSuite);
+                    if (funcResult && funcResult["then"]) {
+                        await funcResult;
+                    }
                     suites.shift();
                 }
 
@@ -346,13 +364,21 @@ function createDescribeAlias(file, suites, context, mocha) {
             if (type === "Scenario" &&
                 suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
                 // Add the afterBackground function to each scenario's afterAll function
-                suite.afterAll(() => { suite.parent.ctx.backgroundSuite.afterBackground(); });
+                suite.afterAll(async () => {
+                    const funcResult = suite.parent.ctx.backgroundSuite.afterBackground();
+                    if (funcResult && funcResult["then"]) {
+                        debugger;
+                        await funcResult;
+                    }
+                });
             }
 
-            fn.call(suite);
+            const funcResult = fn.call(suite);
+            if (funcResult && funcResult["then"]) {
+                await funcResult;
+            }
 
             suites.shift();
-
             return suite;
         }
 
@@ -367,7 +393,11 @@ function createDescribeAlias(file, suites, context, mocha) {
 
         (wrapper as any).only = function only(title, fn) {
             var suite = wrapper(title, fn);
-            mocha.grep(suite.fullTitle());
+            if (suite && suite["then"]) {
+                suite.then((suite) => {
+                    mocha.grep(suite.fullTitle());
+                });
+            }
         };
 
         return wrapper;

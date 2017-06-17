@@ -53,11 +53,11 @@ feature(`Feature: Beautiful Tea Shipping Costs
             Examples:
 
             | customer’s country  | GST_amount  | order total  | shipping rate           |
-            | Australia           |      9.999 |        99.99 | Standard Domestic       |
-            | Australia           |      10.00 |       100.00 | Free                    |
-            | New Zealand         |          0 |        99.99 | Standard International  |
-            | New Zealand         |          0 |       100.00 | Standard International  |
-            | Zimbabwe            |          0 |       100.00 | Standard International  |
+            | Australia           |       9.999 |        99.99 | Standard Domestic       |
+            | Australia           |       10.00 |       100.00 | Free                    |
+            | New Zealand         |           0 |        99.99 | Standard International  |
+            | New Zealand         |           0 |       100.00 | Standard International  |
+            | Zimbabwe            |           0 |       100.00 | Standard International  |
         `, () => {
                 const cart = new ShoppingCart();
 

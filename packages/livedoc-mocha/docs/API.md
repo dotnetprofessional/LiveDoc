@@ -376,3 +376,64 @@ feature(`Account Holder withdraws cash
 ```
 
 Livedoc-mocha forgoes the need to prefix each tag with an @ sign, as is done in Cucumber. It is also possible to use multiple lines for your tags. When doing so the first tag must be prefixed with an @.
+
+## Async Tests
+Livedoc-mocha supports the async/await syntax for writing tests. However, there are a few minor limitations which need to be kept in mind when using this feature.
+
+_Example_
+```js
+scenario("Step statements should support async operations", () => {
+    let value = 0;
+    // tslint:disable-next-line:no-empty
+    when(`a step is testing code that is async`, async () => {
+        value = 10;
+        await Utils.sleep(10);
+        value = 20;
+    });
+
+    then("the test should continue after the async operation", () => {
+        value.should.be.equal(20);
+    });
+});
+```
+
+This example demonstrates how to use the async/await keywords. The function must return a promise or use the <code>async</code> keyword and the call to the async function must be proceeded with the <code>await</code> keyword.
+
+Currently the following scenario should be avoided with the use of async/await calls as it will either not execute the next line or can produce unreliable results when relying on the result in other tests. However, these scenarios are not recommended even if your code is synchronous as its better to use the one of the provided keywords like <code>given</code> to encapsulate this type of code. This will provide better readability of your tests.
+
+__Example__: Loose code within a scenario/feature/background
+This code will execute correctly, however we've seen issues with subsequent then/and statements not reliably getting the correct values. Therefore its recommended that this style be avoided when using async operations.
+
+```js
+scenario("Scenario statements should support async operations", async () => {
+    let value = 0;
+
+    //
+    value = 10;
+    await Utils.sleep(10);
+    value = 20;
+
+    when(`a scenario uses async code`, () => { });
+
+    then("the test should continue after the async operation", () => {
+        value.should.be.equal(20);
+    });
+});
+```
+A better way to structure this code would be to do the following:
+
+```js
+scenario("Scenario statements should support async operations", async () => {
+    let value = 0;
+
+    when("a scenario uses async code", () => {
+        value = 10;
+        await Utils.sleep(10);
+        value = 20;
+    }
+
+    then("the test should continue after the async operation", () => {
+        value.should.be.equal(20);
+    });
+});
+```
