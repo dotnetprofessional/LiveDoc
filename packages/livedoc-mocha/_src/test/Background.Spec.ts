@@ -122,11 +122,6 @@ feature("Background supports async operations", async () => {
     let count = 0;
     let afterBackgroundCheck = 0;
 
-    let x = 100;
-    debugger;
-    //await Utils.sleep(5);
-    x = 50;
-
     background("This will be executed before each test", () => {
 
         afterBackground(async () => {
@@ -151,10 +146,6 @@ feature("Background supports async operations", async () => {
         and("afterBackgroundCheck has '10' added to it", async () => {
             await Utils.sleep(10);
             afterBackgroundCheck += 10;
-        });
-
-        and("value set in background function is '50'", () => {
-            x.should.be.equal(stepContext.values[0]);
         });
     });
 

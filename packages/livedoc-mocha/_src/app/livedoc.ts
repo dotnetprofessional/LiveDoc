@@ -333,7 +333,6 @@ function createDescribeAlias(file, suites, context, mocha) {
                         outlineSuite.afterAll(async () => {
                             const funcResult = outlineSuite.parent.ctx.backgroundSuite.afterBackground();
                             if (funcResult && funcResult["then"]) {
-                                debugger;
                                 await funcResult;
                             }
                         });
@@ -367,7 +366,6 @@ function createDescribeAlias(file, suites, context, mocha) {
                 suite.afterAll(async () => {
                     const funcResult = suite.parent.ctx.backgroundSuite.afterBackground();
                     if (funcResult && funcResult["then"]) {
-                        debugger;
                         await funcResult;
                     }
                 });
