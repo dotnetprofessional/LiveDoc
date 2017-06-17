@@ -1,6 +1,6 @@
 {
   "name": "livedoc-mocha",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "author": "Garry McGlennon",
   "description": "BDD extensions for Mocha that support LiveDoc reporting.",
   "repository": {

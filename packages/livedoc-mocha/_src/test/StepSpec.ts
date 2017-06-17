@@ -1,6 +1,9 @@
 ///<reference path="../app/livedoc.ts" />
+import * as Utils from "./Utils";
 
-feature(`Step statement
+require('chai').should();
+
+feature.only(`Step statement
     Step statements are used to define the details of a test, the supported steps are:
         given - sets up the state for the scenario
         when  - defines an action performed by a user/system
@@ -103,10 +106,10 @@ feature(`Step statement
 
             given(`a simple title has a table
 
-                | name   | email              | twitter         |
-                | Aslak  | aslak@cucumber.io  | @aslak_hellesoy |
-                | Julien | julien@cucumber.io | @jbpros         |
-                | Matt   | matt@cucumber.io   | @mattwynne      |
+                | name    | email               | twitter          |
+                | Aslak   | aslak@cucumber.io   | @aslak_hellesoy  |
+                | Julien  | julien@cucumber.io  | @jbpros          |
+                | Matt    | matt@cucumber.io    | @mattwynne       |
 
                 This is a table above!!
             `, () => { });
@@ -132,10 +135,10 @@ feature(`Step statement
             let entity: Row;
             when(`a simple title has a table
 
-                | name    | Aslak             |
-                | email   | aslak@cucumber.io |
-                | twitter | @aslak_hellesoy   |
-                | address |          1 street |
+                | name     | Aslak              |
+                | email    | aslak@cucumber.io  |
+                | twitter  | @aslak_hellesoy    |
+                | address  |           1 street |
 
                 This is a table above!!
             `, () => {
@@ -154,9 +157,9 @@ feature(`Step statement
         scenario("Step statement has a single column of values as a table", () => {
             given(`a simple title has a table of values
 
-                |   17 |
-                |   42 |
-                | 4711 |
+                |    17 |
+                |    42 |
+                |  4711 |
 
                 This is a table above!!
             `, () => { });
@@ -176,11 +179,11 @@ feature(`Step statement
         scenario("Step statement has a column of values of different intrinsic types as a table", () => {
             given(`a simple title has a table of values
 
-                | string       | test                 |
-                | number       |                 1234 |
-                | booleanTrue  | true                 |
-                | booleanFalse | false                |
-                | array        | ["hello", "Goodbye"] |
+                | string        | test                  |
+                | number        |                  1234 |
+                | booleanTrue   | true                  |
+                | booleanFalse  | false                 |
+                | array         | ["hello", "Goodbye"]  |
 
             `, () => { });
 
@@ -195,7 +198,7 @@ feature(`Step statement
                 (typeof entity.array).should.be.equal("object");
                 entity.array[0].should.be.equal("hello");
                 entity.array[1].should.be.equal("Goodbye");
-                
+
             })
         });
 
@@ -244,5 +247,18 @@ feature(`Step statement
                 stepContext.values[0][0].should.be.equal(1);
             });
         });
-    });
 
+        feature("Step statements should support async operations", () => {
+            let value = 0;
+            when(`a step is testing code that is async`, async () => {
+                value = 10;
+                await Utils.sleep(10);
+                value = 20;
+            });
+
+            then("the test should continue after the async operation", () => {
+                value.should.be.equal(20);
+            });
+        });
+
+    });
