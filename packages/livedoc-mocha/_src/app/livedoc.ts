@@ -14,6 +14,12 @@ declare var but: Mocha.ITestDefinition;
 
 declare var afterBackground: (fn) => void;
 
+interface String {
+    startsWith(searchString: string, position?: number);
+    endsWith(searchString: string, position?: number);
+    repeat(times: number);
+}
+
 // Polyfils
 if (!String.prototype.startsWith) {
     String.prototype.startsWith = function (searchString, position) {
