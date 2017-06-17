@@ -248,20 +248,17 @@ feature.only(`Step statement
             });
         });
 
+        feature("Step statements should support async operations", () => {
+            let value = 0;
+            when(`a step is testing code that is async`, async () => {
+                value = 10;
+                await Utils.sleep(10);
+                value = 20;
+            });
 
-    });
-
-feature("Step statements should support async operations", () => {
-    let value = 0;
-    // tslint:disable-next-line:no-empty
-    it(`a step is testing code that is async`, () => {
-        value = 10;
-        return Utils.sleep(10).then(() => {
-            value = 20;
+            then("the test should continue after the async operation", () => {
+                value.should.be.equal(20);
+            });
         });
-    });
 
-    then("the test should continue after the async operation", () => {
-        value.should.be.equal(20);
     });
-});
