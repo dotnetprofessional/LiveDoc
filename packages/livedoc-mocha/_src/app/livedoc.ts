@@ -241,6 +241,7 @@ function createStepAlias(file, suites, mocha) {
             if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
                 // Scenario Outlines also require that their titles be data bound
                 testName = bind(testName, suite.ctx.scenarioOutlineContext.example);
+                context.title = testName;
             }
 
             test = new _test(testName, stepDefinitionContextWrapper);
