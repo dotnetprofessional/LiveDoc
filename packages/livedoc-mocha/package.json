@@ -40,7 +40,7 @@
     "@types/mocha": "^2.2.40",
     "@types/node": "^7.0.5",
     "chai": "^3.5.0",
-    "mochawesome": "^2.0.4",
+    "mocha": "^3.3.0",
     "rimraf": "^2.6.1",
     "tslint": "^4.4.2",
     "typescript": "^2.1.6",

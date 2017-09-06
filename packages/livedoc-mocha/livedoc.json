@@ -1,7 +1,8 @@
 [
   {
     "scenarios": [],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
+    "id": 106,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
     "title": "Test of a feature that does nothing",
     "description": "",
     "tags": []
@@ -16,9 +17,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            someValue += stepContext.values[0];\r\n        }",
+            "type": "When",
             "id": 5,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 109,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -26,8 +29,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            someValue.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 6,
             "status": "Pass",
+            "associatedScenarioId": 109,
             "executionTime": 0
           },
           {
@@ -36,16 +41,20 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "and",
             "id": 7,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 109,
+            "executionTime": 1
           }
         ],
         "title": "Add 10 to someValue",
         "description": "",
         "tags": [
           "scenario-tag"
-        ]
+        ],
+        "id": 109,
+        "associatedFeatureId": 107
       },
       {
         "steps": [
@@ -55,9 +64,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            someValue;\r\n            someValue += stepContext.values[0];\r\n        }",
+            "type": "When",
             "id": 8,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 110,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -65,8 +76,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            someValue.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 9,
             "status": "Pass",
+            "associatedScenarioId": 110,
             "executionTime": 0
           },
           {
@@ -75,14 +88,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "and",
             "id": 10,
             "status": "Pass",
+            "associatedScenarioId": 110,
             "executionTime": 0
           }
         ],
         "title": "Add 20 to someValue",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 110,
+        "associatedFeatureId": 107
       },
       {
         "steps": [
@@ -92,8 +109,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            someValue += stepContext.values[0];\r\n        }",
+            "type": "When",
             "id": 11,
             "status": "Pass",
+            "associatedScenarioId": 111,
             "executionTime": 0
           },
           {
@@ -102,8 +121,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            someValue.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 12,
             "status": "Pass",
+            "associatedScenarioId": 111,
             "executionTime": 0
           },
           {
@@ -112,8 +133,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepContext.values[0].should.be.equal(count);\r\n        }",
+            "type": "and",
             "id": 13,
             "status": "Pass",
+            "associatedScenarioId": 111,
             "executionTime": 0
           },
           {
@@ -122,14 +145,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "and",
             "id": 14,
             "status": "Pass",
+            "associatedScenarioId": 111,
             "executionTime": 0
           }
         ],
         "title": "Add 200 to someValue",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 111,
+        "associatedFeatureId": 107
       },
       {
         "steps": [
@@ -144,8 +171,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            throw TypeError(\"I just had to fail!\");\r\n        }",
+            "type": "Given",
             "id": 15,
             "status": "Failed",
+            "associatedScenarioId": 112,
             "executionTime": 0
           },
           {
@@ -159,9 +188,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            let expected = \"Hello World\";\r\n            let actual = \"Hello Cruel World\";\r\n            actual.should.be.equal(expected);\r\n        }",
+            "type": "and",
             "id": 16,
             "status": "Failed",
-            "executionTime": 0
+            "associatedScenarioId": 112,
+            "executionTime": 2
           },
           {
             "error": {},
@@ -169,17 +200,22 @@
             "docString": "",
             "table": [],
             "code": "",
+            "type": "and",
             "id": 17,
-            "status": 2,
+            "status": "Pending",
+            "associatedScenarioId": 112,
             "executionTime": 0
           }
         ],
         "title": "Something will fail here",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 112,
+        "associatedFeatureId": 107
       }
     ],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
+    "id": 107,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
     "title": "Background statement",
     "description": "Background statements are used to define a common given that is\napplied to each scenario. The background is executed before each scenario\n",
     "tags": [
@@ -194,8 +230,10 @@
           "docString": "",
           "table": [],
           "code": "() => {\r\n            count++;\r\n            someValue = backgroundContext.given.values[0];\r\n        }",
+          "type": "Given",
           "id": 1,
           "status": "Pass",
+          "associatedScenarioId": 108,
           "executionTime": 0
         },
         {
@@ -204,8 +242,10 @@
           "docString": "",
           "table": [],
           "code": "() => {\r\n            someValue += backgroundContext.and[0].values[0];\r\n        }",
+          "type": "and",
           "id": 2,
           "status": "Pass",
+          "associatedScenarioId": 108,
           "executionTime": 0
         },
         {
@@ -214,9 +254,11 @@
           "docString": "",
           "table": [],
           "code": "() => {\r\n            stepContext.values[0].should.be.equal(10);\r\n        }",
+          "type": "and",
           "id": 3,
           "status": "Pass",
-          "executionTime": 0
+          "associatedScenarioId": 108,
+          "executionTime": 1
         },
         {
           "error": {},
@@ -224,14 +266,18 @@
           "docString": "",
           "table": [],
           "code": "() => {\r\n            afterBackgroundCheck += 10;\r\n        }",
+          "type": "and",
           "id": 4,
           "status": "Pass",
+          "associatedScenarioId": 108,
           "executionTime": 0
         }
       ],
       "title": "This will be executed before each test",
       "description": "",
-      "tags": []
+      "tags": [],
+      "id": 108,
+      "associatedFeatureId": 107
     }
   },
   {
@@ -262,7 +308,9 @@
         ],
         "title": "Given the following items",
         "description": "Examples:\n|col1|\n|row1|\n|row2|\n|row3|\n|row4|\n",
-        "tags": []
+        "tags": [],
+        "id": 115,
+        "associatedFeatureId": 113
       },
       {
         "steps": [
@@ -272,8 +320,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 19,
             "status": "Pass",
+            "associatedScenarioId": 116,
             "executionTime": 0
           },
           {
@@ -282,8 +332,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 20,
             "status": "Pass",
+            "associatedScenarioId": 116,
             "executionTime": 0
           }
         ],
@@ -311,7 +363,9 @@
         ],
         "title": "Given the following items",
         "description": "Examples:\n|col1|\n|row1|\n|row2|\n|row3|\n|row4|\n",
-        "tags": []
+        "tags": [],
+        "id": 116,
+        "associatedFeatureId": 113
       },
       {
         "steps": [
@@ -321,8 +375,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 21,
             "status": "Pass",
+            "associatedScenarioId": 117,
             "executionTime": 0
           },
           {
@@ -331,8 +387,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 22,
             "status": "Pass",
+            "associatedScenarioId": 117,
             "executionTime": 0
           }
         ],
@@ -360,7 +418,9 @@
         ],
         "title": "Given the following items",
         "description": "Examples:\n|col1|\n|row1|\n|row2|\n|row3|\n|row4|\n",
-        "tags": []
+        "tags": [],
+        "id": 117,
+        "associatedFeatureId": 113
       },
       {
         "steps": [
@@ -370,8 +430,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 23,
             "status": "Pass",
+            "associatedScenarioId": 118,
             "executionTime": 0
           },
           {
@@ -380,8 +442,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 24,
             "status": "Pass",
+            "associatedScenarioId": 118,
             "executionTime": 0
           }
         ],
@@ -409,7 +473,9 @@
         ],
         "title": "Given the following items",
         "description": "Examples:\n|col1|\n|row1|\n|row2|\n|row3|\n|row4|\n",
-        "tags": []
+        "tags": [],
+        "id": 118,
+        "associatedFeatureId": 113
       },
       {
         "steps": [
@@ -419,8 +485,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 25,
             "status": "Pass",
+            "associatedScenarioId": 119,
             "executionTime": 0
           },
           {
@@ -429,8 +497,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 26,
             "status": "Pass",
+            "associatedScenarioId": 119,
             "executionTime": 0
           }
         ],
@@ -458,10 +528,13 @@
         ],
         "title": "Given the following items",
         "description": "Examples:\n|col1|\n|row1|\n|row2|\n|row3|\n|row4|\n",
-        "tags": []
+        "tags": [],
+        "id": 119,
+        "associatedFeatureId": 113
       }
     ],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
+    "id": 113,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Background.Spec.js",
     "title": "Background works with Scenario Outlines",
     "description": "",
     "tags": [],
@@ -473,14 +546,18 @@
           "docString": "",
           "table": [],
           "code": "() => {\r\n            afterBackgroundCheck += 10;\r\n        }",
+          "type": "Given",
           "id": 18,
           "status": "Pass",
-          "executionTime": 0
+          "associatedScenarioId": 114,
+          "executionTime": 1
         }
       ],
       "title": "Validate afterBackground",
       "description": "",
-      "tags": []
+      "tags": [],
+      "id": 114,
+      "associatedFeatureId": 113
     }
   },
   {
@@ -493,9 +570,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            const accountHolder = stepContext.tableAsEntity;\r\n            atm.setStatus(accountHolder.account, accountHolder.status);\r\n            atm.deposit(accountHolder.account, accountHolder.balance);\r\n        }",
+            "type": "Given",
             "id": 27,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 121,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -503,9 +582,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            atm.addCash(stepContext.values[0]);\r\n        }",
+            "type": "and",
             "id": 28,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 121,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -513,8 +594,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);\r\n        }",
+            "type": "When",
             "id": 29,
             "status": "Pass",
+            "associatedScenarioId": 121,
             "executionTime": 0
           },
           {
@@ -523,8 +606,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            cashReceived.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 30,
             "status": "Pass",
+            "associatedScenarioId": 121,
             "executionTime": 0
           },
           {
@@ -533,24 +618,30 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            atm.getBalance(scenarioContext.given.tableAsEntity.account).should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "and",
             "id": 31,
             "status": "Pass",
+            "associatedScenarioId": 121,
             "executionTime": 0
           }
         ],
         "title": "Account has sufficient funds",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 121,
+        "associatedFeatureId": 120
       }
     ],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Example.js",
+    "id": 120,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Example.js",
     "title": "Account Holder withdraws cash",
     "description": "Account Holders should be able to withdraw cash at any of the\ncompanies ATMs.\nRules:\n* Account Holders should have a valid keycard\n* Have sufficient available funds\n* The ATM has the necessary funds\n",
     "tags": []
   },
   {
     "scenarios": [],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Feature.Spec.js",
+    "id": 122,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Feature.Spec.js",
     "title": "Feature statement",
     "description": "Features are used to define a feature that requires testing",
     "tags": [
@@ -561,7 +652,8 @@
   },
   {
     "scenarios": [],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Feature.Spec.js",
+    "id": 123,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Feature.Spec.js",
     "title": "Feature statement contexts are isolated",
     "description": "Features are used to define a feature that requires testing",
     "tags": []
@@ -576,8 +668,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 42,
             "status": "Pass",
+            "associatedScenarioId": 125,
             "executionTime": 0
           },
           {
@@ -586,8 +680,10 @@
             "docString": "",
             "table": [],
             "code": "() => { }",
+            "type": "When",
             "id": 43,
             "status": "Pass",
+            "associatedScenarioId": 125,
             "executionTime": 0
           },
           {
@@ -596,14 +692,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            context.title.should.be.equal(\"Scenario statement\");\r\n        }",
+            "type": "Then",
             "id": 44,
             "status": "Pass",
+            "associatedScenarioId": 125,
             "executionTime": 0
           }
         ],
         "title": "Able to access featureContext from scenario",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 125,
+        "associatedFeatureId": 124
       },
       {
         "steps": [
@@ -613,8 +713,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenContext = stepContext;\r\n        }",
+            "type": "Given",
             "id": 45,
             "status": "Pass",
+            "associatedScenarioId": 126,
             "executionTime": 0
           },
           {
@@ -623,8 +725,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);\r\n        }",
+            "type": "Then",
             "id": 46,
             "status": "Pass",
+            "associatedScenarioId": 126,
             "executionTime": 0
           },
           {
@@ -633,9 +737,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenContext.tableAsEntity.description.should.be.equal(scenarioContext.description);\r\n        }",
+            "type": "and",
             "id": 47,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 126,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -643,8 +749,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            scenarioContext.tags.should.be.eql(tags);\r\n        }",
+            "type": "and",
             "id": 48,
             "status": "Pass",
+            "associatedScenarioId": 126,
             "executionTime": 0
           }
         ],
@@ -653,7 +761,9 @@
         "tags": [
           "mytag:test",
           "another-tag"
-        ]
+        ],
+        "id": 126,
+        "associatedFeatureId": 124
       },
       {
         "steps": [
@@ -663,8 +773,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenContext = stepContext;\r\n        }",
+            "type": "Given",
             "id": 49,
             "status": "Pass",
+            "associatedScenarioId": 127,
             "executionTime": 0
           },
           {
@@ -673,8 +785,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);\r\n        }",
+            "type": "Then",
             "id": 50,
             "status": "Pass",
+            "associatedScenarioId": 127,
             "executionTime": 0
           },
           {
@@ -683,14 +797,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenContext.tableAsEntity.description.should.be.equal(scenarioContext.description);\r\n        }",
+            "type": "Then",
             "id": 51,
             "status": "Pass",
+            "associatedScenarioId": 127,
             "executionTime": 0
           }
         ],
         "title": "The global variable scenarioContext is set for a different scenario",
         "description": "with this description2",
-        "tags": []
+        "tags": [],
+        "id": 127,
+        "associatedFeatureId": 124
       },
       {
         "steps": [
@@ -700,8 +818,10 @@
             "docString": "",
             "table": [],
             "code": "() => { }",
+            "type": "Given",
             "id": 52,
             "status": "Pass",
+            "associatedScenarioId": 128,
             "executionTime": 0
           },
           {
@@ -710,8 +830,10 @@
             "docString": "",
             "table": [],
             "code": "() => { }",
+            "type": "and",
             "id": 53,
             "status": "Pass",
+            "associatedScenarioId": 128,
             "executionTime": 0
           },
           {
@@ -720,8 +842,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            const entity = scenarioContext.given.tableAsEntity;\r\n            entity.property1.should.be.equal(\"value1\");\r\n            entity.property2.should.be.equal(\"value2\");\r\n        }",
+            "type": "Then",
             "id": 54,
             "status": "Pass",
+            "associatedScenarioId": 128,
             "executionTime": 0
           },
           {
@@ -730,8 +854,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            scenarioContext.and.length.should.be.equal(1);\r\n        }",
+            "type": "and",
             "id": 55,
             "status": "Pass",
+            "associatedScenarioId": 128,
             "executionTime": 0
           },
           {
@@ -740,14 +866,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            scenarioContext.and[0].values[0].should.be.equal(stepContext.values[0]);\r\n            scenarioContext.and[0].values[1].should.be.equal(stepContext.values[1]);\r\n        }",
+            "type": "and",
             "id": 56,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 128,
+            "executionTime": 1
           }
         ],
         "title": "Given step is associated with scenarioContext.given",
         "description": "As the given step and its associated ands and buts provide the context for\nsubsequent steps, its helpful to have easy access to this information rather\nthan forcing the consumer to record the values manually.\n",
-        "tags": []
+        "tags": [],
+        "id": 128,
+        "associatedFeatureId": 124
       },
       {
         "steps": [
@@ -757,8 +887,10 @@
             "docString": "",
             "table": [],
             "code": "() => { }",
+            "type": "Given",
             "id": 57,
             "status": "Pass",
+            "associatedScenarioId": 129,
             "executionTime": 0
           },
           {
@@ -767,17 +899,22 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            const entity = scenarioContext.given.tableAsEntity;\r\n            entity.property3.should.be.equal(\"value3\");\r\n            entity.property4.should.be.equal(\"value4\");\r\n        }",
+            "type": "Then",
             "id": 58,
             "status": "Pass",
+            "associatedScenarioId": 129,
             "executionTime": 0
           }
         ],
         "title": "Given step is associated with scenarioContext.given with isolation",
         "description": "Ensure that each scenario is isolated from the other.\n",
-        "tags": []
+        "tags": [],
+        "id": 129,
+        "associatedFeatureId": 124
       }
     ],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Scenario.Spec.js",
+    "id": 124,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Scenario.Spec.js",
     "title": "Scenario statement",
     "description": "Scenarios are used to define the actions or events of a feature",
     "tags": []
@@ -820,7 +957,9 @@
         ],
         "title": "feeding a suckler cow",
         "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
-        "tags": []
+        "tags": [],
+        "id": 131,
+        "associatedFeatureId": 130
       },
       {
         "steps": [
@@ -830,8 +969,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 59,
             "status": "Pass",
+            "associatedScenarioId": 132,
             "executionTime": 0
           },
           {
@@ -840,8 +981,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "When",
             "id": 60,
             "status": "Pass",
+            "associatedScenarioId": 132,
             "executionTime": 0
           },
           {
@@ -850,8 +993,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Then",
             "id": 61,
             "status": "Pass",
+            "associatedScenarioId": 132,
             "executionTime": 0
           },
           {
@@ -860,8 +1005,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "and",
             "id": 62,
             "status": "Pass",
+            "associatedScenarioId": 132,
             "executionTime": 0
           }
         ],
@@ -899,7 +1046,9 @@
         ],
         "title": "feeding a suckler cow",
         "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
-        "tags": []
+        "tags": [],
+        "id": 132,
+        "associatedFeatureId": 130
       },
       {
         "steps": [
@@ -909,8 +1058,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 63,
             "status": "Pass",
+            "associatedScenarioId": 133,
             "executionTime": 0
           },
           {
@@ -919,8 +1070,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "When",
             "id": 64,
             "status": "Pass",
+            "associatedScenarioId": 133,
             "executionTime": 0
           },
           {
@@ -929,8 +1082,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Then",
             "id": 65,
             "status": "Pass",
+            "associatedScenarioId": 133,
             "executionTime": 0
           },
           {
@@ -939,8 +1094,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "and",
             "id": 66,
             "status": "Pass",
+            "associatedScenarioId": 133,
             "executionTime": 0
           }
         ],
@@ -978,7 +1135,9 @@
         ],
         "title": "feeding a suckler cow",
         "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
-        "tags": []
+        "tags": [],
+        "id": 133,
+        "associatedFeatureId": 130
       },
       {
         "steps": [
@@ -988,8 +1147,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 67,
             "status": "Pass",
+            "associatedScenarioId": 134,
             "executionTime": 0
           },
           {
@@ -998,8 +1159,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "When",
             "id": 68,
             "status": "Pass",
+            "associatedScenarioId": 134,
             "executionTime": 0
           },
           {
@@ -1008,8 +1171,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Then",
             "id": 69,
             "status": "Pass",
+            "associatedScenarioId": 134,
             "executionTime": 0
           },
           {
@@ -1018,9 +1183,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "and",
             "id": 70,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 134,
+            "executionTime": 1
           }
         ],
         "examples": [
@@ -1057,7 +1224,9 @@
         ],
         "title": "feeding a suckler cow",
         "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
-        "tags": []
+        "tags": [],
+        "id": 134,
+        "associatedFeatureId": 130
       },
       {
         "steps": [
@@ -1067,9 +1236,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Given",
             "id": 71,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 135,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -1077,8 +1248,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "When",
             "id": 72,
             "status": "Pass",
+            "associatedScenarioId": 135,
             "executionTime": 0
           },
           {
@@ -1087,8 +1260,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "Then",
             "id": 73,
             "status": "Pass",
+            "associatedScenarioId": 135,
             "executionTime": 0
           },
           {
@@ -1097,8 +1272,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n        }",
+            "type": "and",
             "id": 74,
             "status": "Pass",
+            "associatedScenarioId": 135,
             "executionTime": 0
           }
         ],
@@ -1136,10 +1313,13 @@
         ],
         "title": "feeding a suckler cow",
         "description": "Examples:\n| weight | energy | protein |\n|    450 |  26500 |     215 |\n|    500 |  29500 |     245 |\n|    575 |  31500 |     255 |\n|    600 |  37000 |     305 |",
-        "tags": []
+        "tags": [],
+        "id": 135,
+        "associatedFeatureId": 130
       }
     ],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\ScenarioOutline.Spec.js",
+    "id": 130,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\ScenarioOutline.Spec.js",
     "title": "Scenario Outline statement",
     "description": "",
     "tags": []
@@ -1154,8 +1334,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle = stepContext.title;\r\n        }",
+            "type": "Given",
             "id": 75,
             "status": "Pass",
+            "associatedScenarioId": 137,
             "executionTime": 0
           },
           {
@@ -1164,14 +1346,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "type": "Then",
             "id": 76,
             "status": "Pass",
+            "associatedScenarioId": 137,
             "executionTime": 0
           }
         ],
         "title": "Step statement is just a title",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 137,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1181,8 +1367,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle = stepContext.title;\r\n            docString = stepContext.docString;\r\n        }",
+            "type": "Given",
             "id": 77,
             "status": "Pass",
+            "associatedScenarioId": 138,
             "executionTime": 0
           },
           {
@@ -1191,8 +1379,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "type": "Then",
             "id": 78,
             "status": "Pass",
+            "associatedScenarioId": 138,
             "executionTime": 0
           },
           {
@@ -1201,14 +1391,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            docString.should.be.equal(\"With this docString that\\nhas multiple lines\");\r\n        }",
+            "type": "and",
             "id": 79,
             "status": "Pass",
+            "associatedScenarioId": 138,
             "executionTime": 0
           }
         ],
         "title": "Step statement has a title and a docString",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 138,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1218,9 +1412,11 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            whenTitle = stepContext.title;\r\n        }",
+            "type": "When",
             "id": 80,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 139,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -1228,14 +1424,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            whenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "type": "Then",
             "id": 81,
             "status": "Pass",
+            "associatedScenarioId": 139,
             "executionTime": 0
           }
         ],
         "title": "Step statement is just a title",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 139,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1245,8 +1445,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle = stepContext.title;\r\n            docString = stepContext.docString;\r\n        }",
+            "type": "Given",
             "id": 82,
             "status": "Pass",
+            "associatedScenarioId": 140,
             "executionTime": 0
           },
           {
@@ -1255,8 +1457,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "type": "Then",
             "id": 83,
             "status": "Pass",
+            "associatedScenarioId": 140,
             "executionTime": 0
           },
           {
@@ -1265,14 +1469,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            docString.should.be.equal(\"With this docString that\\nhas multiple lines\\n1\\n2\\n3\\n4\");\r\n        }",
+            "type": "and",
             "id": 84,
             "status": "Pass",
+            "associatedScenarioId": 140,
             "executionTime": 0
           }
         ],
         "title": "Step statement has a title and a docString",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 140,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1282,8 +1490,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle = stepContext.title;\r\n        }",
+            "type": "Given",
             "id": 85,
             "status": "Pass",
+            "associatedScenarioId": 141,
             "executionTime": 0
           },
           {
@@ -1292,8 +1502,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
+            "type": "Then",
             "id": 86,
             "status": "Pass",
+            "associatedScenarioId": 141,
             "executionTime": 0
           },
           {
@@ -1302,14 +1514,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            const docString = scenarioContext.given.docStringAsEntity;\r\n            docString.name.should.be.equal(\"John\");\r\n            docString.address.should.be.equal(\"123 Street\");\r\n        }",
+            "type": "and",
             "id": 87,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 141,
+            "executionTime": 1
           }
         ],
         "title": "Step statement has a title and a docString that is valid json",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 141,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1319,8 +1535,10 @@
             "docString": "",
             "table": [],
             "code": "() => { }",
+            "type": "Given",
             "id": 88,
             "status": "Pass",
+            "associatedScenarioId": 142,
             "executionTime": 0
           },
           {
@@ -1329,8 +1547,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            scenarioContext.given.title.should.be.equal(\"a simple title has a table\");\r\n        }",
+            "type": "Then",
             "id": 89,
             "status": "Pass",
+            "associatedScenarioId": 142,
             "executionTime": 0
           },
           {
@@ -1339,14 +1559,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            const table = scenarioContext.given.table;\r\n            table.length.should.be.equal(3);\r\n            table[0].name.should.be.equal(\"Aslak\");\r\n            table[0].email.should.be.equal(\"aslak@cucumber.io\");\r\n            table[0].twitter.should.be.equal(\"@aslak_hellesoy\");\r\n            table[2].name.should.be.equal(\"Matt\");\r\n            table[2].email.should.be.equal(\"matt@cucumber.io\");\r\n            table[2].twitter.should.be.equal(\"@mattwynne\");\r\n        }",
+            "type": "and",
             "id": 90,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 142,
+            "executionTime": 1
           }
         ],
         "title": "Step statement has a title and a table",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 142,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1356,8 +1580,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepTitle = stepContext.title;\r\n            entity = stepContext.tableAsEntity;\r\n        }",
+            "type": "When",
             "id": 91,
             "status": "Pass",
+            "associatedScenarioId": 143,
             "executionTime": 0
           },
           {
@@ -1366,14 +1592,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            entity.name.should.be.equal(\"Aslak\");\r\n            entity.email.should.be.equal(\"aslak@cucumber.io\");\r\n            entity.twitter.should.be.equal(\"@aslak_hellesoy\");\r\n            entity.address.should.be.equal(\"1 street\");\r\n        }",
+            "type": "Then",
             "id": 92,
             "status": "Pass",
+            "associatedScenarioId": 143,
             "executionTime": 0
           }
         ],
         "title": "Step statement has a two column table with names in first column",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 143,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1383,8 +1613,10 @@
             "docString": "",
             "table": [],
             "code": "() => { }",
+            "type": "Given",
             "id": 93,
             "status": "Pass",
+            "associatedScenarioId": 144,
             "executionTime": 0
           },
           {
@@ -1393,14 +1625,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            let total = 0;\r\n            const list = scenarioContext.given.tableAsSingleList;\r\n            for (let i = 0; i < list.length; i++) {\r\n                total += list[i];\r\n            }\r\n            total.should.be.equal(4770);\r\n        }",
+            "type": "Then",
             "id": 94,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 144,
+            "executionTime": 1
           }
         ],
         "title": "Step statement has a single column of values as a table",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 144,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1410,9 +1646,11 @@
             "docString": "",
             "table": [],
             "code": "() => { }",
+            "type": "Given",
             "id": 95,
             "status": "Pass",
-            "executionTime": 0
+            "associatedScenarioId": 145,
+            "executionTime": 1
           },
           {
             "error": {},
@@ -1420,14 +1658,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            const entity = scenarioContext.given.tableAsEntity;\r\n            (typeof entity.string).should.be.equal(\"string\");\r\n            (typeof entity.number).should.be.equal(\"number\");\r\n            (typeof entity.booleanTrue).should.be.equal(\"boolean\");\r\n            (typeof entity.booleanFalse).should.be.equal(\"boolean\");\r\n            (typeof entity.array).should.be.equal(\"object\");\r\n            entity.array[0].should.be.equal(\"hello\");\r\n            entity.array[1].should.be.equal(\"Goodbye\");\r\n        }",
+            "type": "Then",
             "id": 96,
             "status": "Pass",
+            "associatedScenarioId": 145,
             "executionTime": 0
           }
         ],
         "title": "Step statement has a column of values of different intrinsic types as a table",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 145,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1437,8 +1679,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepValues = stepContext.values;\r\n        }",
+            "type": "When",
             "id": 97,
             "status": "Pass",
+            "associatedScenarioId": 146,
             "executionTime": 0
           },
           {
@@ -1447,8 +1691,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepValues.length.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 98,
             "status": "Pass",
+            "associatedScenarioId": 146,
             "executionTime": 0
           },
           {
@@ -1457,14 +1703,18 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepValues[0].should.be.equal(\"this value\");\r\n            stepValues[1].should.be.equal(\"that value\");\r\n        }",
+            "type": "and",
             "id": 99,
             "status": "Pass",
+            "associatedScenarioId": 146,
             "executionTime": 0
           }
         ],
         "title": "Step statement uses quoted \" values to define values ",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 146,
+        "associatedFeatureId": 136
       },
       {
         "steps": [
@@ -1474,8 +1724,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepValues = stepContext.values;\r\n        }",
+            "type": "When",
             "id": 100,
             "status": "Pass",
+            "associatedScenarioId": 147,
             "executionTime": 0
           },
           {
@@ -1484,8 +1736,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepValues.length.should.be.equal(stepContext.values[0]);\r\n        }",
+            "type": "Then",
             "id": 101,
             "status": "Pass",
+            "associatedScenarioId": 147,
             "executionTime": 0
           },
           {
@@ -1494,8 +1748,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            stepValues[0].should.be.equal(\"this value2\");\r\n            stepValues[1].should.be.equal(\"that value2\");\r\n        }",
+            "type": "and",
             "id": 102,
             "status": "Pass",
+            "associatedScenarioId": 147,
             "executionTime": 0
           },
           {
@@ -1504,8 +1760,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            (typeof stepContext.values[0]).should.be.equal(\"number\");\r\n        }",
+            "type": "and",
             "id": 103,
             "status": "Pass",
+            "associatedScenarioId": 147,
             "executionTime": 0
           },
           {
@@ -1514,8 +1772,10 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            (typeof stepContext.values[0]).should.be.equal(\"boolean\");\r\n        }",
+            "type": "and",
             "id": 104,
             "status": "Pass",
+            "associatedScenarioId": 147,
             "executionTime": 0
           },
           {
@@ -1524,526 +1784,24 @@
             "docString": "",
             "table": [],
             "code": "() => {\r\n            (typeof stepContext.values[0]).should.be.equal(\"object\");\r\n            stepContext.values[0][0].should.be.equal(1);\r\n        }",
+            "type": "and",
             "id": 105,
             "status": "Pass",
+            "associatedScenarioId": 147,
             "executionTime": 0
           }
         ],
         "title": "Step statement uses quoted ' values to define values ",
         "description": "",
-        "tags": []
+        "tags": [],
+        "id": 147,
+        "associatedFeatureId": 136
       }
     ],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\StepSpec.js",
+    "id": 136,
+    "filename": "d:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\StepSpec.js",
     "title": "Step statement",
     "description": "Step statements are used to define the details of a test, the supported steps are:\ngiven - sets up the state for the scenario\nwhen  - defines an action performed by a user/system\nthen  - defines the outcome of the when steps\nand   - used by given/when/then to add additional context\nbut   - used by given/when/then to provide an exclusion context",
-    "tags": []
-  },
-  {
-    "scenarios": [
-      {
-        "steps": [],
-        "examples": [
-          {
-            "name": "example",
-            "rows": [
-              [
-                "customer’s country",
-                "GST_amount",
-                "order total",
-                "shipping rate"
-              ],
-              [
-                "Australia",
-                9.999,
-                99.99,
-                "Standard Domestic"
-              ],
-              [
-                "Australia",
-                10,
-                100,
-                "Free"
-              ],
-              [
-                "New Zealand",
-                "0",
-                99.99,
-                "Standard International"
-              ],
-              [
-                "New Zealand",
-                "0",
-                100,
-                "Standard International"
-              ],
-              [
-                "Zimbabwe",
-                "0",
-                100,
-                "Standard International"
-              ]
-            ]
-          }
-        ],
-        "title": "Calculate GST status and shipping rate",
-        "description": "Examples:\n| customer’s country  | GST_amount  | order total  | shipping rate           |\n| Australia           |      9.999 |        99.99 | Standard Domestic       |\n| Australia           |      10.00 |       100.00 | Free                    |\n| New Zealand         |          0 |        99.99 | Standard International  |\n| New Zealand         |          0 |       100.00 | Standard International  |\n| Zimbabwe            |          0 |       100.00 | Standard International  |\n",
-        "tags": []
-      },
-      {
-        "steps": [
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.country = scenarioOutlineContext.example[\"customer’s country\"];\r\n        }",
-            "id": 106,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const item = new CartItem();\r\n            item.quantity = 1;\r\n            item.price = scenarioOutlineContext.example[\"order total\"];\r\n            item.product = \"tea\";\r\n            cart.items.push(item);\r\n            cart.calculateInvoice();\r\n        }",
-            "id": 107,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount));\r\n        }",
-            "id": 108,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const rate = shippingRates[scenarioOutlineContext.example[\"shipping rate\"].replace(\" \", \"\")];\r\n            cart.shipping.should.be.equal(rate);\r\n        }",
-            "id": 109,
-            "status": "Pass",
-            "executionTime": 0
-          }
-        ],
-        "examples": [
-          {
-            "name": "example",
-            "rows": [
-              [
-                "customer’s country",
-                "GST_amount",
-                "order total",
-                "shipping rate"
-              ],
-              [
-                "Australia",
-                9.999,
-                99.99,
-                "Standard Domestic"
-              ],
-              [
-                "Australia",
-                10,
-                100,
-                "Free"
-              ],
-              [
-                "New Zealand",
-                "0",
-                99.99,
-                "Standard International"
-              ],
-              [
-                "New Zealand",
-                "0",
-                100,
-                "Standard International"
-              ],
-              [
-                "Zimbabwe",
-                "0",
-                100,
-                "Standard International"
-              ]
-            ]
-          }
-        ],
-        "title": "Calculate GST status and shipping rate",
-        "description": "Examples:\n| customer’s country  | GST_amount  | order total  | shipping rate           |\n| Australia           |      9.999 |        99.99 | Standard Domestic       |\n| Australia           |      10.00 |       100.00 | Free                    |\n| New Zealand         |          0 |        99.99 | Standard International  |\n| New Zealand         |          0 |       100.00 | Standard International  |\n| Zimbabwe            |          0 |       100.00 | Standard International  |\n",
-        "tags": []
-      },
-      {
-        "steps": [
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.country = scenarioOutlineContext.example[\"customer’s country\"];\r\n        }",
-            "id": 110,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const item = new CartItem();\r\n            item.quantity = 1;\r\n            item.price = scenarioOutlineContext.example[\"order total\"];\r\n            item.product = \"tea\";\r\n            cart.items.push(item);\r\n            cart.calculateInvoice();\r\n        }",
-            "id": 111,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount));\r\n        }",
-            "id": 112,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const rate = shippingRates[scenarioOutlineContext.example[\"shipping rate\"].replace(\" \", \"\")];\r\n            cart.shipping.should.be.equal(rate);\r\n        }",
-            "id": 113,
-            "status": "Pass",
-            "executionTime": 0
-          }
-        ],
-        "examples": [
-          {
-            "name": "example",
-            "rows": [
-              [
-                "customer’s country",
-                "GST_amount",
-                "order total",
-                "shipping rate"
-              ],
-              [
-                "Australia",
-                9.999,
-                99.99,
-                "Standard Domestic"
-              ],
-              [
-                "Australia",
-                10,
-                100,
-                "Free"
-              ],
-              [
-                "New Zealand",
-                "0",
-                99.99,
-                "Standard International"
-              ],
-              [
-                "New Zealand",
-                "0",
-                100,
-                "Standard International"
-              ],
-              [
-                "Zimbabwe",
-                "0",
-                100,
-                "Standard International"
-              ]
-            ]
-          }
-        ],
-        "title": "Calculate GST status and shipping rate",
-        "description": "Examples:\n| customer’s country  | GST_amount  | order total  | shipping rate           |\n| Australia           |      9.999 |        99.99 | Standard Domestic       |\n| Australia           |      10.00 |       100.00 | Free                    |\n| New Zealand         |          0 |        99.99 | Standard International  |\n| New Zealand         |          0 |       100.00 | Standard International  |\n| Zimbabwe            |          0 |       100.00 | Standard International  |\n",
-        "tags": []
-      },
-      {
-        "steps": [
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.country = scenarioOutlineContext.example[\"customer’s country\"];\r\n        }",
-            "id": 114,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const item = new CartItem();\r\n            item.quantity = 1;\r\n            item.price = scenarioOutlineContext.example[\"order total\"];\r\n            item.product = \"tea\";\r\n            cart.items.push(item);\r\n            cart.calculateInvoice();\r\n        }",
-            "id": 115,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount));\r\n        }",
-            "id": 116,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const rate = shippingRates[scenarioOutlineContext.example[\"shipping rate\"].replace(\" \", \"\")];\r\n            cart.shipping.should.be.equal(rate);\r\n        }",
-            "id": 117,
-            "status": "Pass",
-            "executionTime": 0
-          }
-        ],
-        "examples": [
-          {
-            "name": "example",
-            "rows": [
-              [
-                "customer’s country",
-                "GST_amount",
-                "order total",
-                "shipping rate"
-              ],
-              [
-                "Australia",
-                9.999,
-                99.99,
-                "Standard Domestic"
-              ],
-              [
-                "Australia",
-                10,
-                100,
-                "Free"
-              ],
-              [
-                "New Zealand",
-                "0",
-                99.99,
-                "Standard International"
-              ],
-              [
-                "New Zealand",
-                "0",
-                100,
-                "Standard International"
-              ],
-              [
-                "Zimbabwe",
-                "0",
-                100,
-                "Standard International"
-              ]
-            ]
-          }
-        ],
-        "title": "Calculate GST status and shipping rate",
-        "description": "Examples:\n| customer’s country  | GST_amount  | order total  | shipping rate           |\n| Australia           |      9.999 |        99.99 | Standard Domestic       |\n| Australia           |      10.00 |       100.00 | Free                    |\n| New Zealand         |          0 |        99.99 | Standard International  |\n| New Zealand         |          0 |       100.00 | Standard International  |\n| Zimbabwe            |          0 |       100.00 | Standard International  |\n",
-        "tags": []
-      },
-      {
-        "steps": [
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.country = scenarioOutlineContext.example[\"customer’s country\"];\r\n        }",
-            "id": 118,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const item = new CartItem();\r\n            item.quantity = 1;\r\n            item.price = scenarioOutlineContext.example[\"order total\"];\r\n            item.product = \"tea\";\r\n            cart.items.push(item);\r\n            cart.calculateInvoice();\r\n        }",
-            "id": 119,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount));\r\n        }",
-            "id": 120,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const rate = shippingRates[scenarioOutlineContext.example[\"shipping rate\"].replace(\" \", \"\")];\r\n            cart.shipping.should.be.equal(rate);\r\n        }",
-            "id": 121,
-            "status": "Pass",
-            "executionTime": 0
-          }
-        ],
-        "examples": [
-          {
-            "name": "example",
-            "rows": [
-              [
-                "customer’s country",
-                "GST_amount",
-                "order total",
-                "shipping rate"
-              ],
-              [
-                "Australia",
-                9.999,
-                99.99,
-                "Standard Domestic"
-              ],
-              [
-                "Australia",
-                10,
-                100,
-                "Free"
-              ],
-              [
-                "New Zealand",
-                "0",
-                99.99,
-                "Standard International"
-              ],
-              [
-                "New Zealand",
-                "0",
-                100,
-                "Standard International"
-              ],
-              [
-                "Zimbabwe",
-                "0",
-                100,
-                "Standard International"
-              ]
-            ]
-          }
-        ],
-        "title": "Calculate GST status and shipping rate",
-        "description": "Examples:\n| customer’s country  | GST_amount  | order total  | shipping rate           |\n| Australia           |      9.999 |        99.99 | Standard Domestic       |\n| Australia           |      10.00 |       100.00 | Free                    |\n| New Zealand         |          0 |        99.99 | Standard International  |\n| New Zealand         |          0 |       100.00 | Standard International  |\n| Zimbabwe            |          0 |       100.00 | Standard International  |\n",
-        "tags": []
-      },
-      {
-        "steps": [
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.country = scenarioOutlineContext.example[\"customer’s country\"];\r\n        }",
-            "id": 122,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const item = new CartItem();\r\n            item.quantity = 1;\r\n            item.price = scenarioOutlineContext.example[\"order total\"];\r\n            item.product = \"tea\";\r\n            cart.items.push(item);\r\n            cart.calculateInvoice();\r\n        }",
-            "id": 123,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount));\r\n        }",
-            "id": 124,
-            "status": "Pass",
-            "executionTime": 0
-          },
-          {
-            "error": {},
-            "title": "they are charged <shipping rate>",
-            "docString": "",
-            "table": [],
-            "code": "() => {\r\n            const rate = shippingRates[scenarioOutlineContext.example[\"shipping rate\"].replace(\" \", \"\")];\r\n            cart.shipping.should.be.equal(rate);\r\n        }",
-            "id": 125,
-            "status": "Pass",
-            "executionTime": 0
-          }
-        ],
-        "examples": [
-          {
-            "name": "example",
-            "rows": [
-              [
-                "customer’s country",
-                "GST_amount",
-                "order total",
-                "shipping rate"
-              ],
-              [
-                "Australia",
-                9.999,
-                99.99,
-                "Standard Domestic"
-              ],
-              [
-                "Australia",
-                10,
-                100,
-                "Free"
-              ],
-              [
-                "New Zealand",
-                "0",
-                99.99,
-                "Standard International"
-              ],
-              [
-                "New Zealand",
-                "0",
-                100,
-                "Standard International"
-              ],
-              [
-                "Zimbabwe",
-                "0",
-                100,
-                "Standard International"
-              ]
-            ]
-          }
-        ],
-        "title": "Calculate GST status and shipping rate",
-        "description": "Examples:\n| customer’s country  | GST_amount  | order total  | shipping rate           |\n| Australia           |      9.999 |        99.99 | Standard Domestic       |\n| Australia           |      10.00 |       100.00 | Free                    |\n| New Zealand         |          0 |        99.99 | Standard International  |\n| New Zealand         |          0 |       100.00 | Standard International  |\n| Zimbabwe            |          0 |       100.00 | Standard International  |\n",
-        "tags": []
-      }
-    ],
-    "filename": "D:\\dev\\git.public\\LiveDoc\\packages\\livedoc-mocha\\build\\test\\Tutorial.Spec.js",
-    "title": "Feature: Beautiful Tea Shipping Costs",
-    "description": "* Australian customers pay GST\n* Overseas customers don’t pay GST\n* Australian customers get free shipping for orders $100 and above\n* Overseas customers all pay the same shipping rate regardless of order size",
     "tags": []
   }
 ]

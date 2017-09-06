@@ -12,7 +12,6 @@ export declare class Feature {
     title: string;
     description: string;
     scenarios: Scenario[];
-    status: Status;
     tags: string[];
     executionTime: number;
 }
@@ -21,7 +20,6 @@ export declare class Scenario {
     title: string;
     description: string;
     steps: StepDefinition[];
-    status: Status;
     tags: string[];
     associatedFeatureId: number;
     executionTime: number;
@@ -41,7 +39,7 @@ export declare class StepDefinition {
     type: string;
     docString: string;
     table: Row[];
-    status: Status;
+    status: string;
     code: string;
     error: Exception;
     associatedScenarioId: number;
@@ -57,16 +55,16 @@ export declare class Statistics {
     passed: number;
     failed: number;
     pending: number;
+    readonly status: string;
     readonly total: number;
     readonly passedPercent: number;
     readonly failedPercent: number;
     readonly pendingPercent: number;
     private calcPercent(value);
-    updateStatics(steps: StepDefinition[]): void;
 }
-export declare enum Status {
-    Unknown = 0,
-    Pass = 1,
-    Pending = 2,
-    Failed = 3,
-}
+export declare const Status: {
+    "Unknown": string;
+    "Pass": string;
+    "Pending": string;
+    "Failed": string;
+};

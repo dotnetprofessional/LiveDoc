@@ -13,6 +13,13 @@ var Base = require('mocha').reporters.Base;
 
 exports = module.exports = JSONReporter;
 
+var uniqueId = 0;
+// Add a unique identifier to each test
+function getUniqueId() {
+    uniqueId++;
+    return uniqueId;
+}
+
 /**
  * Initialize a new `JSON` reporter.
  *
@@ -27,14 +34,7 @@ function JSONReporter(runner) {
     var pending = [];
     var failures = [];
     var passes = [];
-    var uniqueId = 0;
     var features: model.Feature[] = [];
-
-    // Add a unique identifier to each test
-    function getUniqueId() {
-        uniqueId++;
-        return uniqueId;
-    }
 
     // Done function will be called before mocha exits
 
@@ -87,7 +87,9 @@ async function done(output, failures, exit) {
 // The typescript definition isn't complete enough
 function processFeature(suiteFeature: any): model.Feature {
     const feature = new model.Feature();
-    feature.id = suiteFeature.id;
+    if (!feature.id) {
+        feature.id = getUniqueId();
+    }
     feature.filename = suiteFeature.file;
     if (suiteFeature.ctx && suiteFeature.ctx.type === "Feature") {
         // This is a livedoc-mocha feature
@@ -140,7 +142,7 @@ function processScenario(suiteScenario, parentId: number): model.Scenario {
         scenario.title = suiteScenario.title;
     }
 
-    scenario.id = suiteScenario.id;
+    scenario.id = getUniqueId();
     scenario.associatedFeatureId = parentId;
 
     suiteScenario.tests.forEach(test => {
@@ -159,6 +161,7 @@ function processTest(test, parentId: number): model.StepDefinition {
         stepDefinition.docString = context.docString;
         stepDefinition.table = context.table;
         stepDefinition.code = test.originalFunction ? test.originalFunction.toString() : "";
+        stepDefinition.type = test.type.trim();
     } else {
         stepDefinition.title = test.title;
     }

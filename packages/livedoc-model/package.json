@@ -11,8 +11,8 @@
   "bugs": {
     "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
   },
-  "main": "release/index.js",
-  "typings": "release/index.d.ts",
+  "main": "release/Index.js",
+  "typings": "release/Index.d.ts",
   "keywords": [
     "livedoc",
     "mocha",

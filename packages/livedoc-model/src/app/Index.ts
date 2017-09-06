@@ -45,7 +45,6 @@ export class Feature {
     public title: string;
     public description: string;
     public scenarios: Scenario[] = [];
-    public status: Status;
     public tags: string[];
 
     public executionTime: number;
@@ -57,7 +56,6 @@ export class Scenario {
     public title: string;
     public description: string;
     public steps: StepDefinition[] = [];
-    public status: Status;
     public tags: string[];
 
     public associatedFeatureId: number;
@@ -83,7 +81,7 @@ export class StepDefinition {
     type: string;
     docString: string;
     table: Row[];
-    status: Status;
+    status: string;
     code: string;
     error: Exception = new Exception();
 
@@ -101,6 +99,18 @@ export class Statistics {
     public passed: number = 0;
     public failed: number = 0;
     public pending: number = 0;
+
+    public get status() {
+        if (this.failed !== 0) {
+            return Status.Failed;
+        } else if (this.passed === 0 && this.pending > 0) {
+            return Status.Pending;
+        } else if (this.passed > 0) {
+            return Status.Pass;
+        } else {
+            return Status.Unknown;
+        }
+    }
 
     public get total(): number {
         return this.passed + this.failed + this.pending;
@@ -123,17 +133,13 @@ export class Statistics {
             return 0;
         }
 
-        return value / this.total;
-    }
-
-    public updateStatics(steps: StepDefinition[]) {
-
+        return value / this.total * 100;
     }
 }
 
-export enum Status {
-    Unknown,
-    Pass,
-    Pending,
-    Failed,
+export const Status = {
+    "Unknown": "Unknown",
+    "Pass": "Pass",
+    "Pending": "Pending",
+    "Failed": "Failed"
 }

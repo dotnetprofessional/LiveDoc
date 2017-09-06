@@ -28,13 +28,13 @@ var CalcStatistics = (function () {
         var stats = new Statistics();
         scenario.steps.forEach(function (step) {
             switch (step.status) {
-                case Status.Pass:
+                case exports.Status.Pass:
                     stats.passed++;
                     break;
-                case Status.Failed:
+                case exports.Status.Failed:
                     stats.failed++;
                     break;
-                case Status.Pending:
+                case exports.Status.Pending:
                     stats.pending++;
                     break;
                 default:
@@ -103,6 +103,24 @@ var Statistics = (function () {
         this.failed = 0;
         this.pending = 0;
     }
+    Object.defineProperty(Statistics.prototype, "status", {
+        get: function () {
+            if (this.failed !== 0) {
+                return exports.Status.Failed;
+            }
+            else if (this.passed === 0 && this.pending > 0) {
+                return exports.Status.Pending;
+            }
+            else if (this.passed > 0) {
+                return exports.Status.Pass;
+            }
+            else {
+                return exports.Status.Unknown;
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
     Object.defineProperty(Statistics.prototype, "total", {
         get: function () {
             return this.passed + this.failed + this.pending;
@@ -135,17 +153,14 @@ var Statistics = (function () {
         if (this.total === 0) {
             return 0;
         }
-        return value / this.total;
-    };
-    Statistics.prototype.updateStatics = function (steps) {
+        return value / this.total * 100;
     };
     return Statistics;
 }());
 exports.Statistics = Statistics;
-var Status;
-(function (Status) {
-    Status[Status["Unknown"] = 0] = "Unknown";
-    Status[Status["Pass"] = 1] = "Pass";
-    Status[Status["Pending"] = 2] = "Pending";
-    Status[Status["Failed"] = 3] = "Failed";
-})(Status = exports.Status || (exports.Status = {}));
+exports.Status = {
+    "Unknown": "Unknown",
+    "Pass": "Pass",
+    "Pending": "Pending",
+    "Failed": "Failed"
+};

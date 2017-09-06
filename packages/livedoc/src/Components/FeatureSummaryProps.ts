@@ -1,4 +1,4 @@
-import * as model from "../model/Feature";
+import * as model from "livedoc-model";
 
 export class FeatureSummaryProps {
     features: model.Feature[];

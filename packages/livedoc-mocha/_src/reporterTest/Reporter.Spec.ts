@@ -1,5 +1,5 @@
 
-describe.skip("reporter", () => {
+describe("reporter", () => {
     before((done) => {
         var Mocha = require('mocha'),
             fs = require('fs'),

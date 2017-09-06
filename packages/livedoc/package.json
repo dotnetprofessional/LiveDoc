@@ -31,16 +31,16 @@
     "@types/node": "^7.0.14",
     "@types/react": "^15.0.23",
     "@types/react-dom": "^15.5.0",
+    "livedoc-model": "^0.1.0",
     "react": "^15.5.4",
     "react-bootstrap": "^0.31.0",
-    "react-dom": "^15.5.4",
-    "react-native-web": "0.0.93",
-    "livedoc-model": "^0.1.0"
+    "react-dom": "^15.5.4"
   },
   "devDependencies": {
     "@types/react-bootstrap": "0.0.49",
-    "react-scripts-ts": "1.3.0",
-    "livedoc-mocha": "^0.2.2"
+    "livedoc-mocha": "^0.2.2",
+    "react-router-dom": "^4.1.1",
+    "react-scripts-ts": "1.3.0"
   },
   "scripts": {
     "start": "react-scripts-ts start",

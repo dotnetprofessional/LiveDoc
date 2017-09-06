@@ -261,6 +261,7 @@ function createStepAlias(file, suites, mocha) {
             test = new _test(testName, stepDefinitionContextWrapper);
             test.originalFunction = stepDefinitionFunction;
             test.file = file;
+            test.type = type;
             suite.addTest(test);
 
             return test;

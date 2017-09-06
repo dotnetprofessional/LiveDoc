@@ -1,7 +1,9 @@
 import * as React from "react";
 import { Table, ProgressBar } from "react-bootstrap";
 import { FeatureSummaryProps } from "./FeatureSummaryProps";
-import * as model from "../model/Feature";
+import * as model from "livedoc-model";
+import { StatusFlag } from ".";
+const Link = require("react-router-dom").Link;
 
 export class FeatureSummary extends React.Component<FeatureSummaryProps, any> {
 
@@ -9,13 +11,14 @@ export class FeatureSummary extends React.Component<FeatureSummaryProps, any> {
         const stats = model.CalcStatistics.feature(feature);
         return (
             <tr>
-                <td>{feature.status}</td>
-                <td>{feature.title}</td>
-                <td>  <ProgressBar>
-                    <ProgressBar striped={true} bsStyle="success" now={stats.passed} key={1} />
-                    <ProgressBar bsStyle="warning" now={stats.failed} key={2} />
-                    <ProgressBar active={true} bsStyle="info" now={stats.pending} key={3} />
-                </ProgressBar>
+                <td><StatusFlag status={stats.status} /></td>
+                <td><Link to={`/feature/${feature.id}`}>{feature.title}</Link></td>
+                <td>
+                    <ProgressBar>
+                        <ProgressBar striped={true} bsStyle="success" now={stats.passedPercent} key={1} />
+                        <ProgressBar bsStyle="warning" now={stats.failedPercent} key={2} />
+                        <ProgressBar active={true} bsStyle="info" now={stats.pendingPercent} key={3} />
+                    </ProgressBar>
                 </td>
                 <td>{feature.scenarios.length}</td>
                 <td>{stats.passed}</td>
@@ -24,7 +27,6 @@ export class FeatureSummary extends React.Component<FeatureSummaryProps, any> {
             </tr>
         );
     }
-
 
     render() {
         const features: any[] = [];
@@ -35,7 +37,7 @@ export class FeatureSummary extends React.Component<FeatureSummaryProps, any> {
 
         console.log(features.length);
         return (
-            <Table responsive>
+            <Table responsive >
                 <thead>
                     <tr>
                         <th>Status</th>
