@@ -10,7 +10,7 @@
         "emitDecoratorMetadata": false,
         "stripInternal": true,
         "removeComments": false,
-        "declaration": false,
+        "declaration": true,
         "importHelpers": false
     },
     "include": [

@@ -1,6 +1,8 @@
 /*
     Typescript definitions
 */
+import { FeatureContext, ScenarioContext, StepContext, BackgroundContext, ScenarioOutlineContext, Row } from "./index";
+
 declare var feature: Mocha.IContextDefinition;
 declare var background: Mocha.IContextDefinition;
 declare var scenario: Mocha.IContextDefinition;
@@ -37,53 +39,6 @@ if (!String.prototype.endsWith) {
         var lastIndex = subjectString.lastIndexOf(searchString, position);
         return lastIndex !== -1 && lastIndex === position;
     };
-}
-
-interface Row {
-    [prop: string]: any;
-}
-
-class FeatureContext {
-    filename: string;
-    title: string;
-    description: string;
-    tags: string[];
-}
-
-class ScenarioContext {
-    title: string;
-    description: string;
-    given: StepContext;
-    and: StepContext[] = [];
-    tags: string[];
-}
-
-class StepContext {
-    title: string;
-    table: Row[];
-
-    docString: string;
-
-    get docStringAsEntity() {
-        return JSON.parse(this.docString);
-    }
-
-    type: string;
-    values: any[];
-
-    tableAsEntity: Row;
-
-    tableAsList: any[][];
-
-    tableAsSingleList: any[];
-}
-
-class BackgroundContext extends ScenarioContext {
-
-}
-
-class ScenarioOutlineContext extends ScenarioContext {
-    example: Row;
 }
 
 declare var featureContext: FeatureContext;

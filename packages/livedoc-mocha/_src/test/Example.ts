@@ -1,4 +1,4 @@
-require('chai').should();
+require('chai');
 
 class ATM {
     private machineCash = 0;

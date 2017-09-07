@@ -7,7 +7,7 @@
             "es6"
         ],
         "outDir": "build",
-        "declaration": true,
+        "declaration": false,
         "removeComments": true
     },
     "include": [
