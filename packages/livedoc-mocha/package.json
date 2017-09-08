@@ -28,7 +28,7 @@
   },
   "scripts": {
     "test": "mocha --colors --require build/app/livedoc --ui livedoc-mocha --recursive build/test/",
-    "pretest": "tsc -p . && cls",
+    "xpretest": "tsc -p . && cls",
     "release-web": "npm run compile-web && npm run compile-web-minify",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",

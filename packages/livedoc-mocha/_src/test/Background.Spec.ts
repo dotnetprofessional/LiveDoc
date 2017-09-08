@@ -1,6 +1,4 @@
-///<reference path="../app/index.ts" />
 import * as Utils from "./Utils";
-import "../app/index";
 
 require('chai').should();
 

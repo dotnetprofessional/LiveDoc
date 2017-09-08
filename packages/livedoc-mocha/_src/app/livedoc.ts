@@ -1,27 +1,58 @@
 /*
     Typescript definitions
 */
-import { FeatureContext, ScenarioContext, StepContext, BackgroundContext, ScenarioOutlineContext, Row } from "./index";
 
-declare var feature: Mocha.IContextDefinition;
-declare var background: Mocha.IContextDefinition;
-declare var scenario: Mocha.IContextDefinition;
-declare var scenarioOutline: Mocha.IContextDefinition;
+//import { Dummy } from "./Dummy";
 
-declare var given: Mocha.ITestDefinition;
-declare var when: Mocha.ITestDefinition;
-declare var then: Mocha.ITestDefinition;
-declare var and: Mocha.ITestDefinition;
-declare var but: Mocha.ITestDefinition;
+class FeatureContext {
+    filename: string;
+    title: string;
+    description: string;
+    tags: string[];
+}
 
-declare var afterBackground: (fn) => void;
 
-interface String {
+class ScenarioContext {
+    title: string;
+    description: string;
+    given: StepContext;
+    and: StepContext[] = [];
+    tags: string[];
+}
+
+
+class ScenarioOutlineContext extends ScenarioContext {
+    example: Row;
+}
+
+class BackgroundContext extends ScenarioContext {
+
+}
+
+class StepContext {
+    title: string;
+    table: Row[];
+
+    docString: string;
+
+    get docStringAsEntity() {
+        return JSON.parse(this.docString);
+    }
+
+    type: string;
+    values: any[];
+
+    tableAsEntity: Row;
+
+    tableAsList: any[][];
+
+    tableAsSingleList: any[];
+}
+declare interface String {
     startsWith(searchString: string, position?: number);
     endsWith(searchString: string, position?: number);
     repeat(times: number);
 }
-
 // Polyfils
 if (!String.prototype.startsWith) {
     String.prototype.startsWith = function (searchString, position) {
@@ -40,12 +71,6 @@ if (!String.prototype.endsWith) {
         return lastIndex !== -1 && lastIndex === position;
     };
 }
-
-declare var featureContext: FeatureContext;
-declare var scenarioContext: ScenarioContext;
-declare var stepContext: StepContext;
-declare var backgroundContext: BackgroundContext;
-declare var scenarioOutlineContext: ScenarioOutlineContext;
 
 // initialize context variables
 featureContext = undefined;
