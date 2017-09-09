@@ -2,9 +2,313 @@
     Typescript definitions
 */
 
-declare interface Row {
+// LiveDoc model
+class Feature {
+    public id: number;
+    public filename: string;
+    public background: Background;
+    public title: string;
+    public description: string;
+    public scenarios: Scenario[] = [];
+    public tags: string[];
+
+    public executionTime: number;
+
+    public parse(type: string, description: string) {
+
+        // Parse the description for all the possible parts
+        const parser = new Parser();
+        parser.parseDescription(description);
+
+        switch (type) {
+            case "Feature":
+                // This is the top level feature 
+                this.title = parser.title;
+                this.description = parser.description;
+                this.tags = parser.tags;
+                break;
+            case "Scenario":
+                const scenario = new Scenario();
+                scenario.title = parser.title;
+                scenario.description = parser.description;
+                scenario.tags = parser.tags;
+                this.scenarios.push(scenario);
+                break;
+            case "ScenarioOutline":
+                const scenarioOutline = new ScenarioOutline();
+                scenarioOutline.title = parser.title;
+                scenarioOutline.description = parser.description;
+                scenarioOutline.tags = parser.tags;
+                scenarioOutline.parseTables(parser.tables);
+                this.scenarios.push(scenarioOutline);
+                break;
+            case "Background":
+                const background = new Background();
+                background.title = parser.title;
+                background.description = parser.description;
+                background.tags = parser.tags;
+                this.background = background;
+                break;
+            default:
+                throw TypeError("unknown type: " + type);
+        }
+    }
+}
+
+class TextBlockReader {
+    private arrayOfLines: string[];
+    private currentIndex: number = -1;
+
+    constructor (text: string) {
+        // Split text into lines for processing
+        this.arrayOfLines = text.split(/\r?\n/);
+    }
+
+    public get count() {
+        return this.arrayOfLines.length;
+    }
+
+    public get line(): string {
+        if (this.currentIndex < this.count) {
+            return this.arrayOfLines[this.currentIndex];
+        } else {
+            return null;
+        }
+    }
+
+    public next(): boolean {
+        this.currentIndex++;
+        return this.currentIndex >= this.count;
+    }
+
+    public reset(): void {
+        this.currentIndex = -1;
+    }
+}
+
+
+class Parser {
+    public title: string = "";
+    public description: string = "";
+    public tags: string[] = [];
+    public tables: Table[] = [];
+    public dataTable: DataTableRow[];
+    public docString: string = "";
+    public quotedValues: string[];
+
+    public parseDescription(text: string) {
+        const textReader = new TextBlockReader(text);
+
+        if (textReader.next()) {
+            this.title = textReader.line.trim();
+
+            // quoted values are only found in the title
+            this.quotedValues = this.parseQuotedValues(textReader);
+        }
+        let descriptionIndex = 0;
+        while (textReader.next()) {
+            const line = textReader.line.trim();
+            if (line.startsWith("@")) {
+                this.tags.push(...textReader.line.substr(1).split(' '));
+            } else if (line.toLocaleLowerCase().startsWith("examples")) {
+                // scenario outline table
+                this.tables.push(this.parseTable(textReader));
+            } else if (line.startsWith("|") && line.endsWith("|")) {
+                // given/when/then data table
+                this.dataTable = this.parseDataTable(textReader)
+            } else if (line.startsWith('"""')) {
+                this.docString = this.parseDocString(textReader);
+            } else {
+                // Add the rest to the description
+                if (descriptionIndex === 0) {
+                    // find the first non-whitespace character and use that as the split line
+                    descriptionIndex = textReader.line.indexOf(' ');
+                }
+                // TODO: may want to optimize later
+                this.description += this.trimStart(textReader.line, descriptionIndex) + "\n";
+            }
+        }
+    }
+
+    private parseTable(textReader: TextBlockReader): Table {
+        var table = new Table();
+        table.name = textReader.line.trim().substr("Examples".length);
+        while (textReader.next()) {
+
+            if (!textReader.line.trim().startsWith("|")) {
+                // Add this line to the description
+                table.description += textReader.line + "\n";
+            }
+        }
+
+        // Check we didn't exhaust the text block
+        if (textReader.line != null) {
+            // Ok must have found the data table
+            const dataTable = this.parseDataTable(textReader);
+            table.dataTable = dataTable;
+        }
+        return table;
+    }
+
+    private parseDataTable(textReader: TextBlockReader): DataTableRow[] {
+        // Looks like part of a table
+        const line = textReader.line.trim();
+        const dataTable: DataTableRow[] = [];
+
+        while (line.startsWith("|")) {
+            const rowData = line.split("|");
+            let row: any[] = [];
+            for (let i = 1; i < rowData.length - 1; i++) {
+                // Convert the values to the best primitive type
+                const valueString = rowData[i].trim();
+                row.push(valueString);
+            }
+            dataTable.push(row);
+        }
+        return dataTable;
+    }
+
+    private parseDocString(textReader: TextBlockReader): string {
+        let docLines = [];
+        const docStringStartIndex = textReader.line.indexOf('"');
+        while (textReader.next()) {
+            const trimmedLine = textReader.line.trim();
+            if (trimmedLine.startsWith('"""')) {
+                // end of the docString so can stop processing
+                break;
+            }
+            docLines.push(this.trimStart(textReader.line, docStringStartIndex));
+        }
+        return docLines.join('\n');
+    }
+
+    private parseQuotedValues(textReader: TextBlockReader): string[] {
+        let arrayOfValues = textReader.line.match(/(["'](.*?)["'])+/g);
+        let results = [];
+        if (arrayOfValues) {
+            arrayOfValues.forEach(element => {
+                const valueString = element.substr(1, element.length - 2).trim();
+                results.push(valueString);
+            });
+        }
+        return results;
+    }
+
+
+    private trimStart(text: string, index: number) {
+        if (index < text.length) {
+            return text.substr(index);
+        }
+        else {
+            return text;
+        }
+    }
+    public applyIndenting(text: string, spacing: number) {
+        // This code needs to handle already indented lines
+
+        // Split text into lines for processing
+        let arrayOfLines = text.split(/\r?\n/);
+        if (arrayOfLines.length > 1) {
+            for (let i = 1; i < arrayOfLines.length; i++) {
+                let line = arrayOfLines[i].trim();
+                // Apply indentation
+                arrayOfLines[i] = " ".repeat(spacing) + line;
+            }
+            return arrayOfLines.join("\n");
+        }
+    }
+
+}
+
+class Scenario {
+
+    public id: number;
+    public title: string;
+    public description: string;
+    public steps: StepDefinition[] = [];
+    public tags: string[];
+
+    public associatedFeatureId: number;
+    public executionTime: number;
+
+}
+
+class Background extends Scenario {
+}
+
+/**
+ * The computed scenario from a ScenarioOutline definition
+ * This differs from a standard scenario as it includes an example
+ * 
+ * @class ScenarioOutlineScenario
+ * @extends {Scenario}
+ */
+class ScenarioOutlineScenario extends Scenario {
+    public example: DataTableRow;
+}
+
+class ScenarioOutline extends Scenario {
+    public tables: Table[] = [];
+    public scenarios: Scenario[];
+
+    public parseTables(tables: Table[]) {
+        // merge all tables into a single array for processing
+        const mergedTables: Table[] = [].concat(tables);
+        mergedTables.forEach(table => {
+            table.dataTable.forEach(dataRow => {
+                const scenario = new ScenarioOutlineScenario();
+                scenario.example = dataRow;
+                scenario.title = this.bind(this.title, dataRow);
+            });
+        });
+    }
+
+    private bind(content, model) {
+        var regex = new RegExp("<[\\w\\d]+>", "g");
+        return content.replace(regex, (item, pos, originalText) => {
+            return this.applyBinding(item, model);
+        });
+    }
+
+    private applyBinding(item, model) {
+        var key = item.replace("<", "").replace(">", "");
+        if (model.hasOwnProperty(key))
+            return model[key];
+        else {
+            return item;
+        }
+    }
+}
+
+class example {
+    name: string;
+    rows: DataTableRow[];
+}
+
+class StepDefinition {
+    id: number;
+    title: string;
+    type: string;
+    docString: string;
+    table: DataTableRow[];
+    status: string;
+    code: string;
+    //error: Exception = new Exception();
+
+    associatedScenarioId: number;
+    executionTime: number;
+}
+
+class Table {
+    public name: string = "";
+    public description: string = "";
+    public dataTable: DataTableRow[] = [];
+}
+
+declare interface DataTableRow {
     [prop: string]: any;
 }
+
 declare interface String {
     startsWith(searchString: string, position?: number);
     endsWith(searchString: string, position?: number);
@@ -17,7 +321,6 @@ class FeatureContext {
     tags: string[];
 }
 
-
 class ScenarioContext {
     title: string;
     description: string;
@@ -28,16 +331,15 @@ class ScenarioContext {
 
 
 class ScenarioOutlineContext extends ScenarioContext {
-    example: Row;
+    example: DataTableRow;
 }
 
 class BackgroundContext extends ScenarioContext {
-
 }
 
 class StepContext {
     title: string;
-    table: Row[];
+    table: DataTableRow[];
 
     docString: string;
 
@@ -48,17 +350,37 @@ class StepContext {
     type: string;
     values: any[];
 
-    tableAsEntity: Row;
+    tableAsEntity: DataTableRow;
 
     tableAsList: any[][];
 
     tableAsSingleList: any[];
 }
+
+declare var feature: Mocha.IContextDefinition;
+declare var background: Mocha.IContextDefinition;
+declare var scenario: Mocha.IContextDefinition;
+declare var scenarioOutline: Mocha.IContextDefinition;
+declare var given: Mocha.ITestDefinition;
+declare var when: Mocha.ITestDefinition;
+declare var then: Mocha.ITestDefinition;
+declare var and: Mocha.ITestDefinition;
+declare var but: Mocha.ITestDefinition;
+
+declare var featureContext: FeatureContext;
+declare var scenarioContext: ScenarioContext;
+declare var stepContext: StepContext;
+declare var backgroundContext: BackgroundContext;
+declare var scenarioOutlineContext: ScenarioOutlineContext;
+
+declare var afterBackground: (fn) => void;
+
 declare interface String {
     startsWith(searchString: string, position?: number);
     endsWith(searchString: string, position?: number);
     repeat(times: number);
 }
+
 // Polyfils
 if (!String.prototype.startsWith) {
     String.prototype.startsWith = function (searchString, position) {
@@ -263,6 +585,7 @@ function createStepAlias(file, suites, mocha) {
 function createDescribeAlias(file, suites, context, mocha) {
     return function wrapperCreator(type) {
         function createLabel(title) {
+            debugger;
             if (!type) return title;
             let testName = type + ': ' + title;
 
@@ -538,8 +861,8 @@ function coerceValue(valueString: string): any {
 }
 
 /** @internal */
-function getTable(tableArray: any[][]): Row[] {
-    let table: Row[] = [];
+function getTable(tableArray: any[][]): DataTableRow[] {
+    let table: DataTableRow[] = [];
 
     if (tableArray.length === 0) {
         return table;
@@ -548,7 +871,7 @@ function getTable(tableArray: any[][]): Row[] {
     let header = tableArray[0];
     for (let i = 1; i < tableArray.length; i++) {
         let rowData = tableArray[i];
-        let row: Row = {};
+        let row: DataTableRow = {};
         for (let column = 0; column < rowData.length; column++) {
             // Copy column to header key
             row[header[column]] = rowData[column];

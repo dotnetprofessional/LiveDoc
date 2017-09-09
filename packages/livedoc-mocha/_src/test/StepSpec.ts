@@ -132,7 +132,7 @@ feature.only(`Step statement
 
         scenario("Step statement has a two column table with names in first column", () => {
             let stepTitle = "";
-            let entity: Row;
+            let entity: DataTableRow;
             when(`a simple title has a table
 
                 | name     | Aslak              |
