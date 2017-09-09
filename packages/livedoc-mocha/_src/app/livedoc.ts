@@ -2,8 +2,14 @@
     Typescript definitions
 */
 
-//import { Dummy } from "./Dummy";
-
+declare interface Row {
+    [prop: string]: any;
+}
+declare interface String {
+    startsWith(searchString: string, position?: number);
+    endsWith(searchString: string, position?: number);
+    repeat(times: number);
+}
 class FeatureContext {
     filename: string;
     title: string;
@@ -423,8 +429,6 @@ function createDescribeAlias(file, suites, context, mocha) {
         };
         return result;
     };
-
-
 }
 
 // Used to bind the model to the values.
