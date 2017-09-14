@@ -41,7 +41,7 @@ class CartItem {
     public product: string;
 }
 
-feature(`Feature: Beautiful Tea Shipping Costs
+feature(`Beautiful Tea Shipping Costs
 
     * Australian customers pay GST
     * Overseas customers don’t pay GST
@@ -52,7 +52,7 @@ feature(`Feature: Beautiful Tea Shipping Costs
 
             Examples:
 
-            | customer’s country  | GST_amount  | order total  | shipping rate           |
+            | Customer’s Country  | GST Amount  | Order Total  | Shipping Rate           |
             | Australia           |       9.999 |        99.99 | Standard Domestic       |
             | Australia           |       10.00 |       100.00 | Free                    |
             | New Zealand         |           0 |        99.99 | Standard International  |
@@ -61,25 +61,26 @@ feature(`Feature: Beautiful Tea Shipping Costs
         `, () => {
                 const cart = new ShoppingCart();
 
-                given("the customer is from <customer’s country>", () => {
-                    cart.country = scenarioOutlineContext.example["customer’s country"];
+                given("the customer is from <Customer’s Country>", () => {
+                    cart.country = scenarioOutlineContext.example.CustomersCountry;
                 });
 
-                when("the customer’s order totals <order total>", () => {
+                when("the customer’s order totals <Order Total>", () => {
                     const item = new CartItem();
                     item.quantity = 1;
-                    item.price = scenarioOutlineContext.example["order total"];
+                    item.price = scenarioOutlineContext.example.OrderTotal;
                     item.product = "tea";
                     cart.items.push(item);
                     cart.calculateInvoice();
                 });
 
                 then("the customer <GST_amount>", () => {
-                    cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount));
+                    cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GSTAmount));
                 });
 
-                and("they are charged <shipping rate>", () => {
-                    const rate = shippingRates[scenarioOutlineContext.example["shipping rate"].replace(" ", "")];
+                and("they are charged <Shipping Rate>", () => {
+                    debugger;
+                    const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(" ", "")];
                     cart.shipping.should.be.equal(rate);
                 });
             });

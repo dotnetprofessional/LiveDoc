@@ -32,6 +32,7 @@ feature(`Scenario statement
                 | title        | The global variable scenarioContext is set  |
                 | description  | with this description                       |
                 `, () => {
+                        debugger;
                         givenContext = stepContext;
                     });
                 then("the scenarioContext.title should match title", () => {

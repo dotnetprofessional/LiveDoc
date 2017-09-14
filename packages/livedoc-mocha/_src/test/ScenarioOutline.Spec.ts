@@ -14,7 +14,8 @@ Examples:
 `, () => {
 
             given("the cow weighs <weight> kg", (args) => {
-                weightTotal += scenarioOutlineContext.example.weight;
+                // TODO: FIX UP
+                weightTotal += Number(scenarioOutlineContext.example.weight);
             });
 
             when("we calculate the feeding requirements", () => {

@@ -8,13 +8,14 @@ class Feature {
     public filename: string;
     public background: Background;
     public title: string;
+    public displayTitle: string;
     public description: string;
     public scenarios: Scenario[] = [];
     public tags: string[];
 
     public executionTime: number;
 
-    public parse(type: string, description: string) {
+    public parse(type: string, description: string): Feature | Scenario | ScenarioOutline | Background {
 
         // Parse the description for all the possible parts
         const parser = new Parser();
@@ -24,34 +25,59 @@ class Feature {
             case "Feature":
                 // This is the top level feature 
                 this.title = parser.title;
+                this.displayTitle = type ? type + ' ' + this.title : this.title;
                 this.description = parser.description;
                 this.tags = parser.tags;
-                break;
+                return this;
             case "Scenario":
                 const scenario = new Scenario();
                 scenario.title = parser.title;
+                scenario.displayTitle = type ? type + ' ' + this.title : this.title;
                 scenario.description = parser.description;
                 scenario.tags = parser.tags;
                 this.scenarios.push(scenario);
-                break;
-            case "ScenarioOutline":
+                return scenario;
+            case "Scenario Outline":
                 const scenarioOutline = new ScenarioOutline();
                 scenarioOutline.title = parser.title;
+                scenarioOutline.displayTitle = type ? type + ' ' + this.title : this.title;
                 scenarioOutline.description = parser.description;
                 scenarioOutline.tags = parser.tags;
                 scenarioOutline.parseTables(parser.tables);
                 this.scenarios.push(scenarioOutline);
-                break;
+                return scenarioOutline;
             case "Background":
                 const background = new Background();
                 background.title = parser.title;
+                background.displayTitle = type ? type + ' ' + this.title : this.title;
                 background.description = parser.description;
                 background.tags = parser.tags;
                 this.background = background;
-                break;
+                return background;
             default:
                 throw TypeError("unknown type: " + type);
         }
+
+    }
+
+    public getFeatureContext(): FeatureContext {
+        return ({
+            filename: this.filename,
+            title: this.title,
+            description: this.description,
+            tags: this.tags
+        });
+    }
+
+    public getBackgroundContext(): BackgroundContext {
+        const context = this.background.getScenarioContext();
+        return ({
+            title: context.title,
+            description: context.description,
+            given: context.given,
+            and: context.and,
+            tags: context.tags
+        });
     }
 }
 
@@ -78,7 +104,7 @@ class TextBlockReader {
 
     public next(): boolean {
         this.currentIndex++;
-        return this.currentIndex >= this.count;
+        return this.currentIndex >= 0 && this.currentIndex < this.count;
     }
 
     public reset(): void {
@@ -98,7 +124,6 @@ class Parser {
 
     public parseDescription(text: string) {
         const textReader = new TextBlockReader(text);
-
         if (textReader.next()) {
             this.title = textReader.line.trim();
 
@@ -106,10 +131,12 @@ class Parser {
             this.quotedValues = this.parseQuotedValues(textReader);
         }
         let descriptionIndex = 0;
+        const descriptionLines: string[] = [];
+
         while (textReader.next()) {
             const line = textReader.line.trim();
             if (line.startsWith("@")) {
-                this.tags.push(...textReader.line.substr(1).split(' '));
+                this.tags.push(...line.substr(1).split(' '));
             } else if (line.toLocaleLowerCase().startsWith("examples")) {
                 // scenario outline table
                 this.tables.push(this.parseTable(textReader));
@@ -120,12 +147,44 @@ class Parser {
                 this.docString = this.parseDocString(textReader);
             } else {
                 // Add the rest to the description
-                if (descriptionIndex === 0) {
+                if (descriptionIndex < 1) {
                     // find the first non-whitespace character and use that as the split line
-                    descriptionIndex = textReader.line.indexOf(' ');
+                    descriptionIndex = this.getFirstNonBlankIndex(textReader.line);
                 }
                 // TODO: may want to optimize later
-                this.description += this.trimStart(textReader.line, descriptionIndex) + "\n";
+                descriptionLines.push(this.trimStart(textReader.line, descriptionIndex));
+            }
+        }
+        this.description = descriptionLines.join("\n");
+    }
+
+    public coerceValues(values: string[]): any[] {
+        const coercedArray = [];
+        values.forEach(value => {
+            coercedArray.push(this.coerceValue(value));
+        });
+
+        return coercedArray;
+    }
+
+    private coerceValue(valueString: string): any {
+        const value = +valueString;
+        if (value) {
+            return value;
+        } else {
+            // check if its a boolean
+            const literals = ["true", true, "false", false];
+            const index = literals.indexOf(valueString);
+            if (index >= 0) {
+                return literals[index + 1];
+            } else {
+                // Check if its an array
+                if (valueString.startsWith("[") && valueString.endsWith("]")) {
+                    const array = JSON.parse(valueString);
+                    return array;
+                } else {
+                    return valueString;
+                }
             }
         }
     }
@@ -138,6 +197,8 @@ class Parser {
             if (!textReader.line.trim().startsWith("|")) {
                 // Add this line to the description
                 table.description += textReader.line + "\n";
+            } else {
+                break;
             }
         }
 
@@ -152,10 +213,10 @@ class Parser {
 
     private parseDataTable(textReader: TextBlockReader): DataTableRow[] {
         // Looks like part of a table
-        const line = textReader.line.trim();
+        let line = textReader.line.trim();
         const dataTable: DataTableRow[] = [];
 
-        while (line.startsWith("|")) {
+        while (line && line.startsWith("|")) {
             const rowData = line.split("|");
             let row: any[] = [];
             for (let i = 1; i < rowData.length - 1; i++) {
@@ -164,6 +225,11 @@ class Parser {
                 row.push(valueString);
             }
             dataTable.push(row);
+            if (textReader.next()) {
+                line = textReader.line.trim();
+            } else {
+                line = null;
+            }
         }
         return dataTable;
     }
@@ -195,6 +261,15 @@ class Parser {
     }
 
 
+    private getFirstNonBlankIndex(text: string): number {
+        for (let i = 0; i < text.length; i++) {
+            if (text.charAt(i) != " ") {
+                return i;
+            }
+        }
+        return 0;
+    }
+
     private trimStart(text: string, index: number) {
         if (index < text.length) {
             return text.substr(index);
@@ -218,19 +293,100 @@ class Parser {
         }
     }
 
+
+    public bind(content, model) {
+        var regex = new RegExp("<[\\w\\d]+>", "g");
+        return content.replace(regex, (item, pos, originalText) => {
+            return this.applyBinding(item, model);
+        });
+    }
+
+    private applyBinding(item, model) {
+        var key = item.replace("<", "").replace(">", "");
+        key = this.sanitizeName(key);
+        if (model.hasOwnProperty(key)) {
+            return model[key];
+        } else {
+            return item;
+        }
+    }
+
+    public sanitizeName(name: string): string {
+        // copy the header names removing spaces and apostrophes
+        return name.replace(" ", "").replace("`", "").replace("’", "");
+    }
+
 }
 
 class Scenario {
 
     public id: number;
     public title: string;
+    public displayTitle: string;
     public description: string;
+    public givens: StepDefinition[] = [];
+    public whens: StepDefinition[] = [];
     public steps: StepDefinition[] = [];
     public tags: string[];
 
     public associatedFeatureId: number;
     public executionTime: number;
 
+    private processingGiven: boolean = false;
+
+    public addStep(type: string, description: string): StepDefinition {
+        const parser = new Parser();
+        parser.parseDescription(description);
+
+        const step = new StepDefinition();
+
+        // This is the top level feature 
+        step.title = parser.title;
+        step.description = parser.description;
+        step.docString = parser.docString;
+        step.dataTable = parser.dataTable;
+        step.valuesRaw = parser.quotedValues;
+        step.values = parser.coerceValues(step.valuesRaw);
+        step.type = type;
+
+        this.steps.push(step);
+
+        if (type === "Given") {
+            if (this.givens.length != 0) {
+                throw TypeError(`The scenario ${this.title} already has a given defined. Scenarios should only have a single given. To extend an existing given, use and or but`);
+            }
+
+            this.processingGiven = true;
+            this.givens.push(step);
+        } else if (["When", "Then"].indexOf(type) >= 0) {
+            this.processingGiven = false;
+        } else if (this.processingGiven) {
+            this.givens.push(step);
+        }
+
+        return step;
+    }
+
+    public getScenarioContext(): ScenarioContext {
+        const givens: StepContext[] = [];
+        const and: StepContext[] = [];
+
+        for (let i = 0; i < this.givens.length; i++) {
+            const stepContext = this.givens[i].getStepContext();
+            givens.push(stepContext);
+            if (i > 0) {
+                and.push(stepContext);
+            }
+        }
+
+        const context = new ScenarioContext();
+        context.title = this.title;
+        context.description = this.description;
+        context.given = givens.length != 0 ? givens[0] : undefined;
+        context.and = and;
+        context.tags = this.tags;
+        return context;
+    }
 }
 
 class Background extends Scenario {
@@ -244,39 +400,65 @@ class Background extends Scenario {
  * @extends {Scenario}
  */
 class ScenarioOutlineScenario extends Scenario {
-    public example: DataTableRow;
+    public example: Object;
+
+    public addStep(type: string, description: string): StepDefinition {
+        const step = super.addStep(type, description);
+        step.title = new Parser().bind(step.title, this.example);
+
+        return step;
+    }
+
+    public getScenarioContext(): ScenarioOutlineContext {
+        return ({
+            title: this.title,
+            description: this.description,
+            example: this.example,
+            given: undefined,
+            and: [],
+            tags: this.tags
+        });
+    }
 }
 
 class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
-    public scenarios: Scenario[];
+    public scenarios: ScenarioOutlineScenario[] = [];
 
     public parseTables(tables: Table[]) {
         // merge all tables into a single array for processing
-        const mergedTables: Table[] = [].concat(tables);
-        mergedTables.forEach(table => {
-            table.dataTable.forEach(dataRow => {
-                const scenario = new ScenarioOutlineScenario();
-                scenario.example = dataRow;
-                scenario.title = this.bind(this.title, dataRow);
-            });
+        tables.forEach(table => {
+            this.parseTable(table);
         });
     }
 
-    private bind(content, model) {
-        var regex = new RegExp("<[\\w\\d]+>", "g");
-        return content.replace(regex, (item, pos, originalText) => {
-            return this.applyBinding(item, model);
-        });
-    }
-
-    private applyBinding(item, model) {
-        var key = item.replace("<", "").replace(">", "");
-        if (model.hasOwnProperty(key))
-            return model[key];
-        else {
-            return item;
+    public parseTable(table: Table) {
+        // merge all tables into a single array for processing
+        if (!table.dataTable || table.dataTable.length <= 1) {
+            throw TypeError("Data tables must have at least a header row plus a data row.");
         }
+        const parser = new Parser();
+        const headerRow: string[] = [];
+        table.dataTable[0].forEach(item => {
+            // copy the header names removing spaces and apostrophes
+            headerRow.push(parser.sanitizeName(item));
+        });
+        for (let i = 1; i < table.dataTable.length; i++) {
+            const dataRow = table.dataTable[i];
+            const scenario = new ScenarioOutlineScenario();
+            scenario.example = this.getTableRowAsEntity(headerRow, dataRow);
+            scenario.title = parser.bind(this.title, scenario.example);
+            this.scenarios.push(scenario);
+        }
+    }
+
+    private getTableRowAsEntity(headerRow: DataTableRow, dataRow: DataTableRow): object {
+        let entity = {};
+        for (let p = 0; p < headerRow.length; p++) {
+            // Copy column to header key
+            entity[headerRow[p].toString()] = dataRow[p];
+        }
+        return entity;
     }
 }
 
@@ -287,16 +469,33 @@ class example {
 
 class StepDefinition {
     id: number;
-    title: string;
+    title: string = "";
+    get displayTitle() {
+        return this.type ? this.type + ' ' + this.title : this.title;
+    }
     type: string;
-    docString: string;
-    table: DataTableRow[];
+    description: string = "";
+    docString: string = "";
+    dataTable: DataTableRow[] = [];
+    values: any[] = [];
+    valuesRaw: string[] = [];
     status: string;
     code: string;
     //error: Exception = new Exception();
 
     associatedScenarioId: number;
     executionTime: number;
+
+    public getStepContext(): StepContext {
+        const context = new StepContext();
+        context.title = this.title;
+        context.table = this.dataTable;
+        context.docString = this.docString;
+        context.values = this.values;
+        context.valuesRaw = this.valuesRaw;
+
+        return context;
+    }
 }
 
 class Table {
@@ -314,6 +513,7 @@ declare interface String {
     endsWith(searchString: string, position?: number);
     repeat(times: number);
 }
+
 class FeatureContext {
     filename: string;
     title: string;
@@ -325,10 +525,12 @@ class ScenarioContext {
     title: string;
     description: string;
     given: StepContext;
+    //givens: StepContext[] = [];
+    //when: StepContext;
+    //whens: StepContext[] = [];
     and: StepContext[] = [];
     tags: string[];
 }
-
 
 class ScenarioOutlineContext extends ScenarioContext {
     example: DataTableRow;
@@ -338,23 +540,49 @@ class BackgroundContext extends ScenarioContext {
 }
 
 class StepContext {
-    title: string;
-    table: DataTableRow[];
+    public title: string;
+    public table: DataTableRow[];
 
-    docString: string;
+    public docString: string;
 
-    get docStringAsEntity() {
+    public get docStringAsEntity() {
         return JSON.parse(this.docString);
     }
 
-    type: string;
-    values: any[];
+    public type: string;
+    public values: any[];
+    public valuesRaw: string[];
 
-    tableAsEntity: DataTableRow;
+    get tableAsEntity(): any {
+        if (this.table.length === 0 || this.table[0].length > 2) {
+            return;
+        }
 
-    tableAsList: any[][];
+        let entity = {};
+        for (let row = 0; row < this.table.length; row++) {
+            // Copy column to header key
+            entity[this.table[row][0].toString()] = this.table[row][1];
+        }
+        return entity;
+    }
 
-    tableAsSingleList: any[];
+    public tableAsList(): DataTableRow[] {
+        debugger;
+        return this.table;
+    }
+
+    public get tableAsSingleList(): any[] {
+        if (this.table.length === 0) {
+            return;
+        }
+
+        let list = [];
+        for (let row = 0; row < this.table.length; row++) {
+            // Copy column to header key
+            list.push(this.table[row][0]);
+        }
+        return list;
+    }
 }
 
 declare var feature: Mocha.IContextDefinition;
@@ -456,28 +684,53 @@ function createStepAlias(file, suites, mocha) {
     return function testTypeCreator(type) {
         async function testType(title, stepDefinitionFunction?) {
             var suite, test;
-            var testName = type ? type + ' ' + title : title;
+            let stepDefinition: StepDefinition;
             suite = suites[0];
+            const livedoc = suite.livedoc;;
 
-            let context = getStepContext(title);
+            const suiteType = livedoc.type;
+            if (suiteType === "Background") {
+                stepDefinition = livedoc.feature.background.addStep(type, title);
+            } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
+                stepDefinition = livedoc.scenario.addStep(type, title);
+            } else {
+                throw TypeError(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedoc.feature.filename}\nStep Definition: ${type}: ${title}`);
+            }
+
+
+            //let context = getStepContext(title);
 
             // Format the original title for better display output
-            testName = formatBlock(testName, 10);
-
+            //testName = formatBlock(testName, 10);
             if (suite.pending) stepDefinitionFunction = null;
 
             let stepDefinitionContextWrapper = stepDefinitionFunction
             if (stepDefinitionFunction) {
                 stepDefinitionContextWrapper = async function (...args) {
-                    featureContext = suite.ctx.featureContext;
-                    scenarioContext = suite.ctx.scenarioContext;
-                    scenarioOutlineContext = suite.ctx.scenarioOutlineContext;
-
-                    if (suite.parent.ctx.backgroundSuite) {
-                        backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
+                    featureContext = suite.livedoc.feature.getFeatureContext();
+                    switch (livedoc.type) {
+                        case "Background":
+                            backgroundContext = livedoc.feature.getBackgroundContext();
+                            break;
+                        case "Scenario":
+                            scenarioContext = livedoc.scenario.getScenarioContext();
+                            break;
+                        case "Scenario Outline":
+                            scenarioOutlineContext = livedoc.scenario.getScenarioContext();
+                            break;
                     }
+                    const context = stepDefinition.getStepContext();
+                    //scenarioOutlineContext = suite.livedoc.scenario.getScenarioContext();
+
+                    //featureContext = suite.ctx.featureContext;
+                    //scenarioOutlineContext = suite.ctx.scenarioOutlineContext;
+
+                    // if (suite.parent.ctx.backgroundSuite) {
+                    //     backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
+                    // }
 
                     if (suite.ctx.type == "Background") {
+                        debugger;
                         // Record the details necessary to execute the steps later on
                         const stepDetail = { func: stepDefinitionFunction, context: context };
                         suite.ctx.backgroundFunc.push(stepDetail);
@@ -486,7 +739,8 @@ function createStepAlias(file, suites, mocha) {
                         if (suite.parent.ctx.backgroundSuite && !suite.ctx.backgroundFunExec) {
                             // Skip the first scenario as its already been executed
                             if (suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount !== 1) {
-                                backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
+                                debugger;
+                                backgroundContext = suite.livedoc.feature.getBackgroundContext();
                                 // execute all functions of the background
                                 suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(stepDetails => {
                                     // reset the stepContext for this step
@@ -499,60 +753,64 @@ function createStepAlias(file, suites, mocha) {
                         }
                     }
 
-                    // A Given step is treated differently as its the primary way to setup
-                    // state for a Spec, so it gets its own property on the scenarioContext
-                    if (scenarioContext) {
-                        if (type === "Given") {
-                            suite.ctx.processingGiven = true;
-                            scenarioContext.given = context;
-                        } else if (["When", "Then"].indexOf(type) >= 0) {
-                            suite.ctx.processingGiven = false;
-                        } else if (suite.ctx.processingGiven) {
-                            scenarioContext.and.push(context);
-                        }
-                    }
+                    // // A Given step is treated differently as its the primary way to setup
+                    // // state for a Spec, so it gets its own property on the scenarioContext
+                    // if (scenarioContext) {
+                    //     if (type === "Given") {
+                    //         suite.ctx.processingGiven = true;
+                    //         scenarioContext.given = context;
+                    //     } else if (["When", "Then"].indexOf(type) >= 0) {
+                    //         suite.ctx.processingGiven = false;
+                    //     } else if (suite.ctx.processingGiven) {
+                    //         scenarioContext.and.push(context);
+                    //     }
+                    // }
 
                     // A Given step is treated differently as its the primary way to setup
                     // state for a Spec, so it gets its own property on the backgroundContext
-                    if (backgroundContext && suite.ctx.type === "Background") {
-                        if (type === "Given") {
-                            suite.ctx.processingGiven = true;
-                            backgroundContext.given = context;
-                        } else if (["When", "Then"].indexOf(type) >= 0) {
-                            suite.ctx.processingGiven = false;
-                        } else if (suite.ctx.processingGiven) {
-                            backgroundContext.and.push(context);
-                        }
-                    }
+                    // if (backgroundContext && suite.ctx.type === "Background") {
+                    //     if (type === "Given") {
+                    //         suite.ctx.processingGiven = true;
+                    //         backgroundContext.given = context;
+                    //     } else if (["When", "Then"].indexOf(type) >= 0) {
+                    //         suite.ctx.processingGiven = false;
+                    //     } else if (suite.ctx.processingGiven) {
+                    //         backgroundContext.and.push(context);
+                    //     }
+                    // }
 
                     // A Given step is treated differently as its the primary way to setup
                     // state for a Spec, so it gets its own property on the scenarioOutlineContext
-                    if (scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
-                        scenarioOutlineContext.example = this.test.example;
-                        if (type === "Given") {
-                            suite.ctx.processingGiven = true;
-                            scenarioOutlineContext.given = context;
-                        } else if (["When", "Then"].indexOf(type) >= 0) {
-                            suite.ctx.processingGiven = false;
-                        } else if (suite.ctx.processingGiven) {
-                            scenarioOutlineContext.and.push(context);
-                        }
-                    }
+                    // if (scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
+                    //     scenarioOutlineContext.example = this.test.example;
+                    //     if (type === "Given") {
+                    //         suite.ctx.processingGiven = true;
+                    //         scenarioOutlineContext.given = context;
+                    //     } else if (["When", "Then"].indexOf(type) >= 0) {
+                    //         suite.ctx.processingGiven = false;
+                    //     } else if (suite.ctx.processingGiven) {
+                    //         scenarioOutlineContext.and.push(context);
+                    //     }
+                    // }
 
                     stepContext = context;
                     const funcResult = stepDefinitionFunction(args);
                     if (funcResult && funcResult["then"]) {
-                        await funcResult;
+                        try {
+                            await funcResult;
+                        } catch (e) {
+                            debugger;
+                            throw e;
+                        }
                     }
                 }
             }
-            if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
-                // Scenario Outlines also require that their titles be data bound
-                testName = bind(testName, suite.ctx.scenarioOutlineContext.example);
-                context.title = testName;
-            }
+            // if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
+            //     // Scenario Outlines also require that their titles be data bound
+            //     context.title = stepDefinition.displayTitle;
+            // }
 
-            test = new _test(testName, stepDefinitionContextWrapper);
+            test = new _test(stepDefinition.displayTitle, stepDefinitionContextWrapper);
             test.file = file;
             if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
                 // Scenario Outlines also require that their titles be data bound
@@ -580,49 +838,39 @@ function createStepAlias(file, suites, mocha) {
     };
 
 }
+var features: Feature[] = [];
 
 /** @internal */
 function createDescribeAlias(file, suites, context, mocha) {
     return function wrapperCreator(type) {
-        function createLabel(title) {
-            debugger;
-            if (!type) return title;
-            let testName = type + ': ' + title;
-
-            // Format the original title for better display output
-            switch (type) {
-                case "Feature":
-                    testName = formatBlock(testName, 4);
-                    break;
-                case "Scenario":
-                    testName = formatBlock(testName, 6);
-                    break;
-            }
-            return testName;
-        }
         async function wrapper(title, fn) {
-            var suite = _suite.create(suites[0], createLabel(title));
-
-            suite.file = file;
-            const parts = getDescribeParts(title);
+            let feature: Feature;
             if (type === "Feature") {
-                const context = new FeatureContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                context.tags = parts.tags;
-                context.filename = file.replace(/^.*[\\\/]/, '');
-                suite.ctx.featureContext = context;
-                featureContext = context;
+                feature = new Feature();
+                feature.filename = file.replace(/^.*[\\\/]/, '');
+            } else {
+                feature = suites[0].livedoc.feature;
+            }
+
+            const contextDefinition = feature.parse(type, title);
+            var suite = _suite.create(suites[0], contextDefinition.displayTitle);
+            suite.livedoc = {};
+            suite.livedoc.feature = feature
+            suite.livedoc.type = type;
+            if (type === "Scenario" || type === "Scenario Outline") {
+                suite.livedoc.scenario = contextDefinition;
+            }
+
+
+            // LEGACY
+            if (type === "Feature") {
+                // Make it available within scenario context before steps
+                featureContext = feature.getFeatureContext();
             } else if (type === "Background") {
-                const context = new BackgroundContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                suite.ctx.backgroundContext = context;
-                context.tags = parts.tags;
-                backgroundContext = context;
+                backgroundContext = feature.getBackgroundContext();
+                suite.ctx.backgroundContext = backgroundContext;
                 // Need to put the context on the parent or it won't be available
                 // to the scenarios
-                suite.ctx.backgroundContext = backgroundContext;
                 suite.ctx.backgroundFunc = [];
                 suite.ctx.backgroundFunExecCount = 1;
 
@@ -630,21 +878,23 @@ function createDescribeAlias(file, suites, context, mocha) {
                 suite.parent.ctx.backgroundSuite = suite;
             } else if (type === "Scenario Outline") {
                 // Setup the basic context for the scenarioOutline
-                const context = new ScenarioOutlineContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                context.tags = parts.tags;
+                const context = suite.livedoc.scenario.getScenarioContext();
 
-                // Extract the Examples:
-                const table = getTableAsList(title);
+                const scenarioOutline = contextDefinition as ScenarioOutline;
+                var outlineSuite = _suite.create(suites[0], context.title);
+                outlineSuite.livedoc = {};
+                outlineSuite.livedoc.feature = feature
+                outlineSuite.livedoc.type = type;
 
-                for (let i = 1; i < table.length; i++) {
-                    var outlineSuite = _suite.create(suites[0], createLabel(context.title));
-                    context.example = getTableRowAsEntity(table, i);
-                    outlineSuite.ctx.scenarioOutlineContext = context;
+                for (let i = 0; i < scenarioOutline.scenarios.length; i++) {
+                    context.example = scenarioOutline.scenarios[i].example;
+
                     suite.ctx.type = type;
                     outlineSuite.ctx.type = type;
+                    outlineSuite.livedoc.scenario = scenarioOutline.scenarios[i];
+                    outlineSuite.ctx.scenarioOutlineContext = context;
                     suites.unshift(outlineSuite);
+
                     if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
                         outlineSuite.afterAll(async () => {
                             const funcResult = outlineSuite.parent.ctx.backgroundSuite.afterBackground();
@@ -652,24 +902,20 @@ function createDescribeAlias(file, suites, context, mocha) {
                                 await funcResult;
                             }
                         });
-                    }
-
-
+                    };
                     const funcResult = fn.call(outlineSuite);
                     if (funcResult && funcResult["then"]) {
                         await funcResult;
+                        debugger;
                     }
                     suites.shift();
-                }
+                };
 
                 return outlineSuite;
 
             } else {
                 // Scenario
-                const context = new ScenarioContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                context.tags = parts.tags;
+                const context = suite.livedoc.scenario.getScenarioContext();
                 suite.ctx.scenarioContext = context;
                 scenarioContext = context;
             }
@@ -689,7 +935,11 @@ function createDescribeAlias(file, suites, context, mocha) {
 
             const funcResult = fn.call(suite);
             if (funcResult && funcResult["then"]) {
-                await funcResult;
+                try {
+                    await funcResult;
+                } catch (e) {
+                    throw e;
+                }
             }
 
             suites.shift();
@@ -697,7 +947,9 @@ function createDescribeAlias(file, suites, context, mocha) {
         }
 
         (wrapper as any).skip = function skip(title, fn) {
-            var suite = _suite.create(suites[0], createLabel(title));
+            const contextDefinition = new Feature().parse(type, title);
+
+            var suite = _suite.create(suites[0], contextDefinition.title);
 
             suite.pending = true;
             suites.unshift(suite);
@@ -715,42 +967,6 @@ function createDescribeAlias(file, suites, context, mocha) {
         };
 
         return wrapper;
-    };
-
-    function getDescribeParts(text: string) {
-        let arrayOfLines = text.match(/[^\r\n]+/g);
-        let description = "";
-        let title = "";
-        let tags: string[] = [];
-
-        if (arrayOfLines.length > 0) {
-            for (let i = 0; i < arrayOfLines.length; i++) {
-                let line = arrayOfLines[i];
-                if (line.startsWith(" ")) {
-                    arrayOfLines[i] = line.trim();
-                }
-
-                // Look for tags
-                if (arrayOfLines[i].startsWith("@")) {
-                    tags.push(...arrayOfLines[i].substr(1).split(' '));
-                    // remove tags from description
-                    arrayOfLines.splice(i, 1);
-                    // As the array lost an element need to reprocess this index
-                    i--;
-                }
-            }
-
-            title = arrayOfLines[0];
-            arrayOfLines.shift();
-            description = arrayOfLines.join("\n");
-        }
-
-        let result = {
-            title,
-            description,
-            tags
-        };
-        return result;
     };
 }
 
@@ -794,6 +1010,7 @@ function formatBlock(text: string, indent: number): string {
 }
 
 /** @internal */
+/*
 function getStepContext(title: string): StepContext {
     let context = new StepContext();
     const parts = getStepParts(title);
@@ -812,7 +1029,7 @@ function getStepContext(title: string): StepContext {
 
     return context;
 }
-
+*/
 /** @internal */
 function getTableAsList(text: string): any[][] {
     let arrayOfLines = text.match(/[^\r\n]+/g);

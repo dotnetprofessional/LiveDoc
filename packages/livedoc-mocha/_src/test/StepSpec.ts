@@ -248,7 +248,7 @@ feature.only(`Step statement
             });
         });
 
-        feature("Step statements should support async operations", () => {
+        scenario("Step statements should support async operations", () => {
             let value = 0;
             when(`a step is testing code that is async`, async () => {
                 value = 10;

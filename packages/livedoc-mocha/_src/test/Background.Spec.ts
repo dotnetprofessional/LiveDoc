@@ -24,6 +24,7 @@ feature(`Background statement
             });
 
             and("we add '70' to somevalue", () => {
+                debugger;
                 someValue += backgroundContext.and[0].values[0];
             });
 
