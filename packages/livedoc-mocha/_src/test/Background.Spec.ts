@@ -15,6 +15,7 @@ feature(`Background statement
         background("This will be executed before each test", () => {
 
             afterBackground(() => {
+                debugger;
                 afterBackgroundCheck = 0;
             });
 
@@ -24,7 +25,6 @@ feature(`Background statement
             });
 
             and("we add '70' to somevalue", () => {
-                debugger;
                 someValue += backgroundContext.and[0].values[0];
             });
 
