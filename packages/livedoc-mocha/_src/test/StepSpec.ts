@@ -1,9 +1,9 @@
 ///<reference path="../app/livedoc.ts" />
-import * as Utils from "./Utils";
+import * as Utils from './Utils';
 
 require('chai').should();
 
-feature.only(`Step statement
+feature(`Step statement
     Step statements are used to define the details of a test, the supported steps are:
         given - sets up the state for the scenario
         when  - defines an action performed by a user/system
@@ -262,3 +262,11 @@ feature.only(`Step statement
         });
 
     });
+
+// describe("Error test", () => {
+//     debugger;
+//     it("Should fail", () => {
+//         debugger;
+//         throw new TypeError("Bail...");
+//     });
+// });
