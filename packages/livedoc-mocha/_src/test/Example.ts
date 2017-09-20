@@ -68,7 +68,6 @@ feature(`Account Holder withdraws cash
             });
 
             when("the Account Holder requests '20' dollars", () => {
-                debugger;
                 cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);
             });
 

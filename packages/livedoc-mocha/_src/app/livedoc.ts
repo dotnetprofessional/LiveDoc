@@ -158,6 +158,36 @@ class Parser {
         this.description = descriptionLines.join("\n");
     }
 
+    public getTableRowAsEntity(headerRow: DataTableRow, dataRow: DataTableRow): object {
+        let entity = {};
+        for (let p = 0; p < headerRow.length; p++) {
+            // Copy column to header key
+            entity[headerRow[p].toString()] = dataRow[p];
+        }
+        return entity;
+    }
+
+    public getTable(tableArray: DataTableRow[]): DataTableRow[] {
+        let table: DataTableRow[] = [];
+
+        if (tableArray.length === 0) {
+            return table;
+        }
+
+        let header = tableArray[0];
+        for (let i = 1; i < tableArray.length; i++) {
+            let rowData = tableArray[i];
+            let row: DataTableRow = {};
+            for (let column = 0; column < rowData.length; column++) {
+                // Copy column to header key
+                row[header[column]] = this.coerceValue(rowData[column]);
+            }
+            table.push(row);
+        }
+        return table;
+    }
+
+
     public coerceValues(values: string[]): any[] {
         const coercedArray = [];
         values.forEach(value => {
@@ -167,7 +197,7 @@ class Parser {
         return coercedArray;
     }
 
-    private coerceValue(valueString: string): any {
+    public coerceValue(valueString: string): any {
         const value = +valueString;
         if (value) {
             return value;
@@ -425,6 +455,8 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
+    private _parser = new Parser();
+
     public parseTables(tables: Table[]) {
         // merge all tables into a single array for processing
         tables.forEach(table => {
@@ -446,19 +478,10 @@ class ScenarioOutline extends Scenario {
         for (let i = 1; i < table.dataTable.length; i++) {
             const dataRow = table.dataTable[i];
             const scenario = new ScenarioOutlineScenario();
-            scenario.example = this.getTableRowAsEntity(headerRow, dataRow);
+            scenario.example = this._parser.getTableRowAsEntity(headerRow, dataRow);
             scenario.title = parser.bind(this.title, scenario.example);
             this.scenarios.push(scenario);
         }
-    }
-
-    private getTableRowAsEntity(headerRow: DataTableRow, dataRow: DataTableRow): object {
-        let entity = {};
-        for (let p = 0; p < headerRow.length; p++) {
-            // Copy column to header key
-            entity[headerRow[p].toString()] = dataRow[p];
-        }
-        return entity;
     }
 }
 
@@ -489,7 +512,7 @@ class StepDefinition {
     public getStepContext(): StepContext {
         const context = new StepContext();
         context.title = this.title;
-        context.table = this.dataTable;
+        context.dataTable = this.dataTable;
         context.docString = this.docString;
         context.values = this.values;
         context.valuesRaw = this.valuesRaw;
@@ -504,6 +527,11 @@ class Table {
     public dataTable: DataTableRow[] = [];
 }
 
+/**
+ * Represents a row in a data table as a keyed object
+ * 
+ * @interface DataTableRow
+ */
 declare interface DataTableRow {
     [prop: string]: any;
 }
@@ -540,8 +568,11 @@ class BackgroundContext extends ScenarioContext {
 }
 
 class StepContext {
+    private _table: DataTableRow[];
+    private _parser = new Parser();
+
     public title: string;
-    public table: DataTableRow[];
+    public dataTable: DataTableRow[];
 
     public docString: string;
 
@@ -553,33 +584,41 @@ class StepContext {
     public values: any[];
     public valuesRaw: string[];
 
-    get tableAsEntity(): any {
-        if (this.table.length === 0 || this.table[0].length > 2) {
+    public get table() {
+        if (!this._table) {
+            // crate a table representation of the dataTable
+            this._table = this._parser.getTable(this.tableAsList());
+        }
+        return this._table;
+    }
+
+    public get tableAsEntity(): any {
+        if (this.dataTable.length === 0 || this.dataTable[0].length > 2) {
             return;
         }
 
         let entity = {};
-        for (let row = 0; row < this.table.length; row++) {
+        for (let row = 0; row < this.dataTable.length; row++) {
             // Copy column to header key
-            entity[this.table[row][0].toString()] = this.table[row][1];
+            entity[this.dataTable[row][0].toString()] = this._parser.coerceValue(this.dataTable[row][1]);
         }
         return entity;
     }
 
     public tableAsList(): DataTableRow[] {
-        debugger;
-        return this.table;
+        return this.dataTable;
     }
 
     public get tableAsSingleList(): any[] {
-        if (this.table.length === 0) {
+        if (this.dataTable.length === 0) {
             return;
         }
 
+
         let list = [];
-        for (let row = 0; row < this.table.length; row++) {
+        for (let row = 0; row < this.dataTable.length; row++) {
             // Copy column to header key
-            list.push(this.table[row][0]);
+            list.push(this._parser.coerceValue(this.dataTable[row][0]));
         }
         return list;
     }
@@ -660,7 +699,9 @@ function liveDocMocha(suite) {
         context.before = common.before;
         context.beforeEach = common.beforeEach;
         context.afterBackground = function (fn) {
-            suites[0].afterBackground = fn;
+            // Assign the background to the parent ie Feature so it can be accessed by 
+            // the Features scenarios.
+            suites[0].parent.livedoc.afterBackground = fn;
         };
 
         context.feature = describeAliasBuilder('Feature');
@@ -694,6 +735,7 @@ function createStepAlias(file, suites, mocha) {
             } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
                 stepDefinition = livedoc.scenario.addStep(type, title);
             } else {
+                debugger;
                 throw TypeError(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedoc.feature.filename}\nStep Definition: ${type}: ${title}`);
             }
 
@@ -714,8 +756,6 @@ function createStepAlias(file, suites, mocha) {
                             scenarioOutlineContext = livedoc.scenario.getScenarioContext();
                             break;
                     }
-                    stepContext = stepDefinition.getStepContext();
-
 
                     // If the type is a background then bundle up the steps but don't execute them
                     // they will be executed prior to each scenario.
@@ -725,8 +765,8 @@ function createStepAlias(file, suites, mocha) {
                         // Have to put on the parent suite as scenarios and backgrounds are at the same level
                         suite.parent.livedoc.backgroundSteps.push(stepDetail);
                     } else {
-                        // Execute the background if the parent feature has one defined
-                        if (suite.parent.livedoc.backgroundSteps && !suite.parent.livedoc.backgroundStepsComplete) {
+                        if (suite.livedoc.scenarioId != 1 &&
+                            suite.parent.livedoc.backgroundSteps && !suite.livedoc.backgroundStepsComplete) {
                             // set the background context
                             backgroundContext = livedoc.feature.getBackgroundContext();
 
@@ -736,8 +776,15 @@ function createStepAlias(file, suites, mocha) {
                                 stepDetails.func();
                             });
                             // Mark the background as complete for this scenario
-                            suite.parent.livedoc.backgroundStepsComplete = true;
+                            suite.livedoc.backgroundStepsComplete = true;
                         }
+                    }
+                    // Must reset stepContext as execution of the background may have changed it
+                    stepContext = stepDefinition.getStepContext();
+
+                    const funcResult = stepDefinitionFunction(args);
+                    if (funcResult && funcResult["then"]) {
+                        await funcResult;
                     }
                 }
 
@@ -790,41 +837,53 @@ function createDescribeAlias(file, suites, context, mocha) {
             switch (type) {
                 case "Feature":
                     featureContext = feature.getFeatureContext();
+                    // Backgrounds need to be executed for each scenario except the first one
+                    // this value tags the scenario number
+                    suite.livedoc.scenarioCount = 0;
+
                     break;
                 case "Background":
+                    //suite.parent.livedoc.backgroundSuite = { fn, suite };
                     suite.parent.livedoc.backgroundSteps = [];
                     break;
                 case "Scenario":
+                    if (suite.parent.livedoc.afterBackground) {
+                        // Add the afterBackground function to each scenario's afterAll function
+                        suite.afterAll(async () => {
+                            const funcResult = suite.parent.livedoc.afterBackground();
+                            if (funcResult && funcResult["then"]) {
+                                await funcResult;
+                            }
+                        });
+                    }
+                    suite.parent.livedoc.scenarioCount += 1;
+                    suite.livedoc.scenarioId = suite.parent.livedoc.scenarioCount;
                 case "Scenario Outline":
                     suite.livedoc.scenario = suiteDefinition;
                     break;
             }
-
 
             // LEGACY
             if (type === "Scenario Outline") {
                 // Setup the basic context for the scenarioOutline
 
                 const scenarioOutline = suiteDefinition as ScenarioOutline;
-                var outlineSuite = _suite.create(suites[0], suite.livedoc.scenario.title);
-                outlineSuite.livedoc = {};
-                outlineSuite.livedoc.feature = feature
-                outlineSuite.livedoc.type = type;
-
+                //var suite = _suite.create(suites[0], suite.livedoc.scenario.title);
                 for (let i = 0; i < scenarioOutline.scenarios.length; i++) {
-                    debugger;
-                    context = scenarioOutline.scenarios[i].getScenarioContext();
-
-                    suite.ctx.type = type;
-                    outlineSuite.ctx.type = type;
-                    outlineSuite.livedoc.scenario = scenarioOutline.scenarios[i];
-                    outlineSuite.ctx.scenarioOutlineContext = context;
+                    const currentScenario = scenarioOutline.scenarios[i];
+                    context = currentScenario.getScenarioContext();
+                    var outlineSuite = _suite.create(suites[0], scenarioOutline.title);
+                    outlineSuite.livedoc = {};
+                    outlineSuite.livedoc.feature = feature
+                    outlineSuite.livedoc.type = type;
+                    outlineSuite.livedoc.scenario = currentScenario;
+                    outlineSuite.parent.livedoc.scenarioCount += 1;
+                    outlineSuite.livedoc.scenarioId = outlineSuite.parent.livedoc.scenarioCount;
                     suites.unshift(outlineSuite);
 
-                    if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
-                        debugger;
+                    if (suite.parent.livedoc.afterBackground) {
                         outlineSuite.afterAll(async () => {
-                            const funcResult = outlineSuite.parent.ctx.backgroundSuite.afterBackground();
+                            const funcResult = suite.parent.livedoc.afterBackground();
                             if (funcResult && funcResult["then"]) {
                                 await funcResult;
                             }
@@ -836,13 +895,13 @@ function createDescribeAlias(file, suites, context, mocha) {
                         debugger;
                     }
                     suites.shift();
-                };
+                }
 
                 return outlineSuite;
 
             } else {
             }
-            suite.ctx.type = type;
+            //suite.ctx.type = type;
             suites.unshift(suite);
 
             if (type === "Scenario" &&
@@ -1001,26 +1060,6 @@ function coerceValue(valueString: string): any {
 }
 
 /** @internal */
-function getTable(tableArray: any[][]): DataTableRow[] {
-    let table: DataTableRow[] = [];
-
-    if (tableArray.length === 0) {
-        return table;
-    }
-
-    let header = tableArray[0];
-    for (let i = 1; i < tableArray.length; i++) {
-        let rowData = tableArray[i];
-        let row: DataTableRow = {};
-        for (let column = 0; column < rowData.length; column++) {
-            // Copy column to header key
-            row[header[column]] = rowData[column];
-        }
-        table.push(row);
-    }
-    return table;
-}
-
 /** @internal */
 function getTableAsEntity(tableArray: any[][]): object {
 

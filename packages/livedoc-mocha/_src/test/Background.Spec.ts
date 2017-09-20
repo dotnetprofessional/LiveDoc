@@ -1,4 +1,4 @@
-import * as Utils from "./Utils";
+import * as Utils from './Utils';
 
 require('chai').should();
 
@@ -15,7 +15,6 @@ feature(`Background statement
         background("This will be executed before each test", () => {
 
             afterBackground(() => {
-                debugger;
                 afterBackgroundCheck = 0;
             });
 
@@ -49,11 +48,15 @@ feature(`Background statement
             and("afterBackgroundCheck should be '10'", () => {
                 afterBackgroundCheck.should.be.equal(stepContext.values[0]);
             });
+
+            // TODO: Change the number to 1 after optimization
+            and("the background has been executed '1' times so far", () => {
+                count.should.be.equal(stepContext.values[0]);
+            })
         });
 
         scenario("Add 20 to someValue", () => {
             when(`someValue is increased by '20'`, () => {
-                someValue
                 someValue += stepContext.values[0];
             });
 
@@ -64,6 +67,11 @@ feature(`Background statement
             and("afterBackgroundCheck should be '10'", () => {
                 afterBackgroundCheck.should.be.equal(stepContext.values[0]);
             });
+
+
+            and("the background has been executed '2' times so far", () => {
+                count.should.be.equal(stepContext.values[0]);
+            })
         });
 
         scenario("Add 200 to someValue", () => {
@@ -75,19 +83,19 @@ feature(`Background statement
                 someValue.should.be.equal(stepContext.values[0]);
             });
 
-            and("the background should be executed '3' times", () => {
-                stepContext.values[0].should.be.equal(count);
-            });
-
             and("afterBackgroundCheck should be '10'", () => {
                 afterBackgroundCheck.should.be.equal(stepContext.values[0]);
             });
+
+            and("the background should be executed '3' times", () => {
+                stepContext.values[0].should.be.equal(count);
+            });
         });
+
     });
 
 feature("Background works with Scenario Outlines", () => {
     let afterBackgroundCheck = 0;
-
     background("Validate afterBackground", () => {
         given("afterBackgroundCheck has 10 added to it", () => {
             afterBackgroundCheck += 10;
@@ -108,7 +116,6 @@ feature("Background works with Scenario Outlines", () => {
     `, () => {
 
             given("this is <col1>", () => {
-
             });
 
             then("afterBackgroundCheck should be '10'", () => {

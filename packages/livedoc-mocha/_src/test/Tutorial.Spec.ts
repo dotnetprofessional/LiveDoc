@@ -79,7 +79,6 @@ feature(`Beautiful Tea Shipping Costs
                 });
 
                 and("they are charged <Shipping Rate>", () => {
-                    debugger;
                     const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(" ", "")];
                     cart.shipping.should.be.equal(rate);
                 });

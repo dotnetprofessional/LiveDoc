@@ -1,6 +1,6 @@
-///<reference path="../app/livedoc.ts" />
-import * as Utils from "./Utils";
+import * as Utils from './Utils';
 
+///<reference path="../app/livedoc.ts" />
 require('chai').should();
 
 feature(`Scenario statement
@@ -32,7 +32,6 @@ feature(`Scenario statement
                 | title        | The global variable scenarioContext is set  |
                 | description  | with this description                       |
                 `, () => {
-                        debugger;
                         givenContext = stepContext;
                     });
                 then("the scenarioContext.title should match title", () => {
