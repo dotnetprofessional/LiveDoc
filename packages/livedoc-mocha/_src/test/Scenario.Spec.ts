@@ -1,5 +1,3 @@
-import * as Utils from './Utils';
-
 ///<reference path="../app/livedoc.ts" />
 require('chai').should();
 
@@ -113,19 +111,4 @@ feature(`Scenario statement
                 });
 
             });
-
-        scenario("Scenario statements should support async operations", async () => {
-            let value = 0;
-
-            value = 10;
-            await Utils.sleep(10);
-            value = 20;
-
-            // tslint:disable-next-line:no-empty
-            when(`a scenario uses async code`, () => { });
-
-            then("the test should continue after the async operation", () => {
-                value.should.be.equal(20);
-            });
-        });
     });

@@ -124,7 +124,7 @@ feature("Background works with Scenario Outlines", () => {
         });
 })
 
-feature("Background supports async operations", async () => {
+feature("Background supports async operations", () => {
     let someValue = 0;
     let count = 0;
     let afterBackgroundCheck = 0;

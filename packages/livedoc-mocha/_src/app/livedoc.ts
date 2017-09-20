@@ -782,10 +782,11 @@ function createStepAlias(file, suites, mocha) {
                     // Must reset stepContext as execution of the background may have changed it
                     stepContext = stepDefinition.getStepContext();
 
-                    const funcResult = stepDefinitionFunction(args);
-                    if (funcResult && funcResult["then"]) {
-                        await funcResult;
-                    }
+                    return stepDefinitionFunction;
+                    // const funcResult = stepDefinitionFunction(args);
+                    // if (funcResult && funcResult["then"]) {
+                    //     await funcResult;
+                    // }
                 }
 
                 test = new _test(stepDefinition.displayTitle, stepDefinitionContextWrapper);
@@ -800,13 +801,10 @@ function createStepAlias(file, suites, mocha) {
             testType(title);
         };
 
-        (testType as any).only = function only(title, fn) {
-            var test = testType(title, fn);
-            if (test && test["then"]) {
-                test.then((test) => {
-                    mocha.grep(test.fullTitle());
-                });
-            }
+        (testType as any).only = async function only(title, fn) {
+            debugger;
+            var test = await testType(title, fn);
+            mocha.grep(test.fullTitle());
         };
 
         return testType;
@@ -818,7 +816,7 @@ var features: Feature[] = [];
 /** @internal */
 function createDescribeAlias(file, suites, context, mocha) {
     return function wrapperCreator(type) {
-        async function wrapper(title, fn) {
+        function wrapper(title, fn) {
             let feature: Feature;
             if (type === "Feature") {
                 feature = new Feature();
@@ -889,11 +887,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                             }
                         });
                     };
-                    const funcResult = fn.call(outlineSuite);
-                    if (funcResult && funcResult["then"]) {
-                        await funcResult;
-                        debugger;
-                    }
+                    fn.call(outlineSuite);
                     suites.shift();
                 }
 
@@ -908,20 +902,14 @@ function createDescribeAlias(file, suites, context, mocha) {
                 suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
                 // Add the afterBackground function to each scenario's afterAll function
                 suite.afterAll(async () => {
-                    const funcResult = suite.parent.ctx.backgroundSuite.afterBackground();
-                    if (funcResult && funcResult["then"]) {
-                        await funcResult;
-                    }
+                    return suite.parent.ctx.backgroundSuite.afterBackground();
                 });
             }
 
             const funcResult = fn.call(suite);
             if (funcResult && funcResult["then"]) {
-                try {
-                    await funcResult;
-                } catch (e) {
-                    throw e;
-                }
+                debugger;
+                throw new TypeError(`${suite.livedoc.type} does not support Async operations. You can only use async operations with step definitions`);
             }
 
             suites.shift();
@@ -941,11 +929,7 @@ function createDescribeAlias(file, suites, context, mocha) {
 
         (wrapper as any).only = function only(title, fn) {
             var suite = wrapper(title, fn);
-            if (suite && suite["then"]) {
-                suite.then((suite) => {
-                    mocha.grep(suite.fullTitle());
-                });
-            }
+            mocha.grep(suite.fullTitle());
         };
 
         return wrapper;
