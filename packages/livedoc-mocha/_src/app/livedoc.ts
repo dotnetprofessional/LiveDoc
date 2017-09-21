@@ -1,3 +1,4 @@
+var moment = require("moment");
 /*
     Typescript definitions
 */
@@ -122,6 +123,10 @@ class Parser {
     public docString: string = "";
     public quotedValues: string[];
 
+    constructor () {
+        this.jsonDateParser = this.jsonDateParser.bind(this);
+    }
+
     public parseDescription(text: string) {
         const textReader = new TextBlockReader(text);
         if (textReader.next()) {
@@ -162,7 +167,7 @@ class Parser {
         let entity = {};
         for (let p = 0; p < headerRow.length; p++) {
             // Copy column to header key
-            entity[headerRow[p].toString()] = dataRow[p];
+            entity[headerRow[p].toString()] = this.coerceValue(dataRow[p]);
         }
         return entity;
     }
@@ -198,25 +203,35 @@ class Parser {
     }
 
     public coerceValue(valueString: string): any {
-        const value = +valueString;
-        if (value) {
-            return value;
-        } else {
-            // check if its a boolean
-            const literals = ["true", true, "false", false];
-            const index = literals.indexOf(valueString);
-            if (index >= 0) {
-                return literals[index + 1];
-            } else {
-                // Check if its an array
-                if (valueString.startsWith("[") && valueString.endsWith("]")) {
-                    const array = JSON.parse(valueString);
-                    return array;
-                } else {
-                    return valueString;
-                }
+        // Use JSON.parse to do type conversion, if that fails return the original string
+        try {
+            return JSON.parse(valueString, this.jsonDateParser);
+        } catch {
+            // Ok so its a string, but it could still be a special one!
+            // Try checking if its a date
+            const maybeDate = this.getMomentDate(valueString);
+            if (maybeDate.isValid()) {
+                return maybeDate.toDate();
             }
+
+            return valueString;
         }
+    }
+
+    private getMomentDate(value: string) {
+        var formats = [
+            moment.ISO_8601,
+            "MM/DD/YYYY"
+        ];
+        return moment(value, formats, true);
+    }
+
+    private jsonDateParser(key, value) {
+        const maybeDate = this.getMomentDate(value);
+        if (maybeDate.isValid()) {
+            return maybeDate.toDate();
+        }
+        return value;
     }
 
     private parseTable(textReader: TextBlockReader): Table {
@@ -250,7 +265,6 @@ class Parser {
             const rowData = line.split("|");
             let row: any[] = [];
             for (let i = 1; i < rowData.length - 1; i++) {
-                // Convert the values to the best primitive type
                 const valueString = rowData[i].trim();
                 row.push(valueString);
             }
@@ -325,15 +339,14 @@ class Parser {
 
 
     public bind(content, model) {
-        var regex = new RegExp("<[\\w\\d]+>", "g");
+        var regex = new RegExp("<[^>]+>", "g");
         return content.replace(regex, (item, pos, originalText) => {
             return this.applyBinding(item, model);
         });
     }
 
     private applyBinding(item, model) {
-        var key = item.replace("<", "").replace(">", "");
-        key = this.sanitizeName(key);
+        var key = this.sanitizeName(item.substr(1, item.length - 2));
         if (model.hasOwnProperty(key)) {
             return model[key];
         } else {
@@ -342,8 +355,8 @@ class Parser {
     }
 
     public sanitizeName(name: string): string {
-        // copy the header names removing spaces and apostrophes
-        return name.replace(" ", "").replace("`", "").replace("’", "");
+        // removing spaces and apostrophes
+        return name.replace(/[ `’']/g, "");
     }
 
 }
@@ -430,7 +443,7 @@ class Background extends Scenario {
  * @extends {Scenario}
  */
 class ScenarioOutlineScenario extends Scenario {
-    public example: Object;
+    public example: DataTableRow;
 
     public addStep(type: string, description: string): StepDefinition {
         const step = super.addStep(type, description);
@@ -485,11 +498,6 @@ class ScenarioOutline extends Scenario {
     }
 }
 
-class example {
-    name: string;
-    rows: DataTableRow[];
-}
-
 class StepDefinition {
     id: number;
     title: string = "";
@@ -536,12 +544,6 @@ declare interface DataTableRow {
     [prop: string]: any;
 }
 
-declare interface String {
-    startsWith(searchString: string, position?: number);
-    endsWith(searchString: string, position?: number);
-    repeat(times: number);
-}
-
 class FeatureContext {
     filename: string;
     title: string;
@@ -561,7 +563,7 @@ class ScenarioContext {
 }
 
 class ScenarioOutlineContext extends ScenarioContext {
-    example: DataTableRow;
+    public example: DataTableRow;
 }
 
 class BackgroundContext extends ScenarioContext {
@@ -592,15 +594,19 @@ class StepContext {
         return this._table;
     }
 
-    public get tableAsEntity(): any {
+    public get tableAsEntity(): DataTableRow {
         if (this.dataTable.length === 0 || this.dataTable[0].length > 2) {
             return;
         }
 
+        return this.convertDataTableRowToEntity(this.dataTable);
+    }
+
+    private convertDataTableRowToEntity(dataTable: DataTableRow): DataTableRow {
         let entity = {};
-        for (let row = 0; row < this.dataTable.length; row++) {
+        for (let row = 0; row < dataTable.length; row++) {
             // Copy column to header key
-            entity[this.dataTable[row][0].toString()] = this._parser.coerceValue(this.dataTable[row][1]);
+            entity[dataTable[row][0].toString()] = this._parser.coerceValue(dataTable[row][1]);
         }
         return entity;
     }
@@ -742,7 +748,7 @@ function createStepAlias(file, suites, mocha) {
 
             let stepDefinitionContextWrapper = stepDefinitionFunction
             if (stepDefinitionFunction) {
-                stepDefinitionContextWrapper = async function (...args) {
+                stepDefinitionContextWrapper = function (...args) {
                     featureContext = suite.livedoc.feature.getFeatureContext();
                     switch (livedoc.type) {
                         case "Background":
@@ -782,10 +788,6 @@ function createStepAlias(file, suites, mocha) {
                     stepContext = stepDefinition.getStepContext();
 
                     return stepDefinitionFunction(args);
-                    // const funcResult = stepDefinitionFunction(args);
-                    // if (funcResult && funcResult["then"]) {
-                    //     await funcResult;
-                    // }
                 }
 
                 test = new _test(stepDefinition.displayTitle, stepDefinitionContextWrapper);
@@ -800,9 +802,9 @@ function createStepAlias(file, suites, mocha) {
             testType(title);
         };
 
-        (testType as any).only = async function only(title, fn) {
+        (testType as any).only = function only(title, fn) {
             debugger;
-            var test = await testType(title, fn);
+            var test = testType(title, fn);
             mocha.grep(test.fullTitle());
         };
 
@@ -847,11 +849,8 @@ function createDescribeAlias(file, suites, context, mocha) {
                     case "Scenario":
                         if (suite.parent.livedoc.afterBackground) {
                             // Add the afterBackground function to each scenario's afterAll function
-                            suite.afterAll(async () => {
-                                const funcResult = suite.parent.livedoc.afterBackground();
-                                if (funcResult && funcResult["then"]) {
-                                    await funcResult;
-                                }
+                            suite.afterAll(() => {
+                                return suite.parent.livedoc.afterBackground();
                             });
                         }
                         suite.parent.livedoc.scenarioCount += 1;
@@ -880,11 +879,8 @@ function createDescribeAlias(file, suites, context, mocha) {
                         suites.unshift(outlineSuite);
 
                         if (suite.parent.livedoc.afterBackground) {
-                            outlineSuite.afterAll(async () => {
-                                const funcResult = suite.parent.livedoc.afterBackground();
-                                if (funcResult && funcResult["then"]) {
-                                    await funcResult;
-                                }
+                            outlineSuite.afterAll(() => {
+                                return suite.parent.livedoc.afterBackground();
                             });
                         };
                         fn.call(outlineSuite);
@@ -898,7 +894,7 @@ function createDescribeAlias(file, suites, context, mocha) {
                 if (type === "Scenario" &&
                     suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
                     // Add the afterBackground function to each scenario's afterAll function
-                    suite.afterAll(async () => {
+                    suite.afterAll(() => {
                         return suite.parent.ctx.backgroundSuite.afterBackground();
                     });
                 }
@@ -934,209 +930,4 @@ function createDescribeAlias(file, suites, context, mocha) {
 
         return wrapper;
     };
-}
-
-// Used to bind the model to the values.
-/** @internal */
-function bind(content, model) {
-    var regex = new RegExp("<[\\w\\d]+>", "g");
-    return content.replace(regex, (item, pos, originalText) => {
-        return applyBinding(item, model);
-    });
-}
-
-function applyBinding(item, model) {
-    var key = item.replace("<", "").replace(">", "");
-    if (model.hasOwnProperty(key))
-        return model[key];
-    else {
-        return item;
-    }
-}
-/** @internal */
-function formatBlock(text: string, indent: number): string {
-    let arrayOfLines = text.split(/\r?\n/);
-    if (arrayOfLines.length > 1) {
-        for (let i = 1; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i].trim();
-            // Skip tags
-            if (line.startsWith("@")) {
-                arrayOfLines.splice(i, 1);
-                i--;
-            } else {
-                // Apply indentation
-                arrayOfLines[i] = " ".repeat(indent) + line;
-            }
-
-        }
-        return arrayOfLines.join("\n");
-    } else {
-        return text;
-    }
-}
-
-/** @internal */
-/*
-function getStepContext(title: string): StepContext {
-    let context = new StepContext();
-    const parts = getStepParts(title);
-    const tableAsList = getTableAsList(title);
- 
-    const table = getTable(tableAsList)
-    const tableAsEntity = getTableAsEntity(tableAsList);
-    const tableAsSingleList = getTableAsSingleList(tableAsList);
-    context.title = parts.title;
-    context.docString = parts.docString;
-    context.values = parts.values;
-    context.table = table;
-    context.tableAsEntity = tableAsEntity;
-    context.tableAsList = tableAsList;
-    context.tableAsSingleList = tableAsSingleList;
- 
-    return context;
-}
-*/
-/** @internal */
-function getTableAsList(text: string): any[][] {
-    let arrayOfLines = text.match(/[^\r\n]+/g);
-    let tableArray: string[][] = [];
-
-    if (arrayOfLines.length > 1) {
-        for (let i = 1; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            line = line.trim();
-            if (line.startsWith("|") && line.endsWith("|")) {
-                // Looks like part of a table
-                const rowData = line.split("|");
-                let row: any[] = [];
-                for (let i = 1; i < rowData.length - 1; i++) {
-                    // Convert the values to the best primitive type
-                    const valueString = rowData[i].trim();
-                    row.push(coerceValue(valueString));
-                }
-                tableArray.push(row);
-            }
-        }
-    }
-    return tableArray;
-}
-
-function coerceValue(valueString: string): any {
-    const value = +valueString;
-    if (value) {
-        return value;
-    } else {
-        // check if its a boolean
-        const literals = ["true", true, "false", false];
-        const index = literals.indexOf(valueString);
-        if (index >= 0) {
-            return literals[index + 1];
-        } else {
-            // Check if its an array
-            if (valueString.startsWith("[") && valueString.endsWith("]")) {
-                const array = JSON.parse(valueString);
-                return array;
-            } else {
-                return valueString;
-            }
-        }
-    }
-}
-
-/** @internal */
-/** @internal */
-function getTableAsEntity(tableArray: any[][]): object {
-
-    if (tableArray.length === 0 || tableArray[0].length > 2) {
-        return;
-    }
-
-    let entity = {};
-    for (let row = 0; row < tableArray.length; row++) {
-        // Copy column to header key
-        entity[tableArray[row][0].toString()] = tableArray[row][1];
-    }
-    return entity;
-}
-
-/** @internal */
-function getTableRowAsEntity(tableArray: any[][], rowIndex: number): object {
-    let entity = {};
-    const rowHeader = tableArray[0];
-    const row = tableArray[rowIndex];
-    for (let p = 0; p < rowHeader.length; p++) {
-        // Copy column to header key
-        entity[rowHeader[p].toString()] = row[p];
-    }
-    return entity;
-}
-
-/** @internal */
-function getTableAsSingleList(tableArray: any[][]): any[] {
-    if (tableArray.length === 0) {
-        return;
-    }
-
-    let list = [];
-    for (let row = 0; row < tableArray.length; row++) {
-        // Copy column to header key
-        list.push(tableArray[row][0]);
-    }
-    return list;
-}
-
-/** @internal */
-function getStepParts(text: string) {
-    let arrayOfLines = text.match(/[^\r\n]+/g);
-    let docString = "";
-    let title = "";
-    let values: string[];
-
-    if (arrayOfLines.length > 0) {
-        for (let i = 0; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            if (line.startsWith(" ")) {
-                arrayOfLines[i] = line.trim();
-            }
-        }
-
-        title = arrayOfLines[0];
-        values = getValuesFromTitle(title);
-        arrayOfLines.shift();
-        // Check if there's a docString present
-        for (let i = 0; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            if (line.startsWith('"""')) {
-                let docLines = [];
-                for (i = i + 1; i < arrayOfLines.length; i++) {
-                    if (arrayOfLines[i].startsWith('"""')) {
-                        // end of docString
-                        break;
-                    }
-                    docLines.push(arrayOfLines[i]);
-                }
-                docString = docLines.join('\n');
-            }
-        }
-    }
-    let result = {
-        title,
-        docString,
-        values
-    };
-    return result;
-};
-
-/** @internal */
-function getValuesFromTitle(text: string) {
-    let arrayOfValues = text.match(/(["'](.*?)["'])+/g);
-    arrayOfValues
-    let results = [];
-    if (arrayOfValues) {
-        arrayOfValues.forEach(element => {
-            const valueString = element.substr(1, element.length - 2).trim();
-            results.push(coerceValue(valueString));
-        });
-    }
-    return results;
 }

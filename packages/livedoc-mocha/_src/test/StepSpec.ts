@@ -1,6 +1,6 @@
-///<reference path="../app/livedoc.ts" />
 import * as Utils from './Utils';
 
+///<reference path="../app/livedoc.ts" />
 require('chai').should();
 
 feature(`Step statement
@@ -181,10 +181,15 @@ feature(`Step statement
 
                 | string        | test                  |
                 | number        |                  1234 |
+                | numberZero    |                     0 |
                 | booleanTrue   | true                  |
                 | booleanFalse  | false                 |
                 | array         | ["hello", "Goodbye"]  |
-
+                | object        | {"prop": "Goodbye"}   |
+                | nullValue     | null                  |
+                | USDate        | 01/02/2019            |
+                | ISODate       | 2019-01-02            |
+               
             `, () => { });
 
             then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", () => {
@@ -193,12 +198,20 @@ feature(`Step statement
 
                 (typeof entity.string).should.be.equal("string");
                 (typeof entity.number).should.be.equal("number");
+                (typeof entity.numberZero).should.be.equal("number");
                 (typeof entity.booleanTrue).should.be.equal("boolean");
                 (typeof entity.booleanFalse).should.be.equal("boolean");
                 (typeof entity.array).should.be.equal("object");
                 entity.array[0].should.be.equal("hello");
                 entity.array[1].should.be.equal("Goodbye");
+                (typeof entity.object).should.be.equal("object");
+                entity.object.prop.should.be.equal("Goodbye");
+                true.should.equal(entity.nullValue === null);
 
+                // Handle dates
+                const expectedDate = new Date("Jan 2, 2019").getTime();
+                entity.USDate.getTime().should.be.equal(expectedDate);
+                entity.ISODate.getTime().should.be.equal(expectedDate);
             })
         });
 

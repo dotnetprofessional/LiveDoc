@@ -48,5 +48,8 @@
   },
   "peerDependencies": {
     "mocha": "3.x"
+  },
+  "dependencies": {
+    "moment": "^2.18.1"
   }
 }
