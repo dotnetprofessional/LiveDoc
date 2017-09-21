@@ -684,13 +684,11 @@ _mocha.interfaces['livedoc-mocha'] = module.exports = liveDocMocha;
 /** @internal */
 function liveDocMocha(suite) {
     var suites = [suite];
-    debugger;
 
     suite.on('pre-require', function (context, file, mocha) {
 
         var common = require('mocha/lib/interfaces/common')(suites, context, mocha);
 
-        debugger;
         context.run = mocha.options.delay && common.runWithSuite(suite);
 
         var describeAliasBuilder = createDescribeAlias(file, suites, context, mocha);
@@ -783,7 +781,7 @@ function createStepAlias(file, suites, mocha) {
                     // Must reset stepContext as execution of the background may have changed it
                     stepContext = stepDefinition.getStepContext();
 
-                    return stepDefinitionFunction;
+                    return stepDefinitionFunction(args);
                     // const funcResult = stepDefinitionFunction(args);
                     // if (funcResult && funcResult["then"]) {
                     //     await funcResult;
