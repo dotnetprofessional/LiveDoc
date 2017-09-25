@@ -43,6 +43,23 @@ feature(`Step statement
             })
         });
 
+        scenario("Step statement has a docString that includes significant spaces", () => {
+            let givenTitle = "";
+            let docString = "";
+            given(`a simple title
+                """
+                    This string is indented
+                    so they should be honoured
+                """`, () => {
+                    givenTitle = stepContext.title;
+                    docString = stepContext.docString;
+                });
+
+            then("the docString should match stepContext.docString including the significant spaces", () => {
+                docString.should.be.equal("    This string is indented\n    so they should be honoured");
+            })
+        });
+
         scenario("Step statement is just a title", () => {
             let whenTitle = "";
             when(`a simple title`, () => {
@@ -276,10 +293,22 @@ feature(`Step statement
 
     });
 
-// describe("Error test", () => {
-//     debugger;
-//     it("Should fail", () => {
-//         debugger;
-//         throw new TypeError("Bail...");
-//     });
-// });
+describe("Error test", () => {
+    debugger;
+    it("Should fail", () => {
+        debugger;
+        throw new TypeError("Bail...");
+    });
+
+    describe("yet another test of a describe", () => {
+        it("should still be working", () => {
+
+        });
+
+        context("Oh lets try a context too!", () => {
+            it("needs to pass too!", () => {
+                debugger;
+            });
+        })
+    })
+});

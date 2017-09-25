@@ -2,21 +2,33 @@ var moment = require("moment");
 /*
     Typescript definitions
 */
+class LiveDocDescribe {
+    public id: number;
+    public title: string;
+    public get displayTitle(): string {
+        return `${this.displayPrefix}: ${this.title}`;
+    }
+    public tags: string[];
+    public description: string;
+
+    public displayPrefix: string = "";
+
+}
 
 // LiveDoc model
-class Feature {
-    public id: number;
+class Feature extends LiveDocDescribe {
     public filename: string;
     public background: Background;
-    public title: string;
-    public displayTitle: string;
-    public description: string;
     public scenarios: Scenario[] = [];
-    public tags: string[];
 
     public executionTime: number;
 
-    public parse(type: string, description: string): Feature | Scenario | ScenarioOutline | Background {
+    constructor () {
+        super()
+        this.displayPrefix = "Feature";
+    }
+
+    public parse(type: string, description: string): LiveDocDescribe {
 
         // Parse the description for all the possible parts
         const parser = new Parser();
@@ -26,14 +38,12 @@ class Feature {
             case "Feature":
                 // This is the top level feature 
                 this.title = parser.title;
-                this.displayTitle = type ? type + ' ' + this.title : this.title;
                 this.description = parser.description;
                 this.tags = parser.tags;
                 return this;
             case "Scenario":
                 const scenario = new Scenario();
                 scenario.title = parser.title;
-                scenario.displayTitle = type ? type + ' ' + this.title : this.title;
                 scenario.description = parser.description;
                 scenario.tags = parser.tags;
                 this.scenarios.push(scenario);
@@ -41,7 +51,6 @@ class Feature {
             case "Scenario Outline":
                 const scenarioOutline = new ScenarioOutline();
                 scenarioOutline.title = parser.title;
-                scenarioOutline.displayTitle = type ? type + ' ' + this.title : this.title;
                 scenarioOutline.description = parser.description;
                 scenarioOutline.tags = parser.tags;
                 scenarioOutline.parseTables(parser.tables);
@@ -50,7 +59,6 @@ class Feature {
             case "Background":
                 const background = new Background();
                 background.title = parser.title;
-                background.displayTitle = type ? type + ' ' + this.title : this.title;
                 background.description = parser.description;
                 background.tags = parser.tags;
                 this.background = background;
@@ -361,21 +369,21 @@ class Parser {
 
 }
 
-class Scenario {
+class Scenario extends LiveDocDescribe {
 
-    public id: number;
-    public title: string;
-    public displayTitle: string;
-    public description: string;
     public givens: StepDefinition[] = [];
     public whens: StepDefinition[] = [];
     public steps: StepDefinition[] = [];
-    public tags: string[];
 
     public associatedFeatureId: number;
     public executionTime: number;
 
     private processingGiven: boolean = false;
+
+    constructor () {
+        super()
+        this.displayPrefix = "Scenario";
+    }
 
     public addStep(type: string, description: string): StepDefinition {
         const parser = new Parser();
@@ -433,6 +441,11 @@ class Scenario {
 }
 
 class Background extends Scenario {
+    constructor () {
+        super()
+        this.displayPrefix = "Background";
+    }
+
 }
 
 /**
@@ -444,6 +457,11 @@ class Background extends Scenario {
  */
 class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
+
+    constructor () {
+        super()
+        this.displayPrefix = "Scenario";
+    }
 
     public addStep(type: string, description: string): StepDefinition {
         const step = super.addStep(type, description);
@@ -469,6 +487,11 @@ class ScenarioOutline extends Scenario {
     public scenarios: ScenarioOutlineScenario[] = [];
 
     private _parser = new Parser();
+
+    constructor () {
+        super()
+        this.displayPrefix = "Scenario Outline";
+    }
 
     public parseTables(tables: Table[]) {
         // merge all tables into a single array for processing
@@ -501,8 +524,12 @@ class ScenarioOutline extends Scenario {
 class StepDefinition {
     id: number;
     title: string = "";
-    get displayTitle() {
-        return this.type ? this.type + ' ' + this.title : this.title;
+    public get displayTitle(): string {
+        let padding = "";
+        if (["and", "but"].indexOf(this.type) >= 0) {
+            padding = "  ";
+        }
+        return `${padding}${this.type} ${this.title}`;
     }
     type: string;
     description: string = "";
@@ -687,6 +714,84 @@ var _mocha = require('mocha'),
 
 _mocha.interfaces['livedoc-mocha'] = module.exports = liveDocMocha;
 
+/**
+ * This is used to store the current state of the executing test
+ * 
+ * @class LiveDocContext
+ */
+class LiveDocContext {
+    parent: LiveDocContext;
+    feature: Feature;
+    scenario: Scenario;
+    type: string;
+    scenarioCount: number;
+    scenarioId: number;
+    backgroundSteps: StepDefinition[];
+    afterBackground: Function;
+}
+
+/**
+ * This is used to store the current state of the executing test for bdd style tests
+ * 
+ * @class BddContext
+ */
+class BddContext {
+    parent: BddContext;
+    type: string;
+    describe: Describe;
+    child: Describe;
+}
+
+// Legacy BDD model
+class Describe {
+    constructor (public title: string) {
+
+    }
+    public children: Describe[] = [];
+    public tests: Test[] = [];
+}
+
+class Test {
+    constructor (public title: string) {
+
+    }
+}
+
+/**
+ * Used to initialize the livedoc context for a new Feature
+ * 
+ * @param {Mocha.ISuite} suite 
+ * @param {Feature} feature 
+ * @param {string} type 
+ * @returns {LiveDocContext} 
+ */
+function addLiveDocContext(suite: Mocha.ISuite, feature: Feature, type: string): LiveDocContext {
+    const livedoc = new LiveDocContext();
+    livedoc.type = type;
+    livedoc.parent = (suite.parent as any).livedoc;
+    livedoc.feature = feature;
+    (suite as any).livedoc = livedoc;
+    return livedoc;
+}
+
+/**
+ * Used to initialize the livedoc bdd context for a new Describe
+ * 
+ * @param {Mocha.ISuite} suite 
+ * @param {Describe} describe 
+ * @param {string} type 
+ * @returns {BddContext} 
+ */
+function addBddContext(suite: Mocha.ISuite, describe: Describe, type: string): BddContext {
+    const bdd = new BddContext();
+    bdd.type = type;
+    bdd.parent = (suite as any).livedoc;
+    bdd.describe = describe;
+    bdd.child = describe;
+    (suite as any).livedoc = bdd;
+    return bdd;
+}
+
 /** @internal */
 function liveDocMocha(suite) {
     var suites = [suite];
@@ -712,17 +817,17 @@ function liveDocMocha(suite) {
 
         context.feature = describeAliasBuilder('Feature');
         context.scenario = describeAliasBuilder('Scenario');
-        context.describe = describeAliasBuilder('');
-        context.context = describeAliasBuilder('');
+        context.describe = describeAliasBuilder('bdd');
+        context.context = describeAliasBuilder('bdd');
         context.background = describeAliasBuilder('Background');
         context.scenarioOutline = describeAliasBuilder('Scenario Outline');
 
         context.given = stepAliasBuilder('Given');
         context.when = stepAliasBuilder('When');
         context.then = stepAliasBuilder('Then');
-        context.and = stepAliasBuilder('  and');
-        context.but = stepAliasBuilder('  but');
-        context.it = stepAliasBuilder('');
+        context.and = stepAliasBuilder('and');
+        context.but = stepAliasBuilder('but');
+        context.it = stepAliasBuilder('bdd');
     });
 }
 
@@ -736,65 +841,78 @@ function createStepAlias(file, suites, mocha) {
             suite = suites[0];
             const livedoc = suite.livedoc;;
             const suiteType = livedoc.type;
-            if (suiteType === "Background") {
-                stepDefinition = livedoc.feature.background.addStep(type, title);
-            } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
-                stepDefinition = livedoc.scenario.addStep(type, title);
-            } else {
-                throw new TypeError(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedoc.feature.filename}\nStep Definition: ${type}: ${title}`);
-            }
+            let stepDefinitionContextWrapper = stepDefinitionFunction;
 
-            if (suite.pending) stepDefinitionFunction = null;
-
-            let stepDefinitionContextWrapper = stepDefinitionFunction
-            if (stepDefinitionFunction) {
-                stepDefinitionContextWrapper = function (...args) {
-                    featureContext = suite.livedoc.feature.getFeatureContext();
-                    switch (livedoc.type) {
-                        case "Background":
-                            backgroundContext = livedoc.feature.getBackgroundContext();
-                            break;
-                        case "Scenario":
-                            scenarioContext = livedoc.scenario.getScenarioContext();
-                            break;
-                        case "Scenario Outline":
-                            scenarioOutlineContext = livedoc.scenario.getScenarioContext();
-                            break;
-                    }
-
-                    // If the type is a background then bundle up the steps but don't execute them
-                    // they will be executed prior to each scenario.
-                    if (livedoc.type == "Background") {
-                        // Record the details necessary to execute the steps later on
-                        const stepDetail = { func: stepDefinitionFunction, stepDefinition: stepDefinition };
-                        // Have to put on the parent suite as scenarios and backgrounds are at the same level
-                        suite.parent.livedoc.backgroundSteps.push(stepDetail);
-                    } else {
-                        if (suite.livedoc.scenarioId != 1 &&
-                            suite.parent.livedoc.backgroundSteps && !suite.livedoc.backgroundStepsComplete) {
-                            // set the background context
-                            backgroundContext = livedoc.feature.getBackgroundContext();
-
-                            suite.parent.livedoc.backgroundSteps.forEach(stepDetails => {
-                                // reset the stepContext for this step
-                                stepContext = stepDetails.stepDefinition.getStepContext();
-                                stepDetails.func();
-                            });
-                            // Mark the background as complete for this scenario
-                            suite.livedoc.backgroundStepsComplete = true;
-                        }
-                    }
-                    // Must reset stepContext as execution of the background may have changed it
-                    stepContext = stepDefinition.getStepContext();
-
-                    return stepDefinitionFunction(args);
-                }
-
-                test = new _test(stepDefinition.displayTitle, stepDefinitionContextWrapper);
+            if (livedoc.type === "bdd") {
+                const bddContext = livedoc as BddContext;
+                const bddTest = new Test(title)
+                test = new _test(bddTest.title, stepDefinitionContextWrapper);
                 test.file = file;
+                bddContext.child.tests.push(bddTest);
+
                 suite.addTest(test);
 
                 return test;
+            } else {
+                if (suiteType === "Background") {
+                    stepDefinition = livedoc.feature.background.addStep(type, title);
+                } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
+                    stepDefinition = livedoc.scenario.addStep(type, title);
+                } else {
+                    throw new TypeError(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedoc.feature.filename}\nStep Definition: ${type}: ${title}`);
+                }
+
+                if (suite.pending) stepDefinitionFunction = null;
+
+                if (stepDefinitionFunction) {
+                    stepDefinitionContextWrapper = function (...args) {
+                        featureContext = livedoc.feature.getFeatureContext();
+                        switch (livedoc.type) {
+                            case "Background":
+                                backgroundContext = livedoc.feature.getBackgroundContext();
+                                break;
+                            case "Scenario":
+                                scenarioContext = livedoc.scenario.getScenarioContext();
+                                break;
+                            case "Scenario Outline":
+                                scenarioOutlineContext = livedoc.scenario.getScenarioContext();
+                                break;
+                        }
+
+                        // If the type is a background then bundle up the steps but don't execute them
+                        // they will be executed prior to each scenario.
+                        if (livedoc.type == "Background") {
+                            // Record the details necessary to execute the steps later on
+                            const stepDetail = { func: stepDefinitionFunction, stepDefinition: stepDefinition };
+                            // Have to put on the parent suite as scenarios and backgrounds are at the same level
+                            suite.parent.livedoc.backgroundSteps.push(stepDetail);
+                        } else {
+                            if (livedoc.scenarioId != 1 &&
+                                suite.parent.livedoc.backgroundSteps && !livedoc.backgroundStepsComplete) {
+                                // set the background context
+                                backgroundContext = livedoc.feature.getBackgroundContext();
+
+                                suite.parent.livedoc.backgroundSteps.forEach(stepDetails => {
+                                    // reset the stepContext for this step
+                                    stepContext = stepDetails.stepDefinition.getStepContext();
+                                    stepDetails.func();
+                                });
+                                // Mark the background as complete for this scenario
+                                livedoc.backgroundStepsComplete = true;
+                            }
+                        }
+                        // Must reset stepContext as execution of the background may have changed it
+                        stepContext = stepDefinition.getStepContext();
+
+                        return stepDefinitionFunction(args);
+                    }
+
+                    test = new _test(stepDefinition.displayTitle, stepDefinitionContextWrapper);
+                    test.file = file;
+                    suite.addTest(test);
+
+                    return test;
+                }
             }
         }
 
@@ -818,8 +936,14 @@ var features: Feature[] = [];
 function createDescribeAlias(file, suites, context, mocha) {
     return function wrapperCreator(type) {
         function wrapper(title, fn) {
-            let feature: Feature;
-            if (type != '') {
+            let suite: Mocha.ISuite;
+
+            if (type === "bdd") {
+                suite = processBddDescribe(suites, type, title);
+            } else {
+                let livedoc: LiveDocContext;
+                let feature: Feature;
+
                 if (type === "Feature") {
                     feature = new Feature();
                     feature.filename = file.replace(/^.*[\\\/]/, '');
@@ -828,85 +952,67 @@ function createDescribeAlias(file, suites, context, mocha) {
                 }
 
                 const suiteDefinition = feature.parse(type, title);
-                var suite = _suite.create(suites[0], suiteDefinition.displayTitle);
+                suite = _suite.create(suites[0], suiteDefinition.displayTitle);
                 // initialize the livedoc context
-                suite.livedoc = {};
-                suite.livedoc.feature = feature
-                suite.livedoc.type = type;
+                livedoc = addLiveDocContext(suite, feature, type);
 
                 switch (type) {
                     case "Feature":
                         featureContext = feature.getFeatureContext();
                         // Backgrounds need to be executed for each scenario except the first one
                         // this value tags the scenario number
-                        suite.livedoc.scenarioCount = 0;
+                        livedoc.scenarioCount = 0;
 
                         break;
                     case "Background":
                         //suite.parent.livedoc.backgroundSuite = { fn, suite };
-                        suite.parent.livedoc.backgroundSteps = [];
+                        livedoc.parent.backgroundSteps = [];
                         break;
                     case "Scenario":
-                        if (suite.parent.livedoc.afterBackground) {
+                        if (livedoc.parent.afterBackground) {
                             // Add the afterBackground function to each scenario's afterAll function
-                            suite.afterAll(() => {
-                                return suite.parent.livedoc.afterBackground();
+                            (suite as any).afterAll(() => {
+                                return livedoc.parent.afterBackground();
                             });
                         }
-                        suite.parent.livedoc.scenarioCount += 1;
-                        suite.livedoc.scenarioId = suite.parent.livedoc.scenarioCount;
+                        livedoc.parent.scenarioCount += 1;
+                        livedoc.scenarioId = livedoc.parent.scenarioCount;
+                    // Fall through on purpose
                     case "Scenario Outline":
-                        suite.livedoc.scenario = suiteDefinition;
+                        livedoc.scenario = suiteDefinition as Scenario;
                         break;
                 }
 
-                // LEGACY
+                // Specific logic for Scenario Outlines
                 if (type === "Scenario Outline") {
                     // Setup the basic context for the scenarioOutline
 
                     const scenarioOutline = suiteDefinition as ScenarioOutline;
-                    //var suite = _suite.create(suites[0], suite.livedoc.scenario.title);
                     for (let i = 0; i < scenarioOutline.scenarios.length; i++) {
                         const currentScenario = scenarioOutline.scenarios[i];
                         context = currentScenario.getScenarioContext();
-                        var outlineSuite = _suite.create(suites[0], scenarioOutline.title);
-                        outlineSuite.livedoc = {};
-                        outlineSuite.livedoc.feature = feature
-                        outlineSuite.livedoc.type = type;
-                        outlineSuite.livedoc.scenario = currentScenario;
-                        outlineSuite.parent.livedoc.scenarioCount += 1;
-                        outlineSuite.livedoc.scenarioId = outlineSuite.parent.livedoc.scenarioCount;
+                        var outlineSuite = _suite.create(suites[0], currentScenario.displayTitle);
+
+                        livedoc = addLiveDocContext(outlineSuite, feature, type);
+                        livedoc.scenario = currentScenario;
+                        livedoc.parent.scenarioCount += 1;
+                        livedoc.scenarioId = outlineSuite.parent.livedoc.scenarioCount;
                         suites.unshift(outlineSuite);
 
-                        if (suite.parent.livedoc.afterBackground) {
+                        if (livedoc.parent.afterBackground) {
                             outlineSuite.afterAll(() => {
-                                return suite.parent.livedoc.afterBackground();
+                                return livedoc.parent.afterBackground();
                             });
                         };
                         fn.call(outlineSuite);
                         suites.shift();
                     }
-
                     return outlineSuite;
-
                 }
-
-                if (type === "Scenario" &&
-                    suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
-                    // Add the afterBackground function to each scenario's afterAll function
-                    suite.afterAll(() => {
-                        return suite.parent.ctx.backgroundSuite.afterBackground();
-                    });
-                }
-
             }
 
             suites.unshift(suite);
-            const funcResult = fn.call(suite);
-            if (funcResult && funcResult["then"]) {
-                debugger;
-                throw new TypeError(`${suite.livedoc.type} does not support Async operations. You can only use async operations with step definitions`);
-            }
+            fn.call(suite);
 
             suites.shift();
             return suite;
@@ -930,4 +1036,21 @@ function createDescribeAlias(file, suites, context, mocha) {
 
         return wrapper;
     };
+
+    function processBddDescribe(suites: Mocha.ISuite, type: string, title: string): Mocha.ISuite {
+        // This is a legacy describe/context test which doesn't support
+        // the features of livedoc
+        let livedoc: BddContext;
+        const childDescribe = new Describe(title);
+        if (!suites[0].livedoc || suites[0].livedoc.type !== "bdd") {
+            livedoc = addBddContext(suites[0], childDescribe, type);
+        }
+        else {
+            livedoc = suites[0].livedoc;
+            livedoc.child = childDescribe;
+        }
+        const suite = _suite.create(suites[0], childDescribe.title);
+        suite.livedoc = livedoc;
+        return suite;
+    }
 }

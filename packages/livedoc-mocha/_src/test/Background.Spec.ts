@@ -15,6 +15,7 @@ feature(`Background statement
         background("This will be executed before each test", () => {
 
             afterBackground(() => {
+                debugger;
                 afterBackgroundCheck = 0;
             });
 
@@ -32,8 +33,10 @@ feature(`Background statement
             })
 
             and("afterBackgroundCheck has '10' added to it", () => {
+                debugger;
                 afterBackgroundCheck += 10;
             });
+
         });
 
         scenario("Add 10 to someValue", () => {
@@ -51,6 +54,7 @@ feature(`Background statement
 
             // TODO: Change the number to 1 after optimization
             and("the background has been executed '1' times so far", () => {
+                debugger;
                 count.should.be.equal(stepContext.values[0]);
             })
         });
