@@ -837,6 +837,8 @@ function createStepAlias(file, suites, mocha) {
         function testType(title, stepDefinitionFunction?) {
             var suite, test;
 
+            // Refactor so that only place adds the test see describe
+            // skipped tests are not working because the test is not being added
             let stepDefinition: StepDefinition;
             suite = suites[0];
 
@@ -942,18 +944,13 @@ function createStepAlias(file, suites, mocha) {
     };
 
 }
-var features: Feature[] = [];
 
 /** @internal */
 function createDescribeAlias(file, suites, context, mocha) {
     return function wrapperCreator(type) {
         function wrapper(title: string, fn: Function, isPending: boolean = false) {
             let suite: Mocha.ISuite;
-            if (suites[0].isPending()) {
-                console.log("++++ SKIPPING", title);
-                debugger;
-                suite = _suite.create(suites[0], title);
-            } else if (type === "bdd") {
+            if (type === "bdd") {
                 suite = processBddDescribe(suites, type, title);
             } else {
                 let livedoc: LiveDocContext;
@@ -1026,7 +1023,11 @@ function createDescribeAlias(file, suites, context, mocha) {
                     return outlineSuite;
                 }
             }
-
+            if (isPending || suites[0].isPending()) {
+                console.log("++++ SKIPPING", title);
+                debugger;
+                (suite as any).pending = isPending;
+            }
             suites.unshift(suite);
             fn.call(suite);
 
@@ -1036,11 +1037,7 @@ function createDescribeAlias(file, suites, context, mocha) {
 
         (wrapper as any).skip = function skip(title, fn) {
             debugger;
-            var suite = _suite.create(suites[0], title);
-            suite.pending = true;
-            suites.unshift(suite);
-            fn.call(suite);
-            suites.shift();
+            wrapper(title, fn, true);
         };
 
         (wrapper as any).only = function only(title, fn) {
