@@ -40,3 +40,27 @@ feature(`Feature statement
             })
         });
     });
+
+feature.skip("Features can be skipped", () => {
+    scenario("a scenario within a skipped feature", () => {
+        given("a skipped feature, this should not fire!", () => {
+            throw Error("This should not have fired! The feature was skipped!");
+        })
+    })
+});
+
+feature("Scenarios within features can be skipped", () => {
+    scenario.skip("a scenario within a feature can be skipped", () => {
+        given("a skipped scenario, this should not fire!", () => {
+            throw Error("This should not have fired! The feature was skipped!");
+        })
+    })
+});
+
+feature("Step definitions within scenarios can be skipped", () => {
+    scenario("a scenario within a feature", () => {
+        given.skip("a skipped step within a scenario, this should not fire!", () => {
+            throw Error("This should not have fired! The feature was skipped!");
+        })
+    })
+});

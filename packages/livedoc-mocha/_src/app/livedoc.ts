@@ -839,9 +839,22 @@ function createStepAlias(file, suites, mocha) {
 
             let stepDefinition: StepDefinition;
             suite = suites[0];
-            const livedoc = suite.livedoc;;
+
+            if (suite.isPending()) {
+                test = new _test(title, null);
+                test.file = file;
+                test.pending = true;
+                suite.addTest(test);
+
+                return test;
+            }
+
+            const livedoc = suite.livedoc;
             const suiteType = livedoc.type;
             let stepDefinitionContextWrapper = stepDefinitionFunction;
+
+            // Skip processing test function if the suite is marked to skip            
+            if (suite.pending) stepDefinitionFunction = null;
 
             if (livedoc.type === "bdd") {
                 const bddContext = livedoc as BddContext;
@@ -861,8 +874,6 @@ function createStepAlias(file, suites, mocha) {
                 } else {
                     throw new TypeError(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedoc.feature.filename}\nStep Definition: ${type}: ${title}`);
                 }
-
-                if (suite.pending) stepDefinitionFunction = null;
 
                 if (stepDefinitionFunction) {
                     stepDefinitionContextWrapper = function (...args) {
@@ -917,6 +928,7 @@ function createStepAlias(file, suites, mocha) {
         }
 
         (testType as any).skip = function skip(title) {
+            debugger;
             testType(title);
         };
 
@@ -935,10 +947,13 @@ var features: Feature[] = [];
 /** @internal */
 function createDescribeAlias(file, suites, context, mocha) {
     return function wrapperCreator(type) {
-        function wrapper(title, fn) {
+        function wrapper(title: string, fn: Function, isPending: boolean = false) {
             let suite: Mocha.ISuite;
-
-            if (type === "bdd") {
+            if (suites[0].isPending()) {
+                console.log("++++ SKIPPING", title);
+                debugger;
+                suite = _suite.create(suites[0], title);
+            } else if (type === "bdd") {
                 suite = processBddDescribe(suites, type, title);
             } else {
                 let livedoc: LiveDocContext;
@@ -953,6 +968,7 @@ function createDescribeAlias(file, suites, context, mocha) {
 
                 const suiteDefinition = feature.parse(type, title);
                 suite = _suite.create(suites[0], suiteDefinition.displayTitle);
+                (suite as any).pending = isPending;
                 // initialize the livedoc context
                 livedoc = addLiveDocContext(suite, feature, type);
 
@@ -1019,10 +1035,8 @@ function createDescribeAlias(file, suites, context, mocha) {
         }
 
         (wrapper as any).skip = function skip(title, fn) {
-            const contextDefinition = new Feature().parse(type, title);
-
-            var suite = _suite.create(suites[0], contextDefinition.title);
-
+            debugger;
+            var suite = _suite.create(suites[0], title);
             suite.pending = true;
             suites.unshift(suite);
             fn.call(suite);
