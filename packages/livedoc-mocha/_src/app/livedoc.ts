@@ -3,15 +3,19 @@ var moment = require("moment");
     Typescript definitions
 */
 class LiveDocDescribe {
+    protected _parser = new Parser();
+
     public id: number;
     public title: string;
+    public rawDescription: string;
     public get displayTitle(): string {
-        return `${this.displayPrefix}: ${this.title}`;
+        return `${this.displayPrefix}: ${this._parser.applyIndenting(this.rawDescription, this.displayIndentLength)}`;
     }
     public tags: string[];
     public description: string;
 
     public displayPrefix: string = "";
+    public displayIndentLength: number = 0;
 
 }
 
@@ -26,6 +30,7 @@ class Feature extends LiveDocDescribe {
     constructor () {
         super()
         this.displayPrefix = "Feature";
+        this.displayIndentLength = 4;
     }
 
     public parse(type: string, description: string): LiveDocDescribe {
@@ -40,12 +45,15 @@ class Feature extends LiveDocDescribe {
                 this.title = parser.title;
                 this.description = parser.description;
                 this.tags = parser.tags;
+                this.rawDescription = description;
                 return this;
             case "Scenario":
+                debugger;
                 const scenario = new Scenario();
                 scenario.title = parser.title;
                 scenario.description = parser.description;
                 scenario.tags = parser.tags;
+                scenario.rawDescription = description;
                 this.scenarios.push(scenario);
                 return scenario;
             case "Scenario Outline":
@@ -54,6 +62,8 @@ class Feature extends LiveDocDescribe {
                 scenarioOutline.description = parser.description;
                 scenarioOutline.tags = parser.tags;
                 scenarioOutline.parseTables(parser.tables);
+                scenarioOutline.rawDescription = description;
+
                 this.scenarios.push(scenarioOutline);
                 return scenarioOutline;
             case "Background":
@@ -61,7 +71,9 @@ class Feature extends LiveDocDescribe {
                 background.title = parser.title;
                 background.description = parser.description;
                 background.tags = parser.tags;
+                background.rawDescription = description;
                 this.background = background;
+
                 return background;
             default:
                 throw TypeError("unknown type: " + type);
@@ -143,7 +155,7 @@ class Parser {
             // quoted values are only found in the title
             this.quotedValues = this.parseQuotedValues(textReader);
         }
-        let descriptionIndex = 0;
+        let descriptionIndex = -1;
         const descriptionLines: string[] = [];
 
         while (textReader.next()) {
@@ -160,7 +172,7 @@ class Parser {
                 this.docString = this.parseDocString(textReader);
             } else {
                 // Add the rest to the description
-                if (descriptionIndex < 1) {
+                if (descriptionIndex < 0) {
                     // find the first non-whitespace character and use that as the split line
                     descriptionIndex = this.getFirstNonBlankIndex(textReader.line);
                 }
@@ -199,7 +211,6 @@ class Parser {
         }
         return table;
     }
-
 
     public coerceValues(values: string[]): any[] {
         const coercedArray = [];
@@ -312,14 +323,13 @@ class Parser {
         return results;
     }
 
-
     private getFirstNonBlankIndex(text: string): number {
         for (let i = 0; i < text.length; i++) {
             if (text.charAt(i) != " ") {
                 return i;
             }
         }
-        return 0;
+        return -1;
     }
 
     private trimStart(text: string, index: number) {
@@ -330,19 +340,29 @@ class Parser {
             return text;
         }
     }
+
     public applyIndenting(text: string, spacing: number) {
         // This code needs to handle already indented lines
+        const textReader = new TextBlockReader(text);
 
-        // Split text into lines for processing
-        let arrayOfLines = text.split(/\r?\n/);
-        if (arrayOfLines.length > 1) {
-            for (let i = 1; i < arrayOfLines.length; i++) {
-                let line = arrayOfLines[i].trim();
-                // Apply indentation
-                arrayOfLines[i] = " ".repeat(spacing) + line;
-            }
-            return arrayOfLines.join("\n");
+        // The first line is the title so ignore indenting for that
+        let title = "";
+        if (textReader.next()) {
+            title = textReader.line;
         }
+        // Now attempt to read the rest of the body if there is one and formatted based on the
+        // indenting of the first line
+        let textLines = [];
+        textLines.push(title);
+        let textIndentingStartIndex = -1;
+        while (textReader.next()) {
+            if (textIndentingStartIndex < 0) {
+                textIndentingStartIndex = this.getFirstNonBlankIndex(textReader.line);
+            }
+            textLines.push(" ".repeat(spacing) + this.trimStart(textReader.line, textIndentingStartIndex));
+        }
+
+        return textLines.join('\n');
     }
 
 
@@ -383,6 +403,7 @@ class Scenario extends LiveDocDescribe {
     constructor () {
         super()
         this.displayPrefix = "Scenario";
+        this.displayIndentLength = 6;
     }
 
     public addStep(type: string, description: string): StepDefinition {
@@ -393,6 +414,7 @@ class Scenario extends LiveDocDescribe {
 
         // This is the top level feature 
         step.title = parser.title;
+        step.rawDescription = description;
         step.description = parser.description;
         step.docString = parser.docString;
         step.dataTable = parser.dataTable;
@@ -486,8 +508,6 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    private _parser = new Parser();
-
     constructor () {
         super()
         this.displayPrefix = "Scenario Outline";
@@ -505,23 +525,26 @@ class ScenarioOutline extends Scenario {
         if (!table.dataTable || table.dataTable.length <= 1) {
             throw TypeError("Data tables must have at least a header row plus a data row.");
         }
-        const parser = new Parser();
         const headerRow: string[] = [];
         table.dataTable[0].forEach(item => {
             // copy the header names removing spaces and apostrophes
-            headerRow.push(parser.sanitizeName(item));
+            headerRow.push(this._parser.sanitizeName(item));
         });
         for (let i = 1; i < table.dataTable.length; i++) {
             const dataRow = table.dataTable[i];
             const scenario = new ScenarioOutlineScenario();
+            // Don't want to repeat the table etc for every scenario iteration
+            scenario.rawDescription = this.title;
             scenario.example = this._parser.getTableRowAsEntity(headerRow, dataRow);
-            scenario.title = parser.bind(this.title, scenario.example);
+            scenario.title = this._parser.bind(this.title, scenario.example);
             this.scenarios.push(scenario);
         }
     }
 }
 
 class StepDefinition {
+    private _parser = new Parser();
+
     id: number;
     title: string = "";
     public get displayTitle(): string {
@@ -529,10 +552,11 @@ class StepDefinition {
         if (["and", "but"].indexOf(this.type) >= 0) {
             padding = "  ";
         }
-        return `${padding}${this.type} ${this.title}`;
+        return `${padding}${this.type} ${this._parser.applyIndenting(this.rawDescription, 10)}`;
     }
     type: string;
     description: string = "";
+    rawDescription: string = "";
     docString: string = "";
     dataTable: DataTableRow[] = [];
     values: any[] = [];
@@ -861,7 +885,7 @@ function createStepAlias(file, suites, mocha) {
                     throw new TypeError(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedoc.feature.filename}\nStep Definition: ${type}: ${title}`);
                 }
 
-                testName = stepDefinition.title;
+                testName = stepDefinition.displayTitle;
 
                 if (stepDefinitionFunction) {
                     stepDefinitionContextWrapper = function (...args) {
@@ -921,12 +945,10 @@ function createStepAlias(file, suites, mocha) {
         }
 
         (testType as any).skip = function skip(title) {
-            debugger;
             testType(title);
         };
 
         (testType as any).only = function only(title, fn) {
-            debugger;
             var test = testType(title, fn);
             mocha.grep(test.fullTitle());
         };
@@ -1015,8 +1037,6 @@ function createDescribeAlias(file, suites, context, mocha) {
                 }
             }
             if (isPending || suites[0].isPending()) {
-                console.log("++++ SKIPPING", title);
-                debugger;
                 (suite as any).pending = isPending;
             }
             suites.unshift(suite);
@@ -1027,7 +1047,6 @@ function createDescribeAlias(file, suites, context, mocha) {
         }
 
         (wrapper as any).skip = function skip(title, fn) {
-            debugger;
             wrapper(title, fn, true);
         };
 

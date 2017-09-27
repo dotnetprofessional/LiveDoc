@@ -60,7 +60,7 @@ feature(`Step statement
             })
         });
 
-        scenario("Step statement is just a title", () => {
+        scenario.only("Step statement is just a title", () => {
             let whenTitle = "";
             when(`a simple title`, () => {
                 whenTitle = stepContext.title;
@@ -294,9 +294,7 @@ feature(`Step statement
     });
 
 describe("Error test", () => {
-    debugger;
     it("Should fail", () => {
-        debugger;
         throw new TypeError("Bail...");
     });
 
@@ -307,7 +305,6 @@ describe("Error test", () => {
 
         context("Oh lets try a context too!", () => {
             it("needs to pass too!", () => {
-                debugger;
             });
         })
     })
