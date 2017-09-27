@@ -836,38 +836,22 @@ function createStepAlias(file, suites, mocha) {
     return function testTypeCreator(type) {
         function testType(title, stepDefinitionFunction?) {
             var suite, test;
+            let testName: string;
 
             // Refactor so that only place adds the test see describe
             // skipped tests are not working because the test is not being added
             let stepDefinition: StepDefinition;
             suite = suites[0];
 
-            if (suite.isPending()) {
-                test = new _test(title, null);
-                test.file = file;
-                test.pending = true;
-                suite.addTest(test);
-
-                return test;
-            }
-
             const livedoc = suite.livedoc;
             const suiteType = livedoc.type;
             let stepDefinitionContextWrapper = stepDefinitionFunction;
 
-            // Skip processing test function if the suite is marked to skip            
-            if (suite.pending) stepDefinitionFunction = null;
-
             if (livedoc.type === "bdd") {
                 const bddContext = livedoc as BddContext;
                 const bddTest = new Test(title)
-                test = new _test(bddTest.title, stepDefinitionContextWrapper);
-                test.file = file;
+                testName = bddTest.title;
                 bddContext.child.tests.push(bddTest);
-
-                suite.addTest(test);
-
-                return test;
             } else {
                 if (suiteType === "Background") {
                     stepDefinition = livedoc.feature.background.addStep(type, title);
@@ -876,6 +860,8 @@ function createStepAlias(file, suites, mocha) {
                 } else {
                     throw new TypeError(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedoc.feature.filename}\nStep Definition: ${type}: ${title}`);
                 }
+
+                testName = stepDefinition.title;
 
                 if (stepDefinitionFunction) {
                     stepDefinitionContextWrapper = function (...args) {
@@ -920,13 +906,18 @@ function createStepAlias(file, suites, mocha) {
                         return stepDefinitionFunction(args);
                     }
 
-                    test = new _test(stepDefinition.displayTitle, stepDefinitionContextWrapper);
-                    test.file = file;
-                    suite.addTest(test);
-
-                    return test;
                 }
             }
+
+            if (suite.isPending()) {
+                // Skip processing test function if the suite is marked to skip
+                stepDefinitionContextWrapper = null;
+            }
+            test = new _test(testName, stepDefinitionContextWrapper);
+            test.file = file;
+            suite.addTest(test);
+
+            return test;
         }
 
         (testType as any).skip = function skip(title) {
