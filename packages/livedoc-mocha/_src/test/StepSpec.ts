@@ -60,7 +60,7 @@ feature(`Step statement
             })
         });
 
-        scenario.only("Step statement is just a title", () => {
+        scenario("Step statement is just a title", () => {
             let whenTitle = "";
             when(`a simple title`, () => {
                 whenTitle = stepContext.title;

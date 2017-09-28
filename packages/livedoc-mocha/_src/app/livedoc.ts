@@ -48,7 +48,6 @@ class Feature extends LiveDocDescribe {
                 this.rawDescription = description;
                 return this;
             case "Scenario":
-                debugger;
                 const scenario = new Scenario();
                 scenario.title = parser.title;
                 scenario.description = parser.description;
@@ -823,11 +822,10 @@ function liveDocMocha(suite) {
     suite.on('pre-require', function (context, file, mocha) {
 
         var common = require('mocha/lib/interfaces/common')(suites, context, mocha);
-
         context.run = mocha.options.delay && common.runWithSuite(suite);
 
-        var describeAliasBuilder = createDescribeAlias(file, suites, context, mocha);
-        var stepAliasBuilder = createStepAlias(file, suites, mocha);
+        var describeAliasBuilder = createDescribeAlias(file, suites, context, mocha, common);
+        var stepAliasBuilder = createStepAlias(file, suites, mocha, common);
 
         context.after = common.after;
         context.afterEach = common.afterEach;
@@ -856,7 +854,7 @@ function liveDocMocha(suite) {
 }
 
 /** @internal */
-function createStepAlias(file, suites, mocha) {
+function createStepAlias(file, suites, mocha, common) {
     return function testTypeCreator(type) {
         function testType(title, stepDefinitionFunction?) {
             var suite, test;
@@ -949,8 +947,7 @@ function createStepAlias(file, suites, mocha) {
         };
 
         (testType as any).only = function only(title, fn) {
-            var test = testType(title, fn);
-            mocha.grep(test.fullTitle());
+            return common.test.only(mocha, testType(title, fn));
         };
 
         return testType;
@@ -959,9 +956,9 @@ function createStepAlias(file, suites, mocha) {
 }
 
 /** @internal */
-function createDescribeAlias(file, suites, context, mocha) {
+function createDescribeAlias(file, suites, context, mocha, common) {
     return function wrapperCreator(type) {
-        function wrapper(title: string, fn: Function, isPending: boolean = false) {
+        function wrapper(title: string, fn: Function, opts: { pending?: boolean, isOnly?: boolean } = {}) {
             let suite: Mocha.ISuite;
             if (type === "bdd") {
                 suite = processBddDescribe(suites, type, title);
@@ -978,7 +975,8 @@ function createDescribeAlias(file, suites, context, mocha) {
 
                 const suiteDefinition = feature.parse(type, title);
                 suite = _suite.create(suites[0], suiteDefinition.displayTitle);
-                (suite as any).pending = isPending;
+                (suite as any).pending = opts.pending;
+
                 // initialize the livedoc context
                 livedoc = addLiveDocContext(suite, feature, type);
 
@@ -1036,9 +1034,14 @@ function createDescribeAlias(file, suites, context, mocha) {
                     return outlineSuite;
                 }
             }
-            if (isPending || suites[0].isPending()) {
-                (suite as any).pending = isPending;
+            if (opts.pending || suites[0].isPending()) {
+                (suite as any).pending = opts.pending;
             }
+            if (opts.isOnly) {
+                (suite.parent as any)._onlySuites = (suite.parent as any)._onlySuites.concat(suite);
+                mocha.options.hasOnly = true;
+            }
+
             suites.unshift(suite);
             fn.call(suite);
 
@@ -1047,12 +1050,11 @@ function createDescribeAlias(file, suites, context, mocha) {
         }
 
         (wrapper as any).skip = function skip(title, fn) {
-            wrapper(title, fn, true);
+            wrapper(title, fn, { pending: true });
         };
 
         (wrapper as any).only = function only(title, fn) {
-            var suite = wrapper(title, fn);
-            mocha.grep(suite.fullTitle());
+            wrapper(title, fn, { isOnly: true });
         };
 
         return wrapper;
