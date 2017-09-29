@@ -50,6 +50,7 @@
     "mocha": "3.x"
   },
   "dependencies": {
+    "colors": "^1.1.2",
     "moment": "^2.18.1"
   }
 }
