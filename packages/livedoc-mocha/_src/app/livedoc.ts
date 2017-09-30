@@ -937,7 +937,6 @@ function createStepAlias(file, suites, mocha, common) {
                 } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
                     stepDefinition = livedocContext.scenario.addStep(type, title);
                 } else {
-                    debugger;
                     console.warn(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedocContext.feature.filename}\nStep Definition: ${type}: ${title}`);
                     return testTypeCreator("invalid")(title, stepDefinitionFunction);
                 }
@@ -1096,13 +1095,21 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                                     return livedocContext.parent.afterBackground();
                                 });
                             };
+
+                            if (opts.pending || suites[0].isPending()) {
+                                (outlineSuite as any).pending = opts.pending;
+                            }
+                            if (opts.isOnly) {
+                                (outlineSuite.parent as any)._onlySuites = (outlineSuite.parent as any)._onlySuites.concat(outlineSuite);
+                                mocha.options.hasOnly = true;
+                            }
+
                             fn.call(outlineSuite);
                             suites.shift();
                         }
                         return outlineSuite;
                     }
                 } catch (e) {
-                    debugger;
                     e.report();
                     // A validation exception has occurred mark as invalid
                     return wrapperCreator("invalid")(title, fn, opts);
