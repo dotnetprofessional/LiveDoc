@@ -12,41 +12,180 @@ enum LiveDocRuleOption {
 }
 
 class LiveDocRules {
-    public scenarioMustBeWithinFeature = LiveDocRuleOption.enabled;
-    public backgroundMustBeWithinFeature = LiveDocRuleOption.enabled;
-    public singleGivenWhenThen = LiveDocRuleOption.enabled;
-    public mustIncludeGiven = LiveDocRuleOption.disabled;
-    public mustIncludeWhen = LiveDocRuleOption.enabled;
-    public mustIncludeThen = LiveDocRuleOption.enabled;
-    public mustNotMixLanguages = LiveDocRuleOption.enabled;
+    /**
+     * Is triggered when a scenario, scenarioOutline or background is used without a feature
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public missingFeature: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if a given, when or then is not a child of a sceanrio, scenarioOutline or background 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public givenWhenThenMustBeWithinScenario: LiveDocRuleOption; //done
+
+
+    /**
+     * Is triggered when more than 1 given, when or then is used within a single sceanrio, scenarioOutline or background
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public singleGivenWhenThen: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if no given is part of the test 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustIncludeGiven: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if no when is part of the test 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustIncludeWhen: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if no then is part of the test 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustIncludeThen: LiveDocRuleOption; // not sure how to implement
+
+    /**
+     * Is triggered when an and or but doesn't also include a given, when or then
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public andButMustHaveGivenWhenThen: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered when the Gherkin language is mixed withe mocha's BDD language
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustNotMixLanguages: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if a background uses when or then
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public backgroundMustOnlyIncludeGiven: LiveDocRuleOption;
+
+    /**
+     * Using the before hook has the same affect as the given step definition but with the ability to convey meaning.
+     * It is therefore encouraged to use a given over the before hook.
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public enforceUsingGivenOverBefore: LiveDocRuleOption;
+
+    /**
+     * Ensures that a title is specified for keywords that require it
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public enforceTitle: LiveDocRuleOption;
 
 }
 
 class LiveDoc {
+    constructor () {
+        this.defaultRecommendations();
+    }
+
     public rules: LiveDocRules = new LiveDocRules();
 
-    public setAllRulesAsWarnings() {
-        this.rules.scenarioMustBeWithinFeature = LiveDocRuleOption.warning;
-        this.rules.backgroundMustBeWithinFeature = LiveDocRuleOption.warning;
-        this.rules.singleGivenWhenThen = LiveDocRuleOption.warning;
+    /**
+     * Sets the minimal set of rules to ensure tests are structured correctly
+     * 
+     * @memberof LiveDoc
+     */
+    public enforceMinimalRulesOnly() {
+        this.setAllRulesTo(LiveDocRuleOption.disabled);
+        const option = LiveDocRuleOption.enabled;
+
+        this.rules.missingFeature = option;
+        this.rules.givenWhenThenMustBeWithinScenario = option;
+        this.rules.mustNotMixLanguages = option;
+        this.rules.backgroundMustOnlyIncludeGiven = option;
+        this.rules.enforceUsingGivenOverBefore = option;
+        this.rules.enforceTitle = option;
+    }
+
+    /**
+     * Sets the recommended set of rules to ensure best practices
+     * 
+     * @memberof LiveDoc
+     */
+    public defaultRecommendations() {
+        this.enforceMinimalRulesOnly();
+
+        const option = LiveDocRuleOption.enabled;
+
+        this.rules.singleGivenWhenThen = option;
         this.rules.mustIncludeGiven = LiveDocRuleOption.warning;
         this.rules.mustIncludeWhen = LiveDocRuleOption.warning;
         this.rules.mustIncludeThen = LiveDocRuleOption.warning;
-        this.rules.mustNotMixLanguages = LiveDocRuleOption.warning;
+        this.rules.andButMustHaveGivenWhenThen = option;
+    }
+
+    /**
+     * Sets all rules to warnings
+     * 
+     * @memberof LiveDoc
+     */
+    public setAllRulesAsWarnings() {
+        this.setAllRulesTo(LiveDocRuleOption.warning);
+    }
+
+    private setAllRulesTo(option: LiveDocRuleOption) {
+        this.rules.missingFeature = option;
+        this.rules.givenWhenThenMustBeWithinScenario = option;
+        this.rules.singleGivenWhenThen = option;
+        this.rules.mustIncludeGiven = option;
+        this.rules.mustIncludeWhen = option;
+        this.rules.mustIncludeThen = option;
+        this.rules.andButMustHaveGivenWhenThen = option;
+        this.rules.mustNotMixLanguages = option;
+        this.rules.backgroundMustOnlyIncludeGiven = option;
+        this.rules.enforceUsingGivenOverBefore = option;
+        this.rules.enforceTitle = option;
     }
 }
 
 class LiveDocRuleViolation extends Error {
+    static errorCount: number = 0;
     constructor (message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
         super(message);
+        this.file = file.replace(/^.*[\\\/]/, '');
     }
 
     public report() {
+        if (this.option === LiveDocRuleOption.disabled) {
+            return;
+        }
+        LiveDocRuleViolation.errorCount++;
         const outputMessage = `${this.message} [title: ${this.title}, file: ${this.file}]`;
         if (this.option === LiveDocRuleOption.warning) {
-            console.error(colors.bgYellow(colors.red(`WARNING: ${outputMessage}`)));
+            console.error(colors.bgYellow(colors.red(`WARNING[${LiveDocRuleViolation.errorCount}]: ${outputMessage}`)));
         } else {
-            throw this;
+            throw new LiveDocRuleViolation(outputMessage, LiveDocRuleOption.enabled, "", "");
         }
     }
 }
@@ -154,6 +293,11 @@ class Feature extends LiveDocDescribe {
         const parser = new Parser();
         parser.parseDescription(description);
 
+        // validate we have a description!
+        if (!parser.title && type !== "Background") {
+            const violation = new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.filename)
+            violation.report();
+        }
         switch (type) {
             case "Feature":
                 // This is the top level feature 
@@ -163,7 +307,7 @@ class Feature extends LiveDocDescribe {
                 this.rawDescription = description;
                 return this;
             case "Scenario":
-                const scenario = new Scenario();
+                const scenario = new Scenario(this);
                 scenario.title = parser.title;
                 scenario.description = parser.description;
                 scenario.tags = parser.tags;
@@ -171,7 +315,7 @@ class Feature extends LiveDocDescribe {
                 this.scenarios.push(scenario);
                 return scenario;
             case "Scenario Outline":
-                const scenarioOutline = new ScenarioOutline();
+                const scenarioOutline = new ScenarioOutline(this);
                 scenarioOutline.title = parser.title;
                 scenarioOutline.description = parser.description;
                 scenarioOutline.tags = parser.tags;
@@ -181,7 +325,7 @@ class Feature extends LiveDocDescribe {
                 this.scenarios.push(scenarioOutline);
                 return scenarioOutline;
             case "Background":
-                const background = new Background();
+                const background = new Background(this);
                 background.title = parser.title;
                 background.description = parser.description;
                 background.tags = parser.tags;
@@ -512,9 +656,13 @@ class Scenario extends LiveDocDescribe {
     public associatedFeatureId: number;
     public executionTime: number;
 
-    private processingGiven: boolean = false;
+    // Used for validations and grouping
+    private hasGiven: boolean = false;
+    private hasWhen: boolean = false;
+    private hasThen: boolean = false;
+    private processingStepType: string;
 
-    constructor () {
+    constructor (public parent: Feature) {
         super()
         this.displayPrefix = "Scenario";
         this.displayIndentLength = 6;
@@ -523,6 +671,12 @@ class Scenario extends LiveDocDescribe {
     public addStep(type: string, description: string): StepDefinition {
         const parser = new Parser();
         parser.parseDescription(description);
+
+        // validate we have a description!
+        if (!parser.title && type !== "Background") {
+            const violation = new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.parent.filename)
+            violation.report();
+        }
 
         const step = new StepDefinition();
 
@@ -538,19 +692,63 @@ class Scenario extends LiveDocDescribe {
 
         this.steps.push(step);
 
-        if (type === "Given") {
-            if (this.givens.length != 0) {
-                throw TypeError(`The scenario ${this.title} already has a given defined. Scenarios should only have a single given. To extend an existing given, use and or but`);
-            }
+        const oneGivenWhenThenViolation = new LiveDocRuleViolation(`there should be only one ${type} in a Scenario, Scenario Outline or Background. Try using and or but instead.`, livedoc.rules.singleGivenWhenThen, this.title, this.parent.filename);
 
-            this.processingGiven = true;
-            this.givens.push(step);
-        } else if (["When", "Then"].indexOf(type) >= 0) {
-            this.processingGiven = false;
-        } else if (this.processingGiven) {
-            this.givens.push(step);
+        switch (type) {
+            case "Given":
+                // Check rules
+                if (this.hasGiven) {
+                    // Too many givens
+                    oneGivenWhenThenViolation.report();
+                }
+                this.processingStepType = type;
+                this.hasGiven = true;
+                this.givens.push(step);
+                break;
+            case "When":
+                // Validate that we have a given here or from a Background
+                if (!this.hasGiven || (this.parent.background && !this.parent.background.hasGiven)) {
+                    const violation = new LiveDocRuleViolation(`scenario does not have a Given or a Background with a given.`, livedoc.rules.mustIncludeGiven, this.title, this.parent.filename);
+                    violation.report();
+                }
+                if (this.hasWhen) {
+                    // Too many givens
+                    oneGivenWhenThenViolation.report();
+                }
+                this.processingStepType = type;
+                this.hasWhen = true;
+                this.whens.push(step);
+                break;
+            case "Then":
+                if (!this.hasWhen) {
+                    const violation = new LiveDocRuleViolation(`scenario does not have a When, use When to describe the test action.`, livedoc.rules.mustIncludeWhen, this.title, this.parent.filename);
+                    violation.report();
+                }
+                if (this.hasThen) {
+                    // Too many givens
+                    oneGivenWhenThenViolation.report();
+                }
+                this.processingStepType = type;
+                this.hasThen = true;
+                break;
+            case "and":
+            case "but":
+                // add the continuation of the main step to their collections    
+                switch (this.processingStepType) {
+                    case "Given":
+                        this.givens.push(step);
+                        break;
+                    case "When":
+                        this.whens.push(step);
+                        break;
+                    case "Then":
+                        break;
+                    default:
+                        // Seems we're not processing a GTW!?
+                        const violation = new LiveDocRuleViolation(`a ${type} step definition must be preceded by a Given, When or Then.`, livedoc.rules.andButMustHaveGivenWhenThen, this.title, this.parent.filename);
+                        violation.report();
+                }
         }
-
         return step;
     }
 
@@ -577,11 +775,18 @@ class Scenario extends LiveDocDescribe {
 }
 
 class Background extends Scenario {
-    constructor () {
-        super()
+    constructor (parent: Feature) {
+        super(parent)
         this.displayPrefix = "Background";
     }
 
+    public addStep(type: string, description: string): StepDefinition {
+        const step = super.addStep(type, description);
+        if (type === "Then" || type == "When") {
+            throw new LiveDocRuleViolation(`Backgrounds only support using the given step definition. Consider moving the ${type} to a scenario.`, livedoc.rules.backgroundMustOnlyIncludeGiven, step.title, this.parent.filename);
+        }
+        return step;
+    }
 }
 
 /**
@@ -594,8 +799,8 @@ class Background extends Scenario {
 class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
 
-    constructor () {
-        super()
+    constructor (parent: Feature) {
+        super(parent)
         this.displayPrefix = "Scenario";
     }
 
@@ -622,8 +827,8 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    constructor () {
-        super()
+    constructor (parent: Feature) {
+        super(parent)
         this.displayPrefix = "Scenario Outline";
     }
 
@@ -646,7 +851,7 @@ class ScenarioOutline extends Scenario {
         });
         for (let i = 1; i < table.dataTable.length; i++) {
             const dataRow = table.dataTable[i];
-            const scenario = new ScenarioOutlineScenario();
+            const scenario = new ScenarioOutlineScenario(this.parent);
             // Don't want to repeat the table etc for every scenario iteration
             scenario.rawDescription = this.title;
             scenario.example = this._parser.getTableRowAsEntity(headerRow, dataRow);
@@ -807,6 +1012,7 @@ class LiveDocContext {
     scenarioId: number;
     backgroundSteps: StepDefinition[];
     afterBackground: Function;
+    backgroundStepsComplete: boolean;
 }
 
 /**
@@ -921,71 +1127,91 @@ function createStepAlias(file, suites, mocha, common) {
             let stepDefinition: StepDefinition;
             suite = suites[0];
 
-            const livedocContext = suite.livedoc;
+            const livedocContext = suite.livedoc as LiveDocContext;
             const suiteType = livedocContext && livedocContext.type;
             let stepDefinitionContextWrapper = stepDefinitionFunction;
-            if (type === "invalid" || !suiteType) {
-                testName = title;
-            } else if (suiteType === "bdd") {
-                const bddContext = livedocContext as BddContext;
-                const bddTest = new Test(title)
-                testName = bddTest.title;
-                bddContext.child.tests.push(bddTest);
-            } else {
-                if (suiteType === "Background") {
-                    stepDefinition = livedocContext.feature.background.addStep(type, title);
-                } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
-                    stepDefinition = livedocContext.scenario.addStep(type, title);
+            try {
+
+                if (type === "invalid" || !suiteType) {
+                    testName = title;
+                } else if (suiteType === "bdd") {
+                    const bddContext = (livedocContext as any) as BddContext;
+                    const bddTest = new Test(title)
+                    testName = bddTest.title;
+                    bddContext.child.tests.push(bddTest);
                 } else {
-                    console.warn(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline.\nFilename: ${livedocContext.feature.filename}\nStep Definition: ${type}: ${title}`);
-                    return testTypeCreator("invalid")(title, stepDefinitionFunction);
-                }
-
-                testName = stepDefinition.displayTitle;
-
-                if (stepDefinitionFunction) {
-                    stepDefinitionContextWrapper = function (...args) {
-                        featureContext = livedocContext.feature.getFeatureContext();
-                        switch (livedocContext.type) {
-                            case "Background":
-                                backgroundContext = livedocContext.feature.getBackgroundContext();
-                                break;
-                            case "Scenario":
-                                scenarioContext = livedocContext.scenario.getScenarioContext();
-                                break;
-                            case "Scenario Outline":
-                                scenarioOutlineContext = livedocContext.scenario.getScenarioContext();
-                                break;
-                        }
-
-                        // If the type is a background then bundle up the steps but don't execute them
-                        // they will be executed prior to each scenario.
-                        if (livedocContext.type == "Background") {
-                            // Record the details necessary to execute the steps later on
-                            const stepDetail = { func: stepDefinitionFunction, stepDefinition: stepDefinition };
-                            // Have to put on the parent suite as scenarios and backgrounds are at the same level
-                            suite.parent.livedoc.backgroundSteps.push(stepDetail);
-                        } else {
-                            if (livedocContext.scenarioId != 1 &&
-                                suite.parent.livedoc.backgroundSteps && !livedocContext.backgroundStepsComplete) {
-                                // set the background context
-                                backgroundContext = livedocContext.feature.getBackgroundContext();
-
-                                suite.parent.livedoc.backgroundSteps.forEach(stepDetails => {
-                                    // reset the stepContext for this step
-                                    stepContext = stepDetails.stepDefinition.getStepContext();
-                                    stepDetails.func();
-                                });
-                                // Mark the background as complete for this scenario
-                                livedocContext.backgroundStepsComplete = true;
-                            }
-                        }
-                        // Must reset stepContext as execution of the background may have changed it
-                        stepContext = stepDefinition.getStepContext();
-
-                        return stepDefinitionFunction(args);
+                    // Check if the type is a bdd type
+                    if (type === "bdd") {
+                        throw new LiveDocRuleViolation(`This feature is using bdd syntax, did you mean to use given instead?`, livedoc.rules.mustNotMixLanguages, title, livedocContext.feature.filename);
                     }
 
+                    if (suite._beforeAll.length > 0) {
+                        const violation = new LiveDocRuleViolation(`Using before does not help with readability, consider using a given instead.`, livedoc.rules.enforceUsingGivenOverBefore, title, livedocContext.feature.filename);
+                        // execute inline as this is not a structurally breaking violation
+                        violation.report()
+                    }
+
+                    if (suiteType === "Background") {
+                        stepDefinition = livedocContext.feature.background.addStep(type, title);
+                    } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
+                        stepDefinition = livedocContext.scenario.addStep(type, title);
+                    } else {
+                        throw new LiveDocRuleViolation(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline`, livedoc.rules.givenWhenThenMustBeWithinScenario, title, file);
+                    }
+
+                    testName = stepDefinition.displayTitle;
+
+                    if (stepDefinitionFunction) {
+                        stepDefinitionContextWrapper = function (...args) {
+                            featureContext = livedocContext.feature.getFeatureContext();
+                            switch (livedocContext.type) {
+                                case "Background":
+                                    backgroundContext = livedocContext.feature.getBackgroundContext();
+                                    break;
+                                case "Scenario":
+                                    scenarioContext = livedocContext.scenario.getScenarioContext();
+                                    break;
+                                case "Scenario Outline":
+                                    scenarioOutlineContext = livedocContext.scenario.getScenarioContext() as ScenarioOutlineContext;
+                                    break;
+                            }
+
+                            // If the type is a background then bundle up the steps but don't execute them
+                            // they will be executed prior to each scenario.
+                            if (livedocContext.type == "Background") {
+                                // Record the details necessary to execute the steps later on
+                                const stepDetail = { func: stepDefinitionFunction, stepDefinition: stepDefinition };
+                                // Have to put on the parent suite as scenarios and backgrounds are at the same level
+                                suite.parent.livedoc.backgroundSteps.push(stepDetail);
+                            } else {
+                                if (livedocContext.scenarioId != 1 &&
+                                    suite.parent.livedoc.backgroundSteps && !livedocContext.backgroundStepsComplete) {
+                                    // set the background context
+                                    backgroundContext = livedocContext.feature.getBackgroundContext();
+
+                                    suite.parent.livedoc.backgroundSteps.forEach(stepDetails => {
+                                        // reset the stepContext for this step
+                                        stepContext = stepDetails.stepDefinition.getStepContext();
+                                        stepDetails.func();
+                                    });
+                                    // Mark the background as complete for this scenario
+                                    livedocContext.backgroundStepsComplete = true;
+                                }
+                            }
+                            // Must reset stepContext as execution of the background may have changed it
+                            stepContext = stepDefinition.getStepContext();
+
+                            return stepDefinitionFunction(args);
+                        }
+                    }
+                }
+            }
+            catch (e) {
+                if (e.constructor.name === "LiveDocRuleViolation") {
+                    e.report();
+                    return testTypeCreator("invalid")(title, stepDefinitionFunction);
+                } else {
+                    throw e;
                 }
             }
 
@@ -1018,16 +1244,16 @@ function createDescribeAlias(file, suites, context, mocha, common) {
     return function wrapperCreator(type) {
         function wrapper(title: string, fn: Function, opts: { pending?: boolean, isOnly?: boolean } = {}) {
             let suite: Mocha.ISuite;
-            if (type === "invalid") {
-                suite = _suite.create(suites[0], title);
-            } else if (type === "bdd") {
-                suite = processBddDescribe(suites, type, title);
-            } else {
-                try {
 
+            try {
+
+                if (type === "invalid") {
+                    suite = _suite.create(suites[0], title);
+                } else if (type === "bdd") {
+                    suite = processBddDescribe(suites, type, title, file);
+                } else {
                     let livedocContext: LiveDocContext;
                     let feature: Feature;
-
                     if (type === "Feature") {
                         feature = new Feature();
                         feature.filename = file.replace(/^.*[\\\/]/, '');
@@ -1035,7 +1261,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                         // Validate that we have a feature
                         if (!suites[0].livedoc || !suites[0].livedoc.feature) {
                             // No feature!!
-                            throw new LiveDocRuleViolation(`${type} must be within a feature.`, livedoc.rules.scenarioMustBeWithinFeature, title, file);
+                            throw new LiveDocRuleViolation(`${type} must be within a feature.`, livedoc.rules.missingFeature, title, file);
                         }
                         feature = suites[0].livedoc.feature;
                     }
@@ -1109,12 +1335,18 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                         }
                         return outlineSuite;
                     }
-                } catch (e) {
+                }
+            } catch (e) {
+                if (e.constructor.name === "LiveDocRuleViolation") {
                     e.report();
                     // A validation exception has occurred mark as invalid
                     return wrapperCreator("invalid")(title, fn, opts);
+                } else {
+                    // Not a rule violation so rethrow
+                    throw e;
                 }
             }
+
             if (opts.pending || suites[0].isPending()) {
                 (suite as any).pending = opts.pending;
             }
@@ -1141,20 +1373,26 @@ function createDescribeAlias(file, suites, context, mocha, common) {
         return wrapper;
     };
 
-    function processBddDescribe(suites: Mocha.ISuite, type: string, title: string): Mocha.ISuite {
+    function processBddDescribe(suites: Mocha.ISuite, type: string, title: string, file: string): Mocha.ISuite {
         // This is a legacy describe/context test which doesn't support
         // the features of livedoc
-        let livedoc: BddContext;
+        let livedocContext: BddContext;
         const childDescribe = new Describe(title);
-        if (!suites[0].livedoc || suites[0].livedoc.type !== "bdd") {
-            livedoc = addBddContext(suites[0], childDescribe, type);
+        if (suites[0].livedoc && suites[0].livedoc.type !== "bdd") {
+            const violation = new LiveDocRuleViolation(`This feature is using bdd syntax, did you mean to use scenario instead?`, livedoc.rules.mustNotMixLanguages, title, file);
+            throw violation;
+        }
+
+        if (!suites[0].livedoc) {
+            livedocContext = addBddContext(suites[0], childDescribe, type);
         }
         else {
-            livedoc = suites[0].livedoc;
-            livedoc.child = childDescribe;
+            livedocContext = suites[0].livedoc;
+            livedocContext.child = childDescribe;
         }
         const suite = _suite.create(suites[0], childDescribe.title);
-        suite.livedoc = livedoc;
+        suite.livedoc = livedocContext;
+
         return suite;
     }
 }

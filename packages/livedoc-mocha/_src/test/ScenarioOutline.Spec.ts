@@ -34,6 +34,7 @@ Examples:
 
     scenario("validate outline provided the correct values to steps", () => {
         given("the previous scenario was a Scenario Outline", () => { });
+        when("the scenario has completed", () => { });
         then("the total of the weight column provided to the given is '2125'", () => {
             weightTotal.should.be.equal(stepContext.values[0]);
         })

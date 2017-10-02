@@ -32,6 +32,9 @@ feature(`Scenario statement
                 `, () => {
                         givenContext = stepContext;
                     });
+
+                when("using the scenarioContext", () => { });
+
                 then("the scenarioContext.title should match title", () => {
                     givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);
                 })
@@ -58,7 +61,7 @@ feature(`Scenario statement
                     givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);
                 })
 
-                then("the scenarioContext.description should match description", () => {
+                and("the scenarioContext.description should match description", () => {
                     givenContext.tableAsEntity.description.should.be.equal(scenarioContext.description);
                 })
             })
@@ -78,6 +81,8 @@ feature(`Scenario statement
 
                 and("some the values '1' and '2' in an and step definition", () => { });
 
+                when("using the scenarioContext.given", () => { });
+
                 then("the scenarioContext.given should contain the table from the given statement", () => {
                     const entity = scenarioContext.given.tableAsEntity;
                     entity.property1.should.be.equal("value1");
@@ -94,7 +99,7 @@ feature(`Scenario statement
                 });
             });
 
-        scenario(`Given step is associated with scenarioContext.given with isolation
+        scenario(`Given step is associated with scenarioContext.given and does not provide data from a previous scenario
 
                 Ensure that each scenario is isolated from the other.
                 `, () => {
@@ -103,6 +108,8 @@ feature(`Scenario statement
                 | property3  | value3  |
                 | property4  | value4  |
                 `, () => { });
+
+                when("using the scenarioContext.given", () => { });
 
                 then("the scenarioContext.given should contain the table from the given statement", () => {
                     const entity = scenarioContext.given.tableAsEntity;

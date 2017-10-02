@@ -34,6 +34,8 @@ feature(`Step statement
                     docString = stepContext.docString;
                 });
 
+            when("accessing the value from the stepContext", () => { });
+
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
             });
@@ -62,9 +64,10 @@ feature(`Step statement
 
         scenario("Step statement is just a title", () => {
             let whenTitle = "";
-            when(`a simple title`, () => {
+            given(`a simple title`, () => {
                 whenTitle = stepContext.title;
             });
+            when("accessing the value from the stepContext", () => { });
 
             then("the title should match stepContext.title", () => {
                 whenTitle.should.be.equal("a simple title");
@@ -87,6 +90,8 @@ feature(`Step statement
                     docString = stepContext.docString;
                 });
 
+            when("accessing the value from the stepContext", () => { });
+
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
             });
@@ -98,6 +103,7 @@ feature(`Step statement
 
         scenario("Step statement has a title and a docString that is valid json", () => {
             let givenTitle = "";
+
             given(`a simple title
                 """
                 {
@@ -107,6 +113,8 @@ feature(`Step statement
                 """`, () => {
                     givenTitle = stepContext.title;
                 });
+
+            when("accessing the value from the stepContext", () => { });
 
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
@@ -290,6 +298,12 @@ feature(`Step statement
                 value.should.be.equal(20);
             });
         });
+
+        scenario("failing tests are reported as such", () => {
+            given("a step that will fail", () => {
+                throw new Error("Its ok I'm supposed to fail!");
+            });
+        })
 
     });
 

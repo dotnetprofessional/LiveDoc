@@ -119,6 +119,8 @@ feature("Background works with Scenario Outlines", () => {
             given("this is <col1>", () => {
             });
 
+            when("the background executes", () => { });
+
             then("afterBackgroundCheck should be '10'", () => {
                 afterBackgroundCheck.should.be.equal(stepContext.values[0]);
             });
