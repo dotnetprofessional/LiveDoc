@@ -214,7 +214,9 @@ feature(`Step statement
                 | nullValue     | null                  |
                 | USDate        | 01/02/2019            |
                 | ISODate       | 2019-01-02            |
-               
+                | spaces        | " "                   |
+                | quotes        | " a \\" is here"      |
+                
             `, () => { });
 
             then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", () => {
@@ -237,6 +239,13 @@ feature(`Step statement
                 const expectedDate = new Date("Jan 2, 2019").getTime();
                 entity.USDate.getTime().should.be.equal(expectedDate);
                 entity.ISODate.getTime().should.be.equal(expectedDate);
+
+                debugger;
+                (typeof entity.spaces).should.be.equal("string");
+                entity.spaces.should.be.equal(" ");
+
+                (typeof entity.quotes).should.be.equal("string");
+                entity.quotes.should.be.equal(' a " is here');
             })
         });
 

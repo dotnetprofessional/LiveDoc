@@ -3,23 +3,24 @@ The livedoc-mocha API implements the [Gherkin](https://cucumber.io/docs/referenc
 
 livedoc-mocha follows the Gherkin language, livedoc-mocha uses global functions to represent each Gherkin keyword. Each keyword accepts a string that describes the Gherkin language. More background details on the language can be found on this [reference page](https://cucumber.io/docs/reference#gherkin). The supported keywords are:
 
-* Feature
-* Scenario
-* Given, When, Then, And, But (Steps)
-* Background
-* Scenario Outline
-* Examples
+* [Feature](#feature)
+* [Scenario](#scenario)
+* [Steps](#Steps): Given, When, Then, And, But (Steps)
+* [Background](#background)
+* [Scenario Outline](#scenario-outlines)
+* [Type Coercion Support](#type-coercion-support)
+* [Async Support](#async-support)
 
 To stay in line with the general convention of using lowercase keywords in javascript, each of the above keywords use a lowercase version in livedoc-mocha. As an example the Feature keyword would be <code>feature</code>.
 
 There are a few extra keywords as well:
 
-* """ (Doc Strings) : Used in docStrings.
-* | (Data Tables) : Used to define tables
-* @ (Tags): Used by reporting tools to navigate specs and to provide cross references
+* """ ([Doc Strings](API.md#docstrings)) : Used in docStrings.
+* | ([Data Tables](API.md#data-tables)) : Used to define tables
+* @ ([Tags](API.md#tags)): Used by reporting tools to navigate specs and to provide cross references
 * \# (Comments) :
 
-# Feature
+# [Feature](https://cucumber.io/docs/reference#feature)
 Each file should contain only one feature, although there is no restriction on this. It is more of a convention, which makes finding your features easier. Features have a title and a description.
 
 _Gherkin_
@@ -57,7 +58,7 @@ Each feature has a context which is defined by the global variable <code>feature
 * __title:__ This is the first line of the feature
 * __description:__ This is any line after the first line. In the example above it would be 'Account Holders should be able ...'
 
-# Scenario
+# [Scenario](https://cucumber.io/docs/reference#scenario)
 Each feature should contain at least one scenario, but can have as many as required. Scenarios, like features support descriptions.
 
 _Gherkin_
@@ -139,10 +140,10 @@ Each step has a context which is defined by the global variable <code>stepContex
 * __values:__ contains an array of values that were provided by specifying a quoted string (" or ') in a step definition title. This is useful when needing to pass only one or two values.
 * __type:__ the step definition type given, when then, but, and.
 
-The previous example demonstrates a number of important values within the title and descriptions including a table. Livedoc-mocha supports many ways of extracting data from your descriptions and titles. Each of the features below and the <code>values</code> property support number coercion when returning values. So that values returned will be in the most usable format. If for some reason you require a string instead of the number returned, simply convert it back to a string using <code>.toString()</code> method.
+The previous example demonstrates a number of important values within the title and descriptions including a table. Livedoc-mocha supports many ways of extracting data from your descriptions and titles. Each of the features below and the <code>values</code> property support [type coercion](#type-coercion-support) when returning values.
 
 ## [Data Tables](https://cucumber.io/docs/reference#data-tables)
-Data Tables are handy for passing a list of values to a step definition. Livedoc-mocha has full support for Data Tables and several helper methods to make working with them easier. Refer to the context section for more details on the additional properties.
+Data Tables are handy for passing a list of values to a step definition. Livedoc-mocha has full support for Data Tables and several helper methods to make working with them easier. Refer to the [context section](#context) for more details on the additional properties.
 
 For a table to be valid it must start with a pipe (|) on a new line and end with a pipe(|) on the same line. A table can contain as many columns as necessary. While its not a requirement to format the table, the table will be output without formatting, so making the columns align will aid in the tables readability.
 
@@ -377,7 +378,25 @@ feature(`Account Holder withdraws cash
 
 Livedoc-mocha forgoes the need to prefix each tag with an @ sign, as is done in Cucumber. It is also possible to use multiple lines for your tags. When doing so the first tag must be prefixed with an @.
 
-## Async Tests
+## Type Coercion Support
+livedoc-mocha supports type coercion to make using your data in your tests easier. Any time data is retrieved via a context, it will be coerced. The following table shows the supported types:
+
+    | type          | example               |
+    | number        |                  1234 |
+    | numberZero    |                     0 |
+    | boolean true  | true                  |
+    | boolean false | false                 |
+    | array         | ["hello", "Goodbye"]  |
+    | object        | {"prop": "Goodbye"}   |
+    | null values   | null                  |
+    | USDate        | 01/02/2019            |
+    | ISODate       | 2019-01-02            |
+    | spaces        | " "                   |
+    | quotes        | " a \\" is here"      |
+
+In general type coercion is handled by attempting to JSON.parse the value and if that fails will fall back to returing the original string. Dates are a special case and there is support for two common formats [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) and a simple US date format (mm/dd/yyy).
+
+## Async Support
 Livedoc-mocha supports the async/await syntax for writing tests. However, there are a few minor limitations which need to be kept in mind when using this feature.
 
 _Example_
@@ -399,41 +418,4 @@ scenario("Step statements should support async operations", () => {
 
 This example demonstrates how to use the async/await keywords. The function must return a promise or use the <code>async</code> keyword and the call to the async function must be proceeded with the <code>await</code> keyword.
 
-Currently the following scenario should be avoided with the use of async/await calls as it will either not execute the next line or can produce unreliable results when relying on the result in other tests. However, these scenarios are not recommended even if your code is synchronous as its better to use the one of the provided keywords like <code>given</code> to encapsulate this type of code. This will provide better readability of your tests.
-
-__Example__: Loose code within a scenario/feature/background
-This code will execute correctly, however we've seen issues with subsequent then/and statements not reliably getting the correct values. Therefore its recommended that this style be avoided when using async operations.
-
-```js
-scenario("Scenario statements should support async operations", async () => {
-    let value = 0;
-
-    //
-    value = 10;
-    await Utils.sleep(10);
-    value = 20;
-
-    when(`a scenario uses async code`, () => { });
-
-    then("the test should continue after the async operation", () => {
-        value.should.be.equal(20);
-    });
-});
-```
-A better way to structure this code would be to do the following:
-
-```js
-scenario("Scenario statements should support async operations", async () => {
-    let value = 0;
-
-    when("a scenario uses async code", () => {
-        value = 10;
-        await Utils.sleep(10);
-        value = 20;
-    }
-
-    then("the test should continue after the async operation", () => {
-        value.should.be.equal(20);
-    });
-});
-```
+> __NOTE:__ mocha does not support Async on describe or context functions. As such livedoc-mocha does not support Async operations on feature, background, scenario or scenarioOutline. To ensure mistakes are not made livedoc-mocha will throw an exception letting you know if you try to use an unsupported scenario.

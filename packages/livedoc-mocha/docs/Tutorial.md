@@ -3,11 +3,11 @@ For those getting starting with Gherkin, it can be a bit to take in. There's ple
 
 > To help explain how to use livedoc-mocha, I'll be using the same example that was presented by [Alister Scott](https://www.thoughtworks.com/profiles/alister-scott) in his article [Specification by Example: a Love Story](https://watirmelon.blog/2011/05/18/specification-by-example-a-love-story/), which is a recommended read. This tutorial provides an alternative approach to the same lessons.
 
-Let assume we have a shipping company in Australia that wants to ship tea. The business comes to you and explains that they need to following implemented on their website:
+Lets assume we have a shipping company in Australia that wants to ship tea. The business comes to you and explains that they need to following implemented on their website:
 
 _We need to charge a different amount for our customers overseas to what we do here in Australia. The tax office tells us we have to charge GST for Australian customers but not for our overseas ones. So we need to add this to our shopping cart. Also, we got a great deal with a local shipping company so we can ship to anywhere in Australia for free if they spend more than AUD$100, but we still have to charge the overseas customers._
 
-You've read that using Gherkin is a great way to test these features. You've also ready that there are the following parts to a Gherkin spec.
+You may have read that using Gherkin is a great way to test these features. You may also know that there are the following parts to any Gherkin spec.
 
 * feature
 * scenario
@@ -46,12 +46,10 @@ Now that we have our feature, we need some scenarios. Scenarios describe the act
 * when: steps are used to describe an event, or an action. This can be a person interacting with the system, or it can be an event triggered by another system.
 * then: steps are used to describe an expected outcome, or result.
 
-There are also additional <code>and</code> and <code>but</code> statements. These are used after one of the previous commands, and are really used to make it easier to read. The system actually treats all of them the same way.
+There are also additional <code>and</code> and <code>but</code> statements. These are used after one of the previous steps, and are really used to make it easier to read. The system actually treats all of them the same way. Though to encourage good structure, livedoc-mocha has various levels of validation.
 
 Back to our example, you may at first come up with a scenario that look like the following:
 
-``` gherkin
-Scenario: Free shipping in Australia
 ``` gherkin
 Scenario: Free shipping in Australia
   Given I am on the Beautiful Tea home page
@@ -81,19 +79,19 @@ Taking a different approach and focusing on the business needs rather than the t
 ``` gherkin
 Scenario Outline: Calculate GST status and shipping rate
 
-Given the customer is from <customer’s country>
+Given the customer is from <Customer’s Country>
 When the customer’s order totals <order total>
 Then the customer <pays GST>
   And they are charged <shipping rate>
 
 Examples:
 
-    | customer’s country  | GSTamount  | order total  | shipping rate           |
-    | Australia           |      9.999 |        99.99 | Standard Domestic       |
-    | Australia           |      10.00 |       100.00 | Free                    |
-    | New Zealand         |          0 |        99.99 | Standard International  |
-    | New Zealand         |          0 |       100.00 | Standard International  |
-    | Zimbabwe            |          0 |       100.00 | Standard International  |
+    | Customer’s Country  | GST Amount  | Order Total  | Shipping Rate           |
+    | Australia           |       9.999 |        99.99 | Standard Domestic       |
+    | Australia           |       10.00 |       100.00 | Free                    |
+    | New Zealand         |           0 |        99.99 | Standard International  |
+    | New Zealand         |           0 |       100.00 | Standard International  |
+    | Zimbabwe            |           0 |       100.00 | Standard International  |
 ```
 
 This style provides a number of benefits, namely that its very clear how GST is calculated and who is eligible for free shipping and _why_. Using a feature in Gherkin called _Scenario Outlines_ a set of examples were used to describe the different combinations without having to write them all out, as was the case in the more technical version.
@@ -111,9 +109,9 @@ Feature: Beautiful Tea Shipping Costs
 Scenario Outline: Calculate GST status and shipping rate
 
 Given the customer is from <customer’s country>
-When the customer’s order totals <order total>
-Then the customer <pays GST>
-  And they are charged <shipping rate>
+When the customer’s order totals <Order Total>
+Then the customer pays <GST Amount> GST
+  And they are charged the <Shipping Rate> shipping rate
 
 Examples:
 
@@ -125,7 +123,7 @@ Examples:
     | Zimbabwe            |          0 |       100.00 | Standard International  |
 ```
 
-This version of the requirements, can now be used for both validation of the system, but also serve as documentation which __anyone__ on the team can understand.
+This version of the requirements, can now be used for validation of the system, but also serve as documentation which __anyone__ on the team can understand.
 
 ## livedoc-mocha
 Having arrived at our feature and scenarios, implementing them in livedoc-mocha is quite straightforward as it follows the Gherkin layout quite closely.
@@ -175,40 +173,40 @@ scenarioOutline(`Calculate GST status and shipping rate
 
     Examples:
 
-    | customer’s country  | GST_amount  | order total  | shipping rate           |
-    | Australia           |      9.999 |        99.99 | Standard Domestic       |
-    | Australia           |      10.00 |       100.00 | Free                    |
-    | New Zealand         |          0 |        99.99 | Standard International  |
-    | New Zealand         |          0 |       100.00 | Standard International  |
-    | Zimbabwe            |          0 |       100.00 | Standard International  |
+    | Customer’s Country  | GST Amount  | Order Total  | Shipping Rate           |
+    | Australia           |       9.999 |        99.99 | Standard Domestic       |
+    | Australia           |       10.00 |       100.00 | Free                    |
+    | New Zealand         |           0 |        99.99 | Standard International  |
+    | New Zealand         |           0 |       100.00 | Standard International  |
+    | Zimbabwe            |           0 |       100.00 | Standard International  |
 `, () => {
         const cart = new ShoppingCart();
 
-        given("the customer is from <customer’s country>", () => {
-            cart.country = scenarioOutlineContext.example["customer’s country"];
+        given("the customer is from <Customer’s Country>", () => {
+            cart.country = scenarioOutlineContext.example.CustomersCountry;
         });
 
-        when("the customer’s order totals <order total>", () => {
+        when("the customer’s order totals <Order Total>", () => {
             const item = new CartItem();
             item.quantity = 1;
-            item.price = scenarioOutlineContext.example["order total"];
+            item.price = scenarioOutlineContext.example.OrderTotal;
             item.product = "tea";
             cart.items.push(item);
             cart.calculateInvoice();
         });
 
-        then("the customer <pays GST>", () => {
-            cart.gst.should.be.equal(Number(scenarioOutlineContext.example.GST_amount);
+        then("the customer pays <GST Amount> GST", () => {
+            cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);
         });
 
-        and("they are charged <shipping rate>", () => {
-            const rate = shippingRates[scenarioOutlineContext.example["shipping rate"].replace(" ", "")];
+        and("they are charged the <Shipping Rate> shipping rate", () => {
+            const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(" ", "")];
             cart.shipping.should.be.equal(rate);
         });
     });
 ```
 
-This example shows that using the array indexer of the scenarioOutline, you can use any type of name. However, if you use names that are can be valid property names like the GST_amount header, then you can also use the dot syntax as shown in the <code>then</code> function.
+This example shows that when using names with spaces such as 'Order Total' in a scenarioOutline, you can access the value using dot notation simpley by removing any spaces ie <code>scenarioOutlineContext.example.OrderTotal</code>.
 
 This has been a brief tutorial on how to write specifications using livedoc-mocha. For more details on how to use livedoc-mocha refer to the [API reference](API.md) documentation.
 

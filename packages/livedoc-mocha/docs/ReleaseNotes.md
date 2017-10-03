@@ -8,7 +8,8 @@
 * Bug: [#27](https://github.com/dotnetprofessional/LiveDoc/issues/27) Scenario Outline column names with headers not binding in title
 * Bug: [#29](https://github.com/dotnetprofessional/LiveDoc/issues/29) Exception when using .skip
 * Bug: [#31](https://github.com/dotnetprofessional/LiveDoc/issues/31) .only not supported on scenarioOutline 
-
+* Bug: [#24](https://github.com/dotnetprofessional/LiveDoc/issues/24) Enforce correct Gherkin structure 
+* updated docs
 
 ## 0.2.2 - beta
 * Bug: [#14](https://github.com/dotnetprofessional/LiveDoc/issues/14) - stepContext incorrect while in Background steps
