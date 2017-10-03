@@ -871,7 +871,16 @@ class StepDefinition {
         if (["and", "but"].indexOf(this.type) >= 0) {
             padding = "  ";
         }
-        return `${padding}${this.type} ${this._parser.applyIndenting(this.rawDescription, 10)}`;
+        const textReader = new TextBlockReader(this.rawDescription);
+        // To preserve the binding in the title the tile is used then the rest of the raw description
+        let descriptionParts = [];
+        descriptionParts.push(this.title);
+        textReader.next();
+        while (textReader.next()) {
+            descriptionParts.push(textReader.line);
+        }
+
+        return `${padding}${this.type} ${this._parser.applyIndenting(descriptionParts.join("\n"), 10)}`;
     }
     type: string;
     description: string = "";
