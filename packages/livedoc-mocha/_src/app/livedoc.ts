@@ -1196,7 +1196,6 @@ function createStepAlias(file, suites, mocha, common) {
                             // If the type is a background then bundle up the steps but don't execute them
                             // they will be executed prior to each scenario.
                             if (livedocContext.type == "Background") {
-                                debugger;
                                 // Record the details necessary to execute the steps later on
                                 const stepDetail = { func: stepDefinitionFunction, stepDefinition: stepDefinition };
                                 // Have to put on the parent suite as scenarios and backgrounds are at the same level
