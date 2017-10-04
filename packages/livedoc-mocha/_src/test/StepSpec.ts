@@ -240,7 +240,6 @@ feature(`Step statement
                 entity.USDate.getTime().should.be.equal(expectedDate);
                 entity.ISODate.getTime().should.be.equal(expectedDate);
 
-                debugger;
                 (typeof entity.spaces).should.be.equal("string");
                 entity.spaces.should.be.equal(" ");
 
