@@ -105,7 +105,7 @@ class LiveDocRules {
 }
 
 class LiveDoc {
-    constructor () {
+    constructor() {
         this.defaultRecommendations();
     }
 
@@ -171,7 +171,7 @@ class LiveDoc {
 
 class LiveDocRuleViolation extends Error {
     static errorCount: number = 0;
-    constructor (message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
+    constructor(message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
         super(message);
         this.file = file.replace(/^.*[\\\/]/, '');
     }
@@ -209,6 +209,17 @@ declare var backgroundContext: BackgroundContext;
 declare var scenarioOutlineContext: ScenarioOutlineContext;
 
 declare var livedoc: LiveDoc
+declare var liveDocRuleOption;
+
+// initialize context variables
+featureContext = undefined;
+scenarioContext = undefined;
+stepContext = undefined;
+backgroundContext = undefined;
+scenarioOutlineContext = undefined;
+livedoc = new LiveDoc();
+liveDocRuleOption = LiveDocRuleOption;
+
 /**
  * Represents a row in a data table as a keyed object
  * 
@@ -244,13 +255,6 @@ if (!String.prototype.endsWith) {
 }
 
 
-// initialize context variables
-featureContext = undefined;
-scenarioContext = undefined;
-stepContext = undefined;
-backgroundContext = undefined;
-scenarioOutlineContext = undefined;
-livedoc = new LiveDoc();
 
 /*
     Typescript definitions
@@ -281,7 +285,7 @@ class Feature extends LiveDocDescribe {
 
     public executionTime: number;
 
-    constructor () {
+    constructor() {
         super()
         this.displayPrefix = "Feature";
         this.displayIndentLength = 4;
@@ -364,7 +368,7 @@ class TextBlockReader {
     private arrayOfLines: string[];
     private currentIndex: number = -1;
 
-    constructor (text: string) {
+    constructor(text: string) {
         // Split text into lines for processing
         this.arrayOfLines = text.split(/\r?\n/);
     }
@@ -401,7 +405,7 @@ class Parser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor () {
+    constructor() {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
@@ -441,11 +445,11 @@ class Parser {
         this.description = descriptionLines.join("\n");
     }
 
-    public getTableRowAsEntity(headerRow: DataTableRow, dataRow: DataTableRow): object {
+    public getTableRowAsEntity(headerRow: DataTableRow, dataRow: DataTableRow, shouldCoerce: boolean = true): object {
         let entity = {};
         for (let p = 0; p < headerRow.length; p++) {
             // Copy column to header key
-            entity[headerRow[p].toString()] = this.coerceValue(dataRow[p]);
+            entity[headerRow[p].toString()] = shouldCoerce ? this.coerceValue(dataRow[p]) : dataRow[p];
         }
         return entity;
     }
@@ -483,7 +487,7 @@ class Parser {
         // Use JSON.parse to do type conversion, if that fails return the original string
         try {
             return JSON.parse(valueString, this.jsonDateParser);
-        } catch {
+        } catch (e) {
             // Ok so its a string, but it could still be a special one!
             // Try checking if its a date
             const maybeDate = this.getMomentDate(valueString);
@@ -662,7 +666,7 @@ class Scenario extends LiveDocDescribe {
     private hasThen: boolean = false;
     private processingStepType: string;
 
-    constructor (public parent: Feature) {
+    constructor(public parent: Feature) {
         super()
         this.displayPrefix = "Scenario";
         this.displayIndentLength = 6;
@@ -775,7 +779,7 @@ class Scenario extends LiveDocDescribe {
 }
 
 class Background extends Scenario {
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Background";
     }
@@ -798,8 +802,9 @@ class Background extends Scenario {
  */
 class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
+    public exampleRaw: DataTableRow;
 
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario";
     }
@@ -816,6 +821,7 @@ class ScenarioOutlineScenario extends Scenario {
             title: this.title,
             description: this.description,
             example: this.example,
+            exampleRaw: this.exampleRaw,
             given: undefined,
             and: [],
             tags: this.tags
@@ -827,7 +833,7 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario Outline";
     }
@@ -855,6 +861,7 @@ class ScenarioOutline extends Scenario {
             // Don't want to repeat the table etc for every scenario iteration
             scenario.rawDescription = this.title;
             scenario.example = this._parser.getTableRowAsEntity(headerRow, dataRow);
+            scenario.exampleRaw = this._parser.getTableRowAsEntity(headerRow, dataRow, false);
             scenario.title = this._parser.bind(this.title, scenario.example);
             this.scenarios.push(scenario);
         }
@@ -934,6 +941,7 @@ class ScenarioContext {
 
 class ScenarioOutlineContext extends ScenarioContext {
     public example: DataTableRow;
+    public exampleRaw: DataTableRow;
 }
 
 class BackgroundContext extends ScenarioContext {
@@ -1038,7 +1046,7 @@ class BddContext {
 
 // Legacy BDD model
 class Describe {
-    constructor (public title: string) {
+    constructor(public title: string) {
 
     }
     public children: Describe[] = [];
@@ -1046,7 +1054,7 @@ class Describe {
 }
 
 class Test {
-    constructor (public title: string) {
+    constructor(public title: string) {
 
     }
 }
@@ -1188,6 +1196,7 @@ function createStepAlias(file, suites, mocha, common) {
                             // If the type is a background then bundle up the steps but don't execute them
                             // they will be executed prior to each scenario.
                             if (livedocContext.type == "Background") {
+                                debugger;
                                 // Record the details necessary to execute the steps later on
                                 const stepDetail = { func: stepDefinitionFunction, stepDefinition: stepDefinition };
                                 // Have to put on the parent suite as scenarios and backgrounds are at the same level

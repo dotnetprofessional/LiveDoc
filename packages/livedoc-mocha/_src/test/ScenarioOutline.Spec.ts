@@ -5,13 +5,13 @@ feature(`Scenario Outline statement`, () => {
     let weightTotal = 0;
     scenarioOutline(`feeding a suckler cow
 
-Examples:
-    | weight  | energy  | protein  |
-    |     450 |   26500 |      215 |
-    |     500 |   29500 |      245 |
-    |     575 |   31500 |      255 |
-    |     600 |   37000 |      305 |
-`, () => {
+        Examples:
+            | weight  | energy  | protein  |
+            |     450 |   26500 |      215 |
+            |     500 |   29500 |      245 |
+            |     575 |   31500 |      255 |
+            |     600 |   37000 |      305 |
+        `, () => {
 
             given("the cow weighs <weight> kg", (args) => {
                 // TODO: FIX UP

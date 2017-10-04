@@ -109,11 +109,11 @@ feature("Background works with Scenario Outlines", () => {
     scenarioOutline(`Given the following items
 
         Examples:
-        | col1  |
-        | row1  |
-        | row2  |
-        | row3  |
-        | row4  |
+        | col1 |
+        | row1 |
+        | row2 |
+        | row3 |
+        | row4 |
     `, () => {
 
             given("this is <col1>", () => {
