@@ -1,11 +1,199 @@
+var moment = require("moment");
+var colors = require('colors');
+
 /*
-    Typescript definitions
+    Globals
 */
+
+enum LiveDocRuleOption {
+    enabled,
+    disabled,
+    warning
+}
+
+class LiveDocRules {
+    /**
+     * Is triggered when a scenario, scenarioOutline or background is used without a feature
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public missingFeature: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if a given, when or then is not a child of a sceanrio, scenarioOutline or background 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public givenWhenThenMustBeWithinScenario: LiveDocRuleOption; //done
+
+
+    /**
+     * Is triggered when more than 1 given, when or then is used within a single sceanrio, scenarioOutline or background
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public singleGivenWhenThen: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if no given is part of the test 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustIncludeGiven: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if no when is part of the test 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustIncludeWhen: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if no then is part of the test 
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustIncludeThen: LiveDocRuleOption; // not sure how to implement
+
+    /**
+     * Is triggered when an and or but doesn't also include a given, when or then
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public andButMustHaveGivenWhenThen: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered when the Gherkin language is mixed withe mocha's BDD language
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public mustNotMixLanguages: LiveDocRuleOption; //done
+
+    /**
+     * Is triggered if a background uses when or then
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public backgroundMustOnlyIncludeGiven: LiveDocRuleOption;
+
+    /**
+     * Using the before hook has the same affect as the given step definition but with the ability to convey meaning.
+     * It is therefore encouraged to use a given over the before hook.
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public enforceUsingGivenOverBefore: LiveDocRuleOption;
+
+    /**
+     * Ensures that a title is specified for keywords that require it
+     * 
+     * @type {LiveDocRuleOption}
+     * @memberof LiveDocRules
+     */
+    public enforceTitle: LiveDocRuleOption;
+
+}
+
+class LiveDoc {
+    constructor() {
+        this.defaultRecommendations();
+    }
+
+    public rules: LiveDocRules = new LiveDocRules();
+
+    /**
+     * Sets the minimal set of rules to ensure tests are structured correctly
+     * 
+     * @memberof LiveDoc
+     */
+    public enforceMinimalRulesOnly() {
+        this.setAllRulesTo(LiveDocRuleOption.disabled);
+        const option = LiveDocRuleOption.enabled;
+
+        this.rules.missingFeature = option;
+        this.rules.givenWhenThenMustBeWithinScenario = option;
+        this.rules.mustNotMixLanguages = option;
+        this.rules.backgroundMustOnlyIncludeGiven = option;
+        this.rules.enforceUsingGivenOverBefore = option;
+        this.rules.enforceTitle = option;
+    }
+
+    /**
+     * Sets the recommended set of rules to ensure best practices
+     * 
+     * @memberof LiveDoc
+     */
+    public defaultRecommendations() {
+        this.enforceMinimalRulesOnly();
+
+        const option = LiveDocRuleOption.enabled;
+
+        this.rules.singleGivenWhenThen = option;
+        this.rules.mustIncludeGiven = LiveDocRuleOption.warning;
+        this.rules.mustIncludeWhen = LiveDocRuleOption.warning;
+        this.rules.mustIncludeThen = LiveDocRuleOption.warning;
+        this.rules.andButMustHaveGivenWhenThen = option;
+    }
+
+    /**
+     * Sets all rules to warnings
+     * 
+     * @memberof LiveDoc
+     */
+    public setAllRulesAsWarnings() {
+        this.setAllRulesTo(LiveDocRuleOption.warning);
+    }
+
+    private setAllRulesTo(option: LiveDocRuleOption) {
+        this.rules.missingFeature = option;
+        this.rules.givenWhenThenMustBeWithinScenario = option;
+        this.rules.singleGivenWhenThen = option;
+        this.rules.mustIncludeGiven = option;
+        this.rules.mustIncludeWhen = option;
+        this.rules.mustIncludeThen = option;
+        this.rules.andButMustHaveGivenWhenThen = option;
+        this.rules.mustNotMixLanguages = option;
+        this.rules.backgroundMustOnlyIncludeGiven = option;
+        this.rules.enforceUsingGivenOverBefore = option;
+        this.rules.enforceTitle = option;
+    }
+}
+
+class LiveDocRuleViolation extends Error {
+    static errorCount: number = 0;
+    constructor(message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
+        super(message);
+        this.file = file.replace(/^.*[\\\/]/, '');
+    }
+
+    public report() {
+        if (this.option === LiveDocRuleOption.disabled) {
+            return;
+        }
+        LiveDocRuleViolation.errorCount++;
+        const outputMessage = `${this.message} [title: ${this.title}, file: ${this.file}]`;
+        if (this.option === LiveDocRuleOption.warning) {
+            console.error(colors.bgYellow(colors.red(`WARNING[${LiveDocRuleViolation.errorCount}]: ${outputMessage}`)));
+        } else {
+            throw new LiveDocRuleViolation(outputMessage, LiveDocRuleOption.enabled, "", "");
+        }
+    }
+}
+
 declare var feature: Mocha.IContextDefinition;
 declare var background: Mocha.IContextDefinition;
 declare var scenario: Mocha.IContextDefinition;
 declare var scenarioOutline: Mocha.IContextDefinition;
-
 declare var given: Mocha.ITestDefinition;
 declare var when: Mocha.ITestDefinition;
 declare var then: Mocha.ITestDefinition;
@@ -14,7 +202,34 @@ declare var but: Mocha.ITestDefinition;
 
 declare var afterBackground: (fn) => void;
 
-interface String {
+declare var featureContext: FeatureContext;
+declare var scenarioContext: ScenarioContext;
+declare var stepContext: StepContext;
+declare var backgroundContext: BackgroundContext;
+declare var scenarioOutlineContext: ScenarioOutlineContext;
+
+declare var livedoc: LiveDoc
+declare var liveDocRuleOption;
+
+// initialize context variables
+featureContext = undefined;
+scenarioContext = undefined;
+stepContext = undefined;
+backgroundContext = undefined;
+scenarioOutlineContext = undefined;
+livedoc = new LiveDoc();
+liveDocRuleOption = LiveDocRuleOption;
+
+/**
+ * Represents a row in a data table as a keyed object
+ * 
+ * @interface DataTableRow
+ */
+declare interface DataTableRow {
+    [prop: string]: any;
+}
+
+declare interface String {
     startsWith(searchString: string, position?: number);
     endsWith(searchString: string, position?: number);
     repeat(times: number);
@@ -39,8 +254,671 @@ if (!String.prototype.endsWith) {
     };
 }
 
-interface Row {
-    [prop: string]: any;
+
+
+/*
+    Typescript definitions
+*/
+
+
+class LiveDocDescribe {
+    protected _parser = new Parser();
+    public id: number;
+    public title: string;
+    public rawDescription: string;
+    public get displayTitle(): string {
+        return `${this.displayPrefix}: ${this._parser.applyIndenting(this.rawDescription, this.displayIndentLength)}`;
+    }
+    public tags: string[];
+    public description: string;
+
+    public displayPrefix: string = "";
+    public displayIndentLength: number = 0;
+
+}
+
+// LiveDoc model
+class Feature extends LiveDocDescribe {
+    public filename: string;
+    public background: Background;
+    public scenarios: Scenario[] = [];
+
+    public executionTime: number;
+
+    constructor() {
+        super()
+        this.displayPrefix = "Feature";
+        this.displayIndentLength = 4;
+    }
+
+    public parse(type: string, description: string): LiveDocDescribe {
+
+        // Parse the description for all the possible parts
+        const parser = new Parser();
+        parser.parseDescription(description);
+
+        // validate we have a description!
+        if (!parser.title && type !== "Background") {
+            const violation = new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.filename)
+            violation.report();
+        }
+        switch (type) {
+            case "Feature":
+                // This is the top level feature 
+                this.title = parser.title;
+                this.description = parser.description;
+                this.tags = parser.tags;
+                this.rawDescription = description;
+                return this;
+            case "Scenario":
+                const scenario = new Scenario(this);
+                scenario.title = parser.title;
+                scenario.description = parser.description;
+                scenario.tags = parser.tags;
+                scenario.rawDescription = description;
+                this.scenarios.push(scenario);
+                return scenario;
+            case "Scenario Outline":
+                const scenarioOutline = new ScenarioOutline(this);
+                scenarioOutline.title = parser.title;
+                scenarioOutline.description = parser.description;
+                scenarioOutline.tags = parser.tags;
+                scenarioOutline.parseTables(parser.tables);
+                scenarioOutline.rawDescription = description;
+
+                this.scenarios.push(scenarioOutline);
+                return scenarioOutline;
+            case "Background":
+                const background = new Background(this);
+                background.title = parser.title;
+                background.description = parser.description;
+                background.tags = parser.tags;
+                background.rawDescription = description;
+                this.background = background;
+
+                return background;
+            default:
+                throw TypeError("unknown type: " + type);
+        }
+
+    }
+
+    public getFeatureContext(): FeatureContext {
+        return ({
+            filename: this.filename,
+            title: this.title,
+            description: this.description,
+            tags: this.tags
+        });
+    }
+
+    public getBackgroundContext(): BackgroundContext {
+        const context = this.background.getScenarioContext();
+        return ({
+            title: context.title,
+            description: context.description,
+            given: context.given,
+            and: context.and,
+            tags: context.tags
+        });
+    }
+}
+
+class TextBlockReader {
+    private arrayOfLines: string[];
+    private currentIndex: number = -1;
+
+    constructor(text: string) {
+        // Split text into lines for processing
+        this.arrayOfLines = text.split(/\r?\n/);
+    }
+
+    public get count() {
+        return this.arrayOfLines.length;
+    }
+
+    public get line(): string {
+        if (this.currentIndex < this.count) {
+            return this.arrayOfLines[this.currentIndex];
+        } else {
+            return null;
+        }
+    }
+
+    public next(): boolean {
+        this.currentIndex++;
+        return this.currentIndex >= 0 && this.currentIndex < this.count;
+    }
+
+    public reset(): void {
+        this.currentIndex = -1;
+    }
+}
+
+
+class Parser {
+    public title: string = "";
+    public description: string = "";
+    public tags: string[] = [];
+    public tables: Table[] = [];
+    public dataTable: DataTableRow[];
+    public docString: string = "";
+    public quotedValues: string[];
+
+    constructor() {
+        this.jsonDateParser = this.jsonDateParser.bind(this);
+    }
+
+    public parseDescription(text: string) {
+        const textReader = new TextBlockReader(text);
+        if (textReader.next()) {
+            this.title = textReader.line.trim();
+
+            // quoted values are only found in the title
+            this.quotedValues = this.parseQuotedValues(textReader);
+        }
+        let descriptionIndex = -1;
+        const descriptionLines: string[] = [];
+
+        while (textReader.next()) {
+            const line = textReader.line.trim();
+            if (line.startsWith("@")) {
+                this.tags.push(...line.substr(1).split(' '));
+            } else if (line.toLocaleLowerCase().startsWith("examples")) {
+                // scenario outline table
+                this.tables.push(this.parseTable(textReader));
+            } else if (line.startsWith("|") && line.endsWith("|")) {
+                // given/when/then data table
+                this.dataTable = this.parseDataTable(textReader)
+            } else if (line.startsWith('"""')) {
+                this.docString = this.parseDocString(textReader);
+            } else {
+                // Add the rest to the description
+                if (descriptionIndex < 0) {
+                    // find the first non-whitespace character and use that as the split line
+                    descriptionIndex = this.getFirstNonBlankIndex(textReader.line);
+                }
+                // TODO: may want to optimize later
+                descriptionLines.push(this.trimStart(textReader.line, descriptionIndex));
+            }
+        }
+        this.description = descriptionLines.join("\n");
+    }
+
+    public getTableRowAsEntity(headerRow: DataTableRow, dataRow: DataTableRow, shouldCoerce: boolean = true): object {
+        let entity = {};
+        for (let p = 0; p < headerRow.length; p++) {
+            // Copy column to header key
+            entity[headerRow[p].toString()] = shouldCoerce ? this.coerceValue(dataRow[p]) : dataRow[p];
+        }
+        return entity;
+    }
+
+    public getTable(tableArray: DataTableRow[]): DataTableRow[] {
+        let table: DataTableRow[] = [];
+
+        if (tableArray.length === 0) {
+            return table;
+        }
+
+        let header = tableArray[0];
+        for (let i = 1; i < tableArray.length; i++) {
+            let rowData = tableArray[i];
+            let row: DataTableRow = {};
+            for (let column = 0; column < rowData.length; column++) {
+                // Copy column to header key
+                row[header[column]] = this.coerceValue(rowData[column]);
+            }
+            table.push(row);
+        }
+        return table;
+    }
+
+    public coerceValues(values: string[]): any[] {
+        const coercedArray = [];
+        values.forEach(value => {
+            coercedArray.push(this.coerceValue(value));
+        });
+
+        return coercedArray;
+    }
+
+    public coerceValue(valueString: string): any {
+        // Use JSON.parse to do type conversion, if that fails return the original string
+        try {
+            return JSON.parse(valueString, this.jsonDateParser);
+        } catch (e) {
+            // Ok so its a string, but it could still be a special one!
+            // Try checking if its a date
+            const maybeDate = this.getMomentDate(valueString);
+            if (maybeDate.isValid()) {
+                return maybeDate.toDate();
+            }
+
+            return valueString;
+        }
+    }
+
+    private getMomentDate(value: string) {
+        var formats = [
+            moment.ISO_8601,
+            "MM/DD/YYYY"
+        ];
+        return moment(value, formats, true);
+    }
+
+    private jsonDateParser(key, value) {
+        const maybeDate = this.getMomentDate(value);
+        if (maybeDate.isValid()) {
+            return maybeDate.toDate();
+        }
+        return value;
+    }
+
+    private parseTable(textReader: TextBlockReader): Table {
+        var table = new Table();
+        table.name = textReader.line.trim().substr("Examples".length);
+        while (textReader.next()) {
+
+            if (!textReader.line.trim().startsWith("|")) {
+                // Add this line to the description
+                table.description += textReader.line + "\n";
+            } else {
+                break;
+            }
+        }
+
+        // Check we didn't exhaust the text block
+        if (textReader.line != null) {
+            // Ok must have found the data table
+            const dataTable = this.parseDataTable(textReader);
+            table.dataTable = dataTable;
+        }
+        return table;
+    }
+
+    private parseDataTable(textReader: TextBlockReader): DataTableRow[] {
+        // Looks like part of a table
+        let line = textReader.line.trim();
+        const dataTable: DataTableRow[] = [];
+
+        while (line && line.startsWith("|")) {
+            const rowData = line.split("|");
+            let row: any[] = [];
+            for (let i = 1; i < rowData.length - 1; i++) {
+                const valueString = rowData[i].trim();
+                row.push(valueString);
+            }
+            dataTable.push(row);
+            if (textReader.next()) {
+                line = textReader.line.trim();
+            } else {
+                line = null;
+            }
+        }
+        return dataTable;
+    }
+
+    private parseDocString(textReader: TextBlockReader): string {
+        let docLines = [];
+        const docStringStartIndex = textReader.line.indexOf('"');
+        while (textReader.next()) {
+            const trimmedLine = textReader.line.trim();
+            if (trimmedLine.startsWith('"""')) {
+                // end of the docString so can stop processing
+                break;
+            }
+            docLines.push(this.trimStart(textReader.line, docStringStartIndex));
+        }
+        return docLines.join('\n');
+    }
+
+    private parseQuotedValues(textReader: TextBlockReader): string[] {
+        let arrayOfValues = textReader.line.match(/(["'](.*?)["'])+/g);
+        let results = [];
+        if (arrayOfValues) {
+            arrayOfValues.forEach(element => {
+                const valueString = element.substr(1, element.length - 2).trim();
+                results.push(valueString);
+            });
+        }
+        return results;
+    }
+
+    private getFirstNonBlankIndex(text: string): number {
+        for (let i = 0; i < text.length; i++) {
+            if (text.charAt(i) != " ") {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private trimStart(text: string, index: number) {
+        if (index < text.length) {
+            return text.substr(index);
+        }
+        else {
+            return text;
+        }
+    }
+
+    public applyIndenting(text: string, spacing: number) {
+        // This code needs to handle already indented lines
+        const textReader = new TextBlockReader(text);
+
+        // The first line is the title so ignore indenting for that
+        let title = "";
+        if (textReader.next()) {
+            title = textReader.line;
+        }
+        // Now attempt to read the rest of the body if there is one and formatted based on the
+        // indenting of the first line
+        let textLines = [];
+        textLines.push(title);
+        let textIndentingStartIndex = -1;
+        while (textReader.next()) {
+            if (textIndentingStartIndex < 0) {
+                textIndentingStartIndex = this.getFirstNonBlankIndex(textReader.line);
+            }
+            textLines.push(" ".repeat(spacing) + this.trimStart(textReader.line, textIndentingStartIndex));
+        }
+
+        return textLines.join('\n');
+    }
+
+
+    public bind(content, model) {
+        var regex = new RegExp("<[^>]+>", "g");
+        return content.replace(regex, (item, pos, originalText) => {
+            return this.applyBinding(item, model);
+        });
+    }
+
+    private applyBinding(item, model) {
+        var key = this.sanitizeName(item.substr(1, item.length - 2));
+        if (model.hasOwnProperty(key)) {
+            return model[key];
+        } else {
+            return item;
+        }
+    }
+
+    public sanitizeName(name: string): string {
+        // removing spaces and apostrophes
+        return name.replace(/[ `’']/g, "");
+    }
+
+}
+
+class Scenario extends LiveDocDescribe {
+
+    public givens: StepDefinition[] = [];
+    public whens: StepDefinition[] = [];
+    public steps: StepDefinition[] = [];
+
+    public associatedFeatureId: number;
+    public executionTime: number;
+
+    // Used for validations and grouping
+    private hasGiven: boolean = false;
+    private hasWhen: boolean = false;
+    private hasThen: boolean = false;
+    private processingStepType: string;
+
+    constructor(public parent: Feature) {
+        super()
+        this.displayPrefix = "Scenario";
+        this.displayIndentLength = 6;
+    }
+
+    public addStep(type: string, description: string): StepDefinition {
+        const parser = new Parser();
+        parser.parseDescription(description);
+
+        // validate we have a description!
+        if (!parser.title && type !== "Background") {
+            const violation = new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.parent.filename)
+            violation.report();
+        }
+
+        const step = new StepDefinition();
+
+        // This is the top level feature 
+        step.title = parser.title;
+        step.rawDescription = description;
+        step.description = parser.description;
+        step.docString = parser.docString;
+        step.dataTable = parser.dataTable;
+        step.valuesRaw = parser.quotedValues;
+        step.values = parser.coerceValues(step.valuesRaw);
+        step.type = type;
+
+        this.steps.push(step);
+
+        const oneGivenWhenThenViolation = new LiveDocRuleViolation(`there should be only one ${type} in a Scenario, Scenario Outline or Background. Try using and or but instead.`, livedoc.rules.singleGivenWhenThen, this.title, this.parent.filename);
+
+        switch (type) {
+            case "Given":
+                // Check rules
+                if (this.hasGiven) {
+                    // Too many givens
+                    oneGivenWhenThenViolation.report();
+                }
+                this.processingStepType = type;
+                this.hasGiven = true;
+                this.givens.push(step);
+                break;
+            case "When":
+                // Validate that we have a given here or from a Background
+                if (!this.hasGiven || (this.parent.background && !this.parent.background.hasGiven)) {
+                    const violation = new LiveDocRuleViolation(`scenario does not have a Given or a Background with a given.`, livedoc.rules.mustIncludeGiven, this.title, this.parent.filename);
+                    violation.report();
+                }
+                if (this.hasWhen) {
+                    // Too many givens
+                    oneGivenWhenThenViolation.report();
+                }
+                this.processingStepType = type;
+                this.hasWhen = true;
+                this.whens.push(step);
+                break;
+            case "Then":
+                if (!this.hasWhen) {
+                    const violation = new LiveDocRuleViolation(`scenario does not have a When, use When to describe the test action.`, livedoc.rules.mustIncludeWhen, this.title, this.parent.filename);
+                    violation.report();
+                }
+                if (this.hasThen) {
+                    // Too many givens
+                    oneGivenWhenThenViolation.report();
+                }
+                this.processingStepType = type;
+                this.hasThen = true;
+                break;
+            case "and":
+            case "but":
+                // add the continuation of the main step to their collections    
+                switch (this.processingStepType) {
+                    case "Given":
+                        this.givens.push(step);
+                        break;
+                    case "When":
+                        this.whens.push(step);
+                        break;
+                    case "Then":
+                        break;
+                    default:
+                        // Seems we're not processing a GTW!?
+                        const violation = new LiveDocRuleViolation(`a ${type} step definition must be preceded by a Given, When or Then.`, livedoc.rules.andButMustHaveGivenWhenThen, this.title, this.parent.filename);
+                        violation.report();
+                }
+        }
+        return step;
+    }
+
+    public getScenarioContext(): ScenarioContext {
+        const givens: StepContext[] = [];
+        const and: StepContext[] = [];
+
+        for (let i = 0; i < this.givens.length; i++) {
+            const stepContext = this.givens[i].getStepContext();
+            givens.push(stepContext);
+            if (i > 0) {
+                and.push(stepContext);
+            }
+        }
+
+        const context = new ScenarioContext();
+        context.title = this.title;
+        context.description = this.description;
+        context.given = givens.length != 0 ? givens[0] : undefined;
+        context.and = and;
+        context.tags = this.tags;
+        return context;
+    }
+}
+
+class Background extends Scenario {
+    constructor(parent: Feature) {
+        super(parent)
+        this.displayPrefix = "Background";
+    }
+
+    public addStep(type: string, description: string): StepDefinition {
+        const step = super.addStep(type, description);
+        if (type === "Then" || type == "When") {
+            throw new LiveDocRuleViolation(`Backgrounds only support using the given step definition. Consider moving the ${type} to a scenario.`, livedoc.rules.backgroundMustOnlyIncludeGiven, step.title, this.parent.filename);
+        }
+        return step;
+    }
+}
+
+/**
+ * The computed scenario from a ScenarioOutline definition
+ * This differs from a standard scenario as it includes an example
+ * 
+ * @class ScenarioOutlineScenario
+ * @extends {Scenario}
+ */
+class ScenarioOutlineScenario extends Scenario {
+    public example: DataTableRow;
+    public exampleRaw: DataTableRow;
+
+    constructor(parent: Feature) {
+        super(parent)
+        this.displayPrefix = "Scenario";
+    }
+
+    public addStep(type: string, description: string): StepDefinition {
+        const step = super.addStep(type, description);
+        step.title = new Parser().bind(step.title, this.example);
+
+        return step;
+    }
+
+    public getScenarioContext(): ScenarioOutlineContext {
+        return ({
+            title: this.title,
+            description: this.description,
+            example: this.example,
+            exampleRaw: this.exampleRaw,
+            given: undefined,
+            and: [],
+            tags: this.tags
+        });
+    }
+}
+
+class ScenarioOutline extends Scenario {
+    public tables: Table[] = [];
+    public scenarios: ScenarioOutlineScenario[] = [];
+
+    constructor(parent: Feature) {
+        super(parent)
+        this.displayPrefix = "Scenario Outline";
+    }
+
+    public parseTables(tables: Table[]) {
+        // merge all tables into a single array for processing
+        tables.forEach(table => {
+            this.parseTable(table);
+        });
+    }
+
+    public parseTable(table: Table) {
+        // merge all tables into a single array for processing
+        if (!table.dataTable || table.dataTable.length <= 1) {
+            throw TypeError("Data tables must have at least a header row plus a data row.");
+        }
+        const headerRow: string[] = [];
+        table.dataTable[0].forEach(item => {
+            // copy the header names removing spaces and apostrophes
+            headerRow.push(this._parser.sanitizeName(item));
+        });
+        for (let i = 1; i < table.dataTable.length; i++) {
+            const dataRow = table.dataTable[i];
+            const scenario = new ScenarioOutlineScenario(this.parent);
+            // Don't want to repeat the table etc for every scenario iteration
+            scenario.rawDescription = this.title;
+            scenario.example = this._parser.getTableRowAsEntity(headerRow, dataRow);
+            scenario.exampleRaw = this._parser.getTableRowAsEntity(headerRow, dataRow, false);
+            scenario.title = this._parser.bind(this.title, scenario.example);
+            this.scenarios.push(scenario);
+        }
+    }
+}
+
+class StepDefinition {
+    private _parser = new Parser();
+
+    id: number;
+    title: string = "";
+    public get displayTitle(): string {
+        let padding = "";
+        if (["and", "but"].indexOf(this.type) >= 0) {
+            padding = "  ";
+        }
+        const textReader = new TextBlockReader(this.rawDescription);
+        // To preserve the binding in the title the tile is used then the rest of the raw description
+        let descriptionParts = [];
+        descriptionParts.push(this.title);
+        textReader.next();
+        while (textReader.next()) {
+            descriptionParts.push(textReader.line);
+        }
+
+        return `${padding}${this.type} ${this._parser.applyIndenting(descriptionParts.join("\n"), 10)}`;
+    }
+    type: string;
+    description: string = "";
+    rawDescription: string = "";
+    docString: string = "";
+    dataTable: DataTableRow[] = [];
+    values: any[] = [];
+    valuesRaw: string[] = [];
+    status: string;
+    code: string;
+    //error: Exception = new Exception();
+
+    associatedScenarioId: number;
+    executionTime: number;
+
+    public getStepContext(): StepContext {
+        const context = new StepContext();
+        context.title = this.title;
+        context.dataTable = this.dataTable;
+        context.docString = this.docString;
+        context.values = this.values;
+        context.valuesRaw = this.valuesRaw;
+
+        return context;
+    }
+}
+
+class Table {
+    public name: string = "";
+    public description: string = "";
+    public dataTable: DataTableRow[] = [];
 }
 
 class FeatureContext {
@@ -54,50 +932,81 @@ class ScenarioContext {
     title: string;
     description: string;
     given: StepContext;
+    //givens: StepContext[] = [];
+    //when: StepContext;
+    //whens: StepContext[] = [];
     and: StepContext[] = [];
     tags: string[];
 }
 
-class StepContext {
-    title: string;
-    table: Row[];
-
-    docString: string;
-
-    get docStringAsEntity() {
-        return JSON.parse(this.docString);
-    }
-
-    type: string;
-    values: any[];
-
-    tableAsEntity: Row;
-
-    tableAsList: any[][];
-
-    tableAsSingleList: any[];
+class ScenarioOutlineContext extends ScenarioContext {
+    public example: DataTableRow;
+    public exampleRaw: DataTableRow;
 }
 
 class BackgroundContext extends ScenarioContext {
-
 }
 
-class ScenarioOutlineContext extends ScenarioContext {
-    example: Row;
+class StepContext {
+    private _table: DataTableRow[];
+    private _parser = new Parser();
+
+    public title: string;
+    public dataTable: DataTableRow[];
+
+    public docString: string;
+
+    public get docStringAsEntity() {
+        return JSON.parse(this.docString);
+    }
+
+    public type: string;
+    public values: any[];
+    public valuesRaw: string[];
+
+    public get table() {
+        if (!this._table) {
+            // crate a table representation of the dataTable
+            this._table = this._parser.getTable(this.tableAsList());
+        }
+        return this._table;
+    }
+
+    public get tableAsEntity(): DataTableRow {
+        if (this.dataTable.length === 0 || this.dataTable[0].length > 2) {
+            return;
+        }
+
+        return this.convertDataTableRowToEntity(this.dataTable);
+    }
+
+    private convertDataTableRowToEntity(dataTable: DataTableRow): DataTableRow {
+        let entity = {};
+        for (let row = 0; row < dataTable.length; row++) {
+            // Copy column to header key
+            entity[dataTable[row][0].toString()] = this._parser.coerceValue(dataTable[row][1]);
+        }
+        return entity;
+    }
+
+    public tableAsList(): DataTableRow[] {
+        return this.dataTable;
+    }
+
+    public get tableAsSingleList(): any[] {
+        if (this.dataTable.length === 0) {
+            return;
+        }
+
+
+        let list = [];
+        for (let row = 0; row < this.dataTable.length; row++) {
+            // Copy column to header key
+            list.push(this._parser.coerceValue(this.dataTable[row][0]));
+        }
+        return list;
+    }
 }
-
-declare var featureContext: FeatureContext;
-declare var scenarioContext: ScenarioContext;
-declare var stepContext: StepContext;
-declare var backgroundContext: BackgroundContext;
-declare var scenarioOutlineContext: ScenarioOutlineContext;
-
-// initialize context variables
-featureContext = undefined;
-scenarioContext = undefined;
-stepContext = undefined;
-backgroundContext = undefined;
-scenarioOutlineContext = undefined;
 
 /** @internal */
 var _mocha = require('mocha'),
@@ -106,6 +1015,85 @@ var _mocha = require('mocha'),
 
 _mocha.interfaces['livedoc-mocha'] = module.exports = liveDocMocha;
 
+/**
+ * This is used to store the current state of the executing test
+ * 
+ * @class LiveDocContext
+ */
+class LiveDocContext {
+    parent: LiveDocContext;
+    feature: Feature;
+    scenario: Scenario;
+    type: string;
+    scenarioCount: number;
+    scenarioId: number;
+    backgroundSteps: StepDefinition[];
+    afterBackground: Function;
+    backgroundStepsComplete: boolean;
+}
+
+/**
+ * This is used to store the current state of the executing test for bdd style tests
+ * 
+ * @class BddContext
+ */
+class BddContext {
+    parent: BddContext;
+    type: string;
+    describe: Describe;
+    child: Describe;
+}
+
+// Legacy BDD model
+class Describe {
+    constructor(public title: string) {
+
+    }
+    public children: Describe[] = [];
+    public tests: Test[] = [];
+}
+
+class Test {
+    constructor(public title: string) {
+
+    }
+}
+
+/**
+ * Used to initialize the livedoc context for a new Feature
+ * 
+ * @param {Mocha.ISuite} suite 
+ * @param {Feature} feature 
+ * @param {string} type 
+ * @returns {LiveDocContext} 
+ */
+function addLiveDocContext(suite: Mocha.ISuite, feature: Feature, type: string): LiveDocContext {
+    const livedoc = new LiveDocContext();
+    livedoc.type = type;
+    livedoc.parent = (suite.parent as any).livedoc;
+    livedoc.feature = feature;
+    (suite as any).livedoc = livedoc;
+    return livedoc;
+}
+
+/**
+ * Used to initialize the livedoc bdd context for a new Describe
+ * 
+ * @param {Mocha.ISuite} suite 
+ * @param {Describe} describe 
+ * @param {string} type 
+ * @returns {BddContext} 
+ */
+function addBddContext(suite: Mocha.ISuite, describe: Describe, type: string): BddContext {
+    const bdd = new BddContext();
+    bdd.type = type;
+    bdd.parent = (suite as any).livedoc;
+    bdd.describe = describe;
+    bdd.child = describe;
+    (suite as any).livedoc = bdd;
+    return bdd;
+}
+
 /** @internal */
 function liveDocMocha(suite) {
     var suites = [suite];
@@ -113,143 +1101,144 @@ function liveDocMocha(suite) {
     suite.on('pre-require', function (context, file, mocha) {
 
         var common = require('mocha/lib/interfaces/common')(suites, context, mocha);
-
         context.run = mocha.options.delay && common.runWithSuite(suite);
 
-        var describeAliasBuilder = createDescribeAlias(file, suites, context, mocha);
-        var stepAliasBuilder = createStepAlias(file, suites, mocha);
+        var describeAliasBuilder = createDescribeAlias(file, suites, context, mocha, common);
+        var stepAliasBuilder = createStepAlias(file, suites, mocha, common);
 
         context.after = common.after;
         context.afterEach = common.afterEach;
         context.before = common.before;
         context.beforeEach = common.beforeEach;
         context.afterBackground = function (fn) {
-            suites[0].afterBackground = fn;
+            // Assign the background to the parent ie Feature so it can be accessed by 
+            // the Features scenarios.
+            suites[0].parent.livedoc.afterBackground = fn;
         };
 
         context.feature = describeAliasBuilder('Feature');
         context.scenario = describeAliasBuilder('Scenario');
-        context.describe = describeAliasBuilder('');
-        context.context = describeAliasBuilder('');
+        context.describe = describeAliasBuilder('bdd');
+        context.context = describeAliasBuilder('bdd');
         context.background = describeAliasBuilder('Background');
         context.scenarioOutline = describeAliasBuilder('Scenario Outline');
 
         context.given = stepAliasBuilder('Given');
         context.when = stepAliasBuilder('When');
         context.then = stepAliasBuilder('Then');
-        context.and = stepAliasBuilder('  and');
-        context.but = stepAliasBuilder('  but');
-        context.it = stepAliasBuilder('');
+        context.and = stepAliasBuilder('and');
+        context.but = stepAliasBuilder('but');
+        context.it = stepAliasBuilder('bdd');
     });
 }
 
 /** @internal */
-function createStepAlias(file, suites, mocha) {
+function createStepAlias(file, suites, mocha, common) {
     return function testTypeCreator(type) {
-        async function testType(title, stepDefinitionFunction?) {
+        function testType(title, stepDefinitionFunction?) {
             var suite, test;
-            var testName = type ? type + ' ' + title : title;
+            let testName: string;
+
+            // Refactor so that only place adds the test see describe
+            // skipped tests are not working because the test is not being added
+            let stepDefinition: StepDefinition;
             suite = suites[0];
 
-            let context = getStepContext(title);
+            const livedocContext = suite.livedoc as LiveDocContext;
+            const suiteType = livedocContext && livedocContext.type;
+            let stepDefinitionContextWrapper = stepDefinitionFunction;
+            try {
 
-            // Format the original title for better display output
-            testName = formatBlock(testName, 10);
-
-            if (suite.pending) stepDefinitionFunction = null;
-
-            let stepDefinitionContextWrapper = stepDefinitionFunction
-            if (stepDefinitionFunction) {
-                stepDefinitionContextWrapper = async function (...args) {
-                    featureContext = suite.ctx.featureContext;
-                    scenarioContext = suite.ctx.scenarioContext;
-                    scenarioOutlineContext = suite.ctx.scenarioOutlineContext;
-
-                    if (suite.parent.ctx.backgroundSuite) {
-                        backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
+                if (type === "invalid" || !suiteType) {
+                    testName = title;
+                } else if (suiteType === "bdd") {
+                    const bddContext = (livedocContext as any) as BddContext;
+                    const bddTest = new Test(title)
+                    testName = bddTest.title;
+                    bddContext.child.tests.push(bddTest);
+                } else {
+                    // Check if the type is a bdd type
+                    if (type === "bdd") {
+                        throw new LiveDocRuleViolation(`This feature is using bdd syntax, did you mean to use given instead?`, livedoc.rules.mustNotMixLanguages, title, livedocContext.feature.filename);
                     }
 
-                    if (suite.ctx.type == "Background") {
-                        // Record the details necessary to execute the steps later on
-                        const stepDetail = { func: stepDefinitionFunction, context: context };
-                        suite.ctx.backgroundFunc.push(stepDetail);
+                    if (suite._beforeAll.length > 0) {
+                        const violation = new LiveDocRuleViolation(`Using before does not help with readability, consider using a given instead.`, livedoc.rules.enforceUsingGivenOverBefore, title, livedocContext.feature.filename);
+                        // execute inline as this is not a structurally breaking violation
+                        violation.report()
+                    }
+
+                    if (suiteType === "Background") {
+                        stepDefinition = livedocContext.feature.background.addStep(type, title);
+                    } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
+                        stepDefinition = livedocContext.scenario.addStep(type, title);
                     } else {
-                        // Check if a background has been defined, and if so only execute it once per scenario
-                        if (suite.parent.ctx.backgroundSuite && !suite.ctx.backgroundFunExec) {
-                            // Skip the first scenario as its already been executed
-                            if (suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount !== 1) {
-                                backgroundContext = suite.parent.ctx.backgroundSuite.ctx.backgroundContext;
-                                // execute all functions of the background
-                                suite.parent.ctx.backgroundSuite.ctx.backgroundFunc.forEach(stepDetails => {
-                                    // reset the stepContext for this step
-                                    stepContext = stepDetails.context;
-                                    stepDetails.func();
-                                });
+                        throw new LiveDocRuleViolation(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline`, livedoc.rules.givenWhenThenMustBeWithinScenario, title, file);
+                    }
+
+                    testName = stepDefinition.displayTitle;
+
+                    if (stepDefinitionFunction) {
+                        stepDefinitionContextWrapper = function (...args) {
+                            featureContext = livedocContext.feature.getFeatureContext();
+                            switch (livedocContext.type) {
+                                case "Background":
+                                    backgroundContext = livedocContext.feature.getBackgroundContext();
+                                    break;
+                                case "Scenario":
+                                    scenarioContext = livedocContext.scenario.getScenarioContext();
+                                    break;
+                                case "Scenario Outline":
+                                    scenarioOutlineContext = livedocContext.scenario.getScenarioContext() as ScenarioOutlineContext;
+                                    break;
                             }
-                            suite.ctx.backgroundFunExec = true;
-                            suite.parent.ctx.backgroundSuite.ctx.backgroundFunExecCount++;
-                        }
-                    }
 
-                    // A Given step is treated differently as its the primary way to setup
-                    // state for a Spec, so it gets its own property on the scenarioContext
-                    if (scenarioContext) {
-                        if (type === "Given") {
-                            suite.ctx.processingGiven = true;
-                            scenarioContext.given = context;
-                        } else if (["When", "Then"].indexOf(type) >= 0) {
-                            suite.ctx.processingGiven = false;
-                        } else if (suite.ctx.processingGiven) {
-                            scenarioContext.and.push(context);
-                        }
-                    }
+                            // If the type is a background then bundle up the steps but don't execute them
+                            // they will be executed prior to each scenario.
+                            if (livedocContext.type == "Background") {
+                                debugger;
+                                // Record the details necessary to execute the steps later on
+                                const stepDetail = { func: stepDefinitionFunction, stepDefinition: stepDefinition };
+                                // Have to put on the parent suite as scenarios and backgrounds are at the same level
+                                suite.parent.livedoc.backgroundSteps.push(stepDetail);
+                            } else {
+                                if (livedocContext.scenarioId != 1 &&
+                                    suite.parent.livedoc.backgroundSteps && !livedocContext.backgroundStepsComplete) {
+                                    // set the background context
+                                    backgroundContext = livedocContext.feature.getBackgroundContext();
 
-                    // A Given step is treated differently as its the primary way to setup
-                    // state for a Spec, so it gets its own property on the backgroundContext
-                    if (backgroundContext && suite.ctx.type === "Background") {
-                        if (type === "Given") {
-                            suite.ctx.processingGiven = true;
-                            backgroundContext.given = context;
-                        } else if (["When", "Then"].indexOf(type) >= 0) {
-                            suite.ctx.processingGiven = false;
-                        } else if (suite.ctx.processingGiven) {
-                            backgroundContext.and.push(context);
-                        }
-                    }
+                                    suite.parent.livedoc.backgroundSteps.forEach(stepDetails => {
+                                        // reset the stepContext for this step
+                                        stepContext = stepDetails.stepDefinition.getStepContext();
+                                        stepDetails.func();
+                                    });
+                                    // Mark the background as complete for this scenario
+                                    livedocContext.backgroundStepsComplete = true;
+                                }
+                            }
+                            // Must reset stepContext as execution of the background may have changed it
+                            stepContext = stepDefinition.getStepContext();
 
-                    // A Given step is treated differently as its the primary way to setup
-                    // state for a Spec, so it gets its own property on the scenarioOutlineContext
-                    if (scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
-                        scenarioOutlineContext.example = this.test.example;
-                        if (type === "Given") {
-                            suite.ctx.processingGiven = true;
-                            scenarioOutlineContext.given = context;
-                        } else if (["When", "Then"].indexOf(type) >= 0) {
-                            suite.ctx.processingGiven = false;
-                        } else if (suite.ctx.processingGiven) {
-                            scenarioOutlineContext.and.push(context);
+                            return stepDefinitionFunction(args);
                         }
-                    }
-
-                    stepContext = context;
-                    const funcResult = stepDefinitionFunction(args);
-                    if (funcResult && funcResult["then"]) {
-                        await funcResult;
                     }
                 }
             }
-            if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
-                // Scenario Outlines also require that their titles be data bound
-                testName = bind(testName, suite.ctx.scenarioOutlineContext.example);
-                context.title = testName;
+            catch (e) {
+                if (e.constructor.name === "LiveDocRuleViolation") {
+                    e.report();
+                    return testTypeCreator("invalid")(title, stepDefinitionFunction);
+                } else {
+                    throw e;
+                }
             }
 
+            if (suite.isPending()) {
+                // Skip processing test function if the suite is marked to skip
+                stepDefinitionContextWrapper = null;
+            }
             test = new _test(testName, stepDefinitionContextWrapper);
             test.file = file;
-            if (suite.ctx.scenarioOutlineContext && suite.ctx.type === "Scenario Outline") {
-                // Scenario Outlines also require that their titles be data bound
-                test.example = suite.ctx.scenarioOutlineContext.example;
-            }
             suite.addTest(test);
 
             return test;
@@ -260,12 +1249,7 @@ function createStepAlias(file, suites, mocha) {
         };
 
         (testType as any).only = function only(title, fn) {
-            var test = testType(title, fn);
-            if (test && test["then"]) {
-                test.then((test) => {
-                    mocha.grep(test.fullTitle());
-                });
-            }
+            return common.test.only(mocha, testType(title, fn));
         };
 
         return testType;
@@ -274,399 +1258,159 @@ function createStepAlias(file, suites, mocha) {
 }
 
 /** @internal */
-function createDescribeAlias(file, suites, context, mocha) {
+function createDescribeAlias(file, suites, context, mocha, common) {
     return function wrapperCreator(type) {
-        function createLabel(title) {
-            if (!type) return title;
-            let testName = type + ': ' + title;
+        function wrapper(title: string, fn: Function, opts: { pending?: boolean, isOnly?: boolean } = {}) {
+            let suite: Mocha.ISuite;
 
-            // Format the original title for better display output
-            switch (type) {
-                case "Feature":
-                    testName = formatBlock(testName, 4);
-                    break;
-                case "Scenario":
-                    testName = formatBlock(testName, 6);
-                    break;
-            }
-            return testName;
-        }
-        async function wrapper(title, fn) {
-            var suite = _suite.create(suites[0], createLabel(title));
+            try {
 
-            suite.file = file;
-            const parts = getDescribeParts(title);
-            if (type === "Feature") {
-                const context = new FeatureContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                context.tags = parts.tags;
-                context.filename = file.replace(/^.*[\\\/]/, '');
-                suite.ctx.featureContext = context;
-                featureContext = context;
-            } else if (type === "Background") {
-                const context = new BackgroundContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                suite.ctx.backgroundContext = context;
-                context.tags = parts.tags;
-                backgroundContext = context;
-                // Need to put the context on the parent or it won't be available
-                // to the scenarios
-                suite.ctx.backgroundContext = backgroundContext;
-                suite.ctx.backgroundFunc = [];
-                suite.ctx.backgroundFunExecCount = 1;
+                if (type === "invalid") {
+                    suite = _suite.create(suites[0], title);
+                } else if (type === "bdd") {
+                    suite = processBddDescribe(suites, type, title, file);
+                } else {
+                    let livedocContext: LiveDocContext;
+                    let feature: Feature;
+                    if (type === "Feature") {
+                        feature = new Feature();
+                        feature.filename = file.replace(/^.*[\\\/]/, '');
+                    } else {
+                        // Validate that we have a feature
+                        if (!suites[0].livedoc || !suites[0].livedoc.feature) {
+                            // No feature!!
+                            throw new LiveDocRuleViolation(`${type} must be within a feature.`, livedoc.rules.missingFeature, title, file);
+                        }
+                        feature = suites[0].livedoc.feature;
+                    }
 
-                // Make this suite available via the parent
-                suite.parent.ctx.backgroundSuite = suite;
-            } else if (type === "Scenario Outline") {
-                // Setup the basic context for the scenarioOutline
-                const context = new ScenarioOutlineContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                context.tags = parts.tags;
+                    const suiteDefinition = feature.parse(type, title);
+                    suite = _suite.create(suites[0], suiteDefinition.displayTitle);
+                    (suite as any).pending = opts.pending;
 
-                // Extract the Examples:
-                const table = getTableAsList(title);
+                    // initialize the livedoc context
+                    livedocContext = addLiveDocContext(suite, feature, type);
 
-                for (let i = 1; i < table.length; i++) {
-                    var outlineSuite = _suite.create(suites[0], createLabel(context.title));
-                    context.example = getTableRowAsEntity(table, i);
-                    outlineSuite.ctx.scenarioOutlineContext = context;
-                    suite.ctx.type = type;
-                    outlineSuite.ctx.type = type;
-                    suites.unshift(outlineSuite);
-                    if (suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
-                        outlineSuite.afterAll(async () => {
-                            const funcResult = outlineSuite.parent.ctx.backgroundSuite.afterBackground();
-                            if (funcResult && funcResult["then"]) {
-                                await funcResult;
+                    switch (type) {
+                        case "Feature":
+                            featureContext = feature.getFeatureContext();
+                            // Backgrounds need to be executed for each scenario except the first one
+                            // this value tags the scenario number
+                            livedocContext.scenarioCount = 0;
+
+                            break;
+                        case "Background":
+                            //suite.parent.livedoc.backgroundSuite = { fn, suite };
+                            livedocContext.parent.backgroundSteps = [];
+                            break;
+                        case "Scenario":
+                            if (livedocContext.parent.afterBackground) {
+                                // Add the afterBackground function to each scenario's afterAll function
+                                (suite as any).afterAll(() => {
+                                    return livedocContext.parent.afterBackground();
+                                });
                             }
-                        });
+                            livedocContext.parent.scenarioCount += 1;
+                            livedocContext.scenarioId = livedocContext.parent.scenarioCount;
+                        // Fall through on purpose
+                        case "Scenario Outline":
+                            livedocContext.scenario = suiteDefinition as Scenario;
+                            break;
                     }
 
+                    // Specific logic for Scenario Outlines
+                    if (type === "Scenario Outline") {
+                        // Setup the basic context for the scenarioOutline
 
-                    const funcResult = fn.call(outlineSuite);
-                    if (funcResult && funcResult["then"]) {
-                        await funcResult;
+                        const scenarioOutline = suiteDefinition as ScenarioOutline;
+                        for (let i = 0; i < scenarioOutline.scenarios.length; i++) {
+                            const currentScenario = scenarioOutline.scenarios[i];
+                            context = currentScenario.getScenarioContext();
+                            var outlineSuite = _suite.create(suites[0], currentScenario.displayTitle);
+
+                            livedocContext = addLiveDocContext(outlineSuite, feature, type);
+                            livedocContext.scenario = currentScenario;
+                            livedocContext.parent.scenarioCount += 1;
+                            livedocContext.scenarioId = outlineSuite.parent.livedoc.scenarioCount;
+                            suites.unshift(outlineSuite);
+
+                            if (livedocContext.parent.afterBackground) {
+                                outlineSuite.afterAll(() => {
+                                    return livedocContext.parent.afterBackground();
+                                });
+                            };
+
+                            if (opts.pending || suites[0].isPending()) {
+                                (outlineSuite as any).pending = opts.pending;
+                            }
+                            if (opts.isOnly) {
+                                (outlineSuite.parent as any)._onlySuites = (outlineSuite.parent as any)._onlySuites.concat(outlineSuite);
+                                mocha.options.hasOnly = true;
+                            }
+
+                            fn.call(outlineSuite);
+                            suites.shift();
+                        }
+                        return outlineSuite;
                     }
-                    suites.shift();
                 }
-
-                return outlineSuite;
-
-            } else {
-                // Scenario
-                const context = new ScenarioContext();
-                context.title = parts.title;
-                context.description = parts.description;
-                context.tags = parts.tags;
-                suite.ctx.scenarioContext = context;
-                scenarioContext = context;
+            } catch (e) {
+                if (e.constructor.name === "LiveDocRuleViolation") {
+                    e.report();
+                    // A validation exception has occurred mark as invalid
+                    return wrapperCreator("invalid")(title, fn, opts);
+                } else {
+                    // Not a rule violation so rethrow
+                    throw e;
+                }
             }
-            suite.ctx.type = type;
+
+            if (opts.pending || suites[0].isPending()) {
+                (suite as any).pending = opts.pending;
+            }
+            if (opts.isOnly) {
+                (suite.parent as any)._onlySuites = (suite.parent as any)._onlySuites.concat(suite);
+                mocha.options.hasOnly = true;
+            }
+
             suites.unshift(suite);
-
-            if (type === "Scenario" &&
-                suite.parent.ctx.backgroundSuite && suite.parent.ctx.backgroundSuite.afterBackground) {
-                // Add the afterBackground function to each scenario's afterAll function
-                suite.afterAll(async () => {
-                    const funcResult = suite.parent.ctx.backgroundSuite.afterBackground();
-                    if (funcResult && funcResult["then"]) {
-                        await funcResult;
-                    }
-                });
-            }
-
-            const funcResult = fn.call(suite);
-            if (funcResult && funcResult["then"]) {
-                await funcResult;
-            }
+            fn.call(suite);
 
             suites.shift();
             return suite;
         }
 
         (wrapper as any).skip = function skip(title, fn) {
-            var suite = _suite.create(suites[0], createLabel(title));
-
-            suite.pending = true;
-            suites.unshift(suite);
-            fn.call(suite);
-            suites.shift();
+            wrapper(title, fn, { pending: true });
         };
 
         (wrapper as any).only = function only(title, fn) {
-            var suite = wrapper(title, fn);
-            if (suite && suite["then"]) {
-                suite.then((suite) => {
-                    mocha.grep(suite.fullTitle());
-                });
-            }
+            wrapper(title, fn, { isOnly: true });
         };
 
         return wrapper;
     };
 
-    function getDescribeParts(text: string) {
-        let arrayOfLines = text.match(/[^\r\n]+/g);
-        let description = "";
-        let title = "";
-        let tags: string[] = [];
-
-        if (arrayOfLines.length > 0) {
-            for (let i = 0; i < arrayOfLines.length; i++) {
-                let line = arrayOfLines[i];
-                if (line.startsWith(" ")) {
-                    arrayOfLines[i] = line.trim();
-                }
-
-                // Look for tags
-                if (arrayOfLines[i].startsWith("@")) {
-                    tags.push(...arrayOfLines[i].substr(1).split(' '));
-                    // remove tags from description
-                    arrayOfLines.splice(i, 1);
-                    // As the array lost an element need to reprocess this index
-                    i--;
-                }
-            }
-
-            title = arrayOfLines[0];
-            arrayOfLines.shift();
-            description = arrayOfLines.join("\n");
+    function processBddDescribe(suites: Mocha.ISuite, type: string, title: string, file: string): Mocha.ISuite {
+        // This is a legacy describe/context test which doesn't support
+        // the features of livedoc
+        let livedocContext: BddContext;
+        const childDescribe = new Describe(title);
+        if (suites[0].livedoc && suites[0].livedoc.type !== "bdd") {
+            const violation = new LiveDocRuleViolation(`This feature is using bdd syntax, did you mean to use scenario instead?`, livedoc.rules.mustNotMixLanguages, title, file);
+            throw violation;
         }
 
-        let result = {
-            title,
-            description,
-            tags
-        };
-        return result;
-    };
-
-
-}
-
-// Used to bind the model to the values.
-/** @internal */
-function bind(content, model) {
-    var regex = new RegExp("<[\\w\\d]+>", "g");
-    return content.replace(regex, (item, pos, originalText) => {
-        return applyBinding(item, model);
-    });
-}
-
-function applyBinding(item, model) {
-    var key = item.replace("<", "").replace(">", "");
-    if (model.hasOwnProperty(key))
-        return model[key];
-    else {
-        return item;
-    }
-}
-/** @internal */
-function formatBlock(text: string, indent: number): string {
-    let arrayOfLines = text.split(/\r?\n/);
-    if (arrayOfLines.length > 1) {
-        for (let i = 1; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i].trim();
-            // Skip tags
-            if (line.startsWith("@")) {
-                arrayOfLines.splice(i, 1);
-                i--;
-            } else {
-                // Apply indentation
-                arrayOfLines[i] = " ".repeat(indent) + line;
-            }
-
+        if (!suites[0].livedoc) {
+            livedocContext = addBddContext(suites[0], childDescribe, type);
         }
-        return arrayOfLines.join("\n");
-    } else {
-        return text;
-    }
-}
-
-/** @internal */
-function getStepContext(title: string): StepContext {
-    let context = new StepContext();
-    const parts = getStepParts(title);
-    const tableAsList = getTableAsList(title);
-
-    const table = getTable(tableAsList)
-    const tableAsEntity = getTableAsEntity(tableAsList);
-    const tableAsSingleList = getTableAsSingleList(tableAsList);
-    context.title = parts.title;
-    context.docString = parts.docString;
-    context.values = parts.values;
-    context.table = table;
-    context.tableAsEntity = tableAsEntity;
-    context.tableAsList = tableAsList;
-    context.tableAsSingleList = tableAsSingleList;
-
-    return context;
-}
-
-/** @internal */
-function getTableAsList(text: string): any[][] {
-    let arrayOfLines = text.match(/[^\r\n]+/g);
-    let tableArray: string[][] = [];
-
-    if (arrayOfLines.length > 1) {
-        for (let i = 1; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            line = line.trim();
-            if (line.startsWith("|") && line.endsWith("|")) {
-                // Looks like part of a table
-                const rowData = line.split("|");
-                let row: any[] = [];
-                for (let i = 1; i < rowData.length - 1; i++) {
-                    // Convert the values to the best primitive type
-                    const valueString = rowData[i].trim();
-                    row.push(coerceValue(valueString));
-                }
-                tableArray.push(row);
-            }
+        else {
+            livedocContext = suites[0].livedoc;
+            livedocContext.child = childDescribe;
         }
+        const suite = _suite.create(suites[0], childDescribe.title);
+        suite.livedoc = livedocContext;
+
+        return suite;
     }
-    return tableArray;
-}
-
-function coerceValue(valueString: string): any {
-    const value = +valueString;
-    if (value) {
-        return value;
-    } else {
-        // check if its a boolean
-        const literals = ["true", true, "false", false];
-        const index = literals.indexOf(valueString);
-        if (index >= 0) {
-            return literals[index + 1];
-        } else {
-            // Check if its an array
-            if (valueString.startsWith("[") && valueString.endsWith("]")) {
-                const array = JSON.parse(valueString);
-                return array;
-            } else {
-                return valueString;
-            }
-        }
-    }
-}
-
-/** @internal */
-function getTable(tableArray: any[][]): Row[] {
-    let table: Row[] = [];
-
-    if (tableArray.length === 0) {
-        return table;
-    }
-
-    let header = tableArray[0];
-    for (let i = 1; i < tableArray.length; i++) {
-        let rowData = tableArray[i];
-        let row: Row = {};
-        for (let column = 0; column < rowData.length; column++) {
-            // Copy column to header key
-            row[header[column]] = rowData[column];
-        }
-        table.push(row);
-    }
-    return table;
-}
-
-/** @internal */
-function getTableAsEntity(tableArray: any[][]): object {
-
-    if (tableArray.length === 0 || tableArray[0].length > 2) {
-        return;
-    }
-
-    let entity = {};
-    for (let row = 0; row < tableArray.length; row++) {
-        // Copy column to header key
-        entity[tableArray[row][0].toString()] = tableArray[row][1];
-    }
-    return entity;
-}
-
-/** @internal */
-function getTableRowAsEntity(tableArray: any[][], rowIndex: number): object {
-    let entity = {};
-    const rowHeader = tableArray[0];
-    const row = tableArray[rowIndex];
-    for (let p = 0; p < rowHeader.length; p++) {
-        // Copy column to header key
-        entity[rowHeader[p].toString()] = row[p];
-    }
-    return entity;
-}
-
-/** @internal */
-function getTableAsSingleList(tableArray: any[][]): any[] {
-    if (tableArray.length === 0) {
-        return;
-    }
-
-    let list = [];
-    for (let row = 0; row < tableArray.length; row++) {
-        // Copy column to header key
-        list.push(tableArray[row][0]);
-    }
-    return list;
-}
-
-/** @internal */
-function getStepParts(text: string) {
-    let arrayOfLines = text.match(/[^\r\n]+/g);
-    let docString = "";
-    let title = "";
-    let values: string[];
-
-    if (arrayOfLines.length > 0) {
-        for (let i = 0; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            if (line.startsWith(" ")) {
-                arrayOfLines[i] = line.trim();
-            }
-        }
-
-        title = arrayOfLines[0];
-        values = getValuesFromTitle(title);
-        arrayOfLines.shift();
-        // Check if there's a docString present
-        for (let i = 0; i < arrayOfLines.length; i++) {
-            let line = arrayOfLines[i];
-            if (line.startsWith('"""')) {
-                let docLines = [];
-                for (i = i + 1; i < arrayOfLines.length; i++) {
-                    if (arrayOfLines[i].startsWith('"""')) {
-                        // end of docString
-                        break;
-                    }
-                    docLines.push(arrayOfLines[i]);
-                }
-                docString = docLines.join('\n');
-            }
-        }
-    }
-    let result = {
-        title,
-        docString,
-        values
-    };
-    return result;
-};
-
-/** @internal */
-function getValuesFromTitle(text: string) {
-    let arrayOfValues = text.match(/(["'](.*?)["'])+/g);
-    arrayOfValues
-    let results = [];
-    if (arrayOfValues) {
-        arrayOfValues.forEach(element => {
-            const valueString = element.substr(1, element.length - 2).trim();
-            results.push(coerceValue(valueString));
-        });
-    }
-    return results;
 }

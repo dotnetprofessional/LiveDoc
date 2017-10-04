@@ -3,6 +3,91 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 
 > NB: If you are viewing this from npmjs.com, links and images may be broken. Please visit the [project site](https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha#readme) to view this document.
 
+* [Installing](README.md#Installing)
+* [API reference](README.md#api)
+* [Why another library?](README.md#why-another-library)
+
+## So what does this look like?
+If we take the following feature which describes an account holder withdrawing money from an ATM. The format is the same as you might use in Cucumber.js, Cucumber, SpecFlow etc.
+
+```Gherkin
+Feature: Account Holder withdraws cash
+
+        Account Holders should be able to withdraw cash at any of the
+        companies ATMs.
+
+        Rules:
+        * Account Holders should have a valid keycard
+        * Have sufficient available funds
+        * The ATM has the necessary funds
+
+  Scenario: Account has sufficient funds
+    Given the account holders account has the following:
+        | account | 12345 |
+        | balance | 100   |
+        | status  | valid |
+      And the machine contains 1000 dollars
+    When the Account Holder requests 20 dollars
+    Then the ATM should dispense 20 dollars
+      And the account balance should be 80 dollars
+```
+When run with livedoc-mocha will produce the following output:
+
+![Mocha Test Result](docs/images/Feature.PNG)
+
+Converting the original Gherkin to livedoc-mocha would looks like this:
+
+```js
+feature(`Account Holder withdraws cash
+
+        Account Holders should be able to withdraw cash at any of the
+        companies ATMs.
+
+        Rules:
+        * Account Holders should have a valid keycard
+        * Have sufficient available funds
+        * The ATM has the necessary funds
+        `, () => {
+
+        scenario("Account has sufficient funds", () => {
+            let atm = new ATM();
+            let cashReceived: number;
+
+            given(`the account holders account has the following:
+            | account | 12345 |
+            | balance | 100   |
+            | status  | valid |
+        `, () => {
+                    const accountHolder = stepContext.tableAsEntity;
+                    atm.setStatus(accountHolder.account, accountHolder.status);
+                    atm.deposit(accountHolder.account, accountHolder.balance)
+                });
+
+            and("the machine contains '1000' dollars", () => {
+                atm.addCash(stepContext.values[0]);
+            });
+
+            when("the Account Holder requests '20' dollars", () => {
+                cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);
+            });
+
+            then("the ATM should dispense '20' dollars", () => {
+                cashReceived.should.be.equal(stepContext.values[0]);
+            });
+
+            and("the account balance should be '80' dollars", () => {
+                atm.getBalance(scenarioContext.given.tableAsEntity.account).should.be.equal(stepContext.values[0]);
+            });
+        });
+    });
+```
+
+As can be seen by this simple example the actual test code is small and concise as much of the test setup was included as part of the test narrative. This in turn makes the test easier to understand and makes for excellent documentation.
+
+This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](docs/API.md).
+
+The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Example.ts).
+
 ## Installing
 This library builds off the mocha.js library as a custom ui. To setup, follow these steps.
 
@@ -51,86 +136,6 @@ Also for a brief tutorial on how to write Gherkin specs using livedoc-mocha see 
 
 Release notes can be found [here](docs/ReleaseNotes.md)
 
-## So what does this look like?
-If we take the following feature which describes an account holder withdrawing money from an ATM. The format is the same as you might use in Cucumber.js, Cucumber, SpecFlow etc.
-
-```Gherkin
-Feature: Account Holder withdraws cash
-
-        Account Holders should be able to withdraw cash at any of the
-        companies ATMs.
-
-        Rules:
-        * Account Holders should have a valid keycard
-        * Have sufficient available funds
-        * The ATM has the necessary funds
-
-  Scenario: Account has sufficient funds
-    Given the account holders account has the following:
-        | account | 12345 |
-        | balance | 100   |
-        | status  | valid |
-      And the machine contains 1000 dollars
-    When the Account Holder requests 20 dollars
-    Then the ATM should dispense 20 dollars
-      And the account balance should be 80 dollars
-```
-
-Converting this to livedoc-mocha would produce the following:
-
-```js
-feature(`Account Holder withdraws cash
-
-        Account Holders should be able to withdraw cash at any of the
-        companies ATMs.
-
-        Rules:
-        * Account Holders should have a valid keycard
-        * Have sufficient available funds
-        * The ATM has the necessary funds
-        `, () => {
-
-        scenario("Account has sufficient funds", () => {
-            let atm = new ATM();
-            let cashReceived: number;
-
-            given(`the account holders account has the following:
-            | account | 12345 |
-            | balance | 100   |
-            | status  | valid |
-        `, () => {
-                    const accountHolder = stepContext.tableAsEntity;
-                    atm.setStatus(accountHolder.account, accountHolder.status);
-                    atm.deposit(accountHolder.account, accountHolder.balance)
-                });
-
-            and("the machine contains '1000' dollars", () => {
-                atm.addCash(stepContext.values[0]);
-            });
-
-            when("the Account Holder requests '20' dollars", () => {
-                cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);
-            });
-
-            then("the ATM should dispense '20' dollars", () => {
-                cashReceived.should.be.equal(stepContext.values[0]);
-            });
-
-            and("the account balance should be '80' dollars", () => {
-                atm.getBalance(scenarioContext.given.tableAsEntity.account).should.be.equal(stepContext.values[0]);
-            });
-        });
-    });
-```
-When run with mocha will produce the following output:
-
-![Mocha Test Result](docs/images/Feature.PNG)
-
-As can be seen by this simple example the actual test code is small and concise as much of the test setup was included as part of the test narrative. This in turn makes the test easier to understand and makes for excellent documentation.
-
-This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](docs/API.md).
-
-The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Example.ts).
 
 # Why another library?
 There are a number of different libraries that bring the Gherkin language to javascript and even mocha:

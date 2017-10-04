@@ -1,9 +1,9 @@
-///<reference path="../app/livedoc.ts" />
-import * as Utils from "./Utils";
+import * as Utils from './Utils';
 
+///<reference path="../app/livedoc.ts" />
 require('chai').should();
 
-feature.only(`Step statement
+feature(`Step statement
     Step statements are used to define the details of a test, the supported steps are:
         given - sets up the state for the scenario
         when  - defines an action performed by a user/system
@@ -34,6 +34,8 @@ feature.only(`Step statement
                     docString = stepContext.docString;
                 });
 
+            when("accessing the value from the stepContext", () => { });
+
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
             });
@@ -43,11 +45,29 @@ feature.only(`Step statement
             })
         });
 
+        scenario("Step statement has a docString that includes significant spaces", () => {
+            let givenTitle = "";
+            let docString = "";
+            given(`a simple title
+                """
+                    This string is indented
+                    so they should be honoured
+                """`, () => {
+                    givenTitle = stepContext.title;
+                    docString = stepContext.docString;
+                });
+
+            then("the docString should match stepContext.docString including the significant spaces", () => {
+                docString.should.be.equal("    This string is indented\n    so they should be honoured");
+            })
+        });
+
         scenario("Step statement is just a title", () => {
             let whenTitle = "";
-            when(`a simple title`, () => {
+            given(`a simple title`, () => {
                 whenTitle = stepContext.title;
             });
+            when("accessing the value from the stepContext", () => { });
 
             then("the title should match stepContext.title", () => {
                 whenTitle.should.be.equal("a simple title");
@@ -70,6 +90,8 @@ feature.only(`Step statement
                     docString = stepContext.docString;
                 });
 
+            when("accessing the value from the stepContext", () => { });
+
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
             });
@@ -81,6 +103,7 @@ feature.only(`Step statement
 
         scenario("Step statement has a title and a docString that is valid json", () => {
             let givenTitle = "";
+
             given(`a simple title
                 """
                 {
@@ -90,6 +113,8 @@ feature.only(`Step statement
                 """`, () => {
                     givenTitle = stepContext.title;
                 });
+
+            when("accessing the value from the stepContext", () => { });
 
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
@@ -132,7 +157,7 @@ feature.only(`Step statement
 
         scenario("Step statement has a two column table with names in first column", () => {
             let stepTitle = "";
-            let entity: Row;
+            let entity: DataTableRow;
             when(`a simple title has a table
 
                 | name     | Aslak              |
@@ -181,10 +206,17 @@ feature.only(`Step statement
 
                 | string        | test                  |
                 | number        |                  1234 |
+                | numberZero    |                     0 |
                 | booleanTrue   | true                  |
                 | booleanFalse  | false                 |
                 | array         | ["hello", "Goodbye"]  |
-
+                | object        | {"prop": "Goodbye"}   |
+                | nullValue     | null                  |
+                | USDate        | 01/02/2019            |
+                | ISODate       | 2019-01-02            |
+                | spaces        | " "                   |
+                | quotes        | " a \\" is here"      |
+                
             `, () => { });
 
             then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", () => {
@@ -193,12 +225,26 @@ feature.only(`Step statement
 
                 (typeof entity.string).should.be.equal("string");
                 (typeof entity.number).should.be.equal("number");
+                (typeof entity.numberZero).should.be.equal("number");
                 (typeof entity.booleanTrue).should.be.equal("boolean");
                 (typeof entity.booleanFalse).should.be.equal("boolean");
                 (typeof entity.array).should.be.equal("object");
                 entity.array[0].should.be.equal("hello");
                 entity.array[1].should.be.equal("Goodbye");
+                (typeof entity.object).should.be.equal("object");
+                entity.object.prop.should.be.equal("Goodbye");
+                true.should.equal(entity.nullValue === null);
 
+                // Handle dates
+                const expectedDate = new Date("Jan 2, 2019").getTime();
+                entity.USDate.getTime().should.be.equal(expectedDate);
+                entity.ISODate.getTime().should.be.equal(expectedDate);
+
+                (typeof entity.spaces).should.be.equal("string");
+                entity.spaces.should.be.equal(" ");
+
+                (typeof entity.quotes).should.be.equal("string");
+                entity.quotes.should.be.equal(' a " is here');
             })
         });
 
@@ -248,7 +294,7 @@ feature.only(`Step statement
             });
         });
 
-        feature("Step statements should support async operations", () => {
+        scenario("Step statements should support async operations", () => {
             let value = 0;
             when(`a step is testing code that is async`, async () => {
                 value = 10;
@@ -261,4 +307,27 @@ feature.only(`Step statement
             });
         });
 
+        scenario("failing tests are reported as such", () => {
+            given("a step that will fail", () => {
+                throw new Error("Its ok I'm supposed to fail!");
+            });
+        })
+
     });
+
+describe("Error test", () => {
+    it("Should fail", () => {
+        throw new TypeError("Bail...");
+    });
+
+    describe("yet another test of a describe", () => {
+        it("should still be working", () => {
+
+        });
+
+        context("Oh lets try a context too!", () => {
+            it("needs to pass too!", () => {
+            });
+        })
+    })
+});
