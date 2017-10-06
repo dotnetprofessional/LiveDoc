@@ -131,13 +131,5 @@
             "});"
         ],
         "description": "Adds a step definition with a 2 column data table. Steps are used to describe the scenario. Providing a clear description of each step will make your tests easier to understand."
-    },
-    "livedoc datatable 4x": {
-        "prefix": "ld-data-table-4x",
-        "body": [
-            "    | ${1:column name} | ${2:column name}  |${3:column name}  |${4:column name}  |",
-            "    | ${0}             |                   |                   |                   |"
-        ],
-        "description": "Adds 2 column data table. These can be used within given, when, then, and or but steps."
     }
 }

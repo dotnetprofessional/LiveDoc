@@ -1,65 +1,42 @@
-# livedoc-vscode README
+# livedoc VS Code Extension
 
-This is the README for your extension "livedoc-vscode". After writing up a brief description, we recommend including the following sections.
+livedoc is a BBD/Gherkin implementation for Javascript. This extension provides formatting and snippets
+that make creating Gherkin tests easier.
 
-## Features
+* [Features](#features)
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+* [Using](#using)
 
-For example if there is an image subfolder under your extension project workspace:
+* [Configuration](#configuration)
 
-\!\[feature X\]\(images/feature-x.png\)
+< INSERT GIF HERE >
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+# Features
+* Formatting of Scenario Outline tables and Data Tables
+* Code snippets
 
-## Requirements
+## Code Snippets
+snippet              | purpose
+---                  |---
+ld-feature           | Adds a basic feature definition.
+ld-background        | Adds a basic background definition.
+ld-scenario          | Adds a basic scenario definition
+ld-scenario-outline  | Adds a basic scenario outline definition.
+ld-given             | Adds a basic given step definition.
+ld-when              | Adds a basic when step definition.
+ld-then              | Adds a basic then step definition.
+ld-and               | Adds a basic and step definition.
+ld-but               | Adds a basic but step definition.
+ld-step              | Adds a step definition where you can choose the type from given, when, then, and, but
+ld-step-datatable    | Extends ```ld-step``` including a 2x1 data table in the description
+ld-step-datatable-4x | Extends ```ld-step``` including a 4x1 data table in the description  
+ld-step-docString    | Extends ```ld-step``` including a docString in the description
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+# Using
+This extension assumes the livedoc-mocha javascript library is installed. This can be done with the following command
 
-## Extension Settings
+``` ps
+> npm install livedoc-mocha
+```
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: enable/disable this extension
-* `myExtension.thing`: set to `blah` to do something
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
------------------------------------------------------------------------------------------------------------
-
-## Working with Markdown
-
-**Note:** You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on OSX or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+CMD+V` on OSX or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux) or `Cmd+Space` (OSX) to see a list of Markdown snippets
-
-### For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+For full details on this powerful library see the [project site](https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/livedoc-mocha#livedoc-mocha)
