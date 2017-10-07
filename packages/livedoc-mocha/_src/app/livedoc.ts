@@ -105,7 +105,7 @@ class LiveDocRules {
 }
 
 class LiveDoc {
-    constructor() {
+    constructor () {
         this.defaultRecommendations();
     }
 
@@ -171,7 +171,7 @@ class LiveDoc {
 
 class LiveDocRuleViolation extends Error {
     static errorCount: number = 0;
-    constructor(message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
+    constructor (message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
         super(message);
         this.file = file.replace(/^.*[\\\/]/, '');
     }
@@ -211,14 +211,20 @@ declare var scenarioOutlineContext: ScenarioOutlineContext;
 declare var livedoc: LiveDoc
 declare var liveDocRuleOption;
 
-// initialize context variables
-featureContext = undefined;
-scenarioContext = undefined;
-stepContext = undefined;
-backgroundContext = undefined;
-scenarioOutlineContext = undefined;
+function resetGlobalVariables() {
+    // initialize context variables
+    featureContext = undefined;
+    scenarioContext = undefined;
+    stepContext = undefined;
+    backgroundContext = undefined;
+    scenarioOutlineContext = undefined;
+}
+
 livedoc = new LiveDoc();
 liveDocRuleOption = LiveDocRuleOption;
+
+// rest variables
+resetGlobalVariables();
 
 /**
  * Represents a row in a data table as a keyed object
@@ -285,7 +291,7 @@ class Feature extends LiveDocDescribe {
 
     public executionTime: number;
 
-    constructor() {
+    constructor () {
         super()
         this.displayPrefix = "Feature";
         this.displayIndentLength = 4;
@@ -368,7 +374,7 @@ class TextBlockReader {
     private arrayOfLines: string[];
     private currentIndex: number = -1;
 
-    constructor(text: string) {
+    constructor (text: string) {
         // Split text into lines for processing
         this.arrayOfLines = text.split(/\r?\n/);
     }
@@ -405,7 +411,7 @@ class Parser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor() {
+    constructor () {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
@@ -666,7 +672,7 @@ class Scenario extends LiveDocDescribe {
     private hasThen: boolean = false;
     private processingStepType: string;
 
-    constructor(public parent: Feature) {
+    constructor (public parent: Feature) {
         super()
         this.displayPrefix = "Scenario";
         this.displayIndentLength = 6;
@@ -779,7 +785,7 @@ class Scenario extends LiveDocDescribe {
 }
 
 class Background extends Scenario {
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Background";
     }
@@ -804,7 +810,7 @@ class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
     public exampleRaw: DataTableRow;
 
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario";
     }
@@ -833,7 +839,7 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario Outline";
     }
@@ -843,6 +849,11 @@ class ScenarioOutline extends Scenario {
         tables.forEach(table => {
             this.parseTable(table);
         });
+
+        if (this.scenarios.length === 0) {
+            // Oh dear seems they either forgot the table or its not structured correctly.
+            throw new LiveDocRuleViolation("A scenarioOutline was defined but does not contain any Examples. Did you mean to use a scenario or forget the Examples keyword?", LiveDocRuleOption.enabled, this.title, this.parent.filename);
+        }
     }
 
     public parseTable(table: Table) {
@@ -1046,7 +1057,7 @@ class BddContext {
 
 // Legacy BDD model
 class Describe {
-    constructor(public title: string) {
+    constructor (public title: string) {
 
     }
     public children: Describe[] = [];
@@ -1054,7 +1065,7 @@ class Describe {
 }
 
 class Test {
-    constructor(public title: string) {
+    constructor (public title: string) {
 
     }
 }
@@ -1265,13 +1276,16 @@ function createDescribeAlias(file, suites, context, mocha, common) {
             try {
 
                 if (type === "invalid") {
+                    resetGlobalVariables();
                     suite = _suite.create(suites[0], title);
                 } else if (type === "bdd") {
+                    resetGlobalVariables();
                     suite = processBddDescribe(suites, type, title, file);
                 } else {
                     let livedocContext: LiveDocContext;
                     let feature: Feature;
                     if (type === "Feature") {
+                        resetGlobalVariables();
                         feature = new Feature();
                         feature.filename = file.replace(/^.*[\\\/]/, '');
                     } else {
