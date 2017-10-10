@@ -105,7 +105,7 @@ class LiveDocRules {
 }
 
 class LiveDoc {
-    constructor() {
+    constructor () {
         this.defaultRecommendations();
     }
 
@@ -170,20 +170,32 @@ class LiveDoc {
 }
 
 class LiveDocRuleViolation extends Error {
+    public errorId: number;
     static errorCount: number = 0;
-    constructor(message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
+    private dontShowAgain: boolean;
+
+    constructor (message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
         super(message);
         this.file = file.replace(/^.*[\\\/]/, '');
     }
 
-    public report() {
+    public report(dontShowAgain: boolean = false) {
+        if (this.dontShowAgain) {
+            return;
+        }
+
+        this.dontShowAgain = dontShowAgain;
+
         if (this.option === LiveDocRuleOption.disabled) {
             return;
         }
-        LiveDocRuleViolation.errorCount++;
+        if (!this.errorId) {
+            LiveDocRuleViolation.errorCount++;
+            this.errorId = LiveDocRuleViolation.errorCount;
+        }
         const outputMessage = `${this.message} [title: ${this.title}, file: ${this.file}]`;
         if (this.option === LiveDocRuleOption.warning) {
-            console.error(colors.bgYellow(colors.red(`WARNING[${LiveDocRuleViolation.errorCount}]: ${outputMessage}`)));
+            console.error(colors.bgYellow(colors.red(`WARNING[${this.errorId}]: ${outputMessage}`)));
         } else {
             throw new LiveDocRuleViolation(outputMessage, LiveDocRuleOption.enabled, "", "");
         }
@@ -211,14 +223,20 @@ declare var scenarioOutlineContext: ScenarioOutlineContext;
 declare var livedoc: LiveDoc
 declare var liveDocRuleOption;
 
-// initialize context variables
-featureContext = undefined;
-scenarioContext = undefined;
-stepContext = undefined;
-backgroundContext = undefined;
-scenarioOutlineContext = undefined;
+function resetGlobalVariables() {
+    // initialize context variables
+    featureContext = undefined;
+    scenarioContext = undefined;
+    stepContext = undefined;
+    backgroundContext = undefined;
+    scenarioOutlineContext = undefined;
+}
+
 livedoc = new LiveDoc();
 liveDocRuleOption = LiveDocRuleOption;
+
+// rest variables
+resetGlobalVariables();
 
 /**
  * Represents a row in a data table as a keyed object
@@ -275,6 +293,12 @@ class LiveDocDescribe {
     public displayPrefix: string = "";
     public displayIndentLength: number = 0;
 
+    public ruleViolations: LiveDocRuleViolation[] = [];
+
+    public addViolation(violation: LiveDocRuleViolation): LiveDocRuleViolation {
+        this.ruleViolations.push(violation);
+        return violation;
+    }
 }
 
 // LiveDoc model
@@ -285,7 +309,7 @@ class Feature extends LiveDocDescribe {
 
     public executionTime: number;
 
-    constructor() {
+    constructor () {
         super()
         this.displayPrefix = "Feature";
         this.displayIndentLength = 4;
@@ -299,8 +323,8 @@ class Feature extends LiveDocDescribe {
 
         // validate we have a description!
         if (!parser.title && type !== "Background") {
-            const violation = new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.filename)
-            violation.report();
+            this.addViolation(new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.filename))
+                .report();
         }
         switch (type) {
             case "Feature":
@@ -368,7 +392,7 @@ class TextBlockReader {
     private arrayOfLines: string[];
     private currentIndex: number = -1;
 
-    constructor(text: string) {
+    constructor (text: string) {
         // Split text into lines for processing
         this.arrayOfLines = text.split(/\r?\n/);
     }
@@ -405,7 +429,7 @@ class Parser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor() {
+    constructor () {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
@@ -666,7 +690,7 @@ class Scenario extends LiveDocDescribe {
     private hasThen: boolean = false;
     private processingStepType: string;
 
-    constructor(public parent: Feature) {
+    constructor (public parent: Feature) {
         super()
         this.displayPrefix = "Scenario";
         this.displayIndentLength = 6;
@@ -676,15 +700,15 @@ class Scenario extends LiveDocDescribe {
         const parser = new Parser();
         parser.parseDescription(description);
 
-        // validate we have a description!
-        if (!parser.title && type !== "Background") {
-            const violation = new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.parent.filename)
-            violation.report();
-        }
-
         const step = new StepDefinition();
 
-        // This is the top level feature 
+        // validate we have a description!
+        if (!parser.title && type !== "Background") {
+            step.addViolation(new LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, this.parent.filename))
+                .report();
+        }
+
+        // This is the top level feature
         step.title = parser.title;
         step.rawDescription = description;
         step.description = parser.description;
@@ -703,7 +727,8 @@ class Scenario extends LiveDocDescribe {
                 // Check rules
                 if (this.hasGiven) {
                     // Too many givens
-                    oneGivenWhenThenViolation.report();
+                    step.addViolation(oneGivenWhenThenViolation)
+                        .report();
                 }
                 this.processingStepType = type;
                 this.hasGiven = true;
@@ -712,12 +737,13 @@ class Scenario extends LiveDocDescribe {
             case "When":
                 // Validate that we have a given here or from a Background
                 if (!this.hasGiven || (this.parent.background && !this.parent.background.hasGiven)) {
-                    const violation = new LiveDocRuleViolation(`scenario does not have a Given or a Background with a given.`, livedoc.rules.mustIncludeGiven, this.title, this.parent.filename);
-                    violation.report();
+                    step.addViolation(new LiveDocRuleViolation(`scenario does not have a Given or a Background with a given.`, livedoc.rules.mustIncludeGiven, this.title, this.parent.filename))
+                        .report();
                 }
                 if (this.hasWhen) {
                     // Too many givens
-                    oneGivenWhenThenViolation.report();
+                    step.addViolation(oneGivenWhenThenViolation)
+                        .report();
                 }
                 this.processingStepType = type;
                 this.hasWhen = true;
@@ -725,12 +751,13 @@ class Scenario extends LiveDocDescribe {
                 break;
             case "Then":
                 if (!this.hasWhen) {
-                    const violation = new LiveDocRuleViolation(`scenario does not have a When, use When to describe the test action.`, livedoc.rules.mustIncludeWhen, this.title, this.parent.filename);
-                    violation.report();
+                    step.addViolation(new LiveDocRuleViolation(`scenario does not have a When, use When to describe the test action.`, livedoc.rules.mustIncludeWhen, this.title, this.parent.filename))
+                        .report();
                 }
                 if (this.hasThen) {
                     // Too many givens
-                    oneGivenWhenThenViolation.report();
+                    step.addViolation(oneGivenWhenThenViolation)
+                        .report();
                 }
                 this.processingStepType = type;
                 this.hasThen = true;
@@ -749,8 +776,8 @@ class Scenario extends LiveDocDescribe {
                         break;
                     default:
                         // Seems we're not processing a GTW!?
-                        const violation = new LiveDocRuleViolation(`a ${type} step definition must be preceded by a Given, When or Then.`, livedoc.rules.andButMustHaveGivenWhenThen, this.title, this.parent.filename);
-                        violation.report();
+                        step.addViolation(new LiveDocRuleViolation(`a ${type} step definition must be preceded by a Given, When or Then.`, livedoc.rules.andButMustHaveGivenWhenThen, this.title, this.parent.filename))
+                            .report();
                 }
         }
         return step;
@@ -779,7 +806,7 @@ class Scenario extends LiveDocDescribe {
 }
 
 class Background extends Scenario {
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Background";
     }
@@ -787,7 +814,8 @@ class Background extends Scenario {
     public addStep(type: string, description: string): StepDefinition {
         const step = super.addStep(type, description);
         if (type === "Then" || type == "When") {
-            throw new LiveDocRuleViolation(`Backgrounds only support using the given step definition. Consider moving the ${type} to a scenario.`, livedoc.rules.backgroundMustOnlyIncludeGiven, step.title, this.parent.filename);
+            step.addViolation(new LiveDocRuleViolation(`Backgrounds only support using the given step definition. Consider moving the ${type} to a scenario.`, livedoc.rules.backgroundMustOnlyIncludeGiven, step.title, this.parent.filename))
+                .report();
         }
         return step;
     }
@@ -804,7 +832,7 @@ class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
     public exampleRaw: DataTableRow;
 
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario";
     }
@@ -833,7 +861,7 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario Outline";
     }
@@ -843,6 +871,11 @@ class ScenarioOutline extends Scenario {
         tables.forEach(table => {
             this.parseTable(table);
         });
+
+        if (this.scenarios.length === 0) {
+            // Oh dear seems they either forgot the table or its not structured correctly.
+            throw new LiveDocRuleViolation("A scenarioOutline was defined but does not contain any Examples. Did you mean to use a scenario or forget the Examples keyword?", LiveDocRuleOption.enabled, this.title, this.parent.filename);
+        }
     }
 
     public parseTable(table: Table) {
@@ -871,8 +904,8 @@ class ScenarioOutline extends Scenario {
 class StepDefinition {
     private _parser = new Parser();
 
-    id: number;
-    title: string = "";
+    public id: number;
+    public title: string = "";
     public get displayTitle(): string {
         let padding = "";
         if (["and", "but"].indexOf(this.type) >= 0) {
@@ -889,19 +922,21 @@ class StepDefinition {
 
         return `${padding}${this.type} ${this._parser.applyIndenting(descriptionParts.join("\n"), 10)}`;
     }
-    type: string;
-    description: string = "";
-    rawDescription: string = "";
-    docString: string = "";
-    dataTable: DataTableRow[] = [];
-    values: any[] = [];
-    valuesRaw: string[] = [];
-    status: string;
-    code: string;
+
+    public type: string;
+    public description: string = "";
+    public rawDescription: string = "";
+    public docString: string = "";
+    public dataTable: DataTableRow[] = [];
+    public values: any[] = [];
+    public valuesRaw: string[] = [];
+    public status: string;
+    public code: string;
+    public ruleViolations: LiveDocRuleViolation[] = [];
     //error: Exception = new Exception();
 
-    associatedScenarioId: number;
-    executionTime: number;
+    public associatedScenarioId: number;
+    public executionTime: number;
 
     public getStepContext(): StepContext {
         const context = new StepContext();
@@ -912,6 +947,12 @@ class StepDefinition {
         context.valuesRaw = this.valuesRaw;
 
         return context;
+    }
+
+
+    public addViolation(violation: LiveDocRuleViolation): LiveDocRuleViolation {
+        this.ruleViolations.push(violation);
+        return violation;
     }
 }
 
@@ -1046,7 +1087,7 @@ class BddContext {
 
 // Legacy BDD model
 class Describe {
-    constructor(public title: string) {
+    constructor (public title: string) {
 
     }
     public children: Describe[] = [];
@@ -1054,7 +1095,7 @@ class Describe {
 }
 
 class Test {
-    constructor(public title: string) {
+    constructor (public title: string) {
 
     }
 }
@@ -1151,11 +1192,19 @@ function createStepAlias(file, suites, mocha, common) {
 
                 if (type === "invalid" || !suiteType) {
                     testName = title;
+                    stepDefinitionContextWrapper = function (...args) {
+                        displayWarningsInlineIfPossible(livedocContext, null);
+                        return stepDefinitionFunction(args);
+                    }
                 } else if (suiteType === "bdd") {
                     const bddContext = (livedocContext as any) as BddContext;
                     const bddTest = new Test(title)
                     testName = bddTest.title;
                     bddContext.child.tests.push(bddTest);
+                    stepDefinitionContextWrapper = function (...args) {
+                        displayWarningsInlineIfPossible(livedocContext, null);
+                        return stepDefinitionFunction(args);
+                    }
                 } else {
                     // Check if the type is a bdd type
                     if (type === "bdd") {
@@ -1163,9 +1212,8 @@ function createStepAlias(file, suites, mocha, common) {
                     }
 
                     if (suite._beforeAll.length > 0) {
-                        const violation = new LiveDocRuleViolation(`Using before does not help with readability, consider using a given instead.`, livedoc.rules.enforceUsingGivenOverBefore, title, livedocContext.feature.filename);
-                        // execute inline as this is not a structurally breaking violation
-                        violation.report()
+                        livedocContext.scenario.addViolation(new LiveDocRuleViolation(`Using before does not help with readability, consider using a given instead.`, livedoc.rules.enforceUsingGivenOverBefore, title, livedocContext.feature.filename))
+                            .report()
                     }
 
                     if (suiteType === "Background") {
@@ -1180,6 +1228,7 @@ function createStepAlias(file, suites, mocha, common) {
 
                     if (stepDefinitionFunction) {
                         stepDefinitionContextWrapper = function (...args) {
+                            displayWarningsInlineIfPossible(livedocContext, stepDefinition);
                             featureContext = livedocContext.feature.getFeatureContext();
                             switch (livedocContext.type) {
                                 case "Background":
@@ -1225,6 +1274,9 @@ function createStepAlias(file, suites, mocha, common) {
             }
             catch (e) {
                 if (e.constructor.name === "LiveDocRuleViolation") {
+                    if (livedocContext.feature) {
+                        livedocContext.feature.addViolation(e);
+                    }
                     e.report();
                     return testTypeCreator("invalid")(title, stepDefinitionFunction);
                 } else {
@@ -1256,6 +1308,25 @@ function createStepAlias(file, suites, mocha, common) {
 
 }
 
+function displayWarningsInlineIfPossible(livedocContext: LiveDocContext, stepDefinition: StepDefinition) {
+    // if the parent has a rule violation report it here to make it more visible to the dev they made a mistake
+    if (livedocContext && livedocContext.scenario) {
+        livedocContext.scenario.ruleViolations.forEach(violation => {
+            violation.report(true);
+        });
+    }
+    if (livedocContext && livedocContext.feature) {
+        livedocContext.feature.ruleViolations.forEach(violation => {
+            violation.report(true);
+        });
+    }
+
+    if (stepDefinition) {
+        stepDefinition.ruleViolations.forEach(violation => {
+            violation.report(true);
+        });
+    }
+}
 /** @internal */
 function createDescribeAlias(file, suites, context, mocha, common) {
     return function wrapperCreator(type) {
@@ -1265,13 +1336,16 @@ function createDescribeAlias(file, suites, context, mocha, common) {
             try {
 
                 if (type === "invalid") {
+                    resetGlobalVariables();
                     suite = _suite.create(suites[0], title);
                 } else if (type === "bdd") {
+                    resetGlobalVariables();
                     suite = processBddDescribe(suites, type, title, file);
                 } else {
                     let livedocContext: LiveDocContext;
                     let feature: Feature;
                     if (type === "Feature") {
+                        resetGlobalVariables();
                         feature = new Feature();
                         feature.filename = file.replace(/^.*[\\\/]/, '');
                     } else {
@@ -1355,6 +1429,9 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                 }
             } catch (e) {
                 if (e.constructor.name === "LiveDocRuleViolation") {
+                    if (suites[0].livedoc && suites[0].livedoc.feature) {
+                        suites[0].livedoc.feature.addViolation(e);
+                    }
                     e.report();
                     // A validation exception has occurred mark as invalid
                     return wrapperCreator("invalid")(title, fn, opts);
