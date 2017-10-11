@@ -4,6 +4,11 @@
     "description": "Tools and snippets for working with the livedoc-mocha testing library",
     "version": "0.0.1",
     "publisher": "dotnetprofessional",
+    "icon": "images/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/dotnetprofessional/LiveDoc.git"
+    },
     "engines": {
         "vscode": "^1.16.0"
     },
@@ -11,14 +16,11 @@
         "Snippets"
     ],
     "keywords": [
-        "livedoc",
-        "mocha",
         "bdd",
         "gherkin",
         "cucumber",
         "javascript",
-        "testing",
-        "tests"
+        "testing"
     ],
     "activationEvents": [
         "onCommand:extension.formatDataTables",
@@ -55,6 +57,7 @@
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
+        "package": "vsce package",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
     },
