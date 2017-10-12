@@ -6,7 +6,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a feature definition. Features are used to provide the context for the scenarios. Its also a great place to provide summary documentation."
+        "description": "Feature\nFeatures are used to provide the context for the scenarios. Its also a great place to provide summary documentation, or to specify the rules at a high level."
     },
     "livedoc background": {
         "prefix": "ld-background",
@@ -17,7 +17,7 @@
             "\t});",
             "});"
         ],
-        "description": "Adds a background definition. Backgrounds are used to provide common setup that is not specific to any particular scenario. Use the description to provide details on what the background is doing."
+        "description": "Background\nBackgrounds are used to provide common setup that is not specific to any particular scenario. Use the description to provide details on what the background is doing."
     },
     "livedoc scenario": {
         "prefix": "ld-scenario",
@@ -26,20 +26,20 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a scenario definition. Scenarios are used to describe an action by a user or system. When possible make your scenarios focus on the what rather than the how."
+        "description": "Scenario\nScenarios are used to describe an example that would satisfy the feature. This would typically be in the form of an action by a user or system. When possible make your Scenario uses the language of the business rather than technical language."
     },
     "livedoc scenario outline": {
         "prefix": "ld-scenario-outline",
         "body": [
             "scenarioOutline(`${1:description}",
             "    Examples:",
-            "    | ${2:column name} | ${4:column name}  |",
-            "    | ${3:column value}| ${5:column value} |",
+            "    | ${2:column name} | ${3:column name}  |",
+            "    | ${4:column value}| ${5:column value} |",
             "\t`, () => {",
             "\t${0}",
             "});"
         ],
-        "description": "Adds a scenario outline definition. Scenario Outlines are used to run multiple sets of data against the same scenario. Each row of the table will form an individual test. When possible make your Scenario Outlines focus on the what rather than the how."
+        "description": "Scenario Outline\nScenario Outlines are used to provide multiple examples that are run against the same scenario. Each row of the table will form an individual example. When possible make your Scenario Outlines uses the language of the business rather than technical language."
     },
     "livedoc given": {
         "prefix": "ld-given",
@@ -48,7 +48,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a given step definition. Given steps are used to define the current state of the system. Providing a clear description of the setup will make your tests easier to understand."
+        "description": "Given\nGiven steps are used to define the current state of the system. Providing a clear description of the setup will make your examples easier to understand."
     },
     "livedoc when": {
         "prefix": "ld-when",
@@ -57,7 +57,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a when step definition. When steps are used to define the action a user or the system takes. Providing a clear description of the action will make your tests easier to understand."
+        "description": "When\nWhen steps are used to define the action a user or the system takes, that is the thing you're testing. Providing a clear description of the action will make understanding the purpose of the example easier."
     },
     "livedoc then": {
         "prefix": "ld-then",
@@ -66,7 +66,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a then step definition. Then steps are used to validate the new state of the system. Its best to validate one small part per then, and or but."
+        "description": "Then\nThen steps are used to validate the result of the When steps. Its best to validate one small part per then, and or but."
     },
     "livedoc and": {
         "prefix": "ld-and",
@@ -75,7 +75,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a and step definition. And steps are used to extend and existing given, when or then. They are used to make test easier to read and understand."
+        "description": "And\nAnd steps are used to extend and existing given, when or then. They are used to make the examples read more fluently which aids in their understanding."
     },
     "livedoc but": {
         "prefix": "ld-but",
@@ -84,7 +84,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a but step definition. But steps are used to extend and existing given, when or then as a negative condition. They are used to make test easier to read and understand."
+        "description": "But\nBut steps are used to extend and existing given, when or then. They are used to make the examples read more fluently which aids in their understanding."
     },
     "livedoc step": {
         "prefix": "ld-step",
@@ -93,7 +93,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a step definition. Steps are used to describe the scenario. Providing a clear description of each step will make your tests easier to understand."
+        "description": "Step\nA multipurpose snippet to define any of the supported steps given, when, then, and or but. See individual step snippets for an explanation of their use."
     },
     "livedoc step with datatable": {
         "prefix": "ld-step-datatable",
@@ -105,7 +105,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a step definition with a 2 column data table. Steps are used to describe the scenario. Providing a clear description of each step will make your tests easier to understand."
+        "description": "Step with Data table\nAdds a step definition with a 2 column data table. See individual step snippets for an explanation of their use."
     },
     "livedoc step with datatable 4x": {
         "prefix": "ld-step-datatable-4x",
@@ -117,7 +117,7 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a step definition with a 4 column data table. Steps are used to describe the scenario. Providing a clear description of each step will make your tests easier to understand."
+        "description": "Step with 4 Column Data table\nAdds a step definition with a 4 column data table. See individual step snippets for an explanation of their use."
     },
     "livedoc step with docString": {
         "prefix": "ld-step-docString",
@@ -130,6 +130,6 @@
             "\t${0}",
             "});"
         ],
-        "description": "Adds a step definition with a 2 column data table. Steps are used to describe the scenario. Providing a clear description of each step will make your tests easier to understand."
+        "description": "Step with a docString\nAdds a step definition with a docString. See individual step snippets for an explanation of their use."
     }
 }

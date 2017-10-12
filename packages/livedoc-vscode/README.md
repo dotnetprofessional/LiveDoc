@@ -1,7 +1,7 @@
-# livedoc VS Code Extension
+# livedoc
 
 livedoc is a BBD/Gherkin implementation for Javascript. This extension provides formatting and snippets
-that make creating Gherkin tests easier.
+that make creating Gherkin tests with livedoc easier.
 
 * [Features](#features)
 
@@ -9,10 +9,10 @@ that make creating Gherkin tests easier.
 
 * [Configuration](#configuration)
 
-< INSERT GIF HERE >
+![Demo](images/demo.gif)
 
 # Features
-* Formatting of Scenario Outline tables and Data Tables
+* Formatting of Scenario Outline tables and Data Tables with styling
 * Code snippets
 
 ## Code Snippets
@@ -33,10 +33,13 @@ ld-step-datatable-4x | Extends ```ld-step``` including a 4x1 data table in the d
 ld-step-docString    | Extends ```ld-step``` including a docString in the description
 
 # Using
-This extension assumes the livedoc-mocha javascript library is installed. This can be done with the following command
+This extension assumes that the [livedoc-mocha](https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/livedoc-mocha#readme) javascript library is installed. This can be done with the following command
 
 ``` ps
 > npm install livedoc-mocha
 ```
 
-For full details on this powerful library see the [project site](https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/livedoc-mocha#livedoc-mocha)
+For full details on this powerful library see the [project site](https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/livedoc-mocha#readme)
+
+# Configuration
+** TODO

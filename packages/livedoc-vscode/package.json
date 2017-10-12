@@ -1,6 +1,6 @@
 {
     "name": "livedoc-vscode",
-    "displayName": "livedoc (Gherkin) tools and code snippets",
+    "displayName": "livedoc",
     "description": "Tools and snippets for working with the livedoc-mocha testing library",
     "version": "0.0.1",
     "publisher": "dotnetprofessional",
