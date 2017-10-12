@@ -9,7 +9,7 @@ that make creating Gherkin tests with livedoc easier.
 
 * [Configuration](#configuration)
 
-![Demo](images/demo.gif)
+![Demo](https://raw.githubusercontent.com/dotnetprofessional/LiveDoc/master/packages/livedoc-vscode/images/demo.gif)
 
 # Features
 * Formatting of Scenario Outline tables and Data Tables with styling
