@@ -131,10 +131,10 @@ feature(`Step statement
 
             given(`a simple title has a table
 
-                | name    | email               | twitter          |
-                | Aslak   | aslak@cucumber.io   | @aslak_hellesoy  |
-                | Julien  | julien@cucumber.io  | @jbpros          |
-                | Matt    | matt@cucumber.io    | @mattwynne       |
+                |  name  |       email        |     twitter     |
+                | Aslak  | aslak@cucumber.io  | @aslak_hellesoy |
+                | Julien | julien@cucumber.io | @jbpros         |
+                | Matt   | matt@cucumber.io   | @mattwynne      |
 
                 This is a table above!!
             `, () => { });
@@ -160,10 +160,10 @@ feature(`Step statement
             let entity: DataTableRow;
             when(`a simple title has a table
 
-                | name     | Aslak              |
-                | email    | aslak@cucumber.io  |
-                | twitter  | @aslak_hellesoy    |
-                | address  |           1 street |
+                | name    | Aslak             |
+                | email   | aslak@cucumber.io |
+                | twitter | @aslak_hellesoy   |
+                | address | 1 street          |
 
                 This is a table above!!
             `, () => {
@@ -182,9 +182,9 @@ feature(`Step statement
         scenario("Step statement has a single column of values as a table", () => {
             given(`a simple title has a table of values
 
-                |    17 |
-                |    42 |
-                |  4711 |
+                |    17|
+                |   42 |
+                | 4711 |
 
                 This is a table above!!
             `, () => { });
@@ -204,18 +204,18 @@ feature(`Step statement
         scenario("Step statement has a column of values of different intrinsic types as a table", () => {
             given(`a simple title has a table of values
 
-                | string        | test                  |
-                | number        |                  1234 |
-                | numberZero    |                     0 |
-                | booleanTrue   | true                  |
-                | booleanFalse  | false                 |
-                | array         | ["hello", "Goodbye"]  |
-                | object        | {"prop": "Goodbye"}   |
-                | nullValue     | null                  |
-                | USDate        | 01/02/2019            |
-                | ISODate       | 2019-01-02            |
-                | spaces        | " "                   |
-                | quotes        | " a \\" is here"      |
+                | string       | test                 |
+                | number       |                 1234 |
+                | numberZero   |                    0 |
+                | booleanTrue  | true                 |
+                | booleanFalse | false                |
+                | array        | ["hello", "Goodbye"] |
+                | object       | {"prop": "Goodbye"}  |
+                | nullValue    | null                 |
+                | USDate       | 01/02/2019           |
+                | ISODate      | 2019-01-02           |
+                | spaces       | " "                  |
+                | quotes       | " a \\" is here"     |
                 
             `, () => { });
 
@@ -323,6 +323,10 @@ describe("Error test", () => {
     describe("yet another test of a describe", () => {
         it("should still be working", () => {
 
+        });
+
+        it.skip("this should be ignored!", () => {
+            throw new Error("I shouldn't have been executed!!");
         });
 
         context("Oh lets try a context too!", () => {

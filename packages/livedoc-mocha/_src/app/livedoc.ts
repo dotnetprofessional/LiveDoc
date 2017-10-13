@@ -105,7 +105,7 @@ class LiveDocRules {
 }
 
 class LiveDoc {
-    constructor () {
+    constructor() {
         this.defaultRecommendations();
     }
 
@@ -174,7 +174,7 @@ class LiveDocRuleViolation extends Error {
     static errorCount: number = 0;
     private dontShowAgain: boolean;
 
-    constructor (message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
+    constructor(message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
         super(message);
         this.file = file.replace(/^.*[\\\/]/, '');
     }
@@ -309,7 +309,7 @@ class Feature extends LiveDocDescribe {
 
     public executionTime: number;
 
-    constructor () {
+    constructor() {
         super()
         this.displayPrefix = "Feature";
         this.displayIndentLength = 4;
@@ -392,7 +392,7 @@ class TextBlockReader {
     private arrayOfLines: string[];
     private currentIndex: number = -1;
 
-    constructor (text: string) {
+    constructor(text: string) {
         // Split text into lines for processing
         this.arrayOfLines = text.split(/\r?\n/);
     }
@@ -429,7 +429,7 @@ class Parser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor () {
+    constructor() {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
@@ -690,7 +690,7 @@ class Scenario extends LiveDocDescribe {
     private hasThen: boolean = false;
     private processingStepType: string;
 
-    constructor (public parent: Feature) {
+    constructor(public parent: Feature) {
         super()
         this.displayPrefix = "Scenario";
         this.displayIndentLength = 6;
@@ -806,7 +806,7 @@ class Scenario extends LiveDocDescribe {
 }
 
 class Background extends Scenario {
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Background";
     }
@@ -832,7 +832,7 @@ class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
     public exampleRaw: DataTableRow;
 
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario";
     }
@@ -861,7 +861,7 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario Outline";
     }
@@ -1087,7 +1087,7 @@ class BddContext {
 
 // Legacy BDD model
 class Describe {
-    constructor (public title: string) {
+    constructor(public title: string) {
 
     }
     public children: Describe[] = [];
@@ -1095,7 +1095,7 @@ class Describe {
 }
 
 class Test {
-    constructor (public title: string) {
+    constructor(public title: string) {
 
     }
 }
@@ -1192,18 +1192,22 @@ function createStepAlias(file, suites, mocha, common) {
 
                 if (type === "invalid" || !suiteType) {
                     testName = title;
-                    stepDefinitionContextWrapper = function (...args) {
-                        displayWarningsInlineIfPossible(livedocContext, null);
-                        return stepDefinitionFunction(args);
+                    if (stepDefinitionFunction) {
+                        stepDefinitionContextWrapper = function (...args) {
+                            displayWarningsInlineIfPossible(livedocContext, null);
+                            return stepDefinitionFunction(args);
+                        }
                     }
                 } else if (suiteType === "bdd") {
                     const bddContext = (livedocContext as any) as BddContext;
                     const bddTest = new Test(title)
                     testName = bddTest.title;
                     bddContext.child.tests.push(bddTest);
-                    stepDefinitionContextWrapper = function (...args) {
-                        displayWarningsInlineIfPossible(livedocContext, null);
-                        return stepDefinitionFunction(args);
+                    if (stepDefinitionFunction) {
+                        stepDefinitionContextWrapper = function (...args) {
+                            displayWarningsInlineIfPossible(livedocContext, null);
+                            return stepDefinitionFunction(args);
+                        }
                     }
                 } else {
                     // Check if the type is a bdd type
