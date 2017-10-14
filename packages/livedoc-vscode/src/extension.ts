@@ -102,7 +102,7 @@ function onDidChangeActiveTextEditor(editor: TextEditor) {
         };
         trackedDocuments.push(trackedDocument);
 
-        if(window.activeTextEditor === editor) {
+        if (window.activeTextEditor === editor) {
             formatDataTablesInCurrentDocument();
         }
     }
@@ -211,19 +211,26 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
                 }
 
                 let useRowHeaders = rowHeadersCheck.simple && !columnHeadersCheck.simple || rowHeadersCheck.extended && !columnHeadersCheck.extended;
-                if(!useRowHeaders && rowHeadersCheck.simple === columnHeadersCheck.simple && rowHeadersCheck.extended === columnHeadersCheck.extended) {
+                if (!useRowHeaders && rowHeadersCheck.simple === columnHeadersCheck.simple && rowHeadersCheck.extended === columnHeadersCheck.extended) {
                     useRowHeaders = true;
                 }
 
-                headerDecorations = useRowHeaders && decorateRowHeaders(formatted.table, raw.startPosition, delta) || decorateColumnHeaders(formatted.table, raw.startPosition, delta)
+                headerDecorations = useRowHeaders && decorateRowHeaders(formatted.table, raw.startPosition.translate(0, (<any>formatted.table).commentPatternMaxLength), delta) || decorateColumnHeaders(formatted.table, raw.startPosition.translate(0, (<any>formatted.table).commentPatternMaxLength), delta)
             } else {
-                headerDecorations = decorateColumnHeaders(formatted.table, raw.startPosition, delta);
+                headerDecorations = decorateColumnHeaders(formatted.table, raw.startPosition.translate(0, (<any>formatted.table).commentPatternMaxLength), delta);
             }
 
             [].push.apply(headerDocDecorations.decorations, headerDecorations);
 
-            const content = raw.lineLead + formatted.table.map(row => {
-                return `|${row.join("|")}|`;
+            const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength+1).join(" ");
+            const content = raw.lineLead + formatted.table.map(row => {                
+                let commentPatternOrPlaceholder = commentPlaceholder;
+
+                if ((<any>formatted.table).hasCommentedRecords) {
+                    let { isCommented, commentPattern } = (<any>row);
+                    commentPatternOrPlaceholder = commentPattern && commentPlaceholder.slice(commentPattern.length) + commentPattern || commentPlaceholder;
+                }
+                return `${commentPatternOrPlaceholder}|${row.join("|")}|`;
             }).join(/^\r?\n/.test(raw.lineLead) && raw.lineLead || `\r\n${raw.lineLead}`);
 
             docReplacements.push({
@@ -269,7 +276,7 @@ function decorateColumnHeaders(table: string[][], basePosition: Position, charac
         let center = Math.floor(paddingLength / 2);
         const h = v.split("");
 
-        while (--center) {
+        while (center && --center) {
             h.splice(0, 0, h.pop());
         }
 
@@ -308,7 +315,7 @@ function findTables(doc: TextDocument) {
 
     for (let lineNumber = 0; lineNumber < doc.lineCount; lineNumber++) {
         const line = doc.lineAt(lineNumber);
-        const processLine = !line.isEmptyOrWhitespace && line.text.slice(line.firstNonWhitespaceCharacterIndex)[0] === "|" && /\|[^\|]+\|/.test(line.text);
+        const processLine = !line.isEmptyOrWhitespace && /^(#|\/\/)[^\|]*|/.test(line.text) && /\|[^\|]+\|/.test(line.text);
 
         if (processLine) {
             rawTableMetadata = rawTableMetadata ||
