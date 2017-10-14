@@ -1,10 +1,7 @@
 var moment = require("moment");
 var colors = require('colors');
 
-/*
-    Globals
-*/
-
+//region rules
 enum LiveDocRuleOption {
     enabled,
     disabled,
@@ -27,7 +24,6 @@ class LiveDocRules {
      * @memberof LiveDocRules
      */
     public givenWhenThenMustBeWithinScenario: LiveDocRuleOption; //done
-
 
     /**
      * Is triggered when more than 1 given, when or then is used within a single sceanrio, scenarioOutline or background
@@ -105,7 +101,7 @@ class LiveDocRules {
 }
 
 class LiveDoc {
-    constructor() {
+    constructor () {
         this.defaultRecommendations();
     }
 
@@ -174,7 +170,7 @@ class LiveDocRuleViolation extends Error {
     static errorCount: number = 0;
     private dontShowAgain: boolean;
 
-    constructor(message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
+    constructor (message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
         super(message);
         this.file = file.replace(/^.*[\\\/]/, '');
     }
@@ -202,6 +198,9 @@ class LiveDocRuleViolation extends Error {
     }
 }
 
+//endregion 
+
+//region Globals
 declare var feature: Mocha.IContextDefinition;
 declare var background: Mocha.IContextDefinition;
 declare var scenario: Mocha.IContextDefinition;
@@ -272,13 +271,9 @@ if (!String.prototype.endsWith) {
     };
 }
 
+//endregion
 
-
-/*
-    Typescript definitions
-*/
-
-
+//region model
 class LiveDocDescribe {
     protected _parser = new Parser();
     public id: number;
@@ -309,7 +304,7 @@ class Feature extends LiveDocDescribe {
 
     public executionTime: number;
 
-    constructor() {
+    constructor () {
         super()
         this.displayPrefix = "Feature";
         this.displayIndentLength = 4;
@@ -392,7 +387,7 @@ class TextBlockReader {
     private arrayOfLines: string[];
     private currentIndex: number = -1;
 
-    constructor(text: string) {
+    constructor (text: string) {
         // Split text into lines for processing
         this.arrayOfLines = text.split(/\r?\n/);
     }
@@ -429,7 +424,7 @@ class Parser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor() {
+    constructor () {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
@@ -539,6 +534,10 @@ class Parser {
         return value;
     }
 
+    private isCommentedLine(line: string) {
+        return line.startsWith("#") || line.startsWith("//");
+    }
+
     private parseTable(textReader: TextBlockReader): Table {
         var table = new Table();
         table.name = textReader.line.trim().substr("Examples".length);
@@ -566,14 +565,18 @@ class Parser {
         let line = textReader.line.trim();
         const dataTable: DataTableRow[] = [];
 
-        while (line && line.startsWith("|")) {
-            const rowData = line.split("|");
-            let row: any[] = [];
-            for (let i = 1; i < rowData.length - 1; i++) {
-                const valueString = rowData[i].trim();
-                row.push(valueString);
+        while (line && line.startsWith("|") || this.isCommentedLine(line)) {
+            // check if this is a line that has been commented
+            if (!this.isCommentedLine(line)) {
+                const rowData = line.split("|");
+                let row: any[] = [];
+                for (let i = 1; i < rowData.length - 1; i++) {
+                    const valueString = rowData[i].trim();
+                    row.push(valueString);
+                }
+                dataTable.push(row);
             }
-            dataTable.push(row);
+
             if (textReader.next()) {
                 line = textReader.line.trim();
             } else {
@@ -690,7 +693,7 @@ class Scenario extends LiveDocDescribe {
     private hasThen: boolean = false;
     private processingStepType: string;
 
-    constructor(public parent: Feature) {
+    constructor (public parent: Feature) {
         super()
         this.displayPrefix = "Scenario";
         this.displayIndentLength = 6;
@@ -806,7 +809,7 @@ class Scenario extends LiveDocDescribe {
 }
 
 class Background extends Scenario {
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Background";
     }
@@ -832,7 +835,7 @@ class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
     public exampleRaw: DataTableRow;
 
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario";
     }
@@ -861,7 +864,7 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    constructor(parent: Feature) {
+    constructor (parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario Outline";
     }
@@ -1087,7 +1090,7 @@ class BddContext {
 
 // Legacy BDD model
 class Describe {
-    constructor(public title: string) {
+    constructor (public title: string) {
 
     }
     public children: Describe[] = [];
@@ -1095,11 +1098,14 @@ class Describe {
 }
 
 class Test {
-    constructor(public title: string) {
+    constructor (public title: string) {
 
     }
 }
 
+//endregion
+
+//region mocha integration
 /**
  * Used to initialize the livedoc context for a new Feature
  * 
@@ -1494,3 +1500,5 @@ function createDescribeAlias(file, suites, context, mocha, common) {
         return suite;
     }
 }
+
+//endregion
