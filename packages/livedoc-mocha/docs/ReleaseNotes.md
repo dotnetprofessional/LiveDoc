@@ -1,4 +1,7 @@
 # Release Notes
+## 0.3.2 
+* Bug: [#42](https://github.com/dotnetprofessional/LiveDoc/issues/52) Excepeption when using it.skip() 
+
 ## 0.3.1 
 * Bug: [#36](https://github.com/dotnetprofessional/LiveDoc/issues/36) Context leakage
 * Bug: [#35](https://github.com/dotnetprofessional/LiveDoc/issues/35) Scenario outline tests not run if table is not labelled with "Examples:"
