@@ -1,6 +1,6 @@
 {
   "name": "livedoc-mocha",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "author": "Garry McGlennon",
   "description": "BDD extensions for Mocha that support LiveDoc reporting.",
   "repository": {
@@ -33,6 +33,7 @@
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
     "release": "rimraf release && tsc -d -p tsconfig.npm.json",
+    "watch": "tsc --watch -p .",
     "xprepublish": "npm run release"
   },
   "devDependencies": {
