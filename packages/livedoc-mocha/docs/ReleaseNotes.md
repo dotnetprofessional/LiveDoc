@@ -1,6 +1,9 @@
 # Release Notes
+## 0.3.3 
+* Feature: [#44](https://github.com/dotnetprofessional/LiveDoc/issues/44) Support comments for Scenario Outlines in vscode plugin 
+
 ## 0.3.2 
-* Bug: [#42](https://github.com/dotnetprofessional/LiveDoc/issues/52) Excepeption when using it.skip() 
+* Bug: [#42](https://github.com/dotnetprofessional/LiveDoc/issues/42) Exception when using it.skip() 
 
 ## 0.3.1 
 * Bug: [#36](https://github.com/dotnetprofessional/LiveDoc/issues/36) Context leakage
