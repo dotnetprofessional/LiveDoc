@@ -215,9 +215,9 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
                     useRowHeaders = true;
                 }
 
-                headerDecorations = useRowHeaders && decorateRowHeaders(formatted.table, raw.startPosition.translate(0, (<any>formatted.table).commentPatternMaxLength), delta) || decorateColumnHeaders(formatted.table, raw.startPosition.translate(0, (<any>formatted.table).commentPatternMaxLength), delta)
+                headerDecorations = useRowHeaders && decorateRowHeaders(formatted.table, raw.startPosition, delta) || decorateColumnHeaders(formatted.table, raw.startPosition, delta)
             } else {
-                headerDecorations = decorateColumnHeaders(formatted.table, raw.startPosition.translate(0, (<any>formatted.table).commentPatternMaxLength), delta);
+                headerDecorations = decorateColumnHeaders(formatted.table, raw.startPosition, delta);
             }
 
             [].push.apply(headerDocDecorations.decorations, headerDecorations);
@@ -225,7 +225,7 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
             const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength+1).join(" ");
             const lineLead = raw.lineLead.length ? raw.lineLead.slice(0, raw.lineLead.length - commentPlaceholder.length) : raw.lineLead;
 
-            const content = lineLead + formatted.table.map(row => {                
+            const content = formatted.table.map(row => {                
                 let commentPatternOrPlaceholder = commentPlaceholder;
 
                 if ((<any>formatted.table).hasCommentedRecords) {
