@@ -223,15 +223,17 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
             [].push.apply(headerDocDecorations.decorations, headerDecorations);
 
             const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength+1).join(" ");
-            const content = raw.lineLead + formatted.table.map(row => {                
+            const lineLead = raw.lineLead.length ? raw.lineLead.slice(0, raw.lineLead.length - commentPlaceholder.length) : raw.lineLead;
+
+            const content = lineLead + formatted.table.map(row => {                
                 let commentPatternOrPlaceholder = commentPlaceholder;
 
                 if ((<any>formatted.table).hasCommentedRecords) {
                     let { isCommented, commentPattern } = (<any>row);
                     commentPatternOrPlaceholder = commentPattern && commentPlaceholder.slice(commentPattern.length) + commentPattern || commentPlaceholder;
                 }
-                return `${commentPatternOrPlaceholder}|${row.join("|")}|`;
-            }).join(/^\r?\n/.test(raw.lineLead) && raw.lineLead || `\r\n${raw.lineLead}`);
+                return `${lineLead}${commentPatternOrPlaceholder}|${row.join("|")}|\r\n`;
+            }).join("").replace(/\r\n$/, "");
 
             docReplacements.push({
                 startPosition: raw.startPosition,
