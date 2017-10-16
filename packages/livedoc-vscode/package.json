@@ -35,7 +35,7 @@
         "commands": [
             {
                 "command": "extension.formatDataTables",
-                "title": "Format Data Tables"
+                "title": "LiveDoc: Format Data Tables"
             }
         ],
         "snippets": [
