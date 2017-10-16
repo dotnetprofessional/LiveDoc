@@ -32,6 +32,7 @@ interface ITrackedDocument {
 const trackedDocuments = [] as ITrackedDocument[];
 let formattingErrorDecorationType: TextEditorDecorationType = null;
 let headerDecorationType: TextEditorDecorationType = null;
+let commentedDecorationType: TextEditorDecorationType = null;
 
 let activeEditor: TextEditor = null;
 
@@ -39,7 +40,6 @@ let activeEditor: TextEditor = null;
 // your extension is activated the very first time the command is executed
 export function activate(context: ExtensionContext) {
     const errorRenderOptions: DecorationRenderOptions = {
-        //backgroundColor: "rgba(255, 0, 0, 0.25)",
         border: "solid thin rgba(188,66,66,1)",
         borderStyle: "none none solid none",
         after: {
@@ -55,6 +55,9 @@ export function activate(context: ExtensionContext) {
 
     formattingErrorDecorationType = window.createTextEditorDecorationType(errorRenderOptions);
     headerDecorationType = window.createTextEditorDecorationType(headerRenderOptions);
+    commentedDecorationType = window.createTextEditorDecorationType({
+        color: "rgba(34,184,4,1)"
+    });
 
     var disposable = commands.registerCommand('extension.formatDataTables', () => {
         formatDataTablesInCurrentDocument();
@@ -187,6 +190,7 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
 
         if (!formatted.error) {
             const headerDocDecorations = docDecorations.find(v => v.type === headerDecorationType) || (docDecorations.push({ type: headerDecorationType, decorations: [] } as IDocumentDecoration), docDecorations[docDecorations.length - 1]);
+            const commentDocDecorations = docDecorations.find(v => v.type === commentedDecorationType) || (docDecorations.push({ type: commentedDecorationType, decorations: [] } as IDocumentDecoration), docDecorations[docDecorations.length - 1]);
 
             const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength+1).join(" ");
             const lineLead = raw.lineLead.length ? raw.lineLead.slice(0, raw.lineLead.length - commentPlaceholder.length) : raw.lineLead;
@@ -225,14 +229,24 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
 
             [].push.apply(headerDocDecorations.decorations, headerDecorations);
 
-            const content = formatted.table.map(row => {                
+            const content = formatted.table.map((row, lineOffset) => {                
                 let commentPatternOrPlaceholder = commentPlaceholder;
 
-                if ((<any>formatted.table).hasCommentedRecords) {
-                    let { isCommented, commentPattern } = (<any>row);
+                let { isCommented, commentPattern } = (<any>row);
+                if ((<any>formatted.table).hasCommentedRecords) {                    
                     commentPatternOrPlaceholder = commentPattern && commentPlaceholder.slice(commentPattern.length) + commentPattern || commentPlaceholder;
                 }
-                return `${lineLead}${commentPatternOrPlaceholder}|${row.join("|")}|\r\n`;
+
+                const output = `${lineLead}${commentPatternOrPlaceholder}|${row.join("|")}|\r\n`;
+
+                if(isCommented) {
+                    const startPosition = raw.startPosition.translate(lineOffset, lineLead.length);
+                    commentDocDecorations.decorations.push({
+                        range: new Range(startPosition, startPosition.translate(0, output.length))
+                    });
+                }
+
+                return output;
             }).join("").replace(/\r\n$/, "");
 
             docReplacements.push({
