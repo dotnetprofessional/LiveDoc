@@ -188,7 +188,10 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
         if (!formatted.error) {
             const headerDocDecorations = docDecorations.find(v => v.type === headerDecorationType) || (docDecorations.push({ type: headerDecorationType, decorations: [] } as IDocumentDecoration), docDecorations[docDecorations.length - 1]);
 
-            const delta = raw.startPosition.character + raw.lineLead.length + 1;
+            const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength+1).join(" ");
+            const lineLead = raw.lineLead.length ? raw.lineLead.slice(0, raw.lineLead.length - commentPlaceholder.length) : raw.lineLead;
+            const delta = raw.startPosition.character + lineLead.length + commentPlaceholder.length + 1;
+
             let headerDecorations: DecorationOptions[] = null;
 
             if (formatted.table[0].length === 2) {
@@ -221,9 +224,6 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
             }
 
             [].push.apply(headerDocDecorations.decorations, headerDecorations);
-
-            const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength+1).join(" ");
-            const lineLead = raw.lineLead.length ? raw.lineLead.slice(0, raw.lineLead.length - commentPlaceholder.length) : raw.lineLead;
 
             const content = formatted.table.map(row => {                
                 let commentPatternOrPlaceholder = commentPlaceholder;
