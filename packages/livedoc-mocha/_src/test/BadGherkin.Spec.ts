@@ -95,3 +95,31 @@ feature("", () => {
         given("", () => { });
     });
 });
+
+
+/* The following tests need to be run manually as they throw exceptions. 
+   Exception tests are not yet supported, so they can't be kept live 
+*/
+
+// feature("Features may not be marked as async", async () => {
+// });
+
+// feature("Scenarios may not be marked as async", () => {
+//     scenario("my scenario", async () => {
+//     });
+// });
+
+// feature("Backgrounds may not be marked as async", () => {
+//     background("my background", async () => {
+//     });
+// });
+
+// feature("Backgrounds may not be marked as async", () => {
+//     scenarioOutline(`my scenario outline
+//         Examples:
+//         | column name  | column name  |
+//         | column value | column value |
+//         `, async () => {
+
+//         });
+// });

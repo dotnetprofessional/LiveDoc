@@ -101,7 +101,7 @@ class LiveDocRules {
 }
 
 class LiveDoc {
-    constructor () {
+    constructor() {
         this.defaultRecommendations();
     }
 
@@ -170,7 +170,7 @@ class LiveDocRuleViolation extends Error {
     static errorCount: number = 0;
     private dontShowAgain: boolean;
 
-    constructor (message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
+    constructor(message: string, public option: LiveDocRuleOption, public title: string, public file: string) {
         super(message);
         this.file = file.replace(/^.*[\\\/]/, '');
     }
@@ -304,7 +304,7 @@ class Feature extends LiveDocDescribe {
 
     public executionTime: number;
 
-    constructor () {
+    constructor() {
         super()
         this.displayPrefix = "Feature";
         this.displayIndentLength = 4;
@@ -387,7 +387,7 @@ class TextBlockReader {
     private arrayOfLines: string[];
     private currentIndex: number = -1;
 
-    constructor (text: string) {
+    constructor(text: string) {
         // Split text into lines for processing
         this.arrayOfLines = text.split(/\r?\n/);
     }
@@ -424,7 +424,7 @@ class Parser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor () {
+    constructor() {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
@@ -693,7 +693,7 @@ class Scenario extends LiveDocDescribe {
     private hasThen: boolean = false;
     private processingStepType: string;
 
-    constructor (public parent: Feature) {
+    constructor(public parent: Feature) {
         super()
         this.displayPrefix = "Scenario";
         this.displayIndentLength = 6;
@@ -809,7 +809,7 @@ class Scenario extends LiveDocDescribe {
 }
 
 class Background extends Scenario {
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Background";
     }
@@ -835,7 +835,7 @@ class ScenarioOutlineScenario extends Scenario {
     public example: DataTableRow;
     public exampleRaw: DataTableRow;
 
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario";
     }
@@ -864,7 +864,7 @@ class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
     public scenarios: ScenarioOutlineScenario[] = [];
 
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super(parent)
         this.displayPrefix = "Scenario Outline";
     }
@@ -1090,7 +1090,7 @@ class BddContext {
 
 // Legacy BDD model
 class Describe {
-    constructor (public title: string) {
+    constructor(public title: string) {
 
     }
     public children: Describe[] = [];
@@ -1098,7 +1098,7 @@ class Describe {
 }
 
 class Test {
-    constructor (public title: string) {
+    constructor(public title: string) {
 
     }
 }
@@ -1237,7 +1237,7 @@ function createStepAlias(file, suites, mocha, common) {
                     testName = stepDefinition.displayTitle;
 
                     if (stepDefinitionFunction) {
-                        stepDefinitionContextWrapper = function (...args) {
+                        stepDefinitionContextWrapper = async function (...args) {
                             displayWarningsInlineIfPossible(livedocContext, stepDefinition);
                             featureContext = livedocContext.feature.getFeatureContext();
                             switch (livedocContext.type) {
@@ -1265,11 +1265,15 @@ function createStepAlias(file, suites, mocha, common) {
                                     // set the background context
                                     backgroundContext = livedocContext.feature.getBackgroundContext();
 
-                                    suite.parent.livedoc.backgroundSteps.forEach(stepDetails => {
+                                    for (let i = 0; i < suite.parent.livedoc.backgroundSteps.length; i++) {
+                                        const stepDetails = suite.parent.livedoc.backgroundSteps[i];
                                         // reset the stepContext for this step
                                         stepContext = stepDetails.stepDefinition.getStepContext();
-                                        stepDetails.func();
-                                    });
+                                        const result = stepDetails.func();
+                                        if (result && result["then"]) {
+                                            await result;
+                                        }
+                                    }
                                     // Mark the background as complete for this scenario
                                     livedocContext.backgroundStepsComplete = true;
                                 }
@@ -1380,10 +1384,8 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                             // Backgrounds need to be executed for each scenario except the first one
                             // this value tags the scenario number
                             livedocContext.scenarioCount = 0;
-
                             break;
                         case "Background":
-                            //suite.parent.livedoc.backgroundSuite = { fn, suite };
                             livedocContext.parent.backgroundSteps = [];
                             break;
                         case "Scenario":
@@ -1431,7 +1433,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                                 mocha.options.hasOnly = true;
                             }
 
-                            fn.call(outlineSuite);
+                            const result = fn.call(outlineSuite);
+                            if (result && result["then"]) {
+                                throwAsyncNotSupported(type);
+                            }
                             suites.shift();
                         }
                         return outlineSuite;
@@ -1460,7 +1465,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
             }
 
             suites.unshift(suite);
-            fn.call(suite);
+            const result = fn.call(suite);
+            if (result && result["then"]) {
+                throwAsyncNotSupported(type);
+            }
 
             suites.shift();
             return suite;
@@ -1476,6 +1484,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
 
         return wrapper;
     };
+
+    function throwAsyncNotSupported(type: string) {
+        throw new LiveDocRuleViolation(`The async keyword is not supported for ${type}`, LiveDocRuleOption.enabled, "Unsupported keyword", featureContext.filename);
+    }
 
     function processBddDescribe(suites: Mocha.ISuite, type: string, title: string, file: string): Mocha.ISuite {
         // This is a legacy describe/context test which doesn't support
