@@ -1262,9 +1262,10 @@ function createStepAlias(file, suites, mocha, common) {
                             } else {
                                 if (livedocContext.scenarioId != 1 &&
                                     suite.parent.livedoc.backgroundSteps && !livedocContext.backgroundStepsComplete) {
+                                    // Mark the background as complete for this scenario. This must be done first incase a step throws an exception
+                                    livedocContext.backgroundStepsComplete = true;
                                     // set the background context
                                     backgroundContext = livedocContext.feature.getBackgroundContext();
-
                                     for (let i = 0; i < suite.parent.livedoc.backgroundSteps.length; i++) {
                                         const stepDetails = suite.parent.livedoc.backgroundSteps[i];
                                         // reset the stepContext for this step
@@ -1274,8 +1275,6 @@ function createStepAlias(file, suites, mocha, common) {
                                             await result;
                                         }
                                     }
-                                    // Mark the background as complete for this scenario
-                                    livedocContext.backgroundStepsComplete = true;
                                 }
                             }
                             // Must reset stepContext as execution of the background may have changed it
