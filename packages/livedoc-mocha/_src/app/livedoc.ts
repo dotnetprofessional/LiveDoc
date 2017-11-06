@@ -1,10 +1,7 @@
 var moment = require("moment");
 var colors = require('colors');
 
-/*
-    Globals
-*/
-
+//region rules
 enum LiveDocRuleOption {
     enabled,
     disabled,
@@ -27,7 +24,6 @@ class LiveDocRules {
      * @memberof LiveDocRules
      */
     public givenWhenThenMustBeWithinScenario: LiveDocRuleOption; //done
-
 
     /**
      * Is triggered when more than 1 given, when or then is used within a single sceanrio, scenarioOutline or background
@@ -202,6 +198,9 @@ class LiveDocRuleViolation extends Error {
     }
 }
 
+//endregion 
+
+//region Globals
 declare var feature: Mocha.IContextDefinition;
 declare var background: Mocha.IContextDefinition;
 declare var scenario: Mocha.IContextDefinition;
@@ -272,13 +271,9 @@ if (!String.prototype.endsWith) {
     };
 }
 
+//endregion
 
-
-/*
-    Typescript definitions
-*/
-
-
+//region model
 class LiveDocDescribe {
     protected _parser = new Parser();
     public id: number;
@@ -539,6 +534,10 @@ class Parser {
         return value;
     }
 
+    private isCommentedLine(line: string) {
+        return line.startsWith("#") || line.startsWith("//");
+    }
+
     private parseTable(textReader: TextBlockReader): Table {
         var table = new Table();
         table.name = textReader.line.trim().substr("Examples".length);
@@ -566,14 +565,18 @@ class Parser {
         let line = textReader.line.trim();
         const dataTable: DataTableRow[] = [];
 
-        while (line && line.startsWith("|")) {
-            const rowData = line.split("|");
-            let row: any[] = [];
-            for (let i = 1; i < rowData.length - 1; i++) {
-                const valueString = rowData[i].trim();
-                row.push(valueString);
+        while (line && line.startsWith("|") || this.isCommentedLine(line)) {
+            // check if this is a line that has been commented
+            if (!this.isCommentedLine(line)) {
+                const rowData = line.split("|");
+                let row: any[] = [];
+                for (let i = 1; i < rowData.length - 1; i++) {
+                    const valueString = rowData[i].trim();
+                    row.push(valueString);
+                }
+                dataTable.push(row);
             }
-            dataTable.push(row);
+
             if (textReader.next()) {
                 line = textReader.line.trim();
             } else {
@@ -1100,6 +1103,9 @@ class Test {
     }
 }
 
+//endregion
+
+//region mocha integration
 /**
  * Used to initialize the livedoc context for a new Feature
  * 
@@ -1231,7 +1237,7 @@ function createStepAlias(file, suites, mocha, common) {
                     testName = stepDefinition.displayTitle;
 
                     if (stepDefinitionFunction) {
-                        stepDefinitionContextWrapper = function (...args) {
+                        stepDefinitionContextWrapper = async function (...args) {
                             displayWarningsInlineIfPossible(livedocContext, stepDefinition);
                             featureContext = livedocContext.feature.getFeatureContext();
                             switch (livedocContext.type) {
@@ -1256,16 +1262,19 @@ function createStepAlias(file, suites, mocha, common) {
                             } else {
                                 if (livedocContext.scenarioId != 1 &&
                                     suite.parent.livedoc.backgroundSteps && !livedocContext.backgroundStepsComplete) {
+                                    // Mark the background as complete for this scenario. This must be done first incase a step throws an exception
+                                    livedocContext.backgroundStepsComplete = true;
                                     // set the background context
                                     backgroundContext = livedocContext.feature.getBackgroundContext();
-
-                                    suite.parent.livedoc.backgroundSteps.forEach(stepDetails => {
+                                    for (let i = 0; i < suite.parent.livedoc.backgroundSteps.length; i++) {
+                                        const stepDetails = suite.parent.livedoc.backgroundSteps[i];
                                         // reset the stepContext for this step
                                         stepContext = stepDetails.stepDefinition.getStepContext();
-                                        stepDetails.func();
-                                    });
-                                    // Mark the background as complete for this scenario
-                                    livedocContext.backgroundStepsComplete = true;
+                                        const result = stepDetails.func();
+                                        if (result && result["then"]) {
+                                            await result;
+                                        }
+                                    }
                                 }
                             }
                             // Must reset stepContext as execution of the background may have changed it
@@ -1374,10 +1383,8 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                             // Backgrounds need to be executed for each scenario except the first one
                             // this value tags the scenario number
                             livedocContext.scenarioCount = 0;
-
                             break;
                         case "Background":
-                            //suite.parent.livedoc.backgroundSuite = { fn, suite };
                             livedocContext.parent.backgroundSteps = [];
                             break;
                         case "Scenario":
@@ -1425,7 +1432,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                                 mocha.options.hasOnly = true;
                             }
 
-                            fn.call(outlineSuite);
+                            const result = fn.call(outlineSuite);
+                            if (result && result["then"]) {
+                                throwAsyncNotSupported(type);
+                            }
                             suites.shift();
                         }
                         return outlineSuite;
@@ -1454,7 +1464,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
             }
 
             suites.unshift(suite);
-            fn.call(suite);
+            const result = fn.call(suite);
+            if (result && result["then"]) {
+                throwAsyncNotSupported(type);
+            }
 
             suites.shift();
             return suite;
@@ -1470,6 +1483,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
 
         return wrapper;
     };
+
+    function throwAsyncNotSupported(type: string) {
+        throw new LiveDocRuleViolation(`The async keyword is not supported for ${type}`, LiveDocRuleOption.enabled, "Unsupported keyword", featureContext.filename);
+    }
 
     function processBddDescribe(suites: Mocha.ISuite, type: string, title: string, file: string): Mocha.ISuite {
         // This is a legacy describe/context test which doesn't support
@@ -1494,3 +1511,5 @@ function createDescribeAlias(file, suites, context, mocha, common) {
         return suite;
     }
 }
+
+//endregion

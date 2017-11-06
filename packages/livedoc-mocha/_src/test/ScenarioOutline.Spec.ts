@@ -7,11 +7,11 @@ feature(`Scenario Outline statement`, () => {
     scenarioOutline(`feeding a suckler cow
 
         Examples:
-            | weight  | energy  | protein  |
-            |     450 |   26500 |      215 |
-            |     500 |   29500 |      245 |
-            |     575 |   31500 |      255 |
-            |     600 |   37000 |      305 |
+            | weight | energy | protein |
+            |    450 |  26500 |     215 |
+            |    500 |  29500 |     245 |
+            |    575 |  31500 |     255 |
+            |    600 |  37000 |     305 |
         `, () => {
 
             given("the cow weighs <weight> kg", (args) => {
@@ -35,22 +35,21 @@ feature(`Scenario Outline statement`, () => {
     scenarioOutline(`scenarios can have multiple data tables
         
             Examples: Australian Cows
-                | weight  | energy  | protein  |
-                |     450 |   26500 |      215 |
-                |     500 |   29500 |      245 |
-                |     575 |   31500 |      255 |
-                |     600 |   37000 |      305 |
+                | weight | energy | protein |
+                |    450 |  26500 |     215 |
+                |    500 |  29500 |     245 |
+                |    575 |  31500 |     255 |
+                |    600 |  37000 |     305 |
 
             Examples: New Zealand Cows
-                | weight   | energy  |  protein  |
-                |     1450 |   46500 |      1215 |
-                |     1500 |   49500 |      1245 |
-                |     1575 |   51500 |      1255 |
-                |     1600 |   67000 |      1305 |
+                | weight | energy | protein |
+                |   1450 |  46500 |    1215 |
+                |   1500 |  49500 |    1245 |
+                |   1575 |  51500 |    1255 |
+                |   1600 |  67000 |    1305 |
                 `, () => {
 
             given("the cow weighs <weight> kg", (args) => {
-                // TODO: FIX UP
                 weightTotalMultiTable += scenarioOutlineContext.example.weight;
             });
 
@@ -84,6 +83,3 @@ feature(`Scenario Outline statement`, () => {
         });
     });
 });
-
-
-

@@ -172,4 +172,18 @@ feature("Background supports async operations", () => {
             afterBackgroundCheck.should.be.equal(stepContext.values[0]);
         });
     });
+
+    scenario("Using a second background still awaits", () => {
+        when(`someValue is increased by '10'`, () => {
+            someValue += stepContext.values[0];
+        });
+
+        then("someValue should be '110'", () => {
+            someValue.should.be.equal(stepContext.values[0]);
+        });
+
+        and("afterBackgroundCheck should be '10'", () => {
+            afterBackgroundCheck.should.be.equal(stepContext.values[0]);
+        });
+    });
 });
