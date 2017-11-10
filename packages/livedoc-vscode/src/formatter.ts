@@ -7,7 +7,7 @@ export function rawTextToFormattedTable(rawText: string): IFormattedTableResult 
     const columnWidths: number[] = [];
     let table = parseTableToArray(rawText, columnWidths);
 
-    if(!validateTableStructure(table)) {
+    if (!validateTableStructure(table)) {
         return {
             error: "Data table is not structured properly"
         };
@@ -25,9 +25,21 @@ function parseTableToArray(rawTable: string, outDataLengths: number[]): string[]
         throw "outDataLengths must be initialized to an empty array";
     }
 
+    let hasCommentedRecords = false;
+    let commentPatternMaxLength = 0;
+
     const rows = rawTable.split(/\r?\n/);
     const table = rows.map(row => {
-        let cols = row.replace(/^(\s|\t)*\|/, "").replace(/\|(\s|\t)*$/, "").split("|");
+        let rowTrimmed = row.trim();
+
+        let commentMatch = /^(#|\/\/)[^\|]*\|/.exec(rowTrimmed);
+        const isCommented = !!commentMatch;
+        const commentPattern = commentMatch && commentMatch[1];
+
+        rowTrimmed = commentPattern && rowTrimmed.slice(commentPattern.length).trim() || rowTrimmed;
+        rowTrimmed = rowTrimmed.replace(/^\||\|$/g, "");
+
+        let cols = rowTrimmed.split("|");
         cols = cols.map((value, index) => {
             value = value.trim();
 
@@ -39,9 +51,16 @@ function parseTableToArray(rawTable: string, outDataLengths: number[]): string[]
 
             return value;
         });
+
+        (<any>cols).isCommented = isCommented;
+        (<any>cols).commentPattern = commentPattern;
+        commentPatternMaxLength = commentPattern && commentPattern.length > commentPatternMaxLength && commentPattern.length || commentPatternMaxLength;
+        hasCommentedRecords = hasCommentedRecords || isCommented;
         return cols;
     });
 
+    (<any>table).hasCommentedRecords = hasCommentedRecords;
+    (<any>table).commentPatternMaxLength = commentPatternMaxLength;
     return table;
 }
 
@@ -51,11 +70,12 @@ function validateTableStructure(table: string[][]): boolean {
 }
 
 function padColumnValues(table: string[][], columnWidths: number[]): string[][] {
-    return table.map(row => {
-        return row.map((colValue, index) =>{
-            return padValue(colValue, columnWidths[index]);
+    table.forEach(row => {
+        row.forEach((colValue, index) => {
+            row[index] = padValue(colValue, columnWidths[index]);
         });
     });
+    return table;
 }
 
 function padValue(v: string, columnWidth: number): string {
