@@ -23,7 +23,6 @@
         "testing"
     ],
     "activationEvents": [
-        "onCommand:extension.formatDataTables",
         "onLanguage:typescript",
         "onLanguage:typescriptreact",
         "onLanguage:javascriptreact",
