@@ -32,6 +32,10 @@ ld-step-datatable    | Extends ```ld-step``` including a 2x1 data table in the d
 ld-step-datatable-4x | Extends ```ld-step``` including a 4x1 data table in the description  
 ld-step-docString    | Extends ```ld-step``` including a docString in the description
 
+## Commands
+
+- `livedoc format data tables` - Formats all data tables found in the active document.
+
 # Using
 This extension assumes that the [livedoc-mocha](https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/livedoc-mocha#readme) javascript library is installed. This can be done with the following command
 
