@@ -1,4 +1,8 @@
 # Release Notes
+## 0.3.4
+* Feature: [#52](https://github.com/dotnetprofessional/LiveDoc/issues/52) Support filtering by tags  
+* Docs: Updated docs and refactored them to be clearer.
+
 ## 0.3.3 
 * Feature: [#38](https://github.com/dotnetprofessional/LiveDoc/issues/38) Support comments for Scenario Outlines  
 * Feature: [#46](https://github.com/dotnetprofessional/LiveDoc/issues/46) Throw exception when using Async for Feature/Scenario/ScenarioOutline/Background  

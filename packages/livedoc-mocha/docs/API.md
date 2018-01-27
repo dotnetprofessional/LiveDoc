@@ -4,10 +4,10 @@ The livedoc-mocha API implements the [Gherkin](https://cucumber.io/docs/referenc
 livedoc-mocha follows the Gherkin language, livedoc-mocha uses global functions to represent each Gherkin keyword. Each keyword accepts a string that describes the Gherkin language. More background details on the language can be found on this [reference page](https://cucumber.io/docs/reference#gherkin). The supported keywords are:
 
 * [Feature](#feature)
-* [Scenario](#scenario)
-* [Steps](#Steps): Given, When, Then, And, But (Steps)
 * [Background](#background)
+* [Scenario](#scenario)
 * [Scenario Outline](#scenario-outlines)
+* [Steps](#steps): Given, When, Then, And, But (Steps)
 * [Type Coercion Support](#type-coercion-support)
 * [Async Support](#async-support)
 
@@ -15,13 +15,17 @@ To stay in line with the general convention of using lowercase keywords in javas
 
 There are a few extra keywords as well:
 
-* """ ([Doc Strings](API.md#docstrings)) : Used in docStrings.
-* | ([Data Tables](API.md#data-tables)) : Used to define tables
-* @ ([Tags](API.md#tags)): Used by reporting tools to navigate specs and to provide cross references
+* """ ([Doc Strings](#docstrings)) : Used in docStrings.
+* | ([Data Tables](#data-tables)) : Used to define tables
+* @ ([Tags](#tags)): Used by reporting tools to navigate specs and to provide cross references
 * \# (Comments) :
 
 # [Feature](https://cucumber.io/docs/reference#feature)
-Each file should contain only one feature, although there is no restriction on this. It is more of a convention, which makes finding your features easier. Features have a title and a description.
+Each file should contain only one feature, although there is no restriction on this. It is more of a convention, which makes finding your features easier. Features have a title and a description. Each feature is made up of one or more of the following:
+
+* [Background](#background)
+* [Scenario](#scenario)
+* [Scenario Outline](#scenario-outline)
 
 _Gherkin_
 ``` Gherkin
@@ -58,8 +62,51 @@ Each feature has a context which is defined by the global variable <code>feature
 * __title:__ This is the first line of the feature
 * __description:__ This is any line after the first line. In the example above it would be 'Account Holders should be able ...'
 
+
+# [Background](https://cucumber.io/docs/reference#background)
+Backgrounds provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall. Backgrounds have a <code>backgroundContext</code> that share the same properties as the <code>scenarioContext</code>, see details on scenarios for details.
+
+_Gherkin_
+```Gherkin
+Background:
+  Given a $100 microwave was sold on 2015-11-03
+  And today is 2015-11-18
+```
+
+_livedoc-mocha_
+```js
+background("This will be executed before each test", () => {
+    given("Given a '100' dollar microwave was sold on '2015-11-03'", () => {
+    });
+
+    and("today is '2015-11-18'", () => {
+    });
+});
+```
+
+There may be times when you need to reset some state tht was created by the Background after each scenario has run. Typically in mocha you might use the <code>after</code> function. However, this applies to tests or <code>it</code> statements. Backgrounds work at the scenario or <code>describe</code> level. It would therefore be necessary to repeat the same clean up code within each scenario using the default mocha approach.  Livedoc-mocha provides an additional function which will work at the scenario level.
+
+_livedoc-mocha_
+```js
+background("This will be executed before each test", () => {
+    given("Given a '100' dollar microwave was sold on '2015-11-03'", () => {
+    });
+
+    and("today is '2015-11-18'", () => {
+    });
+
+    afterBackground(() => {
+        // Clean up code here...
+    });
+});
+```
+
 # [Scenario](https://cucumber.io/docs/reference#scenario)
-Each feature should contain at least one scenario, but can have as many as required. Scenarios, like features support descriptions.
+Each feature should contain at least one scenario, but can have as many as required. Scenarios, like features support descriptions. Scenarios support the following features:
+
+* [Steps](#steps)
+* [Data Tables](#data-tables)
+* [DocStrings](#docstrings)
 
 _Gherkin_
 ``` Gherkin
@@ -246,46 +293,8 @@ const docString = stepContext.docStringAsEntity;
 let name = docString.name;
 ```
 
-# [Background](https://cucumber.io/docs/reference#background)
-Backgrounds provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall. Backgrounds have a <code>backgroundContext</code> that share the same properties as the <code>scenarioContext</code>, see details on scenarios for details.
-
-_Gherkin_
-```Gherkin
-Background:
-  Given a $100 microwave was sold on 2015-11-03
-  And today is 2015-11-18
-```
-
-_livedoc-mocha_
-```js
-background("This will be executed before each test", () => {
-    given("Given a '100' dollar microwave was sold on '2015-11-03'", () => {
-    });
-
-    and("today is '2015-11-18'", () => {
-    });
-});
-```
-
-There may be times when you need to reset some state tht was created by the Background after each scenario has run. Typically in mocha you might use the <code>after</code> function. However, this applies to tests or <code>it</code> statements. Backgrounds work at the scenario or <code>describe</code> level. It would therefore be necessary to repeat the same clean up code within each scenario using the default mocha approach.  Livedoc-mocha provides an additional function which will work at the scenario level.
-
-_livedoc-mocha_
-```js
-background("This will be executed before each test", () => {
-    given("Given a '100' dollar microwave was sold on '2015-11-03'", () => {
-    });
-
-    and("today is '2015-11-18'", () => {
-    });
-
-    afterBackground(() => {
-        // Clean up code here...
-    });
-});
-```
-
-# [Scenario Outlines](https://cucumber.io/docs/reference#scenario-outline)
-There are occasions where you want to validate several values against the same scenario. Creating the individual scenarios would require a lot of duplicate code. If there are many examples, this becomes tedious. We can simplify it with a Scenario Outline:
+# [Scenario Outline](https://cucumber.io/docs/reference#scenario-outline)
+There are occasions where you want to validate several values against the same scenario. Creating the individual scenarios would require a lot of duplicate code. A Scenario Outline provides the ability to create a single Scenario but have it run against many examples. A Scenario Outline supports the same features of a Scenario but with the addition of Examples:
 
 _Gherkin_
 ``` Gherkin
@@ -330,10 +339,52 @@ Examples:
         });
     });
 ```
+Each row of an example describes a single set of data that can be used during the execution of the scenario. The example above will execute this scenario 4 times with each iteration having access to the values of weight, energy and protein for the row being executed.
 
 Unlike Cucumber, examples are not defined at the end of the Scenario Outline, but are included as part of the Scenario Outline narrative. This tends to make it easier to reason about the examples as its not lost at the bottom of the scenario.
 
-To reference values from the example you can specify the name in angle brackets \<name\> which will be resolved when the scenario is run.
+To reference values from the example you can specify the name in angle brackets \<name\> which will be resolved when the scenario is run. Its recommended to reference at least one of these values in at least one of your steps so that each iteration can be distinguished from another.
+
+>Its important to include the text __Examples:__ above your table. If you do not your table will not be recognized and your scenarios will not run.
+
+### Multiple tables
+Gherkin and livedoc-mocha support the ability to add more than one table to your Scenario Outline. This can be useful to more clearly define your examples. However, when the scenarios are executed they will be merged into a single table. As such your tables much have the same structure. This is only useful for making your scenarios clearer.
+
+ _livedoc-mocha_
+```js
+scenarioOutline(`feeding a suckler cow
+
+Examples: Young cows
+    | weight | energy | protein |
+    |    450 |  26500 |     215 |
+    |    500 |  29500 |     245 |
+
+Examples: Older cows
+    | weight | energy | protein |
+    |    575 |  31500 |     255 |
+    |    600 |  37000 |     305 |
+
+`, () => {
+        given("the cow weighs <weight> kg", () => {
+        });
+
+        when("we calculate the feeding requirements", () => {
+
+        });
+
+        then("the energy should be <energy> MJ", () => {
+
+        });
+
+        and("the protein should be <protein> kg", () => {
+
+        });
+    });
+```
+
+This example is the same as the previous one and will execute and output the exact same way. However, it provides a little more context on the examples being used. The younger cows are lighter than the older cows. They have been separated for the purpose of adding additional context about their weights.
+
+> During development you may want to temporarily skip some examples to focus on one. In this situation you can comment out the lines in the table you don't want to execute and they will be ignored during execution.
 
 ## Context
 Each step within a Scenario Outline has a access to context which is defined by the global variable <code>scenarioOutlineContext</code>. This context object has the same properties as <code>scenarioContext</code> with the additional property:
@@ -394,7 +445,7 @@ livedoc-mocha supports type coercion to make using your data in your tests easie
     | spaces        | " "                   |
     | quotes        | " a \\" is here"      |
 
-In general type coercion is handled by attempting to JSON.parse the value and if that fails will fall back to returing the original string. Dates are a special case and there is support for two common formats [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) and a simple US date format (mm/dd/yyy).
+In general type coercion is handled by attempting to JSON.parse the value and if that fails will fall back to returning the original string. Dates are a special case and there is support for two common formats [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) and a simple US date format (mm/dd/yyy).
 
 ## Async Support
 Livedoc-mocha supports the async/await syntax for writing tests. However, there are a few minor limitations which need to be kept in mind when using this feature.

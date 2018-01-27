@@ -95,17 +95,18 @@ feature(`Background statement
 
     });
 
-feature("Background works with Scenario Outlines", () => {
+feature(`Background works with Scenario Outlines`, () => {
     let afterBackgroundCheck = 0;
-    background("Validate afterBackground", () => {
-        given("afterBackgroundCheck has 10 added to it", () => {
-            afterBackgroundCheck += 10;
-        });
+    background(`Validate afterBackground         
+        `, () => {
+            given("afterBackgroundCheck has 10 added to it", () => {
+                afterBackgroundCheck += 10;
+            });
 
-        afterBackground(() => {
-            afterBackgroundCheck = 0;
-        });
-    })
+            afterBackground(() => {
+                afterBackgroundCheck = 0;
+            });
+        })
     scenarioOutline(`Given the following items
 
         Examples:

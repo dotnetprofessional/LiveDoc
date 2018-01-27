@@ -23,7 +23,12 @@
                 "build/app/livedoc",
                 "--ui",
                 "livedoc-mocha",
-                "${workspaceRoot}/build/test"
+                "${workspaceRoot}/build/test",
+                "--ld-exclude",
+                "filter:exclude",
+                "--ld-include",
+                "filter:include",
+                "--showFilterConflicts"
             ],
             "sourceMaps": true,
             "outFiles": [
