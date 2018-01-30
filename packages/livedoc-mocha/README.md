@@ -5,6 +5,7 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 
 * [Installing](README.md#Installing)
 * [API reference](README.md#api)
+* [Command line options](README.md#Command-Line)
 * [Why another library?](README.md#why-another-library)
 
 ## So what does this look like?
@@ -24,7 +25,7 @@ Feature: Account Holder withdraws cash
   Scenario: Account has sufficient funds
     Given the account holders account has the following:
         | account | 12345 |
-        | balance | 100   |
+        | balance |   100 |
         | status  | valid |
       And the machine contains 1000 dollars
     When the Account Holder requests 20 dollars
@@ -55,7 +56,7 @@ feature(`Account Holder withdraws cash
 
             given(`the account holders account has the following:
             | account | 12345 |
-            | balance | 100   |
+            | balance |   100 |
             | status  | valid |
         `, () => {
                     const accountHolder = stepContext.tableAsEntity;
@@ -136,6 +137,27 @@ Also for a brief tutorial on how to write Gherkin specs using livedoc-mocha see 
 
 Release notes can be found [here](docs/ReleaseNotes.md)
 
+## Command Line
+livedoc-mocha supports the following command line options. These are useful when wanting to filter the features/scenarios that you want to run:
+
+* <code>--ld-include</code>: Used to only include features/scenarios that have been marked with the tags provided. Example use would be to only run what's been tagged with @integration. 
+
+example:
+```js 
+--ld-include "_tag_ _tag_ _tag_"
+```
+* <code>--ld-exclude</code>: Used to exclude features/scenarios that have been marked with the tags provided. Example use would be run everything __except__ those tagged with @integration. 
+
+example:
+```js 
+--ld-exclude "_tag_ _tag_ _tag_"
+```
+
+* --showFilterConflicts: When used will display conflicted filter matches as pending rather than not showing them at all.
+
+The <code>--ld-include</code> and <code>ld-exclude</code> switches can be used together to both include and exclude features/scenarios. When a conflict occurs by default the exclude will take precedence. However, there may be times when you want to know what the conflicts were. In that case using the <code>--showFilterConflicts</code> will show the otherwise excluded scenarios but mark them as pending, so they are still not executed.
+
+> For more details on tags and tagging, refer to the [Tags](API.md#tags) documentation in teh API reference.
 
 # Why another library?
 There are a number of different libraries that bring the Gherkin language to javascript and even mocha:

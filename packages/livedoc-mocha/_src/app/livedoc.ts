@@ -100,13 +100,51 @@ class LiveDocRules {
 
 }
 
+class CommandLineOptions {
+    public include: string[] = [];
+    public exclude: string[] = [];
+    public showFilterConflicts: boolean = false;
+}
+
 class LiveDoc {
     constructor() {
         this.defaultRecommendations();
     }
 
     public rules: LiveDocRules = new LiveDocRules();
+    public options: CommandLineOptions = new CommandLineOptions();
 
+    public shouldMarkAsPending(tags: string[]): boolean {
+        return this.markedAsExcluded(tags) && (!this.markedAsIncluded(tags) || this.options.showFilterConflicts);
+    }
+
+    public shouldInclude(tags: string[]): boolean {
+        return this.markedAsIncluded(tags) && (!this.markedAsExcluded(tags) || this.options.showFilterConflicts);
+    }
+
+    public markedAsExcluded(tags: string[]): boolean {
+        // exclusions
+        for (let i = 0; i < this.options.exclude.length; i++) {
+            if (tags.indexOf(this.options.exclude[i]) > -1) {
+                // found a match so return true
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public markedAsIncluded(tags: string[]): boolean {
+        // exclusions
+        for (let i = 0; i < this.options.include.length; i++) {
+            if (tags.indexOf(this.options.include[i]) > -1) {
+                // found a match so return true
+                return true;
+            }
+        }
+
+        return false;
+    }
     /**
      * Sets the minimal set of rules to ensure tests are structured correctly
      * 
@@ -442,7 +480,7 @@ class Parser {
         while (textReader.next()) {
             const line = textReader.line.trim();
             if (line.startsWith("@")) {
-                this.tags.push(...line.substr(1).split(' '));
+                this.tags.push(...line.replace(/@/g, '').split(' '));
             } else if (line.toLocaleLowerCase().startsWith("examples")) {
                 // scenario outline table
                 this.tables.push(this.parseTable(textReader));
@@ -739,7 +777,7 @@ class Scenario extends LiveDocDescribe {
                 break;
             case "When":
                 // Validate that we have a given here or from a Background
-                if (!this.hasGiven || (this.parent.background && !this.parent.background.hasGiven)) {
+                if (!this.hasGiven && (this.parent.background && !this.parent.background.hasGiven)) {
                     step.addViolation(new LiveDocRuleViolation(`scenario does not have a Given or a Background with a given.`, livedoc.rules.mustIncludeGiven, this.title, this.parent.filename))
                         .report();
                 }
@@ -1144,6 +1182,10 @@ function addBddContext(suite: Mocha.ISuite, describe: Describe, type: string): B
 /** @internal */
 function liveDocMocha(suite) {
     var suites = [suite];
+    // Extract command line parameters
+    livedoc.options.include = getCommandLineOptions("--ld-include");
+    livedoc.options.exclude = getCommandLineOptions("--ld-exclude");
+    livedoc.options.showFilterConflicts = getCommandLineOption("--showFilterConflicts");
 
     suite.on('pre-require', function (context, file, mocha) {
 
@@ -1157,7 +1199,7 @@ function liveDocMocha(suite) {
         context.afterEach = common.afterEach;
         context.before = common.before;
         context.beforeEach = common.beforeEach;
-        context.afterBackground = function (fn) {
+        context.afterBackground = function (fn: any) {
             // Assign the background to the parent ie Feature so it can be accessed by 
             // the Features scenarios.
             suites[0].parent.livedoc.afterBackground = fn;
@@ -1179,6 +1221,27 @@ function liveDocMocha(suite) {
     });
 }
 
+function getCommandLineOptions(key: string): string[] {
+    const args = process.argv;
+    for (let i = 0; i < args.length; i++) {
+        if (args[i] === key) {
+            return args[i + 1].split(" ");
+        }
+    }
+    return [];
+}
+
+// Used to determine if a command option is present
+function getCommandLineOption(key: string): boolean {
+    const args = process.argv;
+    for (let i = 0; i < args.length; i++) {
+        if (args[i] === key) {
+            return true
+        }
+    }
+    return false;
+}
+
 /** @internal */
 function createStepAlias(file, suites, mocha, common) {
     return function testTypeCreator(type) {
@@ -1195,7 +1258,6 @@ function createStepAlias(file, suites, mocha, common) {
             const suiteType = livedocContext && livedocContext.type;
             let stepDefinitionContextWrapper = stepDefinitionFunction;
             try {
-
                 if (type === "invalid" || !suiteType) {
                     testName = title;
                     if (stepDefinitionFunction) {
@@ -1372,8 +1434,20 @@ function createDescribeAlias(file, suites, context, mocha, common) {
 
                     const suiteDefinition = feature.parse(type, title);
                     suite = _suite.create(suites[0], suiteDefinition.displayTitle);
-                    (suite as any).pending = opts.pending;
+                    (suite as any).pending = opts.pending || livedoc.shouldMarkAsPending(suiteDefinition.tags);
+                    if (livedoc.shouldInclude(suiteDefinition.tags)) {
+                        const suiteParent = suite.parent as any;
+                        suiteParent._onlySuites = suiteParent._onlySuites.concat(suite);
+                        mocha.options.hasOnly = true;
 
+                        // Ensure that any associated background is also marked as only
+                        if (feature.background) {
+                            const scenarioBackground = suiteParent.suites.filter(s => s.title.startsWith('Background:'));
+                            if (scenarioBackground) {
+                                suiteParent._onlySuites = suiteParent._onlySuites.concat(scenarioBackground);
+                            }
+                        }
+                    }
                     // initialize the livedoc context
                     livedocContext = addLiveDocContext(suite, feature, type);
 
@@ -1424,10 +1498,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                                 });
                             };
 
-                            if (opts.pending || suites[0].isPending()) {
-                                (outlineSuite as any).pending = opts.pending;
+                            if (opts.pending || suites[0].isPending() || livedoc.shouldMarkAsPending(suiteDefinition.tags)) {
+                                (outlineSuite as any).pending = true;
                             }
-                            if (opts.isOnly) {
+                            if (opts.isOnly || livedoc.shouldInclude(suiteDefinition.tags)) {
                                 (outlineSuite.parent as any)._onlySuites = (outlineSuite.parent as any)._onlySuites.concat(outlineSuite);
                                 mocha.options.hasOnly = true;
                             }

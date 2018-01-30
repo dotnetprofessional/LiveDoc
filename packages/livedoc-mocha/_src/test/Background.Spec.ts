@@ -37,24 +37,25 @@ feature(`Background statement
 
         });
 
-        scenario("Add 10 to someValue", () => {
-            when(`someValue is increased by '10'`, () => {
-                someValue += stepContext.values[0];
-            });
+        scenario(`Add 10 to someValue
+            @filter:background-test`, () => {
+                when(`someValue is increased by '10'`, () => {
+                    someValue += stepContext.values[0];
+                });
 
-            then("someValue should be '110'", () => {
-                someValue.should.be.equal(stepContext.values[0]);
-            });
+                then("someValue should be '110'", () => {
+                    someValue.should.be.equal(stepContext.values[0]);
+                });
 
-            and("afterBackgroundCheck should be '10'", () => {
-                afterBackgroundCheck.should.be.equal(stepContext.values[0]);
-            });
+                and("afterBackgroundCheck should be '10'", () => {
+                    afterBackgroundCheck.should.be.equal(stepContext.values[0]);
+                });
 
-            // TODO: Change the number to 1 after optimization
-            and("the background has been executed '1' times so far", () => {
-                count.should.be.equal(stepContext.values[0]);
-            })
-        });
+                // TODO: Change the number to 1 after optimization
+                and("the background has been executed '1' times so far", () => {
+                    count.should.be.equal(stepContext.values[0]);
+                })
+            });
 
         scenario("Add 20 to someValue", () => {
             when(`someValue is increased by '20'`, () => {
@@ -95,19 +96,20 @@ feature(`Background statement
 
     });
 
-feature("Background works with Scenario Outlines", () => {
+feature(`Background works with Scenario Outlines`, () => {
     let afterBackgroundCheck = 0;
-    background("Validate afterBackground", () => {
-        given("afterBackgroundCheck has 10 added to it", () => {
-            afterBackgroundCheck += 10;
-        });
+    background(`Validate afterBackground         
+        `, () => {
+            given("afterBackgroundCheck has 10 added to it", () => {
+                afterBackgroundCheck += 10;
+            });
 
-        afterBackground(() => {
-            afterBackgroundCheck = 0;
-        });
-    })
+            afterBackground(() => {
+                afterBackgroundCheck = 0;
+            });
+        })
     scenarioOutline(`Given the following items
-
+        @filter:background-test
         Examples:
         | col1 |
         | row1 |
