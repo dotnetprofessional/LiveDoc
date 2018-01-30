@@ -150,7 +150,7 @@ example:
 
 example:
 ```js 
---ld-exclude "tag1 @tag2 tag3"
+--ld-exclude "tag1 tag2 tag3"
 ```
 
 * --showFilterConflicts: When used will display conflicted filter matches as pending rather than not showing them at all.
