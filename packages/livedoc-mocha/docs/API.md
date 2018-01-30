@@ -6,7 +6,7 @@ livedoc-mocha follows the Gherkin language, livedoc-mocha uses global functions 
 * [Feature](#feature)
 * [Background](#background)
 * [Scenario](#scenario)
-* [Scenario Outline](#scenario-outlines)
+* [Scenario Outline](#scenario-outline)
 * [Steps](#steps): Given, When, Then, And, But (Steps)
 * [Type Coercion Support](#type-coercion-support)
 * [Async Support](#async-support)

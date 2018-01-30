@@ -5,7 +5,7 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 
 * [Installing](README.md#Installing)
 * [API reference](README.md#api)
-* [Command line options](README.md#Command-Line)
+* [Command line options](README.md#command-line)
 * [Why another library?](README.md#why-another-library)
 
 ## So what does this look like?
@@ -144,20 +144,20 @@ livedoc-mocha supports the following command line options. These are useful when
 
 example:
 ```js 
---ld-include "_tag_ _tag_ _tag_"
+--ld-include "tag1 tag2 tag3"
 ```
 * <code>--ld-exclude</code>: Used to exclude features/scenarios that have been marked with the tags provided. Example use would be run everything __except__ those tagged with @integration. 
 
 example:
 ```js 
---ld-exclude "_tag_ _tag_ _tag_"
+--ld-exclude "tag1 @tag2 tag3"
 ```
 
 * --showFilterConflicts: When used will display conflicted filter matches as pending rather than not showing them at all.
 
-The <code>--ld-include</code> and <code>ld-exclude</code> switches can be used together to both include and exclude features/scenarios. When a conflict occurs by default the exclude will take precedence. However, there may be times when you want to know what the conflicts were. In that case using the <code>--showFilterConflicts</code> will show the otherwise excluded scenarios but mark them as pending, so they are still not executed.
+The <code>--ld-include</code> and <code>ld-exclude</code> switches can be used together to both include and exclude features/scenarios. You should note that when specifying the tags you don't include the @ symbol. When a conflict occurs by default the exclude will take precedence. However, there may be times when you want to know what the conflicts were. In that case using the <code>--showFilterConflicts</code> will show the otherwise excluded scenarios but mark them as pending, so they are still not executed.
 
-> For more details on tags and tagging, refer to the [Tags](API.md#tags) documentation in teh API reference.
+> For more details on tags and tagging, refer to the [Tags](docs/API.md#tags) documentation in teh API reference.
 
 # Why another library?
 There are a number of different libraries that bring the Gherkin language to javascript and even mocha:
