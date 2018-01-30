@@ -1,6 +1,7 @@
 # Release Notes
 ## 0.3.4
 * Feature: [#52](https://github.com/dotnetprofessional/LiveDoc/issues/52) Support filtering by tags  
+* Feature: [#53](https://github.com/dotnetprofessional/LiveDoc/issues/53) Support explicit and implicit tagging  
 * Docs: Updated docs and refactored them to be clearer.
 
 ## 0.3.3 
