@@ -2,6 +2,7 @@
 ## 0.3.4
 * Feature: [#52](https://github.com/dotnetprofessional/LiveDoc/issues/52) Support filtering by tags  
 * Feature: [#53](https://github.com/dotnetprofessional/LiveDoc/issues/53) Support explicit and implicit tagging  
+* Feature: [#54](https://github.com/dotnetprofessional/LiveDoc/issues/54) When using .only or filters ensure backgrounds are always executed 
 * Docs: Updated docs and refactored them to be clearer.
 
 ## 0.3.3 

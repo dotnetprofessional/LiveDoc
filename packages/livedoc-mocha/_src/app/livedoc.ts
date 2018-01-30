@@ -777,7 +777,7 @@ class Scenario extends LiveDocDescribe {
                 break;
             case "When":
                 // Validate that we have a given here or from a Background
-                if (!this.hasGiven || (this.parent.background && !this.parent.background.hasGiven)) {
+                if (!this.hasGiven && (this.parent.background && !this.parent.background.hasGiven)) {
                     step.addViolation(new LiveDocRuleViolation(`scenario does not have a Given or a Background with a given.`, livedoc.rules.mustIncludeGiven, this.title, this.parent.filename))
                         .report();
                 }
@@ -1187,7 +1187,6 @@ function liveDocMocha(suite) {
     livedoc.options.exclude = getCommandLineOptions("--ld-exclude");
     livedoc.options.showFilterConflicts = getCommandLineOption("--showFilterConflicts");
 
-    console.log(JSON.stringify(livedoc.options));
     suite.on('pre-require', function (context, file, mocha) {
 
         var common = require('mocha/lib/interfaces/common')(suites, context, mocha);
@@ -1437,8 +1436,17 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                     suite = _suite.create(suites[0], suiteDefinition.displayTitle);
                     (suite as any).pending = opts.pending || livedoc.shouldMarkAsPending(suiteDefinition.tags);
                     if (livedoc.shouldInclude(suiteDefinition.tags)) {
-                        (suite.parent as any)._onlySuites = (suite.parent as any)._onlySuites.concat(suite);
+                        const suiteParent = suite.parent as any;
+                        suiteParent._onlySuites = suiteParent._onlySuites.concat(suite);
                         mocha.options.hasOnly = true;
+
+                        // Ensure that any associated background is also marked as only
+                        if (feature.background) {
+                            const scenarioBackground = suiteParent.suites.filter(s => s.title.startsWith('Background:'));
+                            if (scenarioBackground) {
+                                suiteParent._onlySuites = suiteParent._onlySuites.concat(scenarioBackground);
+                            }
+                        }
                     }
                     // initialize the livedoc context
                     livedocContext = addLiveDocContext(suite, feature, type);
