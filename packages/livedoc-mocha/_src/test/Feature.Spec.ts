@@ -116,8 +116,8 @@ feature(`Features can be skipped via use of tags
         scenario(`a scenario within a skipped feature
         @filter:exclude
         `, () => {
-                given("an always-run scenario, this should fire!", () => {
-
+                given("an always-run scenario, this not should fire!", () => {
+                    throw Error("This should not have fired! The feature was skipped!");
                 });
             });
     });
