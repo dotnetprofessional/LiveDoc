@@ -123,7 +123,7 @@ feature(`Features can be skipped via use of tags
     });
 
 feature(`Features that are marked as include and exclude won't be run
-    @filter:include filter:exclude
+    @filter:include @filter:exclude
     Note: must run tests with --ld-exclude filter:exclude`, () => {
         scenario("a scenario within a skipped feature", () => {
             given("a conflicted filter so can fire!", () => {

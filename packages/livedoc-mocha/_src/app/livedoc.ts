@@ -480,7 +480,7 @@ class Parser {
         while (textReader.next()) {
             const line = textReader.line.trim();
             if (line.startsWith("@")) {
-                this.tags.push(...line.substr(1).split(' '));
+                this.tags.push(...line.replace('@', '').split(' '));
             } else if (line.toLocaleLowerCase().startsWith("examples")) {
                 // scenario outline table
                 this.tables.push(this.parseTable(textReader));
