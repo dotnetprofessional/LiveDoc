@@ -337,7 +337,7 @@ function findTables(doc: TextDocument) {
 
     for (let lineNumber = 0; lineNumber < doc.lineCount; lineNumber++) {
         const line = doc.lineAt(lineNumber);
-        const tableRowPatternMatch = /^(#|\/\/)?\s*\|(?:[^\|]+\|)*[^\|]+\|\s*$/.exec(line.text)
+        const tableRowPatternMatch = /^\s*(#|\/\/)?\s*\|(?:[^\|]+\|)*[^\|]+\|\s*$/.exec(line.text)
         const processLine = !line.isEmptyOrWhitespace && !!tableRowPatternMatch;
         const isCommented = tableRowPatternMatch && !!tableRowPatternMatch[1];
 
