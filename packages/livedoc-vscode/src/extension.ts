@@ -20,6 +20,7 @@ import {
     ThemableDecorationAttachmentRenderOptions,
     ThemableDecorationRenderOptions,
     ThemableDecorationInstanceRenderOptions,
+    DecorationRangeBehavior,
 } from 'vscode';
 
 import { rawTextToFormattedTable, IFormattedTableResult } from "./formatter";
@@ -47,16 +48,19 @@ export function activate(context: ExtensionContext) {
             margin: "50px",
             color: "rgba(188,66,66,1)",
         } as ThemableDecorationAttachmentRenderOptions,
+        rangeBehavior: DecorationRangeBehavior.ClosedClosed
     };
 
     const headerRenderOptions: DecorationRenderOptions = {
         color: "rgb(0, 150, 125)",
+        rangeBehavior: DecorationRangeBehavior.ClosedClosed
     };
 
     formattingErrorDecorationType = window.createTextEditorDecorationType(errorRenderOptions);
     headerDecorationType = window.createTextEditorDecorationType(headerRenderOptions);
     commentedDecorationType = window.createTextEditorDecorationType({
-        color: "rgba(34,184,4,1)"
+        color: "rgba(34,184,4,1)",
+        rangeBehavior: DecorationRangeBehavior.ClosedClosed
     });
 
     var disposable = commands.registerCommand('extension.formatDataTables', () => {
@@ -84,6 +88,7 @@ export function activate(context: ExtensionContext) {
 export function deactivate() {
     formattingErrorDecorationType = null;
     headerDecorationType = null;
+    commentedDecorationType = null;
     trackedDocuments.splice(0, trackedDocuments.length);
 }
 
@@ -192,7 +197,7 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
             const headerDocDecorations = docDecorations.find(v => v.type === headerDecorationType) || (docDecorations.push({ type: headerDecorationType, decorations: [] } as IDocumentDecoration), docDecorations[docDecorations.length - 1]);
             const commentDocDecorations = docDecorations.find(v => v.type === commentedDecorationType) || (docDecorations.push({ type: commentedDecorationType, decorations: [] } as IDocumentDecoration), docDecorations[docDecorations.length - 1]);
 
-            const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength+1).join(" ");
+            const commentPlaceholder = new Array((<any>formatted.table).commentPatternMaxLength + 1).join(" ");
             const lineLead = raw.lineLead.length ? raw.lineLead.slice(0, raw.lineLead.length - commentPlaceholder.length) : raw.lineLead;
             const delta = raw.startPosition.character + lineLead.length + commentPlaceholder.length + 1;
 
@@ -229,17 +234,17 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
 
             [].push.apply(headerDocDecorations.decorations, headerDecorations);
 
-            const content = formatted.table.map((row, lineOffset) => {                
+            const content = formatted.table.map((row, lineOffset) => {
                 let commentPatternOrPlaceholder = commentPlaceholder;
 
                 let { isCommented, commentPattern } = (<any>row);
-                if ((<any>formatted.table).hasCommentedRecords) {                    
+                if ((<any>formatted.table).hasCommentedRecords) {
                     commentPatternOrPlaceholder = commentPattern && commentPlaceholder.slice(commentPattern.length) + commentPattern || commentPlaceholder;
                 }
 
                 const output = `${lineLead}${commentPatternOrPlaceholder}|${row.join("|")}|\r\n`;
 
-                if(isCommented) {
+                if (isCommented) {
                     const startPosition = raw.startPosition.translate(lineOffset, lineLead.length);
                     commentDocDecorations.decorations.push({
                         range: new Range(startPosition, startPosition.translate(0, output.length))
@@ -323,6 +328,7 @@ interface IRawTableMetadata {
     endPosition: Position;
     content: string;
     lineLead: string;
+    isCommented: boolean;
 }
 
 function findTables(doc: TextDocument) {
@@ -331,7 +337,9 @@ function findTables(doc: TextDocument) {
 
     for (let lineNumber = 0; lineNumber < doc.lineCount; lineNumber++) {
         const line = doc.lineAt(lineNumber);
-        const processLine = !line.isEmptyOrWhitespace && /^(#|\/\/)[^\|]*|/.test(line.text) && /\|[^\|]+\|/.test(line.text);
+        const tableRowPatternMatch = /^\s*(#|\/\/)?\s*\|(?:[^\|]+\|)*[^\|]+\|\s*$/.exec(line.text)
+        const processLine = !line.isEmptyOrWhitespace && !!tableRowPatternMatch;
+        const isCommented = tableRowPatternMatch && !!tableRowPatternMatch[1];
 
         if (processLine) {
             rawTableMetadata = rawTableMetadata ||
@@ -339,7 +347,8 @@ function findTables(doc: TextDocument) {
                     startPosition: line.range.start,
                     endPosition: line.range.end,
                     content: "",
-                    lineLead: line.text.slice(0, line.firstNonWhitespaceCharacterIndex)
+                    lineLead: line.text.slice(0, line.firstNonWhitespaceCharacterIndex),
+                    isCommented
                 };
 
             rawTableMetadata.endPosition = line.range.end;
@@ -361,6 +370,14 @@ function decorateEditor(editor: TextEditor, trackedDocument: ITrackedDocument) {
     if (!editor) {
         return;
     }
+
+    // Clear any decorations where the current set of document decorations 
+    // does not have an entry for the corresponding type
+    [formattingErrorDecorationType, headerDecorationType, commentedDecorationType].forEach(decorationType => {
+        if (!trackedDocument.decorations.some(docDecoration => docDecoration.type === decorationType)) {
+            editor.setDecorations(decorationType, []);
+        }
+    });
 
     trackedDocument.decorations.forEach(d => {
         editor.setDecorations(d.type, d.decorations);
