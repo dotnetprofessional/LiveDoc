@@ -20,15 +20,15 @@
                 "--colors",
                 "--recursive",
                 "--require",
-                "build/app/livedoc",
+                "build/app/index",
                 "--ui",
                 "livedoc-mocha",
                 "${workspaceRoot}/build/test",
                 "--ld-exclude",
                 "filter:exclude",
-                "--ld-include",
-                "filter:include",
-                "--showFilterConflicts"
+                // "--ld-include",
+                // "filter:include",
+                // "--showFilterConflicts"
             ],
             "sourceMaps": true,
             "outFiles": [

@@ -156,7 +156,7 @@ feature(`Step statement
         });
 
         scenario("Step statement has a two column table with names in first column", () => {
-            let stepTitle = "";
+            let stepTitle;
             let entity: DataTableRow;
             when(`a simple title has a table
 

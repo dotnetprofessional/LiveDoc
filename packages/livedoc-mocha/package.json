@@ -1,6 +1,6 @@
 {
   "name": "livedoc-mocha",
-  "version": "0.3.4",
+  "version": "0.3.5-beta",
   "author": "Garry McGlennon",
   "description": "BDD extensions for Mocha that support LiveDoc reporting.",
   "repository": {
@@ -11,8 +11,8 @@
   "bugs": {
     "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
   },
-  "main": "release/livedoc.js",
-  "typings": "release/livedoc.d.ts",
+  "main": "release/index.js",
+  "typings": "release/index.d.ts",
   "keywords": [
     "livedoc",
     "mocha",
@@ -28,7 +28,7 @@
   },
   "scripts": {
     "_comment_fitlering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
-    "test": "mocha --colors --require build/app/livedoc --ui livedoc-mocha --recursive build/test/ --ld-exclude filter:exclude",
+    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/ --ld-exclude filter:exclude",
     "xpretest": "tsc -p . && cls",
     "release-web": "npm run compile-web && npm run compile-web-minify",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",

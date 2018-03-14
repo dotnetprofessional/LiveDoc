@@ -55,7 +55,7 @@ feature(`Account Holder withdraws cash
 
             given(`the account holders account has the following:
             | account | 12345 |
-            | balance | 100   |
+            | balance |   100 |
             | status  | valid |
         `, () => {
                     const accountHolder = stepContext.tableAsEntity;
