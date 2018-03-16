@@ -16,6 +16,5 @@ export class ScenarioOutline extends Scenario {
 
     constructor (parent: Feature) {
         super(parent)
-        this.displayPrefix = "Scenario Outline";
     }
 }

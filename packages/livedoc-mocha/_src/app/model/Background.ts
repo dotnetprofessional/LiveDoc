@@ -6,7 +6,6 @@ import { Feature } from "./Feature";
 export class Background extends Scenario {
     constructor (parent: Feature) {
         super(parent)
-        this.displayPrefix = "Background";
     }
 
     public addStep(step: StepDefinition): StepDefinition {

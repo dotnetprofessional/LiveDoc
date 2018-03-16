@@ -22,8 +22,6 @@ export class Scenario extends LiveDocDescribe {
 
     constructor (public parent: Feature) {
         super()
-        this.displayPrefix = "Scenario";
-        this.displayIndentLength = 6;
     }
 
     public addStep(step: StepDefinition) {

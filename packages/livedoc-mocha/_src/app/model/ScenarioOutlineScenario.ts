@@ -10,7 +10,6 @@ export class ScenarioOutlineScenario extends Scenario {
 
     constructor (parent: Feature) {
         super(parent)
-        this.displayPrefix = "Scenario";
     }
 
     public addStep(step: StepDefinition): void {

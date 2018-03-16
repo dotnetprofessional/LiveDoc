@@ -85,11 +85,16 @@ function liveDocMocha(suite) {
     var suites = [suite];
 
     suite.on('pre-require', function (context, file, mocha) {
-
+        const commonInterfaces = require('mocha/lib/interfaces/common')(suites, context, mocha);
         context.run = mocha.options.delay && mochaCommon.runWithSuite(suite);
 
         var describeAliasBuilder = createDescribeAlias(file, suites, context, mocha, mochaCommon);
         var stepAliasBuilder = createStepAlias(file, suites, mocha, mochaCommon);
+
+        context.after = commonInterfaces.after;
+        context.afterEach = commonInterfaces.afterEach;
+        context.before = commonInterfaces.before;
+        context.beforeEach = commonInterfaces.beforeEach;
 
         context.afterBackground = function (fn: any) {
             // Assign the background to the parent ie Feature so it can be accessed by 

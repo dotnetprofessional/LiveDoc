@@ -13,10 +13,7 @@ export class Feature extends LiveDocDescribe {
 
     constructor () {
         super()
-        this.displayPrefix = "Feature";
-        this.displayIndentLength = 4;
     }
-
 
     public getFeatureContext(): FeatureContext {
         return ({

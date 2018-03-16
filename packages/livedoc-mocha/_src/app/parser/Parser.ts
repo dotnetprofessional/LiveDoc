@@ -5,17 +5,32 @@ var moment = require("moment");
 
 export class LiveDocGrammarParser {
 
-    public createFeature(description: string, filename: string): model.Feature {
-        const feature = new model.Feature();
+    private formatDisplayTitle(description: string, prefix: string, indentLevel: number) {
         const parser = new DescriptionParser();
+        return `${prefix}: ${parser.applyIndenting(description, indentLevel)}`;
+    }
+
+    public createFeature(description: string, filename: string): model.Feature {
+        const parser = new DescriptionParser();
+        const feature = new model.Feature();
+        const type = "Feature";
+
         parser.parseDescription(description);
 
         // This is the top level feature 
         feature.title = parser.title;
+        feature.displayTitle = this.formatDisplayTitle(description, type, 4);
         feature.description = parser.description;
         feature.tags = parser.tags;
         feature.rawDescription = description;
         feature.filename = filename;
+
+
+        // validate we have a description!
+        if (!parser.title) {
+            feature.addViolation(new model.LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, feature.filename))
+                .report();
+        }
         return feature;
     }
 
@@ -26,6 +41,7 @@ export class LiveDocGrammarParser {
 
         background.title = parser.title;
         background.description = parser.description;
+        background.displayTitle = this.formatDisplayTitle(description, "Background", 4);
         background.tags = parser.tags;
         background.rawDescription = description;
         feature.background = background;
@@ -34,32 +50,48 @@ export class LiveDocGrammarParser {
     }
 
     public addScenario(feature: model.Feature, description: string): model.Scenario {
+        const type = "Scenario";
         const scenario = new model.Scenario(feature);
         const parser = new DescriptionParser();
         parser.parseDescription(description);
 
         scenario.title = parser.title;
         scenario.description = parser.description;
+        scenario.displayTitle = this.formatDisplayTitle(description, type, 6);
         scenario.tags = parser.tags;
         scenario.rawDescription = description;
         feature.scenarios.push(scenario);
 
+
+        // validate we have a description!
+        if (!parser.title) {
+            feature.addViolation(new model.LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, feature.filename))
+                .report();
+        }
         return scenario;
     }
 
     public addScenarioOutline(feature: model.Feature, description: string): model.ScenarioOutline {
+        const type = "Scenario Outline";
         const scenarioOutline = new model.ScenarioOutline(feature);
         const parser = new DescriptionParser();
         parser.parseDescription(description);
 
         scenarioOutline.title = parser.title;
         scenarioOutline.description = parser.description;
+        scenarioOutline.displayTitle = this.formatDisplayTitle(description, type, 6);
         scenarioOutline.tags = parser.tags;
         scenarioOutline.rawDescription = description;
 
         this.addExamplesAsScenarios(scenarioOutline, parser);
 
         feature.scenarios.push(scenarioOutline);
+
+        // validate we have a description!
+        if (!parser.title) {
+            feature.addViolation(new model.LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, feature.filename))
+                .report();
+        }
 
         return scenarioOutline;
     }
@@ -92,6 +124,7 @@ export class LiveDocGrammarParser {
             const scenario = new model.ScenarioOutlineScenario(scenarioOutline.parent);
             // Don't want to repeat the table etc for every scenario iteration
             scenario.rawDescription = scenarioOutline.title;
+            scenario.displayTitle = this.formatDisplayTitle(scenarioOutline.title, "Scenario", 6);
             scenario.example = parser.getTableRowAsEntity(headerRow, dataRow);
             scenario.exampleRaw = parser.getTableRowAsEntity(headerRow, dataRow, false);
             scenario.title = parser.bind(scenarioOutline.title, scenario.example);
