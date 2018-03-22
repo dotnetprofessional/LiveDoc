@@ -202,7 +202,6 @@ function createStepAlias(file, suites, mocha, common) {
 
                     if (suite._beforeAll.length > 0) {
                         livedocContext.scenario.addViolation(RuleViolations.enforceUsingGivenOverBefore, `Using before does not help with readability, consider using a given instead.`, title);
-                        throw new Error("Ignore");
                     }
 
                     stepDefinition = liveDocGrammarParser.createStep(type, title);
@@ -325,9 +324,12 @@ function displayWarningsInlineIfPossible(livedocContext: LiveDocContext, stepDef
     }
 }
 
-const displayedViolations = [];
+const displayedViolations = {};
 function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation) {
     let option: LiveDocRuleOption;
+    if (e.errorId === 1) {
+        debugger;
+    }
     if (displayedViolations[e.errorId]) {
         // Already displayed this error, so no need to do it again
         return;
@@ -336,7 +338,7 @@ function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation) {
     const outputMessage = `${e.message} [title: ${e.title}, file: ${feature && feature.filename || ""}]`;
     option = livedoc.rules[RuleViolations[e.rule]];
     if (option === LiveDocRuleOption.warning) {
-        displayedViolations.push(e.errorId);
+        displayedViolations[e.errorId] = "X";
         console.error(colors.bgYellow(colors.red(`WARNING[${e.errorId}]: ${outputMessage}`)));
     } else {
         throw e;
@@ -524,6 +526,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
         let livedocContext: BddContext;
         const childDescribe = new model.Describe(title);
         if (suites[0].livedoc && suites[0].livedoc.type !== "bdd") {
+            // suites[0].livedoc.feature.addViolation(RuleViolations.mustNotMixLanguages, `This feature is using bdd syntax, did you mean to use scenario instead?`, title);
             const violation = new model.LiveDocRuleViolation(RuleViolations.mustNotMixLanguages, `This feature is using bdd syntax, did you mean to use scenario instead?`, title);
             throw violation;
         }

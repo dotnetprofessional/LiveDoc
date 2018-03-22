@@ -149,6 +149,11 @@ export class LiveDocGrammarParser {
 
         let indentation = 10;
 
+        // if its a bdd type then ignore the type
+        if (type === "bdd") {
+            type = "";
+        }
+
         // This is the top level feature
         step.title = parser.title;
         step.rawDescription = description;
