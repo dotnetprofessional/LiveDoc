@@ -3,7 +3,7 @@ import { StepContext } from "../StepContext";
 import { StepDefinition } from "./StepDefinition";
 import { LiveDocDescribe } from "./LiveDocDescribe";
 import { Feature } from "./Feature";
-import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
+import { RuleViolations } from "./RuleViolations";
 
 export class Scenario extends LiveDocDescribe {
 
@@ -29,19 +29,15 @@ export class Scenario extends LiveDocDescribe {
 
         // validate we have a description!
         if (!step.title) {
-            step.addViolation(new LiveDocRuleViolation(`${step.type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, livedoc.rules.enforceTitle, step.title, this.parent.filename))
-                .report();
+            step.addViolation(RuleViolations.enforceTitle, `${step.type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, step.title)
         }
-
-        const oneGivenWhenThenViolation = new LiveDocRuleViolation(`there should be only one ${step.type} in a Scenario, Scenario Outline or Background. Try using and or but instead.`, livedoc.rules.singleGivenWhenThen, this.title, this.parent.filename);
 
         switch (step.type) {
             case "Given":
                 // Check rules
                 if (this.hasGiven) {
                     // Too many givens
-                    step.addViolation(oneGivenWhenThenViolation)
-                        .report();
+                    this.addGivenWhenThenViolation(step);
                 }
                 this.processingStepType = step.type;
                 this.hasGiven = true;
@@ -50,13 +46,11 @@ export class Scenario extends LiveDocDescribe {
             case "When":
                 // Validate that we have a given here or from a Background
                 if (!this.hasGiven && (this.parent.background && !this.parent.background.hasGiven)) {
-                    step.addViolation(new LiveDocRuleViolation(`scenario does not have a Given or a Background with a given.`, livedoc.rules.mustIncludeGiven, this.title, this.parent.filename))
-                        .report();
+                    step.addViolation(RuleViolations.mustIncludeGiven, `scenario does not have a Given or a Background with a given.`, this.title);
                 }
                 if (this.hasWhen) {
                     // Too many givens
-                    step.addViolation(oneGivenWhenThenViolation)
-                        .report();
+                    this.addGivenWhenThenViolation(step);
                 }
                 this.processingStepType = step.type;
                 this.hasWhen = true;
@@ -64,13 +58,11 @@ export class Scenario extends LiveDocDescribe {
                 break;
             case "Then":
                 if (!this.hasWhen) {
-                    step.addViolation(new LiveDocRuleViolation(`scenario does not have a When, use When to describe the test action.`, livedoc.rules.mustIncludeWhen, this.title, this.parent.filename))
-                        .report();
+                    step.addViolation(RuleViolations.mustIncludeWhen, `scenario does not have a When, use When to describe the test action.`, this.title);
                 }
                 if (this.hasThen) {
                     // Too many givens
-                    step.addViolation(oneGivenWhenThenViolation)
-                        .report();
+                    this.addGivenWhenThenViolation(step);
                 }
                 this.processingStepType = step.type;
                 this.hasThen = true;
@@ -89,11 +81,13 @@ export class Scenario extends LiveDocDescribe {
                         break;
                     default:
                         // Seems we're not processing a GTW!?
-                        step.addViolation(new LiveDocRuleViolation(`a ${step.type} step definition must be preceded by a Given, When or Then.`, livedoc.rules.andButMustHaveGivenWhenThen, this.title, this.parent.filename))
-                            .report();
+                        step.addViolation(RuleViolations.andButMustHaveGivenWhenThen, `a ${step.type} step definition must be preceded by a Given, When or Then.`, this.title);
                 }
         }
+    }
 
+    private addGivenWhenThenViolation(step: StepDefinition): void {
+        step.addViolation(RuleViolations.singleGivenWhenThen, `there should be only one ${step.type} in a Scenario, Scenario Outline or Background. Try using and or but instead.`, this.title);
     }
 
     public getScenarioContext(): ScenarioContext {

@@ -1,6 +1,6 @@
 import { LiveDocRules } from "./LiveDocRules";
 import { CommandLineOptions } from "./CommandLineOptions";
-import { LiveDocRuleOption } from "./model/index";
+import { LiveDocRuleOption } from "./LiveDocRuleOption";
 
 export class LiveDoc {
     constructor () {

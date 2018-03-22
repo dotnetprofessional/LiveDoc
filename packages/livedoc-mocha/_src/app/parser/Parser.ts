@@ -1,5 +1,6 @@
 import { TextBlockReader } from "./TextBlockReader";
 import * as model from "../model";
+import { RuleViolations } from "../model/RuleViolations";
 
 var moment = require("moment");
 
@@ -8,6 +9,15 @@ export class LiveDocGrammarParser {
     private formatDisplayTitle(description: string, prefix: string, indentLevel: number) {
         const parser = new DescriptionParser();
         return `${prefix}: ${parser.applyIndenting(description, indentLevel)}`;
+    }
+
+    private formatStepDisplayTitle(description: string, prefix: string, indentLevel: number) {
+        const parser = new DescriptionParser();
+        let padding = "";
+        if (["and", "but"].indexOf(prefix) >= 0) {
+            padding = "  ";
+        }
+        return `${padding}${prefix} ${parser.applyIndenting(description, indentLevel)}`;
     }
 
     public createFeature(description: string, filename: string): model.Feature {
@@ -28,8 +38,7 @@ export class LiveDocGrammarParser {
 
         // validate we have a description!
         if (!parser.title) {
-            feature.addViolation(new model.LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, feature.filename))
-                .report();
+            feature.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, parser.title);
         }
         return feature;
     }
@@ -65,8 +74,7 @@ export class LiveDocGrammarParser {
 
         // validate we have a description!
         if (!parser.title) {
-            feature.addViolation(new model.LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, feature.filename))
-                .report();
+            feature.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, parser.title);
         }
         return scenario;
     }
@@ -89,8 +97,7 @@ export class LiveDocGrammarParser {
 
         // validate we have a description!
         if (!parser.title) {
-            feature.addViolation(new model.LiveDocRuleViolation(`${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, livedoc.rules.enforceTitle, parser.title, feature.filename))
-                .report();
+            feature.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, parser.title);
         }
 
         return scenarioOutline;
@@ -104,7 +111,7 @@ export class LiveDocGrammarParser {
 
         if (scenarioOutline.scenarios.length === 0) {
             // Oh dear seems they either forgot the table or its not structured correctly.
-            throw new model.LiveDocRuleViolation("A scenarioOutline was defined but does not contain any Examples. Did you mean to use a scenario or forget the Examples keyword?", model.LiveDocRuleOption.enabled, scenarioOutline.title, scenarioOutline.parent.filename);
+            throw new model.LiveDocRuleViolation(RuleViolations.error, "A scenarioOutline was defined but does not contain any Examples. Did you mean to use a scenario or forget the Examples keyword?", scenarioOutline.title);
         }
     }
 
@@ -128,6 +135,7 @@ export class LiveDocGrammarParser {
             scenario.example = parser.getTableRowAsEntity(headerRow, dataRow);
             scenario.exampleRaw = parser.getTableRowAsEntity(headerRow, dataRow, false);
             scenario.title = parser.bind(scenarioOutline.title, scenario.example);
+            //scenario.displayTitle = parser.bind(scenarioOutline.displayTitle, scenario.example);
             scenarioOutline.scenarios.push(scenario);
         }
 
@@ -139,6 +147,8 @@ export class LiveDocGrammarParser {
 
         const step = new model.StepDefinition();
 
+        let indentation = 10;
+
         // This is the top level feature
         step.title = parser.title;
         step.rawDescription = description;
@@ -146,16 +156,35 @@ export class LiveDocGrammarParser {
         step.docString = parser.docString;
         step.dataTable = parser.dataTable;
         step.valuesRaw = parser.quotedValues;
+        step.displayTitle = this.formatStepDisplayTitle(description, type, indentation);
         step.values = parser.coerceValues(step.valuesRaw);
         step.type = type;
 
         return step;
     }
+
+    // private getDisplayTitle(type: string) {
+    //     let padding = "";
+    //     if (["and", "but"].indexOf(type) >= 0) {
+    //         padding = "  ";
+    //     }
+    //     const textReader = new TextBlockReader(this.rawDescription);
+    //     // To preserve the binding in the title the tile is used then the rest of the raw description
+    //     let descriptionParts = [];
+    //     descriptionParts.push(this.title);
+    //     textReader.next();
+    //     while (textReader.next()) {
+    //         descriptionParts.push(textReader.line);
+    //     }
+
+    //     return `${padding}${this.type} ${this._parser.applyIndenting(descriptionParts.join("\n"), 10)}`;
+    // }
 }
 
 export class DescriptionParser {
     public title: string = "";
     public description: string = "";
+    public text: string = "";
     public tags: string[] = [];
     public tables: model.Table[] = [];
     public dataTable: DataTableRow[];
@@ -168,6 +197,7 @@ export class DescriptionParser {
 
 
     public parseDescription(text: string) {
+        this.text = text;
         const textReader = new TextBlockReader(text);
         if (textReader.next()) {
             this.title = textReader.line.trim();

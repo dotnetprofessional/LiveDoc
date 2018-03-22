@@ -1,5 +1,4 @@
-import { LiveDocRuleOption } from "./model/LiveDocRuleOption";
-
+import { LiveDocRuleOption } from "./LiveDocRuleOption";
 
 export class LiveDocRules {
     /**

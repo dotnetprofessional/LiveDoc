@@ -1,4 +1,5 @@
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
+import { RuleViolations } from "./RuleViolations";
 
 export class LiveDocDescribe {
     public id: number;
@@ -6,18 +7,16 @@ export class LiveDocDescribe {
     public rawDescription: string;
 
     public displayTitle: string;
-    //  {
-    //     //return `${this.displayPrefix}: ${this._parser.applyIndenting(this.rawDescription, this.displayIndentLength)}`;
-    //     return "Need to fix this as it uses the Parsers applyIndenting";
-    // }
-
     public tags: string[];
     public description: string;
 
     public ruleViolations: LiveDocRuleViolation[] = [];
 
-    public addViolation(violation: LiveDocRuleViolation): LiveDocRuleViolation {
+    public addViolation(rule: RuleViolations, message: string, title: string): void {
+        this.addViolationInstance(new LiveDocRuleViolation(rule, message, title));
+    }
+
+    public addViolationInstance(violation: LiveDocRuleViolation): void {
         this.ruleViolations.push(violation);
-        return violation;
     }
 }

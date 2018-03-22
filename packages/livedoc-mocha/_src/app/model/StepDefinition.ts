@@ -1,29 +1,11 @@
 import { StepContext } from "../StepContext";
-import { TextBlockReader } from "../parser/TextBlockReader";
-import { DescriptionParser } from "../parser/Parser";
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
+import { RuleViolations } from "./RuleViolations";
 
 export class StepDefinition {
-    private _parser = new DescriptionParser();
-
     public id: number;
     public title: string = "";
-    public get displayTitle(): string {
-        let padding = "";
-        if (["and", "but"].indexOf(this.type) >= 0) {
-            padding = "  ";
-        }
-        const textReader = new TextBlockReader(this.rawDescription);
-        // To preserve the binding in the title the tile is used then the rest of the raw description
-        let descriptionParts = [];
-        descriptionParts.push(this.title);
-        textReader.next();
-        while (textReader.next()) {
-            descriptionParts.push(textReader.line);
-        }
-
-        return `${padding}${this.type} ${this._parser.applyIndenting(descriptionParts.join("\n"), 10)}`;
-    }
+    public displayTitle: string = "";
 
     public type: string;
     public description: string = "";
@@ -51,9 +33,7 @@ export class StepDefinition {
         return context;
     }
 
-
-    public addViolation(violation: LiveDocRuleViolation): LiveDocRuleViolation {
-        this.ruleViolations.push(violation);
-        return violation;
+    public addViolation(rule: RuleViolations, message: string, title: string): void {
+        this.ruleViolations.push(new LiveDocRuleViolation(rule, message, title));
     }
 }

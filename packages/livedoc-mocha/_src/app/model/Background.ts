@@ -1,6 +1,6 @@
 import { Scenario } from "./Scenario";
 import { StepDefinition } from "./StepDefinition";
-import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
+import { RuleViolations } from "./RuleViolations";
 import { Feature } from "./Feature";
 
 export class Background extends Scenario {
@@ -12,8 +12,7 @@ export class Background extends Scenario {
         super.addStep(step);
 
         if (step.type === "Then" || step.type == "When") {
-            step.addViolation(new LiveDocRuleViolation(`Backgrounds only support using the given step definition. Consider moving the ${step.type} to a scenario.`, livedoc.rules.backgroundMustOnlyIncludeGiven, step.title, this.parent.filename))
-                .report();
+            step.addViolation(RuleViolations.backgroundMustOnlyIncludeGiven, `Backgrounds only support using the given step definition. Consider moving the ${step.type} to a scenario.`, step.title);
         }
         return step;
     }

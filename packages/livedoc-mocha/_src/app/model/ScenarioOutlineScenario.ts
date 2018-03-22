@@ -15,6 +15,7 @@ export class ScenarioOutlineScenario extends Scenario {
     public addStep(step: StepDefinition): void {
         super.addStep(step);
         step.title = new DescriptionParser().bind(step.title, this.example);
+        step.displayTitle = new DescriptionParser().bind(step.displayTitle, this.example);
     }
 
     public getScenarioContext(): ScenarioOutlineContext {

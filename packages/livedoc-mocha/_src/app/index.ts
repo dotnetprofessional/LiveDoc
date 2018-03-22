@@ -10,6 +10,11 @@ import { BddContext } from "./BddContext";
 import { ScenarioOutlineContext } from "./ScenarioOutlineContext";
 import { LiveDocGrammarParser } from "./parser/Parser";
 import { LiveDocDescribe } from "./model/LiveDocDescribe";
+import { RuleViolations } from "./model/RuleViolations";
+import { LiveDocRuleViolation } from "./model/LiveDocRuleViolation";
+import { LiveDocRuleOption } from "./LiveDocRuleOption";
+
+const colors = require("colors");
 
 const liveDocGrammarParser = new LiveDocGrammarParser();
 
@@ -124,7 +129,7 @@ function liveDocMocha(suite) {
         context.scenarioOutlineContext;
     });
 
-    (global as any).liveDocRuleOption = model.LiveDocRuleOption;
+    (global as any).liveDocRuleOption = LiveDocRuleOption;
     // Extract command line parameters
     const livedoc = new LiveDoc();
     livedoc.options.include = getCommandLineOptions("--ld-include");
@@ -192,12 +197,12 @@ function createStepAlias(file, suites, mocha, common) {
                 } else {
                     // Check if the type is a bdd type
                     if (type === "bdd") {
-                        throw new model.LiveDocRuleViolation(`This feature is using bdd syntax, did you mean to use given instead?`, livedoc.rules.mustNotMixLanguages, title, livedocContext.feature.filename);
+                        livedocContext.feature.addViolation(RuleViolations.mustNotMixLanguages, `This feature is using bdd syntax, did you mean to use given instead?`, title);
                     }
 
                     if (suite._beforeAll.length > 0) {
-                        livedocContext.scenario.addViolation(new model.LiveDocRuleViolation(`Using before does not help with readability, consider using a given instead.`, livedoc.rules.enforceUsingGivenOverBefore, title, livedocContext.feature.filename))
-                            .report()
+                        livedocContext.scenario.addViolation(RuleViolations.enforceUsingGivenOverBefore, `Using before does not help with readability, consider using a given instead.`, title);
+                        throw new Error("Ignore");
                     }
 
                     stepDefinition = liveDocGrammarParser.createStep(type, title);
@@ -206,7 +211,8 @@ function createStepAlias(file, suites, mocha, common) {
                     } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
                         livedocContext.scenario.addStep(stepDefinition);
                     } else {
-                        throw new model.LiveDocRuleViolation(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline`, livedoc.rules.givenWhenThenMustBeWithinScenario, title, file);
+                        livedocContext.feature.addViolation(RuleViolations.givenWhenThenMustBeWithinScenario, `Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline`, title);
+                        throw new Error("Ignore");
                     }
 
                     testName = stepDefinition.displayTitle;
@@ -263,9 +269,12 @@ function createStepAlias(file, suites, mocha, common) {
             catch (e) {
                 if (e.constructor.name === "LiveDocRuleViolation") {
                     if (livedocContext.feature) {
-                        livedocContext.feature.addViolation(e);
+                        livedocContext.feature.addViolationInstance(e);
                     }
-                    e.report();
+                    displayRuleViolation(livedocContext.feature, e);
+                    return testTypeCreator("invalid")(title, stepDefinitionFunction);
+                } else if (e.constructor.name === "Error" && e.message === "Ignore") {
+                    // Ignore this error - it will be reported later.
                     return testTypeCreator("invalid")(title, stepDefinitionFunction);
                 } else {
                     throw e;
@@ -300,19 +309,37 @@ function displayWarningsInlineIfPossible(livedocContext: LiveDocContext, stepDef
     // if the parent has a rule violation report it here to make it more visible to the dev they made a mistake
     if (livedocContext && livedocContext.scenario) {
         livedocContext.scenario.ruleViolations.forEach(violation => {
-            violation.report(true);
+            displayRuleViolation(livedocContext.feature, violation);
         });
     }
     if (livedocContext && livedocContext.feature) {
         livedocContext.feature.ruleViolations.forEach(violation => {
-            violation.report(true);
+            displayRuleViolation(livedocContext.feature, violation);
         });
     }
 
     if (stepDefinition) {
         stepDefinition.ruleViolations.forEach(violation => {
-            violation.report(true);
+            displayRuleViolation(livedocContext.feature, violation);
         });
+    }
+}
+
+const displayedViolations = [];
+function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation) {
+    let option: LiveDocRuleOption;
+    if (displayedViolations[e.errorId]) {
+        // Already displayed this error, so no need to do it again
+        return;
+    }
+
+    const outputMessage = `${e.message} [title: ${e.title}, file: ${feature && feature.filename || ""}]`;
+    option = livedoc.rules[RuleViolations[e.rule]];
+    if (option === LiveDocRuleOption.warning) {
+        displayedViolations.push(e.errorId);
+        console.error(colors.bgYellow(colors.red(`WARNING[${e.errorId}]: ${outputMessage}`)));
+    } else {
+        throw e;
     }
 }
 /** @internal */
@@ -344,7 +371,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                             // Validate that we have a feature
                             if (!suites[0].livedoc || !suites[0].livedoc.feature) {
                                 // No feature!!
-                                throw new model.LiveDocRuleViolation(`${type} must be within a feature.`, livedoc.rules.missingFeature, title, file);
+                                throw new model.LiveDocRuleViolation(livedoc.rules.missingFeature, `${type} must be within a feature.`, title);
                             }
                             feature = suites[0].livedoc.feature;
                             break;
@@ -447,9 +474,9 @@ function createDescribeAlias(file, suites, context, mocha, common) {
             } catch (e) {
                 if (e.constructor.name === "LiveDocRuleViolation") {
                     if (suites[0].livedoc && suites[0].livedoc.feature) {
-                        suites[0].livedoc.feature.addViolation(e);
+                        suites[0].livedoc.feature.addViolationInstance(e);
                     }
-                    e.report();
+                    displayRuleViolation(null, e);
                     // A validation exception has occurred mark as invalid
                     return wrapperCreator("invalid")(title, fn, opts);
                 } else {
@@ -488,7 +515,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
     };
 
     function throwAsyncNotSupported(type: string) {
-        throw new model.LiveDocRuleViolation(`The async keyword is not supported for ${type}`, model.LiveDocRuleOption.enabled, "Unsupported keyword", featureContext.filename);
+        throw new model.LiveDocRuleViolation(RuleViolations.error, `The async keyword is not supported for ${type}`, "Unsupported keyword");
     }
 
     function processBddDescribe(suites: mocha.ISuite, type: string, title: string, file: string): mocha.ISuite {
@@ -497,7 +524,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
         let livedocContext: BddContext;
         const childDescribe = new model.Describe(title);
         if (suites[0].livedoc && suites[0].livedoc.type !== "bdd") {
-            const violation = new model.LiveDocRuleViolation(`This feature is using bdd syntax, did you mean to use scenario instead?`, livedoc.rules.mustNotMixLanguages, title, file);
+            const violation = new model.LiveDocRuleViolation(RuleViolations.mustNotMixLanguages, `This feature is using bdd syntax, did you mean to use scenario instead?`, title);
             throw violation;
         }
 
