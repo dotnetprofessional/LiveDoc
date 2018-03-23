@@ -1,4 +1,4 @@
-import { Describe } from "./model/Describe";
+import { Describe } from "./Describe";
 
 
 /**

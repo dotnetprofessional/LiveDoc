@@ -1,7 +1,7 @@
 import { Scenario } from "./Scenario";
 import { Feature } from "./Feature";
 import { StepDefinition } from "./StepDefinition";
-import { ScenarioOutlineContext } from "../ScenarioOutlineContext";
+import { ScenarioOutlineContext } from "./ScenarioOutlineContext";
 import { DescriptionParser } from "../parser/Parser";
 
 export class ScenarioOutlineScenario extends Scenario {

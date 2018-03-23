@@ -14,26 +14,4 @@ export class LiveDocRuleViolation extends Error {
     public get errorId() {
         return this._errorId;
     }
-
-    // public reportX(dontShowAgain: boolean = false) {
-    //     if (this.dontShowAgain) {
-    //         return;
-    //     }
-
-    //     this.dontShowAgain = dontShowAgain;
-
-    //     if (this.option === LiveDocRuleOption.disabled) {
-    //         return;
-    //     }
-    //     if (!this.errorId) {
-    //         LiveDocRuleViolation.errorCount++;
-    //         this.errorId = LiveDocRuleViolation.errorCount;
-    //     }
-    //     const outputMessage = `${this.message} [title: ${this.title}, file: ${this.file}]`;
-    //     if (this.option === LiveDocRuleOption.warning) {
-    //         console.error(colors.bgYellow(colors.red(`WARNING[${this.errorId}]: ${outputMessage}`)));
-    //     } else {
-    //         throw new LiveDocRuleViolation(outputMessage, LiveDocRuleOption.enabled, "", "");
-    //     }
-    // }
 }

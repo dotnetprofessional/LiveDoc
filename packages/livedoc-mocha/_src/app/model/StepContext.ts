@@ -1,4 +1,4 @@
-import { DescriptionParser } from "./parser/Parser";
+import { DescriptionParser } from "../parser/Parser";
 
 
 export class StepContext {

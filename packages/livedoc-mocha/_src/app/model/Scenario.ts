@@ -1,5 +1,5 @@
-import { ScenarioContext } from "../ScenarioContext";
-import { StepContext } from "../StepContext";
+import { ScenarioContext } from "./ScenarioContext";
+import { StepContext } from "./StepContext";
 import { StepDefinition } from "./StepDefinition";
 import { LiveDocDescribe } from "./LiveDocDescribe";
 import { Feature } from "./Feature";

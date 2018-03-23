@@ -1,4 +1,4 @@
-import { StepContext } from "../StepContext";
+import { StepContext } from "./StepContext";
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
 

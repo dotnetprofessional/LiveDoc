@@ -1,8 +1,8 @@
 import { LiveDocDescribe } from "./LiveDocDescribe";
 import { Background } from "./Background";
 import { Scenario } from "./Scenario";
-import { FeatureContext } from "../FeatureContext";
-import { BackgroundContext } from "../BackgroundContext";
+import { FeatureContext } from "./FeatureContext";
+import { BackgroundContext } from "./BackgroundContext";
 
 export class Feature extends LiveDocDescribe {
     public filename: string;
