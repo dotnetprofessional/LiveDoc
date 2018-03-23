@@ -91,9 +91,9 @@ feature(`Scenarios within features can be skipped via use of tags
             @filter:exclude
 
             Examples:
-            |value|
-            |3|
-            |4|
+            | value |
+            |     3 |
+            |     4 |
             `, () => {
                 given("a skipped scenario, this should not fire! <value>", () => {
                     throw Error("This should not have fired! The feature was skipped!");

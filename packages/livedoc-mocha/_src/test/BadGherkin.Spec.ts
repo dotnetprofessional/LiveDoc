@@ -66,7 +66,7 @@ feature(`Ensure a Given, When and Then exists
         });
     });
 
-feature("The tester mixes Gherking with mocha BDD syntax", () => {
+feature("The tester mixes Gherkin with mocha BDD syntax", () => {
     describe("should have used scenario instead of describe", () => {
         it("some condition", () => { });
     });
@@ -117,8 +117,8 @@ feature("", () => {
 // feature("Backgrounds may not be marked as async", () => {
 //     scenarioOutline(`my scenario outline
 //         Examples:
-//         | column name  | column name  |
-//         | column value | column value |
+//| column name  | column name  |
+//| column value | column value |
 //         `, async () => {
 
 //         });

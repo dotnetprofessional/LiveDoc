@@ -27,8 +27,8 @@ feature(`Scenario statement
                 let tags = ["mytag:test", "another-tag"];
 
                 given(`the current scenario has these properties:
-                | title        | The global variable scenarioContext is set  |
-                | description  | with this description                       |
+                | title       | The global variable scenarioContext is set |
+                | description | with this description                      |
                 `, () => {
                         givenContext = stepContext;
                     });
@@ -52,8 +52,8 @@ feature(`Scenario statement
                 with this description2`, () => {
                 let givenContext;
                 given(`the current scenario has these properties:
-                | title        | The global variable scenarioContext is set for a different scenario  |
-                | description  | with this description2                                               |
+                | title       | The global variable scenarioContext is set for a different scenario |
+                | description | with this description2                                              |
                 `, () => {
                         givenContext = stepContext;
                     });
@@ -75,8 +75,8 @@ feature(`Scenario statement
                 `, () => {
 
                 given(`the following table:
-                | property1  | value1  |
-                | property2  | value2  |
+                | property1 | value1 |
+                | property2 | value2 |
                 `, () => { });
 
                 and("some the values '1' and '2' in an and step definition", () => { });
@@ -105,8 +105,8 @@ feature(`Scenario statement
                 `, () => {
 
                 given(`the following table from the second scenario:
-                | property3  | value3  |
-                | property4  | value4  |
+                | property3 | value3 |
+                | property4 | value4 |
                 `, () => { });
 
                 when("using the scenarioContext.given", () => { });
