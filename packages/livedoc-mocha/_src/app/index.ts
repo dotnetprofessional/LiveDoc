@@ -232,6 +232,7 @@ function createStepAlias(file, suites, mocha, common) {
                                     break;
                             }
 
+                            livedocContext.step = stepDefinition;
                             // If the type is a background then bundle up the steps but don't execute them
                             // they will be executed prior to each scenario.
                             if (livedocContext.type == "Background") {
@@ -327,9 +328,6 @@ function displayWarningsInlineIfPossible(livedocContext: LiveDocContext, stepDef
 const displayedViolations = {};
 function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation) {
     let option: LiveDocRuleOption;
-    if (e.errorId === 1) {
-        debugger;
-    }
     if (displayedViolations[e.errorId]) {
         // Already displayed this error, so no need to do it again
         return;

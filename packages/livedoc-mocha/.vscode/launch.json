@@ -6,6 +6,47 @@
             "request": "launch",
             // Automatically stop program after launch.
             "stopOnEntry": false,
+            "name": "livedoc-reporter",
+            "cwd": "${workspaceRoot}",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha.cmd"
+            },
+            "runtimeArgs": [
+                "-u",
+                "tdd",
+                "--timeout",
+                "999999",
+                "--colors",
+                "--recursive",
+                "--require",
+                "build/app/index",
+                "--require",
+                "build/app/reporter/reporter",
+                "--ui",
+                "livedoc-mocha",
+                "--reporter",
+                "build/app/reporter/reporter",
+                "${workspaceRoot}/build/test",
+                "--ld-exclude",
+                "filter:exclude",
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/build"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            // Prevents debugger from stepping into this code :)
+            "skipFiles": [
+                "node_modules/**/*.js",
+                "<node_internals>/**/*.js"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
             "name": "Mocha Tests",
             "cwd": "${workspaceRoot}",
             "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
