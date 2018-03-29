@@ -1,5 +1,4 @@
 import * as Utils from './Utils';
-import { debug } from 'util';
 
 ///<reference path="../app/livedoc.ts" />
 require('chai').should();
@@ -203,7 +202,6 @@ feature(`Step statement
         });
 
         scenario("Step statement has a column of values of different intrinsic types as a table", () => {
-            debugger;
             given(`a simple title has a table of values
 
                 | string       | test                 |
