@@ -9,3 +9,7 @@ export { ScenarioOutlineScenario } from "./ScenarioOutlineScenario";
 export { StepDefinition } from "./StepDefinition";
 export { Table } from "./Table";
 export { Test } from "./Test";
+export { BddContext } from "./BddContext";
+export { Exception } from "./Exception";
+export { SpecStatus } from "./SpecStatus";
+export { ExecutionResults } from "./ExecutionResults";

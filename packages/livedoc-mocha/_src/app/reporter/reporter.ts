@@ -51,7 +51,7 @@ class LiveDocReporter {
                     _this.formatScenario(livedoc.scenario);
                     break;
                 case "bdd":
-                    const bddContext: BddContext = (livedoc as any) as BddContext;
+                    const bddContext: model.BddContext = (livedoc as any) as model.BddContext;
                     if (!bddContext.parent) {
                         describes.push(bddContext.describe);
                     }
@@ -70,8 +70,24 @@ class LiveDocReporter {
 
         runner.on('test end', function (test: Mocha.ITest) {
             const livedoc = (test.parent as any).livedoc as LiveDocContext;
-            if (livedoc && livedoc.step) {
-                _this.formatStep(livedoc.step);
+            try {
+                const step = livedoc && (livedoc.step as model.StepDefinition);
+                if (step) {
+                    if (step.type) {
+                        _this.formatStep(step);
+                    } else if (step.title) {
+                        debugger;
+                        console.log(_this.applyLineIndent(`${step.title}`, 6));
+                    }
+                } else {
+                    debugger;
+                    // This is likely invalid Gherkin so just use the test directly
+                    console.log(_this.applyLineIndent(chalk.redBright("INVALID:") + `${test.title}`, 6));
+
+                }
+            } catch (e) {
+                debugger;
+                console.log("ERROR: " + e);
             }
         });
 
@@ -115,7 +131,6 @@ class LiveDocReporter {
 
     private formatSuite(type: string, suite: model.LiveDocDescribe, indentSize: number) {
         console.log(this.applyLineIndent(`${type}: ${suite.title}`, indentSize));
-        //console.log();
         console.log(this.formatDescription(suite.description || "", indentSize));
     }
 

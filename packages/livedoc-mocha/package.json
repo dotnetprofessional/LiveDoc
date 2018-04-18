@@ -28,10 +28,12 @@
   },
   "scripts": {
     "_comment_fitlering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
-    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/ --ld-exclude filter:exclude",
-    "test-reporter": "mocha --colors --require build/app/index --require build/app/reporter/reporter --reporter build/app/reporter/reporter --ui livedoc-mocha --recursive build/test/ --ld-exclude filter:exclude",
+    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js --ld-exclude filter:exclude ",
+    "test-filtered": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js --ld-exclude filter:exclude ",
+    "test-reporter": "mocha --colors --require build/app/index --require build/app/reporter/reporter --reporter build/app/reporter/reporter --ui livedoc-mocha --recursive build/test/**.Spec.js --ld-exclude filter:exclude",
     "xpretest": "tsc -p . && cls",
     "release-web": "npm run compile-web && npm run compile-web-minify",
+    "compile": "rimraf build && tsc -d -p tsconfig.json",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
     "release": "rimraf release && tsc -d -p tsconfig.npm.json",
@@ -57,6 +59,7 @@
     "cli-table2": "^0.2.0",
     "colors": "^1.2.1",
     "fs-extra": "^5.0.0",
-    "moment": "^2.18.1"
+    "moment": "^2.18.1",
+    "strip-ansi": "^4.0.0"
   }
 }

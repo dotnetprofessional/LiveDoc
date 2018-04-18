@@ -145,7 +145,7 @@ export class LiveDocGrammarParser {
         const parser = new DescriptionParser();
         parser.parseDescription(description);
 
-        const step = new model.StepDefinition();
+        const step = new model.StepDefinition(parser.title);
 
         let indentation = 10;
 
@@ -155,7 +155,6 @@ export class LiveDocGrammarParser {
         }
 
         // This is the top level feature
-        step.title = parser.title;
         step.rawDescription = description;
         step.description = parser.description;
         step.docString = parser.docString;

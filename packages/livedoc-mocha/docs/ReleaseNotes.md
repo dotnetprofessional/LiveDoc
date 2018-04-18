@@ -1,4 +1,15 @@
 # Release Notes
+
+## [no released]
+* Refactor: [#62](https://github.com/dotnetprofessional/LiveDoc/issues/62) Convert to use ES6 modules
+* Feature: [#66](https://github.com/dotnetprofessional/LiveDoc/issues/66) Add custom reporter
+
+### additional with no issue logged
+* ** BREAKING CHANGE** Enforced properly structured Gherkin. Removed some rule violation settings allowing mixing BDD and Gherkin. This needed to be removed to properly support reporting.
+* Added execution results to model
+* Reorganized and improved Specs and implemented Specs for areas that previously were manual or thew expected exceptions.
+* Added support to run Specs directly and receive an ExecutionResult object with the results of all Specs executed. This feature allowed verification of any scenario including failing ones.
+
 ## 0.3.4
 * Feature: [#52](https://github.com/dotnetprofessional/LiveDoc/issues/52) Support filtering by tags  
 * Feature: [#53](https://github.com/dotnetprofessional/LiveDoc/issues/53) Support explicit and implicit tagging  

@@ -10,7 +10,7 @@ export class LiveDocContext {
     parent: LiveDocContext;
     feature: model.Feature;
     scenario: model.Scenario;
-    step: model.StepDefinition;
+    step: model.Test | model.StepDefinition;
     type: string;
     scenarioCount: number;
     scenarioId: number;

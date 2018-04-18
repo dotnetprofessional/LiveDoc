@@ -7,8 +7,5 @@ import { Describe } from "./Describe";
  * @class BddContext
  */
 export class BddContext {
-    parent: BddContext;
-    type: string;
     describe: Describe;
-    child: Describe;
 }

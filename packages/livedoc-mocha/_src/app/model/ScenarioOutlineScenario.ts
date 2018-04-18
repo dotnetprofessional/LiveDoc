@@ -14,8 +14,10 @@ export class ScenarioOutlineScenario extends Scenario {
 
     public addStep(step: StepDefinition): void {
         super.addStep(step);
-        step.title = new DescriptionParser().bind(step.title, this.example);
-        step.displayTitle = new DescriptionParser().bind(step.displayTitle, this.example);
+        const parser = new DescriptionParser();
+        step.title = parser.bind(step.title, this.example);
+        step.displayTitle = parser.bind(step.displayTitle, this.example);
+        step.docString = parser.bind(step.docString, this.example);
     }
 
     public getScenarioContext(): ScenarioOutlineContext {

@@ -81,7 +81,7 @@ export class Scenario extends LiveDocDescribe {
                         break;
                     default:
                         // Seems we're not processing a GTW!?
-                        step.addViolation(RuleViolations.andButMustHaveGivenWhenThen, `a ${step.type} step definition must be preceded by a Given, When or Then.`, this.title);
+                        step.addViolation(RuleViolations.andButMustHaveGivenWhenThen, `${step.type} step definition must be preceded by a Given, When or Then.`, this.title);
                 }
         }
     }

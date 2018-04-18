@@ -1,10 +1,10 @@
 import { StepContext } from "./StepContext";
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
+import { Test } from "./Test";
 
-export class StepDefinition {
+export class StepDefinition extends Test {
     public id: number;
-    public title: string = "";
     public displayTitle: string = "";
 
     public type: string;
@@ -14,8 +14,6 @@ export class StepDefinition {
     public dataTable: DataTableRow[] = [];
     public values: any[] = [];
     public valuesRaw: string[] = [];
-    public status: string;
-    public code: string;
     public ruleViolations: LiveDocRuleViolation[] = [];
     //error: Exception = new Exception();
 
