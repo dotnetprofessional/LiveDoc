@@ -28,9 +28,10 @@
   },
   "scripts": {
     "_comment_fitlering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
-    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js --ld-exclude filter:exclude ",
-    "test-filtered": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js --ld-exclude filter:exclude ",
-    "test-reporter": "mocha --colors --require build/app/index --require build/app/reporter/reporter --reporter build/app/reporter/reporter --ui livedoc-mocha --recursive build/test/**.Spec.js --ld-exclude filter:exclude",
+    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-filtered": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-summary": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter -O detailLevel  =summary --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "xpretest": "tsc -p . && cls",
     "release-web": "npm run compile-web && npm run compile-web-minify",
     "compile": "rimraf build && tsc -d -p tsconfig.json",
@@ -38,28 +39,31 @@
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
     "release": "rimraf release && tsc -d -p tsconfig.npm.json",
     "watch": "tsc --watch -p .",
+    "vscode": "code --disable-gpu",
     "xprepublish": "npm run release"
   },
   "devDependencies": {
-    "@types/chai": "^3.4.35",
-    "@types/mocha": "^2.2.40",
-    "@types/node": "^7.0.43",
-    "chai": "^3.5.0",
-    "mocha": "^3.5.0",
-    "rimraf": "^2.6.1",
+    "@types/chai": "^4.1.3",
+    "@types/mocha": "^5.2.0",
+    "@types/node": "^7.0.64",
+    "chai": "^4.1.2",
+    "mocha": "^5.1.1",
+    "rimraf": "^2.6.2",
     "tslint": "^4.4.2",
-    "typescript": "^2.1.6",
+    "typescript": "^2.8.3",
     "uglify-js": "^2.8.7"
   },
   "peerDependencies": {
     "mocha": "3.x"
   },
   "dependencies": {
-    "chalk": "^2.3.2",
+    "chalk": "^2.4.1",
     "cli-table2": "^0.2.0",
-    "colors": "^1.2.1",
+    "colors": "^1.2.5",
+    "diff": "^3.5.0",
+    "fnv-plus": "^1.2.12",
     "fs-extra": "^5.0.0",
-    "moment": "^2.18.1",
+    "moment": "^2.22.1",
     "strip-ansi": "^4.0.0"
   }
 }

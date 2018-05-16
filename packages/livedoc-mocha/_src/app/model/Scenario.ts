@@ -1,12 +1,13 @@
 import { ScenarioContext } from "./ScenarioContext";
 import { StepContext } from "./StepContext";
 import { StepDefinition } from "./StepDefinition";
-import { LiveDocDescribe } from "./LiveDocDescribe";
+import { LiveDocSuite } from "./LiveDocSuite";
 import { Feature } from "./Feature";
 import { RuleViolations } from "./RuleViolations";
 
-export class Scenario extends LiveDocDescribe {
+export class Scenario extends LiveDocSuite {
 
+    public parent: Feature;
     public givens: StepDefinition[] = [];
     public whens: StepDefinition[] = [];
     public steps: StepDefinition[] = [];
@@ -20,12 +21,18 @@ export class Scenario extends LiveDocDescribe {
     private hasThen: boolean = false;
     private processingStepType: string;
 
-    constructor (public parent: Feature) {
+    constructor (parent: Feature) {
         super()
+        this.parent = parent;
+        Object.defineProperty(this, 'parent', {
+            enumerable: false
+        });
     }
 
     public addStep(step: StepDefinition) {
         this.steps.push(step);
+        step.sequence = this.steps.length;
+        step.setParent(this);
 
         // validate we have a description!
         if (!step.title) {

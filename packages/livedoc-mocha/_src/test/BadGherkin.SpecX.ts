@@ -1,5 +1,5 @@
 
-livedoc.setAllRulesAsWarnings();
+// livedoc.setAllRulesAsWarnings();
 
 // feature("Existing code hasn't applied the Gherkin language correctly", () => {
 //     given("a given step definition is added to a feature, it shouldn't blow up!", () => { });
@@ -55,49 +55,50 @@ livedoc.setAllRulesAsWarnings();
 //     });
 // });
 
-feature(`Ensure a Given, When and Then exists
-    as nothing comes after a Then definition it is not possible for the
-    model to validate that one exists as the model is built up a step at a time.
+// feature(`Ensure a Given, When and Then exists
+//     as nothing comes after a Then definition it is not possible for the
+//     model to validate that one exists as the model is built up a step at a time.
 
-`, () => {
-        scenario("no given is used in scenario", () => {
-            when("when is used without a given", () => { });
-        });
+// `, () => {
+//         scenario("no given is used in scenario", () => {
+//             when("when is used without a given", () => { });
+//         });
 
-        scenario("but is used without a GWT", () => {
-            then("when is used without a given or when", () => { });
-        });
-    });
+//         scenario("but is used without a GWT", () => {
+//             then("when is used without a given or when", () => { });
+//         });
+//     });
 
 feature("The tester mixes Gherkin with mocha BDD syntax", () => {
     // describe("should have used scenario instead of describe", () => {
     //     it("some condition", () => { });
     // });
 
-    scenario("tester uses bdd for assertions", () => {
-        it("should be a given maybe?", () => { });
-    })
+    // GM: Validate this is covered by Spec
+    // scenario("tester uses bdd for assertions", () => {
+    //     it("should be a given maybe?", () => { });
+    // })
 });
 
-feature("The tester attempts to use invalid syntax in background", () => {
-    background("", () => {
-        when("some condition", () => { });
-    });
-});
+// feature("The tester attempts to use invalid syntax in background", () => {
+//     background("", () => {
+//         when("some condition", () => { });
+//     });
+// });
 
-feature("The tester uses before within a scenario", () => {
-    scenario("my scenario", () => {
-        before(() => { });
-        when("some condition", () => { });
-    });
-});
+// feature("The tester uses before within a scenario", () => {
+//     scenario("my scenario", () => {
+//         before(() => { });
+//         when("some condition", () => { });
+//     });
+// });
 
 // No titles
-feature("", () => {
-    scenario("", () => {
-        given("", () => { });
-    });
-});
+// feature("", () => {
+//     scenario("", () => {
+//         given("", () => { });
+//     });
+// });
 
 
 /* The following tests need to be run manually as they throw exceptions. 

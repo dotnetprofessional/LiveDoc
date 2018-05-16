@@ -26,8 +26,10 @@
                 "--ui",
                 "livedoc-mocha",
                 "${workspaceRoot}/build/test/**/*.Spec.js",
-                "--ld-exclude",
-                "filter:exclude",
+                "-R",
+                "build/app/reporter/LiveDocReporter",
+                "-O",
+                "detailLevel=summary"
             ],
             "sourceMaps": true,
             "outFiles": [

@@ -1,6 +1,6 @@
 import { LiveDoc } from "../../app/livedoc";
 import { StepContext } from "../../app/model/StepContext";
-import { ParserException } from "../../app/ParserException";
+import { ParserException } from "../../app/model";
 
 require('chai').should();
 
@@ -14,10 +14,10 @@ feature(`Enforce mocha limitations
         let outlineGiven: StepContext;
 
         scenarioOutline(`Use of async on top level describe alias'
-        Examples:
-        | alias    | display name |
-        | feature  | Feature      |
-        | describe | bdd          |
+            Examples:
+            | alias    | display name |
+            | feature  | Feature      |
+            | describe | describe     |
         `, () => {
                 given(`the following feature
             """
@@ -36,7 +36,7 @@ feature(`Enforce mocha limitations
                     }
                 });
 
-                then(`a rule violation with the following description is thrown 
+                then(`a parse exception with the following description is thrown 
             """
             The async keyword is not supported for <display name>
             """`, () => {
@@ -69,7 +69,7 @@ feature(`Enforce mocha limitations
                 }
             });
 
-            then(`a rule violation with the following description is thrown 
+            then(`a parse exception with the following description is thrown 
             """
             The async keyword is not supported for Scenario Outline
             """`, () => {
@@ -104,11 +104,10 @@ feature(`Enforce mocha limitations
                     }
                 });
 
-                then(`a rule violation with the following description is thrown 
+                then(`a parse exception with the following description is thrown 
             """
             The async keyword is not supported for <display name>
             """`, () => {
-                        debugger;
                         stepContext.docString.should.eql(parseException.description);
                     });
 

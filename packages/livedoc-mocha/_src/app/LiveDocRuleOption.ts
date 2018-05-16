@@ -1,5 +1,5 @@
 export enum LiveDocRuleOption {
-    enabled,
-    disabled,
-    warning
+    enabled = "enabled",
+    disabled = "disabled",
+    warning = "warning"
 }

@@ -1,4 +1,4 @@
-import { Feature, Describe } from ".";
+import { Feature, MochaSuite } from ".";
 
 /**
  * Contains the results of a test run
@@ -8,5 +8,5 @@ import { Feature, Describe } from ".";
  */
 export class ExecutionResults {
     public features: Feature[] = [];
-    public describes: Describe[] = [];
+    public suites: MochaSuite[] = [];
 }

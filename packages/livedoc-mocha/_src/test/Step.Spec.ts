@@ -302,7 +302,7 @@ feature(`Step statement
                 value = 20;
             });
 
-            then("the test should continue after the async operation", () => {
+            then.skip("the test should continue after the async operation", () => {
                 value.should.be.equal(20);
             });
         });
@@ -315,23 +315,4 @@ feature(`Step statement
 
     });
 
-describe("Error test", () => {
-    it("Should fail", () => {
-        throw new TypeError("Bail...");
-    });
 
-    describe("yet another test of a describe", () => {
-        it("should still be working", () => {
-
-        });
-
-        it.skip("this should be ignored!", () => {
-            throw new Error("I shouldn't have been executed!!");
-        });
-
-        context("Oh lets try a context too!", () => {
-            it("needs to pass too!", () => {
-            });
-        })
-    })
-});

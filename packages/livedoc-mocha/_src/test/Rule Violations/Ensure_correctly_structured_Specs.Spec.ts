@@ -1,6 +1,6 @@
 import { LiveDoc } from "../../app/livedoc";
 import { StepContext } from "../../app/model/StepContext";
-import { ParserException } from "../../app/ParserException";
+import { ParserException } from "../../app/model";
 require('chai').should();
 
 
@@ -22,14 +22,14 @@ feature(`Ensure correctly structured Specs`, () => {
       //| but             | Invalid Gherkin, but can only appear within a Background, Scenario or Scenario Outline   |
 
       # currently treating GWT as BDD, need to make code more strict before enabling
-    `, () => {
+        `, () => {
             given(`the following feature file
                 """
                 <keyword>('Defining a <keyword> without a feature', () => {
                     given('a sample given', () => { });
                 });
                 """        
-    `, () => {
+            `, () => {
                     outlineGiven = stepContext;
                 });
 
@@ -87,6 +87,42 @@ feature(`Ensure correctly structured Specs`, () => {
                 });
         });
 
+    scenarioOutline(`Invalid Background children
+        Examples:
+        | step | display name |
+        | when | When         |
+        | then | Then         |
+        `, () => {
+            let featureGherkin: string;
+
+            given(`the following feature
+            """
+            feature("Ensure bad Gherkin is not allowed", () => {
+                background("", ()=> {
+                    <step>("a <step> step definition is not permitted in a background", () => { });
+                });
+            });            
+            """`, () => {
+                    featureGherkin = stepContext.docString;
+                });
+
+            when(`executing feature`, async () => {
+                try {
+                    await LiveDoc.executeDynamicTestAsync(featureGherkin);
+                }
+                catch (e) {
+                    parseException = e;
+                }
+            });
+
+            then(`a parseException with the following description is thrown 
+            """
+            Backgrounds only support using the given step definition. Consider moving the <display name> to a scenario.
+            """`, () => {
+                    stepContext.docString.should.eql(parseException.description);
+                });
+        });
+
     scenarioOutline(`Feature mixes BDD languages
         Examples:
         | keyword  | suggestion |
@@ -115,7 +151,7 @@ feature(`Ensure correctly structured Specs`, () => {
 
             then(`a parseException with the following description is thrown 
             """
-            This feature is using bdd syntax, did you mean to use <suggestion> instead?
+            This Feature is using bdd syntax, did you mean to use <suggestion> instead?
             """`, () => {
                     stepContext.docString.should.eql(parseException.description);
                 });
@@ -151,7 +187,7 @@ feature(`Ensure correctly structured Specs`, () => {
 
             then(`a parseException with the following description is thrown 
             """
-            This feature is using bdd syntax, did you mean to use <suggestion> instead?
+            This Scenario is using bdd syntax, did you mean to use <suggestion> instead?
             """`, () => {
                     stepContext.docString.should.eql(parseException.description);
                 });

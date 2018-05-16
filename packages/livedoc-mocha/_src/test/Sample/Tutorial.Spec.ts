@@ -48,6 +48,12 @@ feature(`Beautiful Tea Shipping Costs
     * Australian customers get free shipping for orders $100 and above
     * Overseas customers all pay the same shipping rate regardless of order size`, () => {
 
+        background(``, () => {
+            given(`my background test`, () => {
+
+            });
+        });
+
         scenarioOutline(`Calculate GST status and shipping rate
 
             Examples:
@@ -78,7 +84,7 @@ feature(`Beautiful Tea Shipping Costs
                     cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);
                 });
 
-                and("they are charged the <Shipping Rate> shipping rate", () => {
+                and.skip("they are charged the <Shipping Rate> shipping rate", () => {
                     const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(" ", "")];
                     cart.shipping.should.be.equal(rate);
                 });

@@ -1,6 +1,6 @@
 import { Scenario } from "./Scenario";
 import { Table } from "./Table";
-import { ScenarioOutlineScenario } from "./ScenarioOutlineScenario";
+import { ScenarioExample } from "./ScenarioExample";
 import { Feature } from "./Feature";
 
 /**
@@ -12,7 +12,7 @@ import { Feature } from "./Feature";
  */
 export class ScenarioOutline extends Scenario {
     public tables: Table[] = [];
-    public scenarios: ScenarioOutlineScenario[] = [];
+    public examples: ScenarioExample[] = [];
 
     constructor (parent: Feature) {
         super(parent)

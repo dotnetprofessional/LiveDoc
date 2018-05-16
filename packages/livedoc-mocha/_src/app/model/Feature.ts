@@ -1,10 +1,10 @@
-import { LiveDocDescribe } from "./LiveDocDescribe";
+import { LiveDocSuite } from "./LiveDocSuite";
 import { Background } from "./Background";
 import { Scenario } from "./Scenario";
 import { FeatureContext } from "./FeatureContext";
 import { BackgroundContext } from "./BackgroundContext";
 
-export class Feature extends LiveDocDescribe {
+export class Feature extends LiveDocSuite {
     public filename: string;
     public background: Background;
     public scenarios: Scenario[] = [];

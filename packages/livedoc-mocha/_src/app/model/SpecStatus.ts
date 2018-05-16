@@ -1,7 +1,7 @@
 
 export enum SpecStatus {
-    unknown,
-    pending,
-    pass,
-    fail,
+    unknown = "unknown",
+    pending = "pending",
+    pass = "pass",
+    fail = "fail",
 }

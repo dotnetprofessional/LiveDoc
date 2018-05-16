@@ -38,7 +38,7 @@ export class LiveDocGrammarParser {
 
         // validate we have a description!
         if (!parser.title) {
-            feature.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, parser.title);
+            feature.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, parser.title);
         }
         return feature;
     }
@@ -70,11 +70,11 @@ export class LiveDocGrammarParser {
         scenario.tags = parser.tags;
         scenario.rawDescription = description;
         feature.scenarios.push(scenario);
-
+        scenario.sequence = feature.scenarios.length;
 
         // validate we have a description!
         if (!parser.title) {
-            feature.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, parser.title);
+            scenario.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, parser.title);
         }
         return scenario;
     }
@@ -90,6 +90,7 @@ export class LiveDocGrammarParser {
         scenarioOutline.displayTitle = this.formatDisplayTitle(description, type, 6);
         scenarioOutline.tags = parser.tags;
         scenarioOutline.rawDescription = description;
+        scenarioOutline.tables = parser.tables;
 
         this.addExamplesAsScenarios(scenarioOutline, parser);
 
@@ -97,7 +98,7 @@ export class LiveDocGrammarParser {
 
         // validate we have a description!
         if (!parser.title) {
-            feature.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the test.`, parser.title);
+            scenarioOutline.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, parser.title);
         }
 
         return scenarioOutline;
@@ -109,7 +110,7 @@ export class LiveDocGrammarParser {
             this.addExample(scenarioOutline, table, parser);
         });
 
-        if (scenarioOutline.scenarios.length === 0) {
+        if (scenarioOutline.examples.length === 0) {
             // Oh dear seems they either forgot the table or its not structured correctly.
             throw new model.LiveDocRuleViolation(RuleViolations.error, "A scenarioOutline was defined but does not contain any Examples. Did you mean to use a scenario or forget the Examples keyword?", scenarioOutline.title);
         }
@@ -128,15 +129,16 @@ export class LiveDocGrammarParser {
 
         for (let i = 1; i < table.dataTable.length; i++) {
             const dataRow = table.dataTable[i];
-            const scenario = new model.ScenarioOutlineScenario(scenarioOutline.parent);
+            const scenario = new model.ScenarioExample(scenarioOutline.parent, scenarioOutline);
             // Don't want to repeat the table etc for every scenario iteration
             scenario.rawDescription = scenarioOutline.title;
             scenario.displayTitle = this.formatDisplayTitle(scenarioOutline.title, "Scenario", 6);
             scenario.example = parser.getTableRowAsEntity(headerRow, dataRow);
             scenario.exampleRaw = parser.getTableRowAsEntity(headerRow, dataRow, false);
-            scenario.title = parser.bind(scenarioOutline.title, scenario.example);
-            //scenario.displayTitle = parser.bind(scenarioOutline.displayTitle, scenario.example);
-            scenarioOutline.scenarios.push(scenario);
+            // scenario.title = parser.bind(scenarioOutline.title, scenario.example);
+            scenario.displayTitle = parser.bind(scenarioOutline.displayTitle, scenario.example);
+            scenarioOutline.examples.push(scenario);
+            scenario.sequence = scenarioOutline.examples.length;
         }
 
     }
@@ -145,19 +147,15 @@ export class LiveDocGrammarParser {
         const parser = new DescriptionParser();
         parser.parseDescription(description);
 
-        const step = new model.StepDefinition(parser.title);
+        const step = new model.StepDefinition(null, parser.title);
 
         let indentation = 10;
 
-        // if its a bdd type then ignore the type
-        if (type === "bdd") {
-            type = "";
-        }
-
         // This is the top level feature
-        step.rawDescription = description;
+        step.descriptionRaw = description;
         step.description = parser.description;
         step.docString = parser.docString;
+        step.docStringRaw = parser.docString;
         step.dataTable = parser.dataTable;
         step.valuesRaw = parser.quotedValues;
         step.displayTitle = this.formatStepDisplayTitle(description, type, indentation);
@@ -166,23 +164,6 @@ export class LiveDocGrammarParser {
 
         return step;
     }
-
-    // private getDisplayTitle(type: string) {
-    //     let padding = "";
-    //     if (["and", "but"].indexOf(type) >= 0) {
-    //         padding = "  ";
-    //     }
-    //     const textReader = new TextBlockReader(this.rawDescription);
-    //     // To preserve the binding in the title the tile is used then the rest of the raw description
-    //     let descriptionParts = [];
-    //     descriptionParts.push(this.title);
-    //     textReader.next();
-    //     while (textReader.next()) {
-    //         descriptionParts.push(textReader.line);
-    //     }
-
-    //     return `${padding}${this.type} ${this._parser.applyIndenting(descriptionParts.join("\n"), 10)}`;
-    // }
 }
 
 export class DescriptionParser {
@@ -234,8 +215,23 @@ export class DescriptionParser {
                 descriptionLines.push(this.trimStart(textReader.line, descriptionIndex));
             }
         }
+
+        // Strip blank lines from start and end of description
+        while (descriptionLines.length !== 0) {
+            if (!descriptionLines[0]) {
+                descriptionLines.shift();
+                continue;
+            }
+            if (!descriptionLines[descriptionLines.length - 1]) {
+                descriptionLines.pop();
+                continue;
+            }
+            break;
+        }
+
         this.description = descriptionLines.join("\n");
     }
+
 
     public getTableRowAsEntity(headerRow: DataTableRow, dataRow: DataTableRow, shouldCoerce: boolean = true): object {
         let entity = {};
@@ -313,7 +309,7 @@ export class DescriptionParser {
 
     private parseTable(textReader: TextBlockReader): model.Table {
         var table = new model.Table();
-        table.name = textReader.line.trim().substr("Examples".length);
+        table.name = textReader.line.trim().substr("Examples:".length).trim();
         while (textReader.next()) {
 
             if (!textReader.line.trim().startsWith("|")) {
@@ -395,7 +391,10 @@ export class DescriptionParser {
     }
 
     private trimStart(text: string, index: number) {
-        if (index < text.length) {
+        if (index === -1) {
+            return "";
+        }
+        if (index <= text.length) {
             return text.substr(index);
         }
         else {

@@ -1,6 +1,6 @@
 # Release Notes
 
-## [no released]
+## [not released]
 * Refactor: [#62](https://github.com/dotnetprofessional/LiveDoc/issues/62) Convert to use ES6 modules
 * Feature: [#66](https://github.com/dotnetprofessional/LiveDoc/issues/66) Add custom reporter
 
@@ -9,6 +9,7 @@
 * Added execution results to model
 * Reorganized and improved Specs and implemented Specs for areas that previously were manual or thew expected exceptions.
 * Added support to run Specs directly and receive an ExecutionResult object with the results of all Specs executed. This feature allowed verification of any scenario including failing ones.
+* Added limited livedoc support to other bdd ui's such as describe. This is to allow stock mocha to make use of future reporting. 
 
 ## 0.3.4
 * Feature: [#52](https://github.com/dotnetprofessional/LiveDoc/issues/52) Support filtering by tags  

@@ -1,5 +1,84 @@
 ///<reference path="../app/livedoc.ts" />
+
+import { ExecutionResults, ScenarioOutline } from "../app/model";
+import { LiveDoc } from "../app/livedoc";
+
 require('chai').should();
+
+feature(`Scenario Outline keyword`, () => {
+    let executionResults: ExecutionResults;
+
+    scenario(`Meta-data for Scenario Outline added to model`, () => {
+        given(`the following feature
+        
+        """
+        feature("Scenario Outline meta data", ()=>{
+            scenarioOutline(\`Sample
+                @tag1 tag2 @tag3
+                This is a description of the Scenario Outline
+                
+                Examples: Cow energy stats
+                | weight | energy | protein |
+                |    450 |  26500 |     215 |
+            \`, ()=>{
+                given("some given step", ()=>{});
+                when("some when step", ()=>{});
+                then("some then step", ()=>{});
+            });
+        });
+        """
+            `, () => { });
+        when(`executing feature`, async () => {
+            executionResults = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
+        });
+
+        then(`the execution results for the step are:
+            """
+            {
+                "title": "Sample",
+                "description": "This is a description of the Scenario Outline\\n",
+                "tags": [
+                    "tag1",
+                    "tag2",
+                    "tag3"
+                ],
+                "tables": [
+                    {
+                        "name": "Cow energy stats",
+                        "description": "",
+                        "dataTable": [
+                            [
+                                "weight",
+                                "energy",
+                                "protein"
+                            ],
+                            [
+                                "450",
+                                "26500",
+                                "215"
+                            ]
+                        ]
+                    }
+                ]
+            
+            }
+            """
+            `, () => {
+                const expected = stepContext.docStringAsEntity;
+                const scenarioOutline = executionResults.features[0].scenarios[0] as ScenarioOutline;
+
+                const actual = {
+                    "title": scenarioOutline.title,
+                    "description": scenarioOutline.description,
+                    "tags": scenarioOutline.tags,
+                    "tables": scenarioOutline.tables
+                }
+
+                actual.should.be.eql(expected);
+            });
+    });
+});
+
 
 feature(`Scenario Outline statement`, () => {
     let weightTotal = 0;
@@ -27,8 +106,8 @@ feature(`Scenario Outline statement`, () => {
             and("the protein should be <protein> kg", () => {
             });
 
-            and("the title should have the examples bound <weight>", () => {
-                stepContext.title.should.contain(scenarioOutlineContext.example.weight);
+            and("the displayTitle should have the examples bound <weight>", () => {
+                stepContext.displayTitle.should.contain(scenarioOutlineContext.example.weight);
             })
         });
 
