@@ -6,7 +6,6 @@ import * as model from "../model"
 import { SpecStatus } from "../model/SpecStatus";
 import { LiveDocContext } from "../LiveDocContext";
 import * as fvn from "fnv-plus";
-import { LiveDoc } from "../livedoc";
 import { ReportWriter } from "./ReportWriter";
 import { ExecutionResults } from "../model";
 import { LiveDocOptions } from "../LiveDocOptions";

@@ -8,18 +8,6 @@ import { DefaultReporter, DefaultColorTheme, SilentReporter, ReporterOptions } f
 var fs = require('fs'),
     crypto = require('crypto');
 
-/*
-    NOTES:
-        Need to design a proper options class. Attach it to the mocha.options object this will be accessible in reporters
-        Don't include non-option related code ie executeTestAsync etc
-
-        livedoc global is used for supplying options it can still do so and they will be global to ALL
-        they should be the first in the list processed and they are overridden by other methods such as
-        ld-include/exclude. However the livedoc values are NOT overridden they are copied to the mocha.options
-
-        To get around the issue of livedoc global interferring with executeTestAsync. That method can record the current 
-        values, execute the feature files, then restore again.
-*/
 export class LiveDoc {
     constructor () {
         this.defaultRecommendations();

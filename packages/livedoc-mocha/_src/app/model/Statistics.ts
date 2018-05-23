@@ -1,5 +1,4 @@
 import { SpecStatus } from "./SpecStatus";
-import { ScenarioOutline, ScenarioExample } from ".";
 
 export class Statistics<T> {
     public parent: T;
@@ -38,7 +37,7 @@ export class Statistics<T> {
         this.failedPercent = this.failedCount / this.totalCount;
         this.passPercent = this.passCount / this.totalCount;
         this.pendingPercent = this.pendingCount / this.totalCount;
-        //&& (this.parent as any).parent
+
         if (this.parent) {
             const parent = this.parent;
 
