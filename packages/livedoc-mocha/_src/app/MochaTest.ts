@@ -5,8 +5,8 @@ export class MochaTest extends mochaTest {
         super(title, wrappedFunction);
     }
     run(fn) {
+        super.run(fn);
         // reset the fn to the non-wrapped version for reporters to inspect
         (this as any).fn = this.original;
-        super.run(fn);
     }
 }

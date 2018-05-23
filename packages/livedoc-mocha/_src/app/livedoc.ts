@@ -8,14 +8,22 @@ import { DefaultReporter, DefaultColorTheme, SilentReporter, ReporterOptions } f
 var fs = require('fs'),
     crypto = require('crypto');
 
+/*
+    NOTES:
+        Need to design a proper options class. Attach it to the mocha.options object this will be accessible in reporters
+        Don't include non-option related code ie executeTestAsync etc
+
+        livedoc global is used for supplying options it can still do so and they will be global to ALL
+        they should be the first in the list processed and they are overridden by other methods such as
+        ld-include/exclude. However the livedoc values are NOT overridden they are copied to the mocha.options
+
+        To get around the issue of livedoc global interferring with executeTestAsync. That method can record the current 
+        values, execute the feature files, then restore again.
+*/
 export class LiveDoc {
     constructor () {
         this.defaultRecommendations();
-
-        // define the default reporter options
-        this.reporterOptions = new ReporterOptions();
-        this.reporterOptions.reporter = new DefaultReporter();
-        this.reporterOptions.colors = new DefaultColorTheme();
+        this.useDefaultReporter();
     }
 
     public options: LiveDocOptions = new LiveDocOptions();
@@ -25,11 +33,19 @@ export class LiveDoc {
     }
 
     public shouldInclude(tags: string[]): boolean {
+        if (tags.length === 0) {
+            return false;
+        }
+
         return this.markedAsIncluded(tags) && (!this.markedAsExcluded(tags) || this.options.filters.showFilterConflicts);
     }
 
     public markedAsExcluded(tags: string[]): boolean {
         // exclusions
+        if (tags.length === 0) {
+            return false;
+        }
+
         for (let i = 0; i < this.options.filters.exclude.length; i++) {
             if (tags.indexOf(this.options.filters.exclude[i]) > -1) {
                 // found a match so return true
@@ -41,7 +57,10 @@ export class LiveDoc {
     }
 
     public markedAsIncluded(tags: string[]): boolean {
-        // exclusions
+        // inclusions
+        if (tags.length === 0) {
+            return false;
+        }
         for (let i = 0; i < this.options.filters.include.length; i++) {
             if (tags.indexOf(this.options.filters.include[i]) > -1) {
                 // found a match so return true
@@ -50,6 +69,13 @@ export class LiveDoc {
         }
 
         return false;
+    }
+
+    public useDefaultReporter() {
+        // define the default reporter options
+        this.options.reporterOptions = new ReporterOptions();
+        this.options.reporterOptions.reporter = new DefaultReporter();
+        this.options.reporterOptions.colors = new DefaultColorTheme();
     }
     /**
      * Sets the minimal set of rules to ensure tests are structured correctly
@@ -102,10 +128,11 @@ export class LiveDoc {
 
     public static executeTestAsync(filename: string, livedocOptions: LiveDocOptions = null): Promise<ExecutionResults> {
 
+        // override the default reporter to be the silent one
+        livedocOptions.reporterOptions.reporter = new SilentReporter();
         let mochaOptions = {
             ui: 'livedoc-mocha',
             reporter: "build/app/reporter/LiveDocReporter",
-            reporterOptions: { reporter: new SilentReporter() },
             livedoc: livedocOptions
         }
 
@@ -120,7 +147,7 @@ export class LiveDoc {
         });
     }
 
-    public static async executeDynamicTestAsync(feature: string, livedocOptions: LiveDocOptions = null): Promise<ExecutionResults> {
+    public static async executeDynamicTestAsync(feature: string, livedocOptions: LiveDocOptions = new LiveDocOptions()): Promise<ExecutionResults> {
         let filename: string;
         try {
             // Ensure we've been given something!
@@ -151,7 +178,5 @@ export class LiveDoc {
 
         return filename;
     }
-
-    public reporterOptions: ReporterOptions;
 }
 

@@ -84,7 +84,7 @@ feature(`Beautiful Tea Shipping Costs
                     cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);
                 });
 
-                and.skip("they are charged the <Shipping Rate> shipping rate", () => {
+                and("they are charged the <Shipping Rate> shipping rate", () => {
                     const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(" ", "")];
                     cart.shipping.should.be.equal(rate);
                 });

@@ -30,7 +30,7 @@ feature(`Reporter returns model including execution results`, () => {
 
                         // ensure this method registers a little execution time
                         let x= "";
-                        for(let i=0;i<100000;i++) {
+                        for(let i=0;i<1000000;i++) {
                             x+="A";
                         }
                      });

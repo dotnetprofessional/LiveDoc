@@ -135,8 +135,7 @@ export class LiveDocGrammarParser {
             scenario.displayTitle = this.formatDisplayTitle(scenarioOutline.title, "Scenario", 6);
             scenario.example = parser.getTableRowAsEntity(headerRow, dataRow);
             scenario.exampleRaw = parser.getTableRowAsEntity(headerRow, dataRow, false);
-            // scenario.title = parser.bind(scenarioOutline.title, scenario.example);
-            scenario.displayTitle = parser.bind(scenarioOutline.displayTitle, scenario.example);
+            scenario.title = scenarioOutline.title;
             scenarioOutline.examples.push(scenario);
             scenario.sequence = scenarioOutline.examples.length;
         }

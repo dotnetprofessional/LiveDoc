@@ -5,7 +5,6 @@ import { ReportWriter } from "./ReportWriter";
 import { Chalk } from "chalk";
 import { ColorTheme } from "./ColorTheme";
 import * as cliTable from "cli-table2";
-import * as mochaBase from "mocha/lib/reporters/base";
 import * as diff from "diff";
 
 enum StatusIdentifiers {
@@ -22,6 +21,7 @@ export enum DetailLevel {
     auto = "auto",
     verbose = "verbose",
     summary = "summary",
+    list = "list"
 }
 
 export class LiveDocReporterOptions {
@@ -93,7 +93,7 @@ export class DefaultReporter implements ReporterTheme {
     scenarioExampleStart(example: model.ScenarioExample, output: ReportWriter): void {
         if (this.options.detailLevel === DetailLevel.verbose) {
             const lines: string[] = [];
-            lines.push(this.formatKeywordTitle("Example", "", this.colorTheme.keyword, this.colorTheme.scenarioTitle, 4));
+            lines.push(this.formatKeywordTitle("Example", example.sequence.toString(), this.colorTheme.keyword, this.colorTheme.scenarioTitle, 4));
 
             output.writeLine(lines);
         }
@@ -218,7 +218,7 @@ export class DefaultReporter implements ReporterTheme {
             const statusBar = this.statusBar(stats.passPercent, stats.failedPercent, stats.pendingPercent);
 
             statistics.push([
-                feature.title,
+                this.formatLine(feature.title),
                 feature.scenarios.length,
                 statusBar,
                 feature.statistics.passCount,
@@ -226,6 +226,25 @@ export class DefaultReporter implements ReporterTheme {
                 feature.statistics.pendingCount,
                 feature.statistics.totalRuleViolations
             ]);
+
+            if (this.options.detailLevel !== DetailLevel.list) {
+                return;
+            }
+            // Output the specific scenarios for the feature
+            feature.scenarios.forEach(scenario => {
+                const stats = scenario.statistics;
+                const statusBar = this.statusBar(stats.passPercent, stats.failedPercent, stats.pendingPercent);
+                statistics.push([
+                    this.formatLine("  " + scenario.title),
+                    " ",
+                    statusBar,
+                    scenario.statistics.passCount,
+                    scenario.statistics.failedCount,
+                    scenario.statistics.pendingCount,
+                    scenario.statistics.totalRuleViolations
+                ]);
+            });
+
         });
 
         // Now add a totals row
@@ -249,6 +268,15 @@ export class DefaultReporter implements ReporterTheme {
         ])
 
         output.writeLine(this.applyBlockIndent(this.formatTable(statistics, HeaderType.Top), 2));
+    }
+
+    private formatLine(text: string): string {
+        const maxLen = 60;
+        if (text.length > maxLen) {
+            return text.substr(0, maxLen) + "...";
+        } else {
+            return text;
+        }
     }
 
     private outputSuiteExecutionSummary(results: model.ExecutionResults, output: ReportWriter) {
@@ -424,7 +452,7 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     private outputStepError(step: model.LiveDocTest<any>, output: ReportWriter) {
-        const color = this.colorTheme.statusFail;
+        const color = this.colorTheme.dataTable;
 
         const table = new cliTable({
             chars: {
@@ -461,11 +489,6 @@ export class DefaultReporter implements ReporterTheme {
         output.writeLine(table.toString());
     }
 
-    private printCharCodes(text: string) {
-        for (let i = 0; i < text.length; i++) {
-            process.stdout.write(text.charCodeAt(i) + " ");
-        }
-    }
     private outputStep(step: model.StepDefinition, useDefinition: boolean, output: ReportWriter) {
         const lines: string[] = [];
         let indent = 6;
@@ -500,8 +523,20 @@ export class DefaultReporter implements ReporterTheme {
                     break;
             }
         }
+        let title: string = step.title;
+        if ((step.parent as model.ScenarioExample).example) {
+            if (useDefinition) {
+                // Apply any binding if necessary
+                title = this.highlight(title, new RegExp("<[^>]+>", "g"), this.colorTheme.valuePlaceholders);
+            } else {
+                // Apply any binding if necessary
+                title = this.bind(step.title, (step.parent as model.ScenarioExample).example, this.colorTheme.valuePlaceholders);
+            }
+        }
 
-        const title = this.bind(step.title, (step.parent as model.ScenarioExample).example, this.colorTheme.dataTableHeader);
+        // Now highlight any values within the title
+        title = this.highlight(title, /('[^']+')|("[^"]+")/g, this.colorTheme.valuePlaceholders)
+
         lines.push(`${" ".repeat(indent)}${indicator} ${" ".repeat(hangingIndent)}${this.colorTheme.stepKeyword(step.type)} ${titleColor(title)}`);
         indent += 4;
         if (step.description) lines.push(this.applyBlockIndent(step.description, indent + hangingIndent));
@@ -511,9 +546,9 @@ export class DefaultReporter implements ReporterTheme {
             if (step.docString != docString) {
                 if (useDefinition) {
                     // output the docString before binding
-                    docString = this.highlight(step.docStringRaw, new RegExp("<[^>]+>", "g"), this.colorTheme.dataTableHeader);
+                    docString = this.highlight(step.docStringRaw, new RegExp("<[^>]+>", "g"), this.colorTheme.valuePlaceholders);
                 } else {
-                    docString = this.bind(step.docStringRaw, (step.parent as model.ScenarioExample).example, this.colorTheme.dataTableHeader);
+                    docString = this.bind(step.docStringRaw, (step.parent as model.ScenarioExample).example, this.colorTheme.valuePlaceholders);
                 }
             } else {
                 // non scenario outline based doc string
@@ -585,12 +620,14 @@ export class DefaultReporter implements ReporterTheme {
 
         return lines.join("\n");
     }
+
     private highlight(content, regex: RegExp, color: Chalk) {
         return content.replace(regex, (item, pos, originalText) => {
             return color(item);
         });
 
     }
+
     public bind(content, model, color: Chalk) {
         var regex = new RegExp("<[^>]+>", "g");
         return content.replace(regex, (item, pos, originalText) => {
@@ -636,8 +673,9 @@ export class DefaultReporter implements ReporterTheme {
             switch (headerStyle) {
                 case HeaderType.Left:
                     table[i][0] = this.colorTheme.dataTableHeader(dataTable[i][0]);
+                    let rowColor = this.colorTheme.dataTable;
                     for (let c = 1; c < table[i].length; c++) {
-                        table[i][c] = this.colorTheme.dataTable(table[i][c]);
+                        table[i][c] = rowColor(table[i][c]);
                     }
                     break;
                 case HeaderType.Top:
@@ -646,8 +684,12 @@ export class DefaultReporter implements ReporterTheme {
                             table[0][c] = this.colorTheme.dataTableHeader(dataTable[0][c]);
                         }
                     } else {
+                        let rowColor = this.colorTheme.dataTable;
+                        if (table[i][0].indexOf("Total") >= 0) {
+                            rowColor = rowColor.bold;
+                        }
                         for (let c = 0; c < table[i].length; c++) {
-                            table[i][c] = this.colorTheme.dataTable(table[i][c]);
+                            table[i][c] = rowColor(table[i][c]);
                         }
                     }
 

@@ -9,6 +9,8 @@ import * as fvn from "fnv-plus";
 import { LiveDoc } from "../livedoc";
 import { ReportWriter } from "./ReportWriter";
 import { ExecutionResults } from "../model";
+import { LiveDocOptions } from "../LiveDocOptions";
+import chalk from "chalk";
 
 
 //import * as fs from "fs-extra";
@@ -25,24 +27,29 @@ var Base = require('mocha').reporters.Base;
  * @api public
  * @param {Runner} runner
  */
-function livedocReporter(runner) {
-    new LiveDocReporter(runner);
+function livedocReporter(runner, options) {
+    new LiveDocReporter(runner, options);
 }
 exports = module.exports = livedocReporter;
 
 class LiveDocReporter {
-    constructor (runner) {
+    constructor (runner, options) {
         Base.call(this, runner);
         const _this = this;
-        const livedoc: LiveDoc = (global as any).livedoc;
-        const reporter = livedoc.reporterOptions.reporter;
-        reporter.colorTheme = livedoc.reporterOptions.colors;
-        reporter.options = livedoc.reporterOptions;
+        const livedocOptions: LiveDocOptions = options.livedoc;
+
+        const reporter = livedocOptions.reporterOptions.reporter;
+        reporter.colorTheme = livedocOptions.reporterOptions.colors;
+        reporter.options = options.reporterOptions;
 
         let executionResults: ExecutionResults;
 
         reporter.executionStart(new ReportWriter());
 
+        // Only enable colors if its been specified
+        if (reporter.constructor.name !== "SilentReporter" && !options.useColors) {
+            chalk.level = 0;
+        }
         runner.on('suite', function (suite) {
             const livedocContext: LiveDocContext = suite.livedoc;
 
@@ -202,12 +209,13 @@ class LiveDocReporter {
             const actualResults = new ExecutionResults();
             executionResults.features.forEach((feature, index) => {
                 if (feature.statistics.totalCount !== 0) {
-                    const feature = executionResults.features[index];
-                    actualResults.features.push(feature);
+                    const featureClone = Object.assign(new model.Feature(), feature);
+                    actualResults.features.push(featureClone);
                     // Now remove any scenarios don't have any results
-                    feature.scenarios = feature.scenarios.filter(scenario => scenario.statistics.totalCount !== 0);
+                    featureClone.scenarios = featureClone.scenarios.filter(scenario => scenario.statistics.totalCount !== 0);
                 }
             });
+
             executionResults.suites.forEach((suite, index) => {
                 if (suite.statistics.totalCount !== 0) {
                     const suite = executionResults.suites[index];

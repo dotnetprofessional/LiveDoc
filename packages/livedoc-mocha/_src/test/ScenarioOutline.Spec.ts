@@ -36,7 +36,7 @@ feature(`Scenario Outline keyword`, () => {
             """
             {
                 "title": "Sample",
-                "description": "This is a description of the Scenario Outline\\n",
+                "description": "This is a description of the Scenario Outline",
                 "tags": [
                     "tag1",
                     "tag2",
@@ -141,8 +141,8 @@ feature(`Scenario Outline statement`, () => {
             and("the protein should be <protein> kg", () => {
             });
 
-            and("the title should have the examples bound <weight>", () => {
-                stepContext.title.should.contain(scenarioOutlineContext.example.weight);
+            and("the displayTitle should have the examples bound <weight>", () => {
+                stepContext.displayTitle.should.contain(scenarioOutlineContext.example.weight);
             })
         });
 

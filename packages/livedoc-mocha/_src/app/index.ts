@@ -15,10 +15,12 @@ import { LiveDocRuleViolation } from "./model/LiveDocRuleViolation";
 import { LiveDocRuleOption } from "./LiveDocRuleOption";
 import { ExecutionResults } from "./model/ExecutionResults";
 import { StepContext } from "./model/StepContext";
+import { LiveDocOptions } from "./LiveDocOptions";
 
 const colors = require("colors");
 
 const liveDocGrammarParser = new LiveDocGrammarParser();
+(global as any).livedoc = new LiveDoc();
 
 function resetGlobalVariables(context) {
     // initialize context variables
@@ -121,24 +123,45 @@ function liveDocMocha(suite) {
 
     suite.on('pre-require', function (context, file, mocha) {
         // Apply options
-        let commandLineOptions = {
-            include: getCommandLineOptions("--ld-include"),
-            exclude: getCommandLineOptions("--ld-exclude"),
-            showFilterConflicts: getCommandLineOption("--showFilterConflicts")
-        }
+        // Add the options to the mocha instance and then only process again if they've not been set
+        if (!mocha.livedocInitialized) {
+            mocha.livedocInitialized = true;
+            mocha.livedoc = Object.assign(new LiveDoc(), (global as any).livedoc);
 
-        livedoc.options.filters = Object.assign(livedoc.options.filters, mocha.options.livedoc && mocha.options.livedoc.filters || {});
-        livedoc.options.rules = Object.assign(livedoc.options.rules, mocha.options.livedoc && mocha.options.livedoc.rules || {});
-        livedoc.reporterOptions = Object.assign(livedoc.reporterOptions, mocha.options.reporterOptions || {});
+            let livedocOptions: LiveDocOptions = mocha.livedoc.options;
+            if (mocha.options.livedoc) {
+                // Need to perform a deep copy to ensure any changes don't update the global state
+                // replace the default with the passed in version
+                livedocOptions.rules = Object.assign(livedocOptions.rules, JSON.parse(JSON.stringify(mocha.options.livedoc.rules || {})));
+                livedocOptions.filters = Object.assign(livedocOptions.filters, JSON.parse(JSON.stringify(mocha.options.livedoc.filters || {})));
+                livedocOptions.reporterOptions = mocha.options.livedoc.reporterOptions || livedocOptions.reporterOptions
+            }
 
-        if (commandLineOptions.include.length !== 0) {
-            livedoc.options.filters.include = commandLineOptions.include;
-        }
-        if (commandLineOptions.exclude.length !== 0) {
-            livedoc.options.filters.exclude = commandLineOptions.exclude;
-        }
-        if (commandLineOptions.showFilterConflicts) {
-            livedoc.options.filters.showFilterConflicts = true;
+            // Report options/filters/rules can be set using the following options
+            // 1. setting in code
+            // 2. setting via mocha options
+            // 3. setting via command line
+
+            if (mocha.options.livedoc) {
+                const mochaIncludes = mocha.options.livedoc.filters.include || [];
+                const mochaExcludes = mocha.options.livedoc.filters.exclude || [];
+                livedocOptions.filters.include.push(...mochaIncludes);
+                livedocOptions.filters.exclude.push(...mochaExcludes);
+                livedocOptions.filters.showFilterConflicts = mocha.options.livedoc.filters.showFilterConflicts || livedocOptions.filters.showFilterConflicts
+            }
+
+            // Command line filters are additive and do not replace any existing filters
+            livedocOptions.filters.include.push(...getCommandLineOptions("--ld-include"));
+            livedocOptions.filters.exclude.push(...getCommandLineOptions("--ld-exclude"));
+            livedocOptions.filters.showFilterConflicts = getCommandLineOption("--showFilterConflicts") || livedocOptions.filters.showFilterConflicts
+
+            if (livedocOptions.filters.include.length > 0 || livedocOptions.filters.exclude.length > 0) {
+                mocha.options.hasOnly = true
+            }
+
+            // update the option values with the new options
+            mocha.options.livedoc = livedocOptions;
+            mocha.livedoc.options = livedocOptions;
         }
 
         const commonInterfaces = require('mocha/lib/interfaces/common')(suites, context, mocha);
@@ -180,11 +203,6 @@ function liveDocMocha(suite) {
         context.backgroundContext;
         context.scenarioOutlineContext;
     });
-
-    (global as any).liveDocRuleOption = LiveDocRuleOption;
-    // Extract command line parameters
-    const livedoc = new LiveDoc();
-    (global as any).livedoc = livedoc;
 }
 
 function getCommandLineOptions(key: string): string[] {
@@ -205,7 +223,7 @@ function getCommandLineOption(key: string): boolean {
             return true
         }
     }
-    return false;
+    return null;
 }
 
 /** @internal */
@@ -244,12 +262,10 @@ function createStepAlias(file, suites, mocha, common) {
 
                 testName = stepDefinition.displayTitle;
                 livedocContext.step = stepDefinition;
-                if (mocha._reporter.name != "livedocReporter")
-                    displayWarningsInlineIfPossible(livedocContext, stepDefinition);
+                displayWarningsInlineIfPossible(livedocContext, stepDefinition, mocha.options.livedoc, mocha);
                 if (stepDefinitionFunction) {
                     stepDefinitionContextWrapper = async function (...args) {
-                        if (mocha._reporter.name != "livedocReporter")
-                            displayWarningsInlineIfPossible(livedocContext, stepDefinition);
+                        displayWarningsInlineIfPossible(livedocContext, stepDefinition, mocha.options.livedoc, mocha);
                         (global as any).featureContext = livedocContext.feature.getFeatureContext();
                         switch (livedocContext.type) {
                             case "Background":
@@ -308,8 +324,7 @@ function createStepAlias(file, suites, mocha, common) {
                 bddContext.tests.push(bddTest);
                 if (stepDefinitionFunction) {
                     stepDefinitionContextWrapper = function (...args) {
-                        if (mocha._reporter.name != "livedocReporter")
-                            displayWarningsInlineIfPossible(livedocContext, null);
+                        displayWarningsInlineIfPossible(livedocContext, null, mocha.options.livedoc, mocha);
                         return stepDefinitionFunction(args);
                     }
                 }
@@ -340,28 +355,28 @@ function createStepAlias(file, suites, mocha, common) {
 
 }
 
-function displayWarningsInlineIfPossible(livedocContext: LiveDocContext, stepDefinition: model.StepDefinition) {
+function displayWarningsInlineIfPossible(livedocContext: LiveDocContext, stepDefinition: model.StepDefinition, livedocOptions: LiveDocOptions, mocha: any) {
     // if the parent has a rule violation report it here to make it more visible to the dev they made a mistake
     if (livedocContext && livedocContext.scenario) {
         livedocContext.scenario.ruleViolations.forEach(violation => {
-            displayRuleViolation(livedocContext.feature, violation);
+            displayRuleViolation(livedocContext.feature, violation, livedocOptions, mocha);
         });
     }
     if (livedocContext && livedocContext.feature) {
         livedocContext.feature.ruleViolations.forEach(violation => {
-            displayRuleViolation(livedocContext.feature, violation);
+            displayRuleViolation(livedocContext.feature, violation, livedocOptions, mocha);
         });
     }
 
     if (stepDefinition) {
         stepDefinition.ruleViolations.forEach(violation => {
-            displayRuleViolation(livedocContext.feature, violation);
+            displayRuleViolation(livedocContext.feature, violation, livedocOptions, mocha);
         });
     }
 }
 
 const displayedViolations = {};
-function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation) {
+function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation, livedocOptions: LiveDocOptions, mocha: any) {
     let option: LiveDocRuleOption;
     if (displayedViolations[e.errorId]) {
         // Already displayed this error, so no need to do it again
@@ -369,14 +384,17 @@ function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation) {
     }
 
     const outputMessage = `${e.message} [title: ${e.title}, file: ${feature && feature.filename || ""}]`;
-    option = livedoc.options.rules[RuleViolations[e.rule]];
+    option = livedocOptions.rules[RuleViolations[e.rule]];
     if (option === LiveDocRuleOption.warning) {
-        displayedViolations[e.errorId] = "X";
-        console.error(colors.bgYellow(colors.red(`WARNING[${e.errorId}]: ${outputMessage}`)));
+        if (mocha._reporter.name != "livedocReporter") {
+            displayedViolations[e.errorId] = "X";
+            console.error(colors.bgYellow(colors.red(`WARNING[${e.errorId}]: ${outputMessage}`)));
+        }
     } else {
         throw e;
     }
 }
+
 function isLiveDocType(type: string): boolean {
     switch (type) {
         case "Feature":
@@ -393,6 +411,7 @@ function isLiveDocType(type: string): boolean {
             return false;
     }
 }
+
 /** @internal */
 function createDescribeAlias(file, suites, context, mocha, common) {
     return function wrapperCreator(type) {
@@ -439,11 +458,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                     }
 
                     suite = mochaSuite.create(suites[0], suiteDefinition.displayTitle);
-                    (suite as any).pending = opts.pending || livedoc.shouldMarkAsPending(suiteDefinition.tags);
-                    if (livedoc.shouldInclude(suiteDefinition.tags)) {
+                    (suite as any).pending = opts.pending || mocha.livedoc.shouldMarkAsPending(suiteDefinition.tags);
+                    if (mocha.livedoc.shouldInclude(suiteDefinition.tags)) {
                         const suiteParent = suite.parent as any;
                         suiteParent._onlySuites = suiteParent._onlySuites.concat(suite);
-                        mocha.options.hasOnly = true;
 
                         // Ensure that any associated background is also marked as only
                         if (feature.background) {
@@ -503,10 +521,10 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                                 });
                             };
 
-                            if (opts.pending || suites[0].isPending() || livedoc.shouldMarkAsPending(suiteDefinition.tags)) {
+                            if (opts.pending || suites[0].isPending() || mocha.livedoc.shouldMarkAsPending(suiteDefinition.tags)) {
                                 (scenarioExampleSuite as any).pending = true;
                             }
-                            if (opts.isOnly || livedoc.shouldInclude(suiteDefinition.tags)) {
+                            if (opts.isOnly || mocha.livedoc.shouldInclude(suiteDefinition.tags)) {
                                 (scenarioExampleSuite.parent as any)._onlySuites = (scenarioExampleSuite.parent as any)._onlySuites.concat(scenarioExampleSuite);
                                 mocha.options.hasOnly = true;
                             }

@@ -27,4 +27,5 @@ export interface ColorTheme {
     dataTableHeader: Chalk;
     dataTable: Chalk;
     docString: Chalk;
+    valuePlaceholders: Chalk
 }

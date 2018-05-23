@@ -1,4 +1,5 @@
 import { SpecStatus } from "./SpecStatus";
+import { ScenarioOutline, ScenarioExample } from ".";
 
 export class Statistics<T> {
     public parent: T;
@@ -37,9 +38,16 @@ export class Statistics<T> {
         this.failedPercent = this.failedCount / this.totalCount;
         this.passPercent = this.passCount / this.totalCount;
         this.pendingPercent = this.pendingCount / this.totalCount;
+        //&& (this.parent as any).parent
+        if (this.parent) {
+            const parent = this.parent;
 
-        if (this.parent && (this.parent as any).parent && (this.parent as any).parent.statistics) {
-            (this.parent as any).parent.statistics.updateStats(status);
+            // Scenario Examples have a different parent so need to be treated differently
+            if (parent.constructor.name === "ScenarioExample") {
+                (parent as any).scenarioOutline.statistics.updateStats(status);
+            } else if ((parent as any).parent && (parent as any).parent.statistics) {
+                (parent as any).parent.statistics.updateStats(status);
+            }
         }
     }
 }

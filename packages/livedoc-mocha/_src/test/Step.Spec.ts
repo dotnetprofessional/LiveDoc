@@ -1,4 +1,6 @@
 import * as Utils from './Utils';
+import { StepDefinition, ExecutionResults, SpecStatus } from '../app/model';
+import { LiveDoc } from '../app/livedoc';
 
 ///<reference path="../app/livedoc.ts" />
 require('chai').should();
@@ -302,17 +304,37 @@ feature(`Step statement
                 value = 20;
             });
 
-            then.skip("the test should continue after the async operation", () => {
+            then("the test should continue after the async operation", () => {
                 value.should.be.equal(20);
             });
         });
 
         scenario("failing tests are reported as such", () => {
-            given("a step that will fail", () => {
-                throw new Error("Its ok I'm supposed to fail!");
+            let outlineGiven: StepDefinition;
+            let executionResults: ExecutionResults;
+            given(`a step that will fail
+                """
+                feature("A feature with a failing step", ()=> {
+                    scenario(\`A scenario with a failing step\`, () => {
+                        given("a step that will fail", () => {
+                            throw new Error("Its ok I'm supposed to fail!");
+                        });
+                    });            
+                });
+                """
+                `, () => {
+                    outlineGiven = stepContext;
+                });
+
+            when(`executing feature`, async () => {
+                executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString);
+            });
+
+            then(`the step is marked as failed`, () => {
+                const step = executionResults.features[0].scenarios[0].steps[0];
+                step.status.should.be.eq(SpecStatus.fail);
             });
         })
-
     });
 
 
