@@ -33,7 +33,8 @@
     "test-reporter": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-reporter-nocolor": "mocha  --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-reporter-dev": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter --ui livedoc-mocha --ld-include dev --recursive build/test/**/*.Spec.js",
-    "test-reporter-summary": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter -O detailLevel=list --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-summary": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter -O detailLevel=summary --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-summary-file": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocReporter --reporter build/app/reporter/LiveDocReporter -O \"detailLevel=summary,output=results.txt, detail-list\" --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "xpretest": "tsc -p . && cls",
     "release-web": "npm run compile-web && npm run compile-web-minify",
     "compile": "rimraf build && tsc -d -p tsconfig.json",
@@ -46,6 +47,7 @@
   },
   "devDependencies": {
     "@types/chai": "^4.1.3",
+    "@types/fs-extra": "^5.0.2",
     "@types/mocha": "^5.2.0",
     "@types/node": "^7.0.64",
     "chai": "^4.1.2",

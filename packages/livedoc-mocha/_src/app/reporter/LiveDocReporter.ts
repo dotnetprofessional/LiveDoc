@@ -10,7 +10,8 @@ import { ReportWriter } from "./ReportWriter";
 import { ExecutionResults } from "../model";
 import { LiveDocOptions } from "../LiveDocOptions";
 import chalk from "chalk";
-
+import * as fs from "fs-extra";
+import * as strip from "strip-ansi";
 
 //import * as fs from "fs-extra";
 
@@ -32,7 +33,9 @@ function livedocReporter(runner, options) {
 exports = module.exports = livedocReporter;
 
 class LiveDocReporter {
-    constructor (runner, options) {
+    private outputFile: string;
+
+    constructor (runner, protected options) {
         Base.call(this, runner);
         const _this = this;
         const livedocOptions: LiveDocOptions = options.livedoc;
@@ -40,6 +43,16 @@ class LiveDocReporter {
         const reporter = livedocOptions.reporterOptions.reporter;
         reporter.colorTheme = livedocOptions.reporterOptions.colors;
         reporter.options = options.reporterOptions;
+
+        // If the option to output a file has been defined delete the file first if it exists
+        const outputFile = this.options.reporterOptions && this.options.reporterOptions.output;
+        if (outputFile) {
+            this.outputFile = outputFile;
+            if (fs.existsSync(outputFile)) {
+                fs.unlinkSync(outputFile);
+            }
+        }
+
 
         let executionResults: ExecutionResults;
 
@@ -85,9 +98,7 @@ class LiveDocReporter {
 
             }
 
-            const output = reportWriter.readOutput();
-            if (output)
-                console.log(output);
+            _this.outputReporter(reportWriter);
         });
 
         runner.on('suite end', function (suite) {
@@ -121,9 +132,7 @@ class LiveDocReporter {
                     reporter.suiteEnd(testContainer, reportWriter);
             }
 
-            const output = reportWriter.readOutput();
-            if (output)
-                console.log(output);
+            _this.outputReporter(reportWriter);
         });
 
         runner.on('test', function (test: any) {
@@ -140,9 +149,7 @@ class LiveDocReporter {
             } else {
                 reporter.testStart(step, reportWriter);
             }
-            const output = reportWriter.readOutput();
-            if (output)
-                console.log(output);
+            _this.outputReporter(reportWriter);
         });
 
         runner.on('test end', function (test: any) {
@@ -164,11 +171,7 @@ class LiveDocReporter {
             } else {
                 reporter.testEnd(step, reportWriter);
             }
-            const output = reportWriter.readOutput();
-
-            if (output) {
-                console.log(output);
-            }
+            _this.outputReporter(reportWriter);
 
             // locate the executionResults
             if (!executionResults) {
@@ -224,11 +227,25 @@ class LiveDocReporter {
                 }
             });
             reporter.executionEnd(actualResults, reportWriter);
-            const output = reportWriter.readOutput();
-            if (output)
-                console.log(output);
+            _this.outputReporter(reportWriter);
         });
 
+    }
+
+    private outputReporter(reportWriter: ReportWriter) {
+        let output = reportWriter.readOutput();
+        if (output) {
+            console.log(output);
+
+            // determine if it should be output to a file as well
+            if (this.outputFile) {
+                // If colors have been applied they need to be stripped before writing to the file
+                if (this.options.useColors) {
+                    output = strip(output);
+                }
+                fs.appendFileSync(this.outputFile, output + "\n");
+            }
+        }
     }
 
     private getExecutionResults(test: any): ExecutionResults {
@@ -241,7 +258,6 @@ class LiveDocReporter {
 
     private getTestContainer(suite: any) {
         // Add a unique Id based on the title
-        let livedocDescribe: model.LiveDocSuite;
         const livedocContext: LiveDocContext = suite.livedoc;
 
         // Add any additional 

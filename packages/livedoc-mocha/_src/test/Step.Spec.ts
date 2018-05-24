@@ -48,14 +48,12 @@ feature(`Step statement
         });
 
         scenario("Step statement has a docString that includes significant spaces", () => {
-            let givenTitle = "";
             let docString = "";
             given(`a simple title
                 """
                     This string is indented
                     so they should be honoured
                 """`, () => {
-                    givenTitle = stepContext.title;
                     docString = stepContext.docString;
                 });
 
@@ -158,7 +156,6 @@ feature(`Step statement
         });
 
         scenario("Step statement has a two column table with names in first column", () => {
-            let stepTitle;
             let entity: DataTableRow;
             when(`a simple title has a table
 
@@ -169,7 +166,6 @@ feature(`Step statement
 
                 This is a table above!!
             `, () => {
-                    stepTitle = stepContext.title;
                     entity = stepContext.tableAsEntity;
                 });
 

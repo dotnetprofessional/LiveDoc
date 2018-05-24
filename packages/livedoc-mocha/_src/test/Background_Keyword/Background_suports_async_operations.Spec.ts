@@ -2,7 +2,6 @@ import * as Utils from '../Utils';
 
 feature("Background supports async operations", () => {
     let someValue = 0;
-    let count = 0;
     let afterBackgroundCheck = 0;
 
     background("This will be executed before each test", () => {
@@ -14,7 +13,6 @@ feature("Background supports async operations", () => {
 
         given("somevalue = '30'", async () => {
             await Utils.sleep(10);
-            count++;
             someValue = backgroundContext.given.values[0];
         });
 

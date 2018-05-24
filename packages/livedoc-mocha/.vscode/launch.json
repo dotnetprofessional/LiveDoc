@@ -110,7 +110,7 @@
                 "-R",
                 "build/app/reporter/LiveDocReporter",
                 "-O",
-                "detailLevel=summary",
+                "output=results.txt,detailLevel=summary",
                 "--ld-include",
                 "dev"
             ],

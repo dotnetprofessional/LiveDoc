@@ -17,15 +17,16 @@ enum StatusIdentifiers {
     statusBarPending = "-",
 };
 
-export enum DetailLevel {
-    auto = "auto",
-    verbose = "verbose",
-    summary = "summary",
-    list = "list"
-}
-
 export class LiveDocReporterOptions {
-    detailLevel: DetailLevel
+    auto: boolean = false;
+    spec: boolean = false;
+    summary: boolean = false;
+    list: boolean = false;
+
+    public setDefaults() {
+        this.spec = true;
+        this.summary = true;
+    }
 };
 
 export class DefaultReporter implements ReporterTheme {
@@ -33,11 +34,16 @@ export class DefaultReporter implements ReporterTheme {
     private suiteIndent: number = 0;
 
     public get options(): LiveDocReporterOptions {
-        if (!this._options) {
+        if (Object.keys(this._options).length == 0) {
             // Default value
-            this._options = { detailLevel: DetailLevel.verbose };
-        } else if (!this._options.detailLevel || this._options.detailLevel === DetailLevel.auto) {
-            this._options.detailLevel = DetailLevel.verbose;
+            this._options = new LiveDocReporterOptions();
+            this._options.setDefaults();
+        } else if ((this._options as any).detailLevel) {
+            const userOptions = (this._options as any).detailLevel.split("+");
+            this._options = new LiveDocReporterOptions();
+            userOptions.forEach(option => {
+                this._options[option] = true;
+            });
         }
 
         return this._options;
@@ -63,27 +69,27 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     featureStart(feature: model.Feature, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             this.outputFeature(feature, output);
     }
 
     featureEnd(feature: model.Feature, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             output.writeLine(" ");
     }
 
     scenarioStart(scenario: model.Scenario, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             this.outputScenario(scenario, output);
     }
 
     scenarioEnd(scenario: model.Scenario, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             output.writeLine(" ");
     }
 
     scenarioOutlineStart(scenario: model.ScenarioOutline, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             this.outputScenarioOutline(scenario, output);
     }
 
@@ -91,7 +97,7 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     scenarioExampleStart(example: model.ScenarioExample, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose) {
+        if (this.options.spec) {
             const lines: string[] = [];
             lines.push(this.formatKeywordTitle("Example", example.sequence.toString(), this.colorTheme.keyword, this.colorTheme.scenarioTitle, 4));
 
@@ -100,7 +106,7 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     scenarioExampleEnd(example: model.ScenarioExample, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             output.writeLine(" ");
     }
 
@@ -108,12 +114,12 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     stepExampleEnd(step: model.StepDefinition, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             this.outputStep(step, false, output);
     }
 
     backgroundStart(background: model.Background, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose) {
+        if (this.options.spec) {
             const lines: string[] = [];
             lines.push(this.formatKeywordTitle("Background", background.title, this.colorTheme.keyword, this.colorTheme.backgroundTitle, 4));
 
@@ -127,12 +133,12 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     stepEnd(step: model.StepDefinition, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose)
+        if (this.options.spec)
             this.outputStep(step, false, output);
     }
 
     suiteStart(suite: any, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose) {
+        if (this.options.spec) {
             this.suiteIndent += 2;
             output.writeLine(" ");
             output.writeLine(this.applyBlockIndent(this.colorTheme.featureTitle(suite.title), this.suiteIndent));
@@ -140,7 +146,7 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     suiteEnd(suite: any, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose) {
+        if (this.options.spec) {
             this.suiteIndent -= 2;
         }
     }
@@ -149,7 +155,7 @@ export class DefaultReporter implements ReporterTheme {
     }
 
     testEnd(test: any, output: ReportWriter): void {
-        if (this.options.detailLevel === DetailLevel.verbose) {
+        if (this.options.spec) {
             this.outputTest(test, output);
         }
     }
@@ -209,6 +215,9 @@ export class DefaultReporter implements ReporterTheme {
             "Warnings"
         ];
 
+        if (!this.options.summary && !this.options.list) {
+            return;
+        }
         const statistics: DataTableRow[] = [];
         statistics.push(headerRow);
 
@@ -227,7 +236,7 @@ export class DefaultReporter implements ReporterTheme {
                 feature.statistics.totalRuleViolations
             ]);
 
-            if (this.options.detailLevel !== DetailLevel.list) {
+            if (!this.options.list) {
                 return;
             }
             // Output the specific scenarios for the feature
@@ -372,7 +381,6 @@ export class DefaultReporter implements ReporterTheme {
     private outputFeatureError(feature: model.Feature, output: ReportWriter) {
         // Validate that the feature has errors
         if (feature.statistics.failedCount > 0) {
-            const lines: string[] = [];
             let indent = 2;
             output.writeLine(this.formatKeywordTitle("Feature", feature.title, this.colorTheme.keyword, this.colorTheme.featureTitle, indent));
             indent += 2;
@@ -701,20 +709,20 @@ export class DefaultReporter implements ReporterTheme {
 
     //#region Diff
 
-    private createDiff(actual: string, expected: string): string {
-        var diffResult = diff.diffWordsWithSpace(actual, expected);
-        let result: string = "";
+    // private createDiff(actual: string, expected: string): string {
+    //     var diffResult = diff.diffWordsWithSpace(actual, expected);
+    //     let result: string = "";
 
-        diffResult.forEach((part) => {
-            // green for additions, red for deletions
-            // grey for common parts
-            var color = part.added ? this.colorTheme.statusPass :
-                part.removed ? this.colorTheme.statusFail : this.colorTheme.statusPending;
-            result += color(part.value);
-        });
+    //     diffResult.forEach((part) => {
+    //         // green for additions, red for deletions
+    //         // grey for common parts
+    //         var color = part.added ? this.colorTheme.statusPass :
+    //             part.removed ? this.colorTheme.statusFail : this.colorTheme.statusPending;
+    //         result += color(part.value);
+    //     });
 
-        return result;
-    }
+    //     return result;
+    // }
 
     private createUnifiedDiff(actual, expected) {
         var indent = '';

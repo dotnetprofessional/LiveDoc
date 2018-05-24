@@ -1,6 +1,6 @@
 import { LiveDocRules } from "./LiveDocRules";
 import { FilterOptions } from "./FilterOptions";
-import { ReporterOptions, DefaultReporter, DefaultColorTheme } from "./reporter";
+import { ReporterOptions } from "./reporter";
 
 export class LiveDocOptions {
     public constructor () {
