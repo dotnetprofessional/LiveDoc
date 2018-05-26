@@ -98,7 +98,7 @@ feature(`Validate step rules
                         outlineGiven = stepContext;
                     });
 
-                and(`executing feature`, async () => {
+                when(`executing feature`, async () => {
                     executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);
                 });
 

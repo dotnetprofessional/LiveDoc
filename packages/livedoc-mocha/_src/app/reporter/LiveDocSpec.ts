@@ -1,11 +1,21 @@
-import { ReporterTheme } from "./ReporterTheme";
 import * as model from "../model";
 import { TextBlockReader } from "../parser/TextBlockReader";
-import { ReportWriter } from "./ReportWriter";
 import { Chalk } from "chalk";
-import { ColorTheme } from "./ColorTheme";
 import * as cliTable from "cli-table2";
 import * as diff from "diff";
+import { LiveDocReporter } from "./LiveDocReporter";
+
+/**
+ * Initialize a new LiveDocSpec reporter.
+ *
+ * @api public
+ * @param {Runner} runner
+ */
+function livedocSpec(runner, options) {
+    new LiveDocSpec(runner, options);
+}
+exports = module.exports = livedocSpec;
+
 
 enum StatusIdentifiers {
     pass = '√',
@@ -29,182 +39,162 @@ export class LiveDocReporterOptions {
     }
 };
 
-export class DefaultReporter implements ReporterTheme {
-    private _options: LiveDocReporterOptions;
+export class LiveDocSpec extends LiveDocReporter {
+    protected options: LiveDocReporterOptions;
     private suiteIndent: number = 0;
 
-    public get options(): LiveDocReporterOptions {
-        if (Object.keys(this._options).length == 0) {
+    protected setOptions(options: LiveDocReporterOptions) {
+        if (Object.keys(options).length == 0) {
             // Default value
-            this._options = new LiveDocReporterOptions();
-            this._options.setDefaults();
-        } else if ((this._options as any).detailLevel) {
-            const userOptions = (this._options as any).detailLevel.split("+");
-            this._options = new LiveDocReporterOptions();
+            this.options = new LiveDocReporterOptions();
+            this.options.setDefaults();
+        } else if ((options as any).detailLevel) {
+            const userOptions = (options as any).detailLevel.split("+");
+            this.options = new LiveDocReporterOptions();
             userOptions.forEach(option => {
-                this._options[option] = true;
+                this.options[option] = true;
             });
         }
-
-        return this._options;
     }
 
-    public set options(options: LiveDocReporterOptions) {
-        this._options = options;
+    executionStart(): void {
     }
 
-    public colorTheme: ColorTheme;
-
-    executionStart(output: ReportWriter): void {
-    }
-
-    executionEnd(results: model.ExecutionResults, output: ReportWriter): void {
+    executionEnd(results: model.ExecutionResults): void {
         if (results.features.length > 0)
-            this.outputFeatureExecutionSummary(results, output);
+            this.outputFeatureExecutionSummary(results);
 
         if (results.suites.length > 0)
-            this.outputSuiteExecutionSummary(results, output);
+            this.outputSuiteExecutionSummary(results);
 
-        this.outputExceptionReport(results, output);
+        this.outputExceptionReport(results);
     }
 
-    featureStart(feature: model.Feature, output: ReportWriter): void {
+    featureStart(feature: model.Feature): void {
         if (this.options.spec)
-            this.outputFeature(feature, output);
+            this.outputFeature(feature);
     }
 
-    featureEnd(feature: model.Feature, output: ReportWriter): void {
+    featureEnd(feature: model.Feature): void {
         if (this.options.spec)
-            output.writeLine(" ");
+            this.writeLine(" ");
     }
 
-    scenarioStart(scenario: model.Scenario, output: ReportWriter): void {
+    scenarioStart(scenario: model.Scenario): void {
         if (this.options.spec)
-            this.outputScenario(scenario, output);
+            this.outputScenario(scenario);
     }
 
-    scenarioEnd(scenario: model.Scenario, output: ReportWriter): void {
+    scenarioEnd(scenario: model.Scenario): void {
         if (this.options.spec)
-            output.writeLine(" ");
+            this.writeLine(" ");
     }
 
-    scenarioOutlineStart(scenario: model.ScenarioOutline, output: ReportWriter): void {
+    scenarioOutlineStart(scenario: model.ScenarioOutline): void {
         if (this.options.spec)
-            this.outputScenarioOutline(scenario, output);
+            this.outputScenarioOutline(scenario);
     }
 
-    scenarioOutlineEnd(scenario: model.ScenarioOutline, output: ReportWriter): void {
+    scenarioOutlineEnd(scenario: model.ScenarioOutline): void {
     }
 
-    scenarioExampleStart(example: model.ScenarioExample, output: ReportWriter): void {
+    scenarioExampleStart(example: model.ScenarioExample): void {
         if (this.options.spec) {
-            const lines: string[] = [];
-            lines.push(this.formatKeywordTitle("Example", example.sequence.toString(), this.colorTheme.keyword, this.colorTheme.scenarioTitle, 4));
-
-            output.writeLine(lines);
+            this.writeLine(this.formatKeywordTitle("Example", example.sequence.toString(), this.colorTheme.keyword, this.colorTheme.scenarioTitle, 4));
         }
     }
 
-    scenarioExampleEnd(example: model.ScenarioExample, output: ReportWriter): void {
+    scenarioExampleEnd(example: model.ScenarioExample): void {
         if (this.options.spec)
-            output.writeLine(" ");
+            this.writeLine(" ");
     }
 
-    stepExampleStart(step: model.StepDefinition, output: ReportWriter): void {
+    stepExampleStart(step: model.StepDefinition): void {
     }
 
-    stepExampleEnd(step: model.StepDefinition, output: ReportWriter): void {
+    stepExampleEnd(step: model.StepDefinition): void {
         if (this.options.spec)
-            this.outputStep(step, false, output);
+            this.outputStep(step, false);
     }
 
-    backgroundStart(background: model.Background, output: ReportWriter): void {
+    backgroundStart(background: model.Background): void {
         if (this.options.spec) {
-            const lines: string[] = [];
-            lines.push(this.formatKeywordTitle("Background", background.title, this.colorTheme.keyword, this.colorTheme.backgroundTitle, 4));
-
-            output.writeLine(lines);
+            this.writeLine(this.formatKeywordTitle("Background", background.title, this.colorTheme.keyword, this.colorTheme.backgroundTitle, 4));
         }
     }
 
-    backgroundEnd(background: model.Background, output: ReportWriter): void { }
+    backgroundEnd(background: model.Background): void { }
 
-    stepStart(step: model.StepDefinition, output: ReportWriter): void {
+    stepStart(step: model.StepDefinition): void {
     }
 
-    stepEnd(step: model.StepDefinition, output: ReportWriter): void {
+    stepEnd(step: model.StepDefinition): void {
         if (this.options.spec)
-            this.outputStep(step, false, output);
+            this.outputStep(step, false);
     }
 
-    suiteStart(suite: any, output: ReportWriter): void {
+    suiteStart(suite: any): void {
         if (this.options.spec) {
             this.suiteIndent += 2;
-            output.writeLine(" ");
-            output.writeLine(this.applyBlockIndent(this.colorTheme.featureTitle(suite.title), this.suiteIndent));
+            this.writeLine(" ");
+            this.writeLine(this.applyBlockIndent(this.colorTheme.featureTitle(suite.title), this.suiteIndent));
         }
     }
 
-    suiteEnd(suite: any, output: ReportWriter): void {
+    suiteEnd(suite: any): void {
         if (this.options.spec) {
             this.suiteIndent -= 2;
         }
     }
 
-    testStart(test: any, output: ReportWriter): void {
+    testStart(test: any): void {
     }
 
-    testEnd(test: any, output: ReportWriter): void {
+    testEnd(test: any): void {
         if (this.options.spec) {
-            this.outputTest(test, output);
+            this.outputTest(test);
         }
     }
 
-    private outputFeature(feature: model.Feature, output: ReportWriter) {
-        const lines: string[] = [];
+    private outputFeature(feature: model.Feature) {
         let indent = 2;
-        lines.push(this.formatKeywordTitle("Feature", feature.title, this.colorTheme.keyword, this.colorTheme.featureTitle, indent));
+        this.writeLine(this.formatKeywordTitle("Feature", feature.title, this.colorTheme.keyword, this.colorTheme.featureTitle, indent));
         indent += 2;
-        if (feature.tags.length > 0) lines.push(this.applyBlockIndent(this.formatTags(feature.tags), indent));
-        if (feature.description.length > 0) lines.push(this.formatDescription(feature.description, indent, this.colorTheme.featureDescription));
-
-        output.writeLine(lines);
+        if (feature.tags.length > 0) this.writeLine(this.applyBlockIndent(this.formatTags(feature.tags), indent));
+        if (feature.description.length > 0) this.writeLine(this.formatDescription(feature.description, indent, this.colorTheme.featureDescription));
     }
 
-    private outputScenarioOutline(scenario: model.ScenarioOutline, output: ReportWriter) {
+    private outputScenarioOutline(scenario: model.ScenarioOutline) {
         let indent = 4;
 
-        output.writeLine(this.formatKeywordTitle("Scenario Outline", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+        this.writeLine(this.formatKeywordTitle("Scenario Outline", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
         indent += 2;
-        if (scenario.tags.length > 0) output.writeLine(this.applyBlockIndent(this.formatTags(scenario.tags), indent));
-        if (scenario.description.length > 0) output.writeLine(this.formatDescription(scenario.description, indent, this.colorTheme.scenarioDescription));
+        if (scenario.tags.length > 0) this.writeLine(this.applyBlockIndent(this.formatTags(scenario.tags), indent));
+        if (scenario.description.length > 0) this.writeLine(this.formatDescription(scenario.description, indent, this.colorTheme.scenarioDescription));
 
         // display the steps
         scenario.steps.forEach(step => {
-            this.outputStep(step, true, output);
+            this.outputStep(step, true);
         });
 
-        output.writeLine(" "); // line break
+        this.writeLine(" "); // line break
         indent += 2;
         for (let i = 0; i < scenario.tables.length; i++) {
             // Output the Examples table
-            output.writeLine(this.applyBlockIndent(this.colorTheme.keyword("Examples: " + scenario.tables[i].name), indent));
-            output.writeLine(this.applyBlockIndent(this.formatTable(scenario.tables[i].dataTable, HeaderType.Top), indent));
+            this.writeLine(this.applyBlockIndent(this.colorTheme.keyword("Examples: " + scenario.tables[i].name), indent));
+            this.writeLine(this.applyBlockIndent(this.formatTable(scenario.tables[i].dataTable, HeaderType.Top), indent));
         }
     }
 
-    private outputScenario(scenario: model.Scenario, output: ReportWriter) {
-        const lines: string[] = [];
+    private outputScenario(scenario: model.Scenario) {
         let indent = 4;
-        lines.push(this.formatKeywordTitle("Scenario", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+        this.writeLine(this.formatKeywordTitle("Scenario", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
         indent += 2;
-        if (scenario.tags.length > 0) lines.push(this.applyBlockIndent(this.formatTags(scenario.tags), indent));
-        if (scenario.description.length > 0) lines.push(this.formatDescription(scenario.description, indent, this.colorTheme.scenarioDescription));
-
-        output.writeLine(lines);
+        if (scenario.tags.length > 0) this.writeLine(this.applyBlockIndent(this.formatTags(scenario.tags), indent));
+        if (scenario.description.length > 0) this.writeLine(this.formatDescription(scenario.description, indent, this.colorTheme.scenarioDescription));
     }
 
-    private outputFeatureExecutionSummary(results: model.ExecutionResults, output: ReportWriter) {
+    private outputFeatureExecutionSummary(results: model.ExecutionResults) {
         const headerRow = [
             "Feature",
             "Scenarios",
@@ -276,7 +266,7 @@ export class DefaultReporter implements ReporterTheme {
             totalStats.warnings
         ])
 
-        output.writeLine(this.applyBlockIndent(this.formatTable(statistics, HeaderType.Top), 2));
+        this.writeLine(this.applyBlockIndent(this.formatTable(statistics, HeaderType.Top), 2));
     }
 
     private formatLine(text: string): string {
@@ -288,7 +278,7 @@ export class DefaultReporter implements ReporterTheme {
         }
     }
 
-    private outputSuiteExecutionSummary(results: model.ExecutionResults, output: ReportWriter) {
+    private outputSuiteExecutionSummary(results: model.ExecutionResults) {
         const headerRow = [
             "Suite",
             "status",
@@ -331,7 +321,7 @@ export class DefaultReporter implements ReporterTheme {
             totalStats.pending,
         ])
 
-        output.writeLine(this.applyBlockIndent(this.formatTable(statistics, HeaderType.Top), 2));
+        this.writeLine(this.applyBlockIndent(this.formatTable(statistics, HeaderType.Top), 2));
     }
 
     private statusBar(passPercent: number, failedPercent: number, pendingPercent: number) {
@@ -348,6 +338,7 @@ export class DefaultReporter implements ReporterTheme {
         let failBar = calcBar(StatusIdentifiers.statusBarFail, failedPercent);
         let pendingBar = calcBar(StatusIdentifiers.statusBarPending, pendingPercent);
 
+        if (pendingBar.length === 4) debugger;
 
         while (passBar.length + failBar.length + pendingBar.length > barSize) {
             const longest = Math.max(passBar.length, failBar.length, pendingBar.length);
@@ -360,29 +351,47 @@ export class DefaultReporter implements ReporterTheme {
             }
         }
 
-        return this.colorTheme.statusPass.inverse(passBar) +
+        // Now make sure the bar isn't too short
+        const gap = barSize - (passBar.length + failBar.length + pendingBar.length);
+        if (gap > 0) {
+            const longest = Math.max(passBar.length, failBar.length, pendingBar.length);
+            if (passBar.length === longest) {
+                passBar += passBar.substr(0, 1);
+            } else if (failBar.length === longest) {
+                failBar += failBar.substr(0, 1);
+            } else {
+                pendingBar += pendingBar.substr(0, 1);
+            }
+        }
+
+        const bar = this.colorTheme.statusPass.inverse(passBar) +
             this.colorTheme.statusFail.inverse(failBar) +
             this.colorTheme.statusPending.inverse(pendingBar);
+
+        if (passBar.length + failBar.length + pendingBar.length !== barSize) {
+            debugger;
+        }
+        return bar;
     }
 
-    private outputExceptionReport(results: model.ExecutionResults, output: ReportWriter) {
+    private outputExceptionReport(results: model.ExecutionResults) {
         results.features.forEach(feature => {
-            this.outputFeatureError(feature, output);
+            this.outputFeatureError(feature);
         });
 
         this.suiteIndent = 0;
         results.suites.forEach(suite => {
             this.suiteIndent += 2;
-            this.outputSuiteError(suite, output);
+            this.outputSuiteError(suite);
             this.suiteIndent -= 2;
         });
     }
 
-    private outputFeatureError(feature: model.Feature, output: ReportWriter) {
+    private outputFeatureError(feature: model.Feature) {
         // Validate that the feature has errors
         if (feature.statistics.failedCount > 0) {
             let indent = 2;
-            output.writeLine(this.formatKeywordTitle("Feature", feature.title, this.colorTheme.keyword, this.colorTheme.featureTitle, indent));
+            this.writeLine(this.formatKeywordTitle("Feature", feature.title, this.colorTheme.keyword, this.colorTheme.featureTitle, indent));
             indent += 2;
 
             // This will repeat the feature/scenario detail but at a minimized level, enough to provide
@@ -391,42 +400,42 @@ export class DefaultReporter implements ReporterTheme {
                 if (scenario.statistics.failedCount > 0) {
                     if (scenario.constructor.name === "ScenarioOutline") {
                         const scenarioOutline = scenario as model.ScenarioOutline;
-                        output.writeLine(this.formatKeywordTitle("Scenario Outline", scenarioOutline.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+                        this.writeLine(this.formatKeywordTitle("Scenario Outline", scenarioOutline.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
                         // display the steps
                         scenarioOutline.steps.forEach(step => {
-                            this.outputStep(step, true, output);
+                            this.outputStep(step, true);
                         });
 
                         // TODO: Consider highlighting Example row in Examples output for those that failed
-                        // output.writeLine(" "); // line break
+                        // this.writeLine(" "); // line break
                         // indent += 2;
                         // for (let i = 0; i < scenarioOutline.tables.length; i++) {
                         //     // Output the Examples table
-                        //     output.writeLine(this.applyBlockIndent(this.colorTheme.keyword("Examples: " + scenarioOutline.tables[i].name), indent));
-                        //     output.writeLine(this.applyBlockIndent(this.formatTable(scenarioOutline.tables[i].dataTable, HeaderType.Top), indent));
+                        //     this.writeLine(this.applyBlockIndent(this.colorTheme.keyword("Examples: " + scenarioOutline.tables[i].name), indent));
+                        //     this.writeLine(this.applyBlockIndent(this.formatTable(scenarioOutline.tables[i].dataTable, HeaderType.Top), indent));
                         // }
 
-                        output.writeLine(" "); // line break
+                        this.writeLine(" "); // line break
                         indent += 2;
 
                         // Now output any example that has errors
                         scenarioOutline.examples.forEach(example => {
                             if (example.statistics.failedCount > 0) {
-                                output.writeLine(this.formatKeywordTitle("Example", example.sequence.toString(), this.colorTheme.statusFail, this.colorTheme.scenarioTitle, 4));
+                                this.writeLine(this.formatKeywordTitle("Example", example.sequence.toString(), this.colorTheme.statusFail, this.colorTheme.scenarioTitle, 4));
                                 example.steps.forEach(step => {
-                                    this.outputStep(step, false, output);
+                                    this.outputStep(step, false);
                                     if (step.status === model.SpecStatus.fail) {
-                                        this.outputStepError(step, output);
+                                        this.outputStepError(step);
                                     }
                                 });
                             }
                         });
                     } else {
-                        output.writeLine(this.formatKeywordTitle("Scenario", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+                        this.writeLine(this.formatKeywordTitle("Scenario", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
                         scenario.steps.forEach(step => {
-                            this.outputStep(step, false, output);
+                            this.outputStep(step, false);
                             if (step.status === model.SpecStatus.fail) {
-                                this.outputStepError(step, output);
+                                this.outputStepError(step);
                             }
                         });
                     }
@@ -435,17 +444,17 @@ export class DefaultReporter implements ReporterTheme {
         }
     }
 
-    private outputSuiteError(suite: model.MochaSuite, output: ReportWriter) {
+    private outputSuiteError(suite: model.MochaSuite) {
         // Validate that the Suite has errors
         if (suite.statistics.failedCount > 0) {
             let indent = 2;
-            output.writeLine(this.applyBlockIndent(this.colorTheme.featureTitle(suite.title), this.suiteIndent + indent));
+            this.writeLine(this.applyBlockIndent(this.colorTheme.featureTitle(suite.title), this.suiteIndent + indent));
             this.suiteIndent += 2;
 
             suite.tests.forEach(test => {
-                this.outputTest(test, output);
+                this.outputTest(test);
                 if (test.status === model.SpecStatus.fail) {
-                    this.outputStepError(test, output);
+                    this.outputStepError(test);
                 }
             });
             this.suiteIndent -= 2;
@@ -453,13 +462,13 @@ export class DefaultReporter implements ReporterTheme {
             // Mocha Suites can have any level of depth
             suite.children.forEach(child => {
                 this.suiteIndent += 2;
-                this.outputSuiteError(child, output);
+                this.outputSuiteError(child);
                 this.suiteIndent -= 2;
             });
         }
     }
 
-    private outputStepError(step: model.LiveDocTest<any>, output: ReportWriter) {
+    private outputStepError(step: model.LiveDocTest<any>) {
         const color = this.colorTheme.dataTable;
 
         const table = new cliTable({
@@ -494,11 +503,10 @@ export class DefaultReporter implements ReporterTheme {
             table.push(["Filename", step.parent.filename]);
         }
 
-        output.writeLine(table.toString());
+        this.writeLine(table.toString());
     }
 
-    private outputStep(step: model.StepDefinition, useDefinition: boolean, output: ReportWriter) {
-        const lines: string[] = [];
+    private outputStep(step: model.StepDefinition, useDefinition: boolean) {
         let indent = 6;
         let titleColor = this.colorTheme.stepDescription;
 
@@ -545,9 +553,9 @@ export class DefaultReporter implements ReporterTheme {
         // Now highlight any values within the title
         title = this.highlight(title, /('[^']+')|("[^"]+")/g, this.colorTheme.valuePlaceholders)
 
-        lines.push(`${" ".repeat(indent)}${indicator} ${" ".repeat(hangingIndent)}${this.colorTheme.stepKeyword(step.type)} ${titleColor(title)}`);
+        this.writeLine(`${" ".repeat(indent)}${indicator} ${" ".repeat(hangingIndent)}${this.colorTheme.stepKeyword(step.type)} ${titleColor(title)}`);
         indent += 4;
-        if (step.description) lines.push(this.applyBlockIndent(step.description, indent + hangingIndent));
+        if (step.description) this.writeLine(this.applyBlockIndent(step.description, indent + hangingIndent));
         if (step.docString) {
 
             let docString = step.docStringRaw;
@@ -563,15 +571,12 @@ export class DefaultReporter implements ReporterTheme {
                 docString = step.docString;
             }
 
-            lines.push(this.applyBlockIndent(this.colorTheme.docString(`"""\n${docString}\n"""`), indent + hangingIndent));
+            this.writeLine(this.applyBlockIndent(this.colorTheme.docString(`"""\n${docString}\n"""`), indent + hangingIndent));
         }
-        if (step.dataTable) lines.push(this.applyBlockIndent(this.formatTable(step.dataTable, HeaderType.none), indent + hangingIndent));
-
-        output.writeLine(lines);
+        if (step.dataTable) this.writeLine(this.applyBlockIndent(this.formatTable(step.dataTable, HeaderType.none), indent + hangingIndent));
     }
 
-    private outputTest(step: model.LiveDocTest<any>, output: ReportWriter) {
-        const lines: string[] = [];
+    private outputTest(step: model.LiveDocTest<any>) {
         let indent = 2;
         let titleColor = this.colorTheme.stepDescription;
 
@@ -595,9 +600,7 @@ export class DefaultReporter implements ReporterTheme {
                 break;
         }
 
-        lines.push(`${" ".repeat(this.suiteIndent + indent)}${indicator} ${titleColor(step.title)}`);
-
-        output.writeLine(lines);
+        this.writeLine(`${" ".repeat(this.suiteIndent + indent)}${indicator} ${titleColor(step.title)}`);
     }
 
     private formatKeywordTitle(keyword: string, title: string, keywordColor: Chalk, titleColor: Chalk, indent: number): string {

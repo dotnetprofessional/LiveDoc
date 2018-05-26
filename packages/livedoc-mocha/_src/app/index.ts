@@ -1,12 +1,13 @@
 import * as mocha from "mocha";
 import * as mochaCommon from "mocha/lib/interfaces/common";
 import * as mochaSuite from "mocha/lib/suite";
+import chalk, { Chalk } from "chalk";
+
 import { MochaTest } from "./MochaTest";
 
 import * as model from "./model";
 import { LiveDoc } from "./livedoc";
 import { LiveDocContext } from "./LiveDocContext";
-// import { BddContext } from "./model/BddContext";
 import { ScenarioOutlineContext } from "./model/ScenarioOutlineContext";
 import { LiveDocGrammarParser } from "./parser/Parser";
 import { LiveDocSuite } from "./model/LiveDocSuite";
@@ -17,7 +18,8 @@ import { ExecutionResults } from "./model/ExecutionResults";
 import { StepContext } from "./model/StepContext";
 import { LiveDocOptions } from "./LiveDocOptions";
 
-const colors = require("colors");
+/* Export classes */
+export * from "./reporter/LiveDocSpec";
 
 const liveDocGrammarParser = new LiveDocGrammarParser();
 (global as any).livedoc = new LiveDoc();
@@ -386,11 +388,12 @@ function displayRuleViolation(feature: model.Feature, e: LiveDocRuleViolation, l
     const outputMessage = `${e.message} [title: ${e.title}, file: ${feature && feature.filename || ""}]`;
     option = livedocOptions.rules[RuleViolations[e.rule]];
     if (option === LiveDocRuleOption.warning) {
-        if (mocha._reporter.name != "livedocReporter") {
+        // Only output the warning if using the default Spec reporter, livedoc reporters will handle it differently
+        if (mocha._reporter.name === "Spec") {
             displayedViolations[e.errorId] = "X";
-            console.error(colors.bgYellow(colors.red(`WARNING[${e.errorId}]: ${outputMessage}`)));
+            console.error(chalk.bgYellow.red(`WARNING[${e.errorId}]: ${outputMessage}`));
         }
-    } else {
+    } else if (option === LiveDocRuleOption.enabled) {
         throw e;
     }
 }

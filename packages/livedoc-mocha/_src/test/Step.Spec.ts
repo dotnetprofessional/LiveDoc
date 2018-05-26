@@ -19,6 +19,8 @@ feature(`Step statement
                 givenTitle = stepContext.title;
             });
 
+            when("using the stepContext", () => { });
+
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
             });
@@ -56,6 +58,8 @@ feature(`Step statement
                 """`, () => {
                     docString = stepContext.docString;
                 });
+
+            when("using the stepContext", () => { });
 
             then("the docString should match stepContext.docString including the significant spaces", () => {
                 docString.should.be.equal("    This string is indented\n    so they should be honoured");
@@ -139,6 +143,8 @@ feature(`Step statement
                 This is a table above!!
             `, () => { });
 
+            when("using the stepContext", () => { });
+
             then("the title should match stepContext.title", () => {
                 scenarioContext.given.title.should.be.equal("a simple title has a table");
             });
@@ -187,6 +193,8 @@ feature(`Step statement
                 This is a table above!!
             `, () => { });
 
+            when("using the stepContext", () => { });
+
             then("the table should be convertible to a list using stepContext.tableToList", () => {
                 // Add the numbers up
                 let total = 0;
@@ -216,6 +224,8 @@ feature(`Step statement
                 | quotes       | " a \\" is here"     |
                 
             `, () => { });
+
+            when("using the stepContext", () => { });
 
             then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", () => {
                 // Add the numbers up

@@ -6,12 +6,11 @@ import * as model from "../model"
 import { SpecStatus } from "../model/SpecStatus";
 import { LiveDocContext } from "../LiveDocContext";
 import * as fvn from "fnv-plus";
-import { ReportWriter } from "./ReportWriter";
 import { ExecutionResults } from "../model";
 import { LiveDocOptions } from "../LiveDocOptions";
-import chalk from "chalk";
 import * as fs from "fs-extra";
 import * as strip from "strip-ansi";
+import { ColorTheme } from "./ColorTheme";
 
 //import * as fs from "fs-extra";
 
@@ -21,31 +20,21 @@ import * as strip from "strip-ansi";
 
 var Base = require('mocha').reporters.Base;
 
-/**
- * Initialize a new `JSON` reporter.
- *
- * @api public
- * @param {Runner} runner
- */
-function livedocReporter(runner, options) {
-    new LiveDocReporter(runner, options);
-}
-exports = module.exports = livedocReporter;
-
-class LiveDocReporter {
+export class LiveDocReporter {
     private outputFile: string;
+    protected options: Object;
+    protected colorTheme: ColorTheme;
 
-    constructor (runner, protected options) {
+    constructor (runner, protected mochaOptions) {
         Base.call(this, runner);
         const _this = this;
-        const livedocOptions: LiveDocOptions = options.livedoc;
+        const livedocOptions: LiveDocOptions = mochaOptions.livedoc;
 
-        const reporter = livedocOptions.reporterOptions.reporter;
-        reporter.colorTheme = livedocOptions.reporterOptions.colors;
-        reporter.options = options.reporterOptions;
+        this.colorTheme = livedocOptions.reporterOptions.colors;
+        this.setOptions(mochaOptions.reporterOptions);
 
         // If the option to output a file has been defined delete the file first if it exists
-        const outputFile = this.options.reporterOptions && this.options.reporterOptions.output;
+        const outputFile = this.mochaOptions.reporterOptions && this.mochaOptions.reporterOptions.output;
         if (outputFile) {
             this.outputFile = outputFile;
             if (fs.existsSync(outputFile)) {
@@ -53,59 +42,47 @@ class LiveDocReporter {
             }
         }
 
-
         let executionResults: ExecutionResults;
 
-        reporter.executionStart(new ReportWriter());
+        this.executionStart();
 
-        // Only enable colors if its been specified
-        if (reporter.constructor.name !== "SilentReporter" && !options.useColors) {
-            chalk.level = 0;
-        }
         runner.on('suite', function (suite) {
             const livedocContext: LiveDocContext = suite.livedoc;
-
-            const reportWriter = new ReportWriter();
 
             // Add a unique Id
             const testContainer = _this.getTestContainer(suite);
             if (!testContainer) {
                 return;
             }
-            testContainer.id = fvn.hash(testContainer.title).str();
+            testContainer.id = `${testContainer.parent ? testContainer.parent.id + "-" : ""}${fvn.hash(testContainer.title).str()}`;
 
             // Notify reporter
             switch (livedocContext.type) {
                 case "Feature":
-                    reporter.featureStart(testContainer, reportWriter);
+                    _this.featureStart(testContainer);
                     break;
                 case "Background":
-                    reporter.backgroundStart(testContainer, reportWriter);
+                    _this.backgroundStart(testContainer);
                     break;
                 case "Scenario":
-                    reporter.scenarioStart(testContainer, reportWriter);
+                    _this.scenarioStart(testContainer);
                     break;
                 case "Scenario Outline":
                     // Check if this is an Example or the original    
                     if (testContainer.sequence === 1) {
-                        reporter.scenarioOutlineStart(testContainer.scenarioOutline, reportWriter);
+                        _this.scenarioOutlineStart(testContainer.scenarioOutline);
                     }
 
-                    reporter.scenarioExampleStart(testContainer, reportWriter);
+                    _this.scenarioExampleStart(testContainer);
                     break;
                 default:
-                    reporter.suiteStart(testContainer, reportWriter);
+                    _this.suiteStart(testContainer);
 
             }
-
-            _this.outputReporter(reportWriter);
         });
 
         runner.on('suite end', function (suite) {
             const livedocContext: LiveDocContext = suite.livedoc;
-
-            const reportWriter = new ReportWriter();
-
             const testContainer = _this.getTestContainer(suite);
             if (!testContainer) {
                 return;
@@ -113,65 +90,63 @@ class LiveDocReporter {
 
             switch (livedocContext.type) {
                 case "Feature":
-                    reporter.featureEnd(testContainer, reportWriter);
+                    _this.featureEnd(testContainer);
                     break;
                 case "Background":
-                    reporter.backgroundEnd(testContainer, reportWriter);
+                    _this.backgroundEnd(testContainer);
                     break;
                 case "Scenario":
-                    reporter.scenarioEnd(testContainer, reportWriter);
+                    _this.scenarioEnd(testContainer);
                     break;
                 case "Scenario Outline":
-                    reporter.scenarioExampleEnd(testContainer, reportWriter);
+                    _this.scenarioExampleEnd(testContainer);
 
                     if (testContainer.sequence === testContainer.scenarioOutline.examples.length) {
-                        reporter.scenarioOutlineEnd(testContainer, reportWriter);
+                        _this.scenarioOutlineEnd(testContainer);
                     }
                     break;
                 default:
-                    reporter.suiteEnd(testContainer, reportWriter);
+                    _this.suiteEnd(testContainer);
             }
-
-            _this.outputReporter(reportWriter);
         });
 
         runner.on('test', function (test: any) {
-            const reportWriter = new ReportWriter();
             const step: model.LiveDocTest<any> = test.step;
+            if (!step.id) {
+                step.id = `${step.parent.id}-${fvn.hash(test.title).str()}`;
+            }
 
             if (step.constructor.name === "StepDefinition") {
                 const stepDefinition = step as model.StepDefinition;
                 if (stepDefinition.parent.constructor.name === "ScenarioExample") {
-                    reporter.stepExampleStart(test.step, reportWriter);
+                    _this.stepExampleStart(test.step);
                 } else {
-                    reporter.stepStart(test.step, reportWriter);
+                    _this.stepStart(test.step);
                 }
             } else {
-                reporter.testStart(step, reportWriter);
+                _this.testStart(step);
             }
-            _this.outputReporter(reportWriter);
         });
 
         runner.on('test end', function (test: any) {
             const step: model.LiveDocTest<any> = test.step;
-            step.code = test.fn ? test.fn.toString() : "";
-            step.executionTime = test.duration || 0;
-            if (step) {
+
+            if (step.id) {
+                step.code = test.fn ? test.fn.toString() : "";
+                step.executionTime = test.duration || 0;
                 step.setStatus(step.status);
             }
 
-            const reportWriter = new ReportWriter();
             if (step.constructor.name === "StepDefinition") {
                 const stepDefinition = step as model.StepDefinition;
                 if (stepDefinition.parent.constructor.name === "ScenarioExample") {
-                    reporter.stepExampleEnd(test.step, reportWriter);
+                    _this.stepExampleEnd(test.step);
                 } else {
-                    reporter.stepEnd(test.step, reportWriter);
+                    _this.stepEnd(test.step);
                 }
             } else {
-                reporter.testEnd(step, reportWriter);
+                _this.testEnd(step);
             }
-            _this.outputReporter(reportWriter);
 
             // locate the executionResults
             if (!executionResults) {
@@ -180,7 +155,8 @@ class LiveDocReporter {
         });
 
         runner.on('pass', function (test: Mocha.ITest) {
-            (test as any).step.status = SpecStatus.pass;
+            if (!(test as any).id)
+                (test as any).step.status = SpecStatus.pass;
         });
 
         runner.on('fail', function (test: any) {
@@ -189,22 +165,24 @@ class LiveDocReporter {
                 // For some reason we dont' have a step 
                 return;
             }
-            step.status = SpecStatus.fail;
-            test = test as any;
-            if (test.err) {
-                step.exception.actual = test.err.actual || "";
-                step.exception.expected = test.err.expected || "";
-                step.exception.stackTrace = test.err.stack || "";
-                step.exception.message = test.err.message || "";
+            if (!(test as any).id) {
+                step.status = SpecStatus.fail;
+                test = test as any;
+                if (test.err) {
+                    step.exception.actual = test.err.actual || "";
+                    step.exception.expected = test.err.expected || "";
+                    step.exception.stackTrace = test.err.stack || "";
+                    step.exception.message = test.err.message || "";
+                }
             }
         });
 
         runner.on('pending', function (test: Mocha.ITest) {
-            (test as any).step.status = SpecStatus.pending;
+            if (!(test as any).id)
+                (test as any).step.status = SpecStatus.pending;
         });
 
         runner.on('end', function (test) {
-            const reportWriter = new ReportWriter();
             // results have all tests that have been defined, not just
             // those that were executed. As such need to remove those
             // that were not executed
@@ -226,24 +204,27 @@ class LiveDocReporter {
                     suite.children = suite.children.filter(child => child.statistics.totalCount !== 0);
                 }
             });
-            reporter.executionEnd(actualResults, reportWriter);
-            _this.outputReporter(reportWriter);
+            _this.executionEnd(actualResults);
         });
 
     }
 
-    private outputReporter(reportWriter: ReportWriter) {
-        let output = reportWriter.readOutput();
-        if (output) {
-            console.log(output);
+    /**
+     * adds the text to the reporters output stream
+     * 
+     * @param {string} text 
+     */
+    protected writeLine(text: string) {
+        if (text) {
+            console.log(text);
 
             // determine if it should be output to a file as well
             if (this.outputFile) {
                 // If colors have been applied they need to be stripped before writing to the file
-                if (this.options.useColors) {
-                    output = strip(output);
+                if (this.mochaOptions.useColors) {
+                    text = strip(text);
                 }
-                fs.appendFileSync(this.outputFile, output + "\n");
+                fs.appendFileSync(this.outputFile, text + "\n");
             }
         }
     }
@@ -277,4 +258,50 @@ class LiveDocReporter {
         }
     }
 
+    //#region Reporting Interface
+
+    protected setOptions(options: Object) {
+        this.options = options;
+    }
+
+    protected executionStart(): void { }
+
+    protected executionEnd(results: model.ExecutionResults): void { }
+
+    protected featureStart(feature: model.Feature): void { }
+
+    protected featureEnd(feature: model.Feature): void { }
+
+    protected scenarioStart(scenario: model.Scenario): void { }
+
+    protected scenarioEnd(scenario: model.Scenario): void { }
+
+    protected scenarioOutlineStart(scenario: model.ScenarioOutline): void { }
+
+    protected scenarioOutlineEnd(scenario: model.ScenarioOutline): void { }
+
+    protected scenarioExampleStart(example: model.ScenarioExample): void { }
+
+    protected scenarioExampleEnd(example: model.ScenarioExample): void { }
+
+    protected backgroundStart(background: model.Background): void { }
+
+    protected backgroundEnd(background: model.Background): void { }
+
+    protected stepStart(step: model.StepDefinition): void { }
+
+    protected stepEnd(step: model.StepDefinition): void { }
+
+    protected stepExampleStart(step: model.StepDefinition): void { }
+
+    protected stepExampleEnd(step: model.StepDefinition): void { }
+
+    protected suiteStart(suite: model.LiveDocSuite): void { }
+
+    protected suiteEnd(suite: model.LiveDocSuite): void { }
+
+    protected testStart(test: model.LiveDocTest<model.MochaSuite>): void { }
+
+    protected testEnd(test: model.LiveDocTest<model.MochaSuite>): void { }
+    //#endregion
 }

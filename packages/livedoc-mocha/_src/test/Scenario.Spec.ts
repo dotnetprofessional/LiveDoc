@@ -57,6 +57,7 @@ feature(`Scenario statement
                 `, () => {
                         givenContext = stepContext;
                     });
+                when("using the scenarioContext", () => { });
                 then("the scenarioContext.title should match title", () => {
                     givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);
                 })

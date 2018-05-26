@@ -3,14 +3,14 @@ import * as mocha from "mocha";
 import { ExecutionResults } from "./model/ExecutionResults";
 import { LiveDocOptions } from "./LiveDocOptions";
 import { ParserException } from "./model";
-import { DefaultReporter, DefaultColorTheme, SilentReporter, ReporterOptions } from "./reporter";
+import { DefaultColorTheme, ReporterOptions, SilentReporter } from "./reporter";
 
 var fs = require('fs'),
     crypto = require('crypto');
 
 export class LiveDoc {
     constructor () {
-        this.defaultRecommendations();
+        this.recommendedRuleSettings();
         this.useDefaultReporter();
     }
 
@@ -62,7 +62,6 @@ export class LiveDoc {
     public useDefaultReporter() {
         // define the default reporter options
         this.options.reporterOptions = new ReporterOptions();
-        this.options.reporterOptions.reporter = new DefaultReporter();
         this.options.reporterOptions.colors = new DefaultColorTheme();
     }
     /**
@@ -70,13 +69,12 @@ export class LiveDoc {
      * 
      * @memberof LiveDoc
      */
-    public enforceMinimalRulesOnly() {
-        this.setAllRulesTo(LiveDocRuleOption.disabled);
-        const option = LiveDocRuleOption.enabled;
+    public defaultRuleSettings() {
+        const enabled = LiveDocRuleOption.enabled;
 
-        this.options.rules.backgroundMustOnlyIncludeGiven = option;
-        this.options.rules.enforceUsingGivenOverBefore = option;
-        this.options.rules.enforceTitle = option;
+        this.options.rules.singleGivenWhenThen = enabled;
+        this.options.rules.backgroundMustOnlyIncludeGiven = enabled;
+        this.options.rules.enforceTitle = enabled;
     }
 
     /**
@@ -84,43 +82,28 @@ export class LiveDoc {
      * 
      * @memberof LiveDoc
      */
-    public defaultRecommendations() {
-        this.enforceMinimalRulesOnly();
+    public recommendedRuleSettings() {
+        const warning = LiveDocRuleOption.warning;
+        const enabled = LiveDocRuleOption.enabled;
 
-        const option = LiveDocRuleOption.enabled;
+        // minimal
+        this.options.rules.singleGivenWhenThen = enabled;
+        this.options.rules.backgroundMustOnlyIncludeGiven = enabled;
+        this.options.rules.enforceTitle = enabled;
 
-        this.options.rules.singleGivenWhenThen = option;
-        this.options.rules.mustIncludeGiven = LiveDocRuleOption.warning;
-        this.options.rules.mustIncludeWhen = LiveDocRuleOption.warning;
-        this.options.rules.mustIncludeThen = LiveDocRuleOption.warning;
-    }
-
-    /**
-     * Sets all rules to warnings
-     * 
-     * @memberof LiveDoc
-     */
-    public setAllRulesAsWarnings() {
-        this.setAllRulesTo(LiveDocRuleOption.warning);
-    }
-
-    private setAllRulesTo(option: LiveDocRuleOption) {
-        this.options.rules.singleGivenWhenThen = option;
-        this.options.rules.mustIncludeGiven = option;
-        this.options.rules.mustIncludeWhen = option;
-        this.options.rules.mustIncludeThen = option;
-        this.options.rules.backgroundMustOnlyIncludeGiven = option;
-        this.options.rules.enforceUsingGivenOverBefore = option;
-        this.options.rules.enforceTitle = option;
+        // Additional recommendations
+        this.options.rules.enforceUsingGivenOverBefore = warning;
+        this.options.rules.mustIncludeGiven = warning;
+        this.options.rules.mustIncludeWhen = warning;
+        this.options.rules.mustIncludeThen = warning;
     }
 
     public static executeTestAsync(filename: string, livedocOptions: LiveDocOptions = null): Promise<ExecutionResults> {
 
         // override the default reporter to be the silent one
-        livedocOptions.reporterOptions.reporter = new SilentReporter();
         let mochaOptions = {
             ui: 'livedoc-mocha',
-            reporter: "build/app/reporter/LiveDocReporter",
+            reporter: SilentReporter,
             livedoc: livedocOptions
         }
 

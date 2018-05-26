@@ -6,7 +6,7 @@ export class LiveDocTest<P extends LiveDocSuite | MochaSuite> {
     constructor (public parent: P, public title: string) {
 
     }
-
+    public id: string;
     public sequence: number;
     public executionTime: number;
     public status: SpecStatus = SpecStatus.unknown;
