@@ -21,8 +21,6 @@ import { LiveDocOptions } from "./LiveDocOptions";
 const liveDocGrammarParser = new LiveDocGrammarParser();
 (global as any).livedoc = new LiveDoc();
 
-(mocha as any).interfaces['livedoc-mocha'] = module.exports = liveDocMocha;
-
 function resetGlobalVariables(context) {
     // initialize context variables
     context.featureContext = undefined;
@@ -116,7 +114,9 @@ function addBddContext(suite: mocha.ISuite, mochaSuite: model.MochaSuite): model
 }
 
 /** @internal */
-function liveDocMocha(suite) {
+
+
+export function liveDocMocha(suite) {
     var suites = [suite];
 
     suite.on('pre-require', function (context, file, mocha) {
@@ -594,3 +594,6 @@ function createDescribeAlias(file, suites, context, mocha, common) {
     }
 
 }
+
+export default (mocha as any).interfaces['livedoc-mocha'];
+

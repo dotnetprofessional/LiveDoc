@@ -216,6 +216,11 @@ export class LiveDocReporter {
      */
     protected writeLine(text: string) {
         if (text) {
+            if (!this.mochaOptions.useColors) {
+                // colors are added by default, setting chalk.level can affect other reporters
+                // so remove colors if no-color specified
+                text = strip(text);
+            }
             console.log(text);
 
             // determine if it should be output to a file as well
