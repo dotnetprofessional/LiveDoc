@@ -1,6 +1,3 @@
-/// <reference types="mocha" />
-/// <reference path="globals.d.ts" />
-
 import * as mocha from "mocha";
 import * as mochaCommon from "mocha/lib/interfaces/common";
 import * as mochaSuite from "mocha/lib/suite";
@@ -21,17 +18,10 @@ import { ExecutionResults } from "./model/ExecutionResults";
 import { StepContext } from "./model/StepContext";
 import { LiveDocOptions } from "./LiveDocOptions";
 
-export { FeatureContext } from "./model/FeatureContext"
-export { ScenarioContext } from "./model/ScenarioContext";
-export { StepContext } from "./model/StepContext";
-export { BackgroundContext } from "./model/BackgroundContext";
-export { ScenarioOutlineContext } from "./model/ScenarioOutlineContext";
-
 const liveDocGrammarParser = new LiveDocGrammarParser();
 (global as any).livedoc = new LiveDoc();
 
 (mocha as any).interfaces['livedoc-mocha'] = module.exports = liveDocMocha;
-// exports = module.exports = livedocSpec;
 
 function resetGlobalVariables(context) {
     // initialize context variables

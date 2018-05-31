@@ -5,18 +5,6 @@ import * as cliTable from "cli-table2";
 import * as diff from "diff";
 import { LiveDocReporter } from "./LiveDocReporter";
 
-/**
- * Initialize a new LiveDocSpec reporter.
- *
- * @api public
- * @param {Runner} runner
- */
-function livedocSpec(runner, options) {
-    new LiveDocSpec(runner, options);
-}
-exports = module.exports = livedocSpec;
-
-
 enum StatusIdentifiers {
     pass = '√',
     fail = 'X',

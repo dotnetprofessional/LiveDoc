@@ -13,6 +13,12 @@
   },
   "main": "release/index.js",
   "typings": "release/index.d.ts",
+  "files": [
+    "/_src/app/globals.d.ts",
+    "/livedocSpec.js",
+    "/release/",
+    "/docs/"
+  ],
   "keywords": [
     "livedoc",
     "mocha",
@@ -39,6 +45,7 @@
     "xpretest": "tsc -p . && cls",
     "release-web": "npm run compile-web && npm run compile-web-minify",
     "compile": "rimraf build && tsc -d -p tsconfig.json",
+    "postcompile": "",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
     "release": "rimraf release && tsc -d -p tsconfig.npm.json",
@@ -49,7 +56,6 @@
   "devDependencies": {
     "@types/chai": "^4.1.3",
     "@types/fs-extra": "^5.0.2",
-    "@types/mocha": "^5.2.0",
     "@types/node": "^7.0.64",
     "chai": "^4.1.2",
     "mocha": "^5.1.1",
@@ -62,6 +68,7 @@
     "mocha": "3.x"
   },
   "dependencies": {
+    "@types/mocha": "^5.2.0",
     "chalk": "^2.4.1",
     "cli-table2": "^0.2.0",
     "colors": "^1.2.5",
