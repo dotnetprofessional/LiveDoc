@@ -1,8 +1,9 @@
 import * as model from "../model"
-// import { LiveDocContext } from "../LiveDocContext";
-// import * as cliTable from "cli-table2";
-// import { TextBlockReader } from "../parser/TextBlockReader";
-// import chalk from "chalk";
+import { TextBlockReader } from "../parser/TextBlockReader";
+import * as diff from "diff";
+import * as cliTable from "cli-table2";
+import { Chalk } from "chalk";
+
 import { SpecStatus } from "../model/SpecStatus";
 import { LiveDocContext } from "../LiveDocContext";
 import * as fvn from "fnv-plus";
@@ -134,7 +135,7 @@ export class LiveDocReporter {
             if (step.id) {
                 step.code = test.fn ? test.fn.toString() : "";
                 step.executionTime = test.duration || 0;
-                step.setStatus(step.status);
+                step.setStatus(step.status, step.executionTime);
             }
 
             if (step.constructor.name === "StepDefinition") {
@@ -209,6 +210,135 @@ export class LiveDocReporter {
 
     }
 
+    //#region Common Routines
+
+    protected createUnifiedDiff(actual, expected) {
+        var indent = '';
+        const _this = this;
+        function cleanUp(line) {
+            if (line[0] === '+') {
+                return indent + _this.colorTheme.statusPass(line);
+            }
+            if (line[0] === '-') {
+                return indent + _this.colorTheme.statusFail(line);
+            }
+            if (line.match(/@@/)) {
+                return '--';
+            }
+            if (line.match(/\\ No newline/)) {
+                return null;
+            }
+            return indent + line;
+        }
+        function notBlank(line) {
+            return typeof line !== 'undefined' && line !== null;
+        }
+        var msg = diff.createPatch('string', actual, expected);
+        var lines = msg.split('\n').splice(5);
+        return (
+            '\n' +
+            _this.colorTheme.statusPass('+ expected') +
+            ' ' +
+            _this.colorTheme.statusFail('- actual') +
+            '\n\n' +
+            lines
+                .map(cleanUp)
+                .filter(notBlank)
+                .join('\n')
+        );
+    }
+
+    protected applyBlockIndent(content: string, indent: number): string {
+        const reader: TextBlockReader = new TextBlockReader(content);
+
+        const indentPadding = " ".repeat(indent);
+        let lines: string[] = [];
+        while (reader.next()) {
+            lines.push(indentPadding + reader.line);
+        }
+
+        return lines.join("\n");
+    }
+
+    protected highlight(content, regex: RegExp, color: Chalk) {
+        return content.replace(regex, (item, pos, originalText) => {
+            return color(item);
+        });
+
+    }
+
+    protected bind(content, model, color: Chalk) {
+        var regex = new RegExp("<[^>]+>", "g");
+        return content.replace(regex, (item, pos, originalText) => {
+            return color(this.applyBinding(item, model));
+        });
+    }
+
+    private applyBinding(item, model) {
+        var key = this.sanitizeName(item.substr(1, item.length - 2));
+        if (model.hasOwnProperty(key)) {
+            return model[key];
+        } else {
+            return item;
+        }
+    }
+
+    private sanitizeName(name: string): string {
+        // removing spaces and apostrophes
+        return name.replace(/[ `’']/g, "");
+    }
+
+    protected formatTable(dataTable: DataTableRow[], headerStyle: HeaderType) {
+        // const headers = step.dataTable[0];
+        // Determine the formatting based on table size etc
+        if (headerStyle === HeaderType.none) {
+            headerStyle = HeaderType.Top;
+            if (dataTable[0].length === 2) {
+                // A two column table typically means the items are key, value
+                headerStyle = HeaderType.Left;
+            } else if (!isNaN(Number(dataTable[0][0].trim()))) {
+                // first value is a number so likely not a header left or top
+                headerStyle = HeaderType.none;
+            }
+        }
+
+        const table = new cliTable({});
+
+        for (let i = 0; i < dataTable.length; i++) {
+            // make a copy so we don't corrupt the original
+            table.push(dataTable[i].slice());
+
+            // Format the cell within the row if necessary
+            switch (headerStyle) {
+                case HeaderType.Left:
+                    table[i][0] = this.colorTheme.dataTableHeader(dataTable[i][0]);
+                    let rowColor = this.colorTheme.dataTable;
+                    for (let c = 1; c < table[i].length; c++) {
+                        table[i][c] = rowColor(table[i][c]);
+                    }
+                    break;
+                case HeaderType.Top:
+                    if (i === 0) {
+                        for (let c = 0; c < dataTable[0].length; c++) {
+                            table[0][c] = this.colorTheme.dataTableHeader(dataTable[0][c]);
+                        }
+                    } else {
+                        let rowColor = this.colorTheme.dataTable;
+                        if (table[i][0].indexOf("Total") >= 0) {
+                            rowColor = rowColor.bold;
+                        }
+                        for (let c = 0; c < table[i].length; c++) {
+                            table[i][c] = rowColor(table[i][c]);
+                        }
+                    }
+
+                    break;
+            }
+        }
+        return table.toString();
+    }
+
+    //#endregion
     /**
      * adds the text to the reporters output stream
      * 
@@ -309,4 +439,10 @@ export class LiveDocReporter {
 
     protected testEnd(test: model.LiveDocTest<model.MochaSuite>): void { }
     //#endregion
+}
+
+export enum HeaderType {
+    none,
+    Top,
+    Left
 }

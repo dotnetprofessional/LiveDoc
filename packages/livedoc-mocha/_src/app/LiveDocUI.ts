@@ -321,7 +321,7 @@ function createStepAlias(file, suites, mocha, common) {
                 livedocContext.step = bddTest;
                 bddContext.tests.push(bddTest);
                 if (stepDefinitionFunction) {
-                    stepDefinitionContextWrapper = function (...args) {
+                    stepDefinitionContextWrapper = async function (...args) {
                         displayWarningsInlineIfPossible(livedocContext, null, mocha.options.livedoc, mocha);
                         return stepDefinitionFunction(args);
                     }

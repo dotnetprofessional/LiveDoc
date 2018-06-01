@@ -1,9 +1,8 @@
 import * as model from "../model";
-import { TextBlockReader } from "../parser/TextBlockReader";
 import { Chalk } from "chalk";
 import * as cliTable from "cli-table2";
-import * as diff from "diff";
-import { LiveDocReporter } from "./LiveDocReporter";
+
+import { LiveDocReporter, HeaderType } from "./LiveDocReporter";
 
 enum StatusIdentifiers {
     pass = '√',
@@ -190,7 +189,8 @@ export class LiveDocSpec extends LiveDocReporter {
             "Pass",
             "Fail",
             "Pending",
-            "Warnings"
+            "Warnings",
+            "Elapsed"
         ];
 
         if (!this.options.summary && !this.options.list) {
@@ -211,7 +211,8 @@ export class LiveDocSpec extends LiveDocReporter {
                 feature.statistics.passCount,
                 feature.statistics.failedCount,
                 feature.statistics.pendingCount,
-                feature.statistics.totalRuleViolations
+                feature.statistics.totalRuleViolations,
+                feature.statistics.elapsedTime
             ]);
 
             if (!this.options.list) {
@@ -228,7 +229,8 @@ export class LiveDocSpec extends LiveDocReporter {
                     scenario.statistics.passCount,
                     scenario.statistics.failedCount,
                     scenario.statistics.pendingCount,
-                    scenario.statistics.totalRuleViolations
+                    scenario.statistics.totalRuleViolations,
+                    scenario.statistics.elapsedTime
                 ]);
             });
 
@@ -242,8 +244,9 @@ export class LiveDocSpec extends LiveDocReporter {
             failed: results.features.reduce((pv, cv) => pv + cv.statistics.failedCount, 0),
             pending: results.features.reduce((pv, cv) => pv + cv.statistics.pendingCount, 0),
             warnings: results.features.reduce((pv, cv) => pv + cv.statistics.totalRuleViolations, 0),
+            elapsedTime: results.features.reduce((pv, cv) => pv + cv.statistics.elapsedTime, 0),
         };
-
+        debugger;
         statistics.push([
             "Totals (" + results.features.length + ")",
             totalStats.scenarios,
@@ -251,7 +254,8 @@ export class LiveDocSpec extends LiveDocReporter {
             totalStats.pass,
             totalStats.failed,
             totalStats.pending,
-            totalStats.warnings
+            totalStats.warnings,
+            totalStats.elapsedTime
         ])
 
         this.writeLine(this.applyBlockIndent(this.formatTable(statistics, HeaderType.Top), 2));
@@ -269,10 +273,12 @@ export class LiveDocSpec extends LiveDocReporter {
     private outputSuiteExecutionSummary(results: model.ExecutionResults) {
         const headerRow = [
             "Suite",
+            "Children",
             "status",
             "Pass",
             "Fail",
-            "Pending"
+            "Pending",
+            "Elapsed"
         ];
 
         const statistics: DataTableRow[] = [];
@@ -285,28 +291,34 @@ export class LiveDocSpec extends LiveDocReporter {
 
             statistics.push([
                 suite.title,
+                suite.children.length,
                 statusBar,
                 suite.statistics.passCount,
                 suite.statistics.failedCount,
-                suite.statistics.pendingCount
+                suite.statistics.pendingCount,
+                suite.statistics.elapsedTime
             ]);
         });
 
         // Now add a totals row
         const totalStats = {
             total: results.suites.reduce((pv, cv) => pv + cv.statistics.totalCount, 0),
+            children: results.suites.reduce((pv, cv) => pv + cv.children.length, 0),
             pass: results.suites.reduce((pv, cv) => pv + cv.statistics.passCount, 0),
             failed: results.suites.reduce((pv, cv) => pv + cv.statistics.failedCount, 0),
             pending: results.suites.reduce((pv, cv) => pv + cv.statistics.pendingCount, 0),
             warnings: results.suites.reduce((pv, cv) => pv + cv.statistics.totalRuleViolations, 0),
+            elapsedTime: results.suites.reduce((pv, cv) => pv + cv.statistics.elapsedTime, 0),
         };
 
         statistics.push([
-            "Totals (" + results.features.length + ")",
+            "Totals (" + results.suites.length + ")",
+            totalStats.children,
             this.statusBar(totalStats.pass / totalStats.total, totalStats.failed / totalStats.total, totalStats.pending / totalStats.total),
             totalStats.pass,
             totalStats.failed,
             totalStats.pending,
+            totalStats.elapsedTime
         ])
 
         this.writeLine(this.applyBlockIndent(this.formatTable(statistics, HeaderType.Top), 2));
@@ -608,96 +620,6 @@ export class LiveDocSpec extends LiveDocReporter {
         return output.join(" ");
     }
 
-    private applyBlockIndent(content: string, indent: number): string {
-        const reader: TextBlockReader = new TextBlockReader(content);
-
-        const indentPadding = " ".repeat(indent);
-        let lines: string[] = [];
-        while (reader.next()) {
-            lines.push(indentPadding + reader.line);
-        }
-
-        return lines.join("\n");
-    }
-
-    private highlight(content, regex: RegExp, color: Chalk) {
-        return content.replace(regex, (item, pos, originalText) => {
-            return color(item);
-        });
-
-    }
-
-    public bind(content, model, color: Chalk) {
-        var regex = new RegExp("<[^>]+>", "g");
-        return content.replace(regex, (item, pos, originalText) => {
-            return color(this.applyBinding(item, model));
-        });
-    }
-
-    private applyBinding(item, model) {
-        var key = this.sanitizeName(item.substr(1, item.length - 2));
-        if (model.hasOwnProperty(key)) {
-            return model[key];
-        } else {
-            return item;
-        }
-    }
-
-    private sanitizeName(name: string): string {
-        // removing spaces and apostrophes
-        return name.replace(/[ `’']/g, "");
-    }
-
-    private formatTable(dataTable: DataTableRow[], headerStyle: HeaderType) {
-        // const headers = step.dataTable[0];
-        // Determine the formatting based on table size etc
-        if (headerStyle === HeaderType.none) {
-            headerStyle = HeaderType.Top;
-            if (dataTable[0].length === 2) {
-                // A two column table typically means the items are key, value
-                headerStyle = HeaderType.Left;
-            } else if (!isNaN(Number(dataTable[0][0].trim()))) {
-                // first value is a number so likely not a header left or top
-                headerStyle = HeaderType.none;
-            }
-        }
-
-        const table = new cliTable({});
-
-        for (let i = 0; i < dataTable.length; i++) {
-            // make a copy so we don't corrupt the original
-            table.push(dataTable[i].slice());
-
-            // Format the cell within the row if necessary
-            switch (headerStyle) {
-                case HeaderType.Left:
-                    table[i][0] = this.colorTheme.dataTableHeader(dataTable[i][0]);
-                    let rowColor = this.colorTheme.dataTable;
-                    for (let c = 1; c < table[i].length; c++) {
-                        table[i][c] = rowColor(table[i][c]);
-                    }
-                    break;
-                case HeaderType.Top:
-                    if (i === 0) {
-                        for (let c = 0; c < dataTable[0].length; c++) {
-                            table[0][c] = this.colorTheme.dataTableHeader(dataTable[0][c]);
-                        }
-                    } else {
-                        let rowColor = this.colorTheme.dataTable;
-                        if (table[i][0].indexOf("Total") >= 0) {
-                            rowColor = rowColor.bold;
-                        }
-                        for (let c = 0; c < table[i].length; c++) {
-                            table[i][c] = rowColor(table[i][c]);
-                        }
-                    }
-
-                    break;
-            }
-        }
-        return table.toString();
-    }
-
     //#region Diff
 
     // private createDiff(actual: string, expected: string): string {
@@ -715,47 +637,7 @@ export class LiveDocSpec extends LiveDocReporter {
     //     return result;
     // }
 
-    private createUnifiedDiff(actual, expected) {
-        var indent = '';
-        const _this = this;
-        function cleanUp(line) {
-            if (line[0] === '+') {
-                return indent + _this.colorTheme.statusPass(line);
-            }
-            if (line[0] === '-') {
-                return indent + _this.colorTheme.statusFail(line);
-            }
-            if (line.match(/@@/)) {
-                return '--';
-            }
-            if (line.match(/\\ No newline/)) {
-                return null;
-            }
-            return indent + line;
-        }
-        function notBlank(line) {
-            return typeof line !== 'undefined' && line !== null;
-        }
-        var msg = diff.createPatch('string', actual, expected);
-        var lines = msg.split('\n').splice(5);
-        return (
-            '\n' +
-            _this.colorTheme.statusPass('+ expected') +
-            ' ' +
-            _this.colorTheme.statusFail('- actual') +
-            '\n\n' +
-            lines
-                .map(cleanUp)
-                .filter(notBlank)
-                .join('\n')
-        );
-    }
 
     //#endregion
 }
 
-enum HeaderType {
-    none,
-    Top,
-    Left
-}

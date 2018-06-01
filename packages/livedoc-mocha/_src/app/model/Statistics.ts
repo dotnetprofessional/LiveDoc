@@ -7,6 +7,7 @@ export class Statistics<T> {
     public pendingCount: number = 0;
     public totalCount: number = 0;
     public totalRuleViolations: number = 0;
+    public elapsedTime: number = 0;
 
     public passPercent: number = 0;
     public failedPercent: number = 0;
@@ -19,7 +20,7 @@ export class Statistics<T> {
         });
     }
 
-    public updateStats(status: SpecStatus) {
+    public updateStats(status: SpecStatus, elapsedTime: number) {
         this.totalCount++;
         switch (status) {
             case SpecStatus.pass:
@@ -33,6 +34,9 @@ export class Statistics<T> {
                 break;
         }
 
+        // Update elapsed time
+        this.elapsedTime += elapsedTime;
+
         // Update the percentages
         this.failedPercent = this.failedCount / this.totalCount;
         this.passPercent = this.passCount / this.totalCount;
@@ -43,9 +47,9 @@ export class Statistics<T> {
 
             // Scenario Examples have a different parent so need to be treated differently
             if (parent.constructor.name === "ScenarioExample") {
-                (parent as any).scenarioOutline.statistics.updateStats(status);
+                (parent as any).scenarioOutline.statistics.updateStats(status, this.elapsedTime);
             } else if ((parent as any).parent && (parent as any).parent.statistics) {
-                (parent as any).parent.statistics.updateStats(status);
+                (parent as any).parent.statistics.updateStats(status, this.elapsedTime);
             }
         }
     }

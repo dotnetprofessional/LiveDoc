@@ -14,8 +14,8 @@ export class LiveDocTest<P extends LiveDocSuite | MochaSuite> {
     public exception: Exception = new Exception();
 
 
-    public setStatus(status: SpecStatus) {
+    public setStatus(status: SpecStatus, elapsedTime: number) {
         this.status = status;
-        this.parent.statistics.updateStats(status);
+        this.parent.statistics.updateStats(status, elapsedTime);
     }
 }
