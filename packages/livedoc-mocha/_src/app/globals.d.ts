@@ -1,7 +1,7 @@
 
 /**
  * Represents a row in a data table as a keyed object
- * 
+ *
  * @interface DataTableRow
  */
 declare interface DataTableRow {
@@ -26,6 +26,11 @@ declare class ScenarioContext {
     and: StepContext[];
     tags: string[];
 }
+declare class ScenarioOutlineContext extends ScenarioContext {
+    example: DataTableRow;
+    exampleRaw: DataTableRow;
+}
+
 declare class StepContext {
     title: string;
     displayTitle: string;
@@ -47,10 +52,10 @@ declare class LiveDoc {
     options: LiveDocOptions;
 }
 
-class LiveDocOptions {
-    public rules: LiveDocRules = new LiveDocRules();
-    public filters: FilterOptions = new FilterOptions();
-    public reporterOptions: ReporterOptions = new ReporterOptions();
+interface LiveDocOptions {
+    rules: LiveDocRules;
+    filters: FilterOptions;
+    reporterOptions: ReporterOptions;
 }
 
 declare enum LiveDocRuleOption {
@@ -80,26 +85,26 @@ declare class ReporterOptions {
 }
 
 interface ColorTheme {
-    featureTitle: Chalk;
-    featureDescription: Chalk;
-    backgroundTitle: Chalk;
-    backgroundDescription: Chalk;
-    scenarioTitle: Chalk;
-    scenarioDescription: Chalk;
-    stepTitle: Chalk;
-    stepDescription: Chalk;
-    stepKeyword: Chalk;
-    statusPass: Chalk;
-    statusFail: Chalk;
-    statusPending: Chalk;
-    statusUnknown: Chalk;
-    tags: Chalk;
-    comments: Chalk;
-    keyword: Chalk;
-    dataTableHeader: Chalk;
-    dataTable: Chalk;
-    docString: Chalk;
-    valuePlaceholders: Chalk;
+    featureTitle: Object;
+    featureDescription: Object;
+    backgroundTitle: Object;
+    backgroundDescription: Object;
+    scenarioTitle: Object;
+    scenarioDescription: Object;
+    stepTitle: Object;
+    stepDescription: Object;
+    stepKeyword: Object;
+    statusPass: Object;
+    statusFail: Object;
+    statusPending: Object;
+    statusUnknown: Object;
+    tags: Object;
+    comments: Object;
+    keyword: Object;
+    dataTableHeader: Object;
+    dataTable: Object;
+    docString: Object;
+    valuePlaceholders: Object;
 }
 
 
