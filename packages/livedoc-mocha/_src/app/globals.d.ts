@@ -1,4 +1,108 @@
 
+/**
+ * Represents a row in a data table as a keyed object
+ * 
+ * @interface DataTableRow
+ */
+declare interface DataTableRow {
+    [prop: string]: any;
+}
+declare interface String {
+    startsWith(searchString: string, position?: number);
+    endsWith(searchString: string, position?: number);
+    repeat(times: number);
+}
+// declarations copied from existing .d.ts files
+declare class FeatureContext {
+    filename: string;
+    title: string;
+    description: string;
+    tags: string[];
+}
+declare class ScenarioContext {
+    title: string;
+    description: string;
+    given: StepContext;
+    and: StepContext[];
+    tags: string[];
+}
+declare class StepContext {
+    title: string;
+    displayTitle: string;
+    dataTable: DataTableRow[];
+    docString: string;
+    readonly docStringAsEntity: any;
+    type: string;
+    values: any[];
+    valuesRaw: string[];
+    readonly table: DataTableRow[];
+    readonly tableAsEntity: DataTableRow;
+    tableAsList(): DataTableRow[];
+    readonly tableAsSingleList: any[];
+}
+declare class BackgroundContext extends ScenarioContext {
+}
+
+declare class LiveDoc {
+    options: LiveDocOptions;
+}
+
+class LiveDocOptions {
+    public rules: LiveDocRules = new LiveDocRules();
+    public filters: FilterOptions = new FilterOptions();
+    public reporterOptions: ReporterOptions = new ReporterOptions();
+}
+
+declare enum LiveDocRuleOption {
+    enabled = "enabled",
+    disabled = "disabled",
+    warning = "warning",
+}
+
+declare class FilterOptions {
+    include: string[];
+    exclude: string[];
+    showFilterConflicts: boolean;
+}
+declare class LiveDocRules {
+    singleGivenWhenThen: LiveDocRuleOption;
+    mustIncludeGiven: LiveDocRuleOption;
+    mustIncludeWhen: LiveDocRuleOption;
+    mustIncludeThen: LiveDocRuleOption;
+    backgroundMustOnlyIncludeGiven: LiveDocRuleOption;
+    enforceUsingGivenOverBefore: LiveDocRuleOption;
+    enforceTitle: LiveDocRuleOption;
+}
+
+declare class ReporterOptions {
+    colors: ColorTheme;
+    options: Object;
+}
+
+interface ColorTheme {
+    featureTitle: Chalk;
+    featureDescription: Chalk;
+    backgroundTitle: Chalk;
+    backgroundDescription: Chalk;
+    scenarioTitle: Chalk;
+    scenarioDescription: Chalk;
+    stepTitle: Chalk;
+    stepDescription: Chalk;
+    stepKeyword: Chalk;
+    statusPass: Chalk;
+    statusFail: Chalk;
+    statusPending: Chalk;
+    statusUnknown: Chalk;
+    tags: Chalk;
+    comments: Chalk;
+    keyword: Chalk;
+    dataTableHeader: Chalk;
+    dataTable: Chalk;
+    docString: Chalk;
+    valuePlaceholders: Chalk;
+}
+
+
 //region Globals
 declare var feature: Mocha.IContextDefinition;
 declare var background: Mocha.IContextDefinition;
@@ -20,49 +124,3 @@ declare var scenarioOutlineContext: ScenarioOutlineContext;
 
 declare var livedoc: LiveDoc
 declare var liveDocRuleOption;
-declare interface String {
-    startsWith(searchString: string, position?: number);
-    endsWith(searchString: string, position?: number);
-    repeat(times: number);
-}
-// declarations copied from existing .d.ts files
-// export declare class FeatureContext {
-//     filename: string;
-//     title: string;
-//     description: string;
-//     tags: string[];
-// }
-// export declare class ScenarioContext {
-//     title: string;
-//     description: string;
-//     given: StepContext;
-//     and: StepContext[];
-//     tags: string[];
-// }
-// export declare class StepContext {
-//     private _table;
-//     private _parser;
-//     title: string;
-//     displayTitle: string;
-//     dataTable: DataTableRow[];
-//     docString: string;
-//     readonly docStringAsEntity: any;
-//     type: string;
-//     values: any[];
-//     valuesRaw: string[];
-//     readonly table: DataTableRow[];
-//     readonly tableAsEntity: DataTableRow;
-//     private convertDataTableRowToEntity(dataTable);
-//     tableAsList(): DataTableRow[];
-//     readonly tableAsSingleList: any[];
-// }
-// export declare class BackgroundContext extends ScenarioContext {
-// }
-/**
- * Represents a row in a data table as a keyed object
- * 
- * @interface DataTableRow
- */
-declare interface DataTableRow {
-    [prop: string]: any;
-}
