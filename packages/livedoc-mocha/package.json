@@ -15,7 +15,7 @@
   "typings": "release/index.d.ts",
   "files": [
     "/_src/app/globals.d.ts",
-    "/livedoc-spec-dev.js",
+    "/livedoc-spec.js",
     "/release/",
     "/docs/"
   ],

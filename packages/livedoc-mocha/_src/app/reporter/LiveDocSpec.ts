@@ -1,3 +1,6 @@
+import * as fs from "fs-extra";
+import * as strip from "strip-ansi";
+
 import * as model from "../model";
 import { Chalk } from "chalk";
 import * as cliTable from "cli-table2";
@@ -19,6 +22,7 @@ export class LiveDocReporterOptions {
     spec: boolean = false;
     summary: boolean = false;
     list: boolean = false;
+    output: string;
 
     public setDefaults() {
         this.spec = true;
@@ -38,6 +42,7 @@ export class LiveDocSpec extends LiveDocReporter {
         } else if ((options as any).detailLevel) {
             const userOptions = (options as any).detailLevel.split("+");
             this.options = new LiveDocReporterOptions();
+            this.options.output = options.output;
             userOptions.forEach(option => {
                 this.options[option] = true;
             });
@@ -45,6 +50,12 @@ export class LiveDocSpec extends LiveDocReporter {
     }
 
     executionStart(): void {
+        // If the option to output a file has been defined delete the file first if it exists
+        if (this.options.output) {
+            if (fs.existsSync(this.options.output)) {
+                fs.unlinkSync(this.options.output);
+            }
+        }
     }
 
     executionEnd(results: model.ExecutionResults): void {
@@ -143,6 +154,19 @@ export class LiveDocSpec extends LiveDocReporter {
         }
     }
 
+    protected writeLine(text: string) {
+        super.writeLine(text);
+
+        // determine if it should be output to a file as well
+        if (this.options.output) {
+            // If colors have been applied they need to be stripped before writing to the file
+            if (this.mochaOptions.useColors) {
+                text = strip(text);
+            }
+            fs.appendFileSync(this.options.output, text + "\n");
+        }
+    }
+
     private outputFeature(feature: model.Feature) {
         let indent = 2;
         this.writeLine(this.formatKeywordTitle("Feature", feature.title, this.colorTheme.keyword, this.colorTheme.featureTitle, indent));
@@ -166,10 +190,12 @@ export class LiveDocSpec extends LiveDocReporter {
 
         this.writeLine(" "); // line break
         indent += 2;
+        let runningTotal = 0;
         for (let i = 0; i < scenario.tables.length; i++) {
             // Output the Examples table
             this.writeLine(this.applyBlockIndent(this.colorTheme.keyword("Examples: " + scenario.tables[i].name), indent));
-            this.writeLine(this.applyBlockIndent(this.formatTable(scenario.tables[i].dataTable, HeaderType.Top), indent));
+            this.writeLine(this.applyBlockIndent(this.formatTable(scenario.tables[i].dataTable, HeaderType.Top, true, runningTotal), indent));
+            runningTotal += scenario.tables[i].dataTable.length - 1; // due to header row
         }
     }
 
@@ -212,7 +238,7 @@ export class LiveDocSpec extends LiveDocReporter {
                 feature.statistics.failedCount,
                 feature.statistics.pendingCount,
                 feature.statistics.totalRuleViolations,
-                feature.statistics.elapsedTime
+                feature.statistics.duration
             ]);
 
             if (!this.options.list) {
@@ -230,7 +256,7 @@ export class LiveDocSpec extends LiveDocReporter {
                     scenario.statistics.failedCount,
                     scenario.statistics.pendingCount,
                     scenario.statistics.totalRuleViolations,
-                    scenario.statistics.elapsedTime
+                    scenario.statistics.duration
                 ]);
             });
 
@@ -244,9 +270,9 @@ export class LiveDocSpec extends LiveDocReporter {
             failed: results.features.reduce((pv, cv) => pv + cv.statistics.failedCount, 0),
             pending: results.features.reduce((pv, cv) => pv + cv.statistics.pendingCount, 0),
             warnings: results.features.reduce((pv, cv) => pv + cv.statistics.totalRuleViolations, 0),
-            elapsedTime: results.features.reduce((pv, cv) => pv + cv.statistics.elapsedTime, 0),
+            elapsedTime: results.features.reduce((pv, cv) => pv + cv.statistics.duration, 0),
         };
-        debugger;
+
         statistics.push([
             "Totals (" + results.features.length + ")",
             totalStats.scenarios,
@@ -296,9 +322,29 @@ export class LiveDocSpec extends LiveDocReporter {
                 suite.statistics.passCount,
                 suite.statistics.failedCount,
                 suite.statistics.pendingCount,
-                suite.statistics.elapsedTime
+                suite.statistics.duration
             ]);
+
+            if (!this.options.list) {
+                return;
+            }
+            // Output the specific scenarios for the feature
+            suite.children.forEach(child => {
+                const stats = child.statistics;
+                const statusBar = this.statusBar(stats.passPercent, stats.failedPercent, stats.pendingPercent);
+                statistics.push([
+                    this.formatLine("  " + child.title),
+                    " ",
+                    statusBar,
+                    child.statistics.passCount,
+                    child.statistics.failedCount,
+                    child.statistics.pendingCount,
+                    child.statistics.duration
+                ]);
+            });
+
         });
+
 
         // Now add a totals row
         const totalStats = {
@@ -308,7 +354,7 @@ export class LiveDocSpec extends LiveDocReporter {
             failed: results.suites.reduce((pv, cv) => pv + cv.statistics.failedCount, 0),
             pending: results.suites.reduce((pv, cv) => pv + cv.statistics.pendingCount, 0),
             warnings: results.suites.reduce((pv, cv) => pv + cv.statistics.totalRuleViolations, 0),
-            elapsedTime: results.suites.reduce((pv, cv) => pv + cv.statistics.elapsedTime, 0),
+            elapsedTime: results.suites.reduce((pv, cv) => pv + cv.statistics.duration, 0),
         };
 
         statistics.push([
@@ -338,8 +384,6 @@ export class LiveDocSpec extends LiveDocReporter {
         let failBar = calcBar(StatusIdentifiers.statusBarFail, failedPercent);
         let pendingBar = calcBar(StatusIdentifiers.statusBarPending, pendingPercent);
 
-        if (pendingBar.length === 4) debugger;
-
         while (passBar.length + failBar.length + pendingBar.length > barSize) {
             const longest = Math.max(passBar.length, failBar.length, pendingBar.length);
             if (passBar.length === longest) {
@@ -368,9 +412,6 @@ export class LiveDocSpec extends LiveDocReporter {
             this.colorTheme.statusFail.inverse(failBar) +
             this.colorTheme.statusPending.inverse(pendingBar);
 
-        if (passBar.length + failBar.length + pendingBar.length !== barSize) {
-            debugger;
-        }
         return bar;
     }
 

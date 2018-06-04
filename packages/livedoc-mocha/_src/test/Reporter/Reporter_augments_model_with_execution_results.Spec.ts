@@ -117,7 +117,7 @@ feature(`Reporter returns model including execution results`, () => {
             });
 
         and(`the elapsed time is captured`, () => {
-            step.executionTime.should.be.greaterThan(0);
+            step.duration.should.be.greaterThan(0);
         });
     });
 
@@ -240,12 +240,12 @@ feature(`Reporter returns model including execution results`, () => {
 
         when(`executing describe`, async () => {
             results = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
-            mochaSuite = results.suites[0];
+            mochaSuite = results.suites[1];
         });
 
         then(`the execution results are returned for the '3' it statements`, () => {
-            results.suites.length.should.be.eq(1);
-            results.suites[0].tests.length.should.be.eq(stepContext.values[0]);
+            results.suites.length.should.be.eq(2);
+            mochaSuite.tests.length.should.be.eq(stepContext.values[0]);
         });
 
         and(`the first it is marked as 'pass'`, () => {

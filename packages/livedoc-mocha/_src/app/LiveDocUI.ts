@@ -98,11 +98,6 @@ function addBddContext(suite: mocha.ISuite, mochaSuite: model.MochaSuite): model
     // add the describe to the Execution results or create one if not done so
     const parent = (suite.parent as any);
     if (parent.root) {
-        // the suites parent is the root suite
-        if (!parent.livedocResults) {
-            parent.livedocResults = new ExecutionResults();
-        }
-
         // Add feature to the results
         parent.livedocResults.suites.push(mochaSuite);
     } else {
@@ -118,6 +113,20 @@ function addBddContext(suite: mocha.ISuite, mochaSuite: model.MochaSuite): model
 
 export function liveDocMocha(suite) {
     var suites = [suite];
+
+    // For the root suite, we also need to add tracking objects
+    // its necessary to do here as the root suite doesn't get processed by suite.on
+    if (suite.root) {
+        if (suite.livedoc) {
+            debugger;
+        }
+        const rootSuite = new model.MochaSuite(null, "root", "describe");
+        (suite as any).livedoc = rootSuite;
+        // the suites parent is the root suite
+        suite.livedocResults = new ExecutionResults();
+        // add the root suite to the results
+        (suite.livedocResults as ExecutionResults).suites.push(rootSuite);
+    }
 
     suite.on('pre-require', function (context, file, mocha) {
         // Apply options
@@ -151,6 +160,13 @@ export function liveDocMocha(suite) {
             // Command line filters are additive and do not replace any existing filters
             livedocOptions.filters.include.push(...getCommandLineOptions("--ld-include"));
             livedocOptions.filters.exclude.push(...getCommandLineOptions("--ld-exclude"));
+            const postReporters = getCommandLineOptions("--ld-reporters");
+            if (postReporters && postReporters.length > 0) {
+                postReporters.forEach(reporter => {
+                    livedoc.options.postReporters.push(require(reporter));
+                });
+            }
+            livedocOptions.postReporters.push();
             livedocOptions.filters.showFilterConflicts = getCommandLineOption("--showFilterConflicts") || livedocOptions.filters.showFilterConflicts
 
             if (livedocOptions.filters.include.length > 0 || livedocOptions.filters.exclude.length > 0) {
@@ -240,6 +256,9 @@ function createStepAlias(file, suites, mocha, common) {
             const suiteType = livedocContext && livedocContext.type;
             let stepDefinitionContextWrapper = stepDefinitionFunction;
 
+            if (suite.root) {
+                // Seems this step/it is being executed outside of a 
+            }
             if (isLiveDocType(type)) {
                 if (suite._beforeAll.length > 0) {
                     livedocContext.scenario.addViolation(RuleViolations.enforceUsingGivenOverBefore, `Using before does not help with readability, consider using a given instead.`, title);
@@ -578,15 +597,18 @@ function createDescribeAlias(file, suites, context, mocha, common) {
     function processBddDescribe(suites: mocha.ISuite, type: string, title: string, file: string): mocha.ISuite {
         // This is a legacy describe/context test which doesn't support
         // the features of livedoc
-        if (suites[0].livedoc) {
+        let suiteParent: model.MochaSuite = null;
+        if (suites[0].livedoc && !suites[0].root) {
+            suiteParent = suites[0].livedoc;
             // Verify that this not part of a livedoc feature
             if (isLiveDocType(suites[0].livedoc.type)) {
                 // seems this is using mixed languages which is not supported    
                 throw new model.ParserException(`This ${suites[0].livedoc.type} is using bdd syntax, did you mean to use scenario instead?`, title, file);
             }
         }
+
         const suite = mochaSuite.create(suites[0], title);
-        const childSuite = new model.MochaSuite(suite.parent.livedoc as model.MochaSuite, title, type);
+        const childSuite = new model.MochaSuite(suiteParent, title, type);
         childSuite.filename = file;
         addBddContext(suite, childSuite);
 

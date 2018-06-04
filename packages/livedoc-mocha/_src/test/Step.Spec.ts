@@ -1,8 +1,6 @@
 import * as Utils from './Utils';
-import { StepDefinition, ExecutionResults, SpecStatus } from '../app/model';
+import { ExecutionResults, SpecStatus, StepContext } from '../app/model';
 import { LiveDoc } from '../app/livedoc';
-
-///<reference path="../app/livedoc.ts" />
 require('chai').should();
 
 feature(`Step statement
@@ -316,7 +314,7 @@ feature(`Step statement
         });
 
         scenario("failing tests are reported as such", () => {
-            let outlineGiven: StepDefinition;
+            let outlineGiven: StepContext;
             let executionResults: ExecutionResults;
             given(`a step that will fail
                 """

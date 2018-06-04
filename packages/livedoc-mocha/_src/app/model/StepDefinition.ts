@@ -18,7 +18,7 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     public ruleViolations: LiveDocRuleViolation[] = [];
 
     public associatedScenarioId: number;
-    public executionTime: number;
+    public duration: number;
 
     public setParent(parent: Scenario) {
         this.parent = parent;

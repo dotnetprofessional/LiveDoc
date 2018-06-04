@@ -1,6 +1,5 @@
 import { LiveDoc } from "../../app/livedoc";
-import { LiveDocRuleViolation, ExecutionResults } from "../../app/model";
-import { StepContext } from "../../app/model/StepContext";
+import { LiveDocRuleViolation, ExecutionResults, StepContext } from "../../app/model";
 import { LiveDocRuleOption } from "../../app/LiveDocRuleOption";
 import { LiveDocOptions } from "../../app/LiveDocOptions";
 require('chai').should();
@@ -95,7 +94,7 @@ feature(`Validate step rules
                 });
                 """
                     `, () => {
-                        outlineGiven = stepContext;
+                        outlineGiven = stepContext as StepContext;
                     });
 
                 when(`executing feature`, async () => {

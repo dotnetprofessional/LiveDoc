@@ -78,6 +78,7 @@ feature(`Beautiful Tea Shipping Costs
                     item.product = "tea";
                     cart.items.push(item);
                     cart.calculateInvoice();
+
                 });
 
                 then("the customer pays <GST Amount> GST", () => {

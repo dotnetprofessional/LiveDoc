@@ -8,14 +8,15 @@ export class LiveDocTest<P extends LiveDocSuite | MochaSuite> {
     }
     public id: string;
     public sequence: number;
-    public executionTime: number;
+    public duration: number;
     public status: SpecStatus = SpecStatus.unknown;
     public code: string;
     public exception: Exception = new Exception();
 
 
-    public setStatus(status: SpecStatus, elapsedTime: number) {
+    public setStatus(status: SpecStatus, duration: number) {
         this.status = status;
-        this.parent.statistics.updateStats(status, elapsedTime);
+        this.duration = duration
+        this.parent.statistics.updateStats(status, duration);
     }
 }

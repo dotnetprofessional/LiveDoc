@@ -9,7 +9,6 @@ import { LiveDocContext } from "../LiveDocContext";
 import * as fvn from "fnv-plus";
 import { ExecutionResults } from "../model";
 import { LiveDocOptions } from "../LiveDocOptions";
-import * as fs from "fs-extra";
 import * as strip from "strip-ansi";
 import { ColorTheme } from "./ColorTheme";
 
@@ -33,15 +32,6 @@ export class LiveDocReporter {
 
         this.colorTheme = livedocOptions.reporterOptions.colors;
         this.setOptions(mochaOptions.reporterOptions);
-
-        // If the option to output a file has been defined delete the file first if it exists
-        const outputFile = this.mochaOptions.reporterOptions && this.mochaOptions.reporterOptions.output;
-        if (outputFile) {
-            this.outputFile = outputFile;
-            if (fs.existsSync(outputFile)) {
-                fs.unlinkSync(outputFile);
-            }
-        }
 
         let executionResults: ExecutionResults;
 
@@ -78,7 +68,6 @@ export class LiveDocReporter {
                     break;
                 default:
                     _this.suiteStart(testContainer);
-
             }
         });
 
@@ -132,11 +121,9 @@ export class LiveDocReporter {
         runner.on('test end', function (test: any) {
             const step: model.LiveDocTest<any> = test.step;
 
-            if (step.id) {
-                step.code = test.fn ? test.fn.toString() : "";
-                step.executionTime = test.duration || 0;
-                step.setStatus(step.status, step.executionTime);
-            }
+            step.code = test.fn ? test.fn.toString() : "";
+            step.duration = test.duration || 0;
+            step.setStatus(step.status, step.duration);
 
             if (step.constructor.name === "StepDefinition") {
                 const stepDefinition = step as model.StepDefinition;
@@ -156,8 +143,7 @@ export class LiveDocReporter {
         });
 
         runner.on('pass', function (test: Mocha.ITest) {
-            if (!(test as any).id)
-                (test as any).step.status = SpecStatus.pass;
+            (test as any).step.status = SpecStatus.pass;
         });
 
         runner.on('fail', function (test: any) {
@@ -166,21 +152,18 @@ export class LiveDocReporter {
                 // For some reason we dont' have a step 
                 return;
             }
-            if (!(test as any).id) {
-                step.status = SpecStatus.fail;
-                test = test as any;
-                if (test.err) {
-                    step.exception.actual = test.err.actual || "";
-                    step.exception.expected = test.err.expected || "";
-                    step.exception.stackTrace = test.err.stack || "";
-                    step.exception.message = test.err.message || "";
-                }
+            step.status = SpecStatus.fail;
+            test = test as any;
+            if (test.err) {
+                step.exception.actual = test.err.actual || "";
+                step.exception.expected = test.err.expected || "";
+                step.exception.stackTrace = test.err.stack || "";
+                step.exception.message = test.err.message || "";
             }
         });
 
         runner.on('pending', function (test: Mocha.ITest) {
-            if (!(test as any).id)
-                (test as any).step.status = SpecStatus.pending;
+            (test as any).step.status = SpecStatus.pending;
         });
 
         runner.on('end', function (test) {
@@ -288,7 +271,7 @@ export class LiveDocReporter {
         return name.replace(/[ `’']/g, "");
     }
 
-    protected formatTable(dataTable: DataTableRow[], headerStyle: HeaderType) {
+    protected formatTable(dataTable: DataTableRow[], headerStyle: HeaderType, includeRowId: boolean = false, runningTotal: number = 0) {
         // const headers = step.dataTable[0];
         // Determine the formatting based on table size etc
         if (headerStyle === HeaderType.none) {
@@ -314,21 +297,28 @@ export class LiveDocReporter {
                     table[i][0] = this.colorTheme.dataTableHeader(dataTable[i][0]);
                     let rowColor = this.colorTheme.dataTable;
                     for (let c = 1; c < table[i].length; c++) {
-                        table[i][c] = rowColor(table[i][c]);
+                        table[i][c] = rowColor(dataTable[i][c]);
                     }
                     break;
                 case HeaderType.Top:
+                    const offset = includeRowId ? 1 : 0;
                     if (i === 0) {
+                        if (includeRowId) {
+                            table[i][0] = " ";
+                        }
                         for (let c = 0; c < dataTable[0].length; c++) {
-                            table[0][c] = this.colorTheme.dataTableHeader(dataTable[0][c]);
+                            table[i][c + offset] = this.colorTheme.dataTableHeader(dataTable[0][c]);
                         }
                     } else {
                         let rowColor = this.colorTheme.dataTable;
                         if (table[i][0].indexOf("Total") >= 0) {
                             rowColor = rowColor.bold;
                         }
-                        for (let c = 0; c < table[i].length; c++) {
-                            table[i][c] = rowColor(table[i][c]);
+                        if (includeRowId) {
+                            table[i][0] = rowColor((i + runningTotal).toString());
+                        }
+                        for (let c = 0; c < dataTable[i].length; c++) {
+                            table[i][c + offset] = rowColor(dataTable[i][c]);
                         }
                     }
 
@@ -352,15 +342,6 @@ export class LiveDocReporter {
                 text = strip(text);
             }
             console.log(text);
-
-            // determine if it should be output to a file as well
-            if (this.outputFile) {
-                // If colors have been applied they need to be stripped before writing to the file
-                if (this.mochaOptions.useColors) {
-                    text = strip(text);
-                }
-                fs.appendFileSync(this.outputFile, text + "\n");
-            }
         }
     }
 
