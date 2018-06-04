@@ -1,5 +1,5 @@
 import * as Utils from './Utils';
-import { ExecutionResults, SpecStatus, StepContext } from '../app/model';
+import { ExecutionResults, SpecStatus } from '../app/model';
 import { LiveDoc } from '../app/livedoc';
 require('chai').should();
 

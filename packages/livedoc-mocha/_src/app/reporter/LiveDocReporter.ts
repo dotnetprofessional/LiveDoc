@@ -21,11 +21,10 @@ import { ColorTheme } from "./ColorTheme";
 var Base = require('mocha').reporters.Base;
 
 export class LiveDocReporter {
-    private outputFile: string;
     protected options: Object;
     protected colorTheme: ColorTheme;
 
-    constructor (runner, protected mochaOptions) {
+    constructor(runner, protected mochaOptions) {
         Base.call(this, runner);
         const _this = this;
         const livedocOptions: LiveDocOptions = mochaOptions.livedoc;

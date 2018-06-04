@@ -1,5 +1,5 @@
 import { LiveDoc } from "../../app/livedoc";
-import { ParserException, StepContext } from "../../app/model";
+import { ParserException } from "../../app/model";
 require('chai').should();
 
 

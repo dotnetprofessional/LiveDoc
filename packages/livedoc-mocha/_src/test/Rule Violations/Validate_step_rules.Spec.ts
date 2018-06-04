@@ -1,5 +1,5 @@
 import { LiveDoc } from "../../app/livedoc";
-import { LiveDocRuleViolation, ExecutionResults, StepContext } from "../../app/model";
+import { LiveDocRuleViolation, ExecutionResults } from "../../app/model";
 import { LiveDocRuleOption } from "../../app/LiveDocRuleOption";
 import { LiveDocOptions } from "../../app/LiveDocOptions";
 require('chai').should();
