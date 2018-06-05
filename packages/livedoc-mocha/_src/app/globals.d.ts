@@ -62,6 +62,7 @@ interface LiveDocOptions {
     filters: FilterOptions;
     reporterOptions: ReporterOptions;
     postReporters: string[];
+    isolatedMode: boolean;
 }
 
 declare enum LiveDocRuleOption {

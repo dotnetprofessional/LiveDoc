@@ -24,7 +24,7 @@ export class LiveDocReporter {
     protected options: Object;
     protected colorTheme: ColorTheme;
 
-    constructor(runner, protected mochaOptions) {
+    constructor (runner, protected mochaOptions) {
         Base.call(this, runner);
         const _this = this;
         const livedocOptions: LiveDocOptions = mochaOptions.livedoc;
@@ -188,6 +188,18 @@ export class LiveDocReporter {
                 }
             });
             _this.executionEnd(actualResults);
+
+            // Now execute any post reporters
+            if (livedocOptions.postReporters) {
+                livedocOptions.postReporters.forEach(reporter => {
+                    try {
+                        const instance = new (reporter as any);
+                        instance.execute(actualResults, mochaOptions.reporterOptions || {});
+                    } catch (e) {
+                        console.log(e);
+                    }
+                });
+            }
         });
 
     }

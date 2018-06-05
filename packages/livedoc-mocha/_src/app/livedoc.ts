@@ -100,11 +100,13 @@ export class LiveDoc {
 
     public static executeTestAsync(filename: string, livedocOptions: LiveDocOptions = null): Promise<ExecutionResults> {
 
+        // Add isolated mode - this prevents command-line parameters from interfering with the options passed in
+        livedocOptions.isolatedMode = true;
         // override the default reporter to be the silent one
         let mochaOptions = {
             ui: 'livedoc-mocha',
             reporter: SilentReporter,
-            livedoc: livedocOptions
+            livedoc: livedocOptions,
         }
 
         return new Promise<ExecutionResults>((resolve, reject) => {

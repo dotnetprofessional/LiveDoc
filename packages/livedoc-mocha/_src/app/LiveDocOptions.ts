@@ -10,4 +10,5 @@ export class LiveDocOptions {
     public filters: FilterOptions = new FilterOptions();
     public reporterOptions: ReporterOptions = new ReporterOptions();
     public postReporters: IPostReporter[] = [];
+    isolatedMode: boolean = false;
 }

@@ -16,6 +16,7 @@
   "files": [
     "/_src/app/globals.d.ts",
     "/livedoc-spec.js",
+    "/livedoc-json.js",
     "/release/",
     "/docs/"
   ],

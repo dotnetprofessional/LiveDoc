@@ -149,7 +149,7 @@ export function liveDocMocha(suite) {
             // 2. setting via mocha options
             // 3. setting via command line
 
-            if (mocha.options.livedoc) {
+            if (mocha.options.livedoc && !mocha.options.livedoc.isolatedMode) {
                 const mochaIncludes = mocha.options.livedoc.filters.include || [];
                 const mochaExcludes = mocha.options.livedoc.filters.exclude || [];
                 livedocOptions.filters.include.push(...mochaIncludes);
@@ -157,17 +157,19 @@ export function liveDocMocha(suite) {
                 livedocOptions.filters.showFilterConflicts = mocha.options.livedoc.filters.showFilterConflicts || livedocOptions.filters.showFilterConflicts
             }
 
-            // Command line filters are additive and do not replace any existing filters
-            livedocOptions.filters.include.push(...getCommandLineOptions("--ld-include"));
-            livedocOptions.filters.exclude.push(...getCommandLineOptions("--ld-exclude"));
-            const postReporters = getCommandLineOptions("--ld-reporters");
-            if (postReporters && postReporters.length > 0) {
-                postReporters.forEach(reporter => {
-                    livedoc.options.postReporters.push(require(reporter));
-                });
+            if (!mocha.options.livedoc || !mocha.options.livedoc.isolatedMode) {
+                // Command line filters are additive and do not replace any existing filters
+                livedocOptions.filters.include.push(...getCommandLineOptions("--ld-include"));
+                livedocOptions.filters.exclude.push(...getCommandLineOptions("--ld-exclude"));
+                const postReporters = getCommandLineOptions("--ld-reporters");
+                if (postReporters && postReporters.length > 0) {
+                    postReporters.forEach(reporter => {
+                        livedoc.options.postReporters.push(require(reporter));
+                    });
+                }
+                livedocOptions.postReporters.push();
+                livedocOptions.filters.showFilterConflicts = getCommandLineOption("--showFilterConflicts") || livedocOptions.filters.showFilterConflicts
             }
-            livedocOptions.postReporters.push();
-            livedocOptions.filters.showFilterConflicts = getCommandLineOption("--showFilterConflicts") || livedocOptions.filters.showFilterConflicts
 
             if (livedocOptions.filters.include.length > 0 || livedocOptions.filters.exclude.length > 0) {
                 mocha.options.hasOnly = true
