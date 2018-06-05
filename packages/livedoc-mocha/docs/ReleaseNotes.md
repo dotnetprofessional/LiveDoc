@@ -6,7 +6,6 @@
 
 ### additional with no issue logged
 * ** BREAKING CHANGE** Enforced properly structured Gherkin. Removed some rule violation settings allowing mixing BDD and Gherkin. This needed to be removed to properly support reporting.
-* ** BREAKING CHANGE ** Scenario Outline step titles no longer have their values bound to the example. To get the bound version, the displayTitle can be used. This change was added to support highlighting of values in reporters.
 * Added execution results to model
 * Reorganized and improved Specs and implemented Specs for areas that previously were manual or thew expected exceptions.
 * Added support to run Specs directly and receive an ExecutionResult object with the results of all Specs executed. This feature allowed verification of any scenario including failing ones.

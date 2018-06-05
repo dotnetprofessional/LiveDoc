@@ -106,8 +106,8 @@ feature(`Scenario Outline statement`, () => {
             and("the protein should be <protein> kg", () => {
             });
 
-            and("the displayTitle should have the examples bound <weight>", () => {
-                stepContext.displayTitle.should.contain(scenarioOutlineContext.example.weight);
+            and("the title should have the examples bound <weight>", () => {
+                stepContext.title.should.contain(scenarioOutlineContext.example.weight);
             })
         });
 
@@ -141,8 +141,8 @@ feature(`Scenario Outline statement`, () => {
             and("the protein should be <protein> kg", () => {
             });
 
-            and("the displayTitle should have the examples bound <weight>", () => {
-                stepContext.displayTitle.should.contain(scenarioOutlineContext.example.weight);
+            and("the title should have the examples bound <weight>", () => {
+                stepContext.title.should.contain(scenarioOutlineContext.example.weight);
             })
         });
 

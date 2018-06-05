@@ -584,10 +584,10 @@ export class LiveDocSpec extends LiveDocReporter {
         if ((step.parent as model.ScenarioExample).example) {
             if (useDefinition) {
                 // Apply any binding if necessary
-                title = this.highlight(title, new RegExp("<[^>]+>", "g"), this.colorTheme.valuePlaceholders);
+                title = this.highlight(step.rawTitle, new RegExp("<[^>]+>", "g"), this.colorTheme.valuePlaceholders);
             } else {
                 // Apply any binding if necessary
-                title = this.bind(step.title, (step.parent as model.ScenarioExample).example, this.colorTheme.valuePlaceholders);
+                title = this.bind(step.rawTitle, (step.parent as model.ScenarioExample).example, this.colorTheme.valuePlaceholders);
             }
         }
 

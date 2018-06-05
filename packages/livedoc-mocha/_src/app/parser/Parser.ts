@@ -158,6 +158,7 @@ export class LiveDocGrammarParser {
         step.dataTable = parser.dataTable;
         step.valuesRaw = parser.quotedValues;
         step.displayTitle = this.formatStepDisplayTitle(description, type, indentation);
+        step.rawTitle = step.title;
         step.values = parser.coerceValues(step.valuesRaw);
         step.type = type;
 

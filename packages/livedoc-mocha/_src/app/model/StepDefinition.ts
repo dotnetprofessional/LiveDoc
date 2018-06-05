@@ -6,6 +6,7 @@ import { Scenario } from ".";
 
 export class StepDefinition extends LiveDocTest<Scenario> {
     public displayTitle: string = "";
+    public rawTitle: string = "";
 
     public type: string;
     public description: string = "";
