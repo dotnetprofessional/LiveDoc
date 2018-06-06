@@ -10,7 +10,7 @@ export class StepDefinition extends LiveDocTest<Scenario> {
 
     public type: string;
     public description: string = "";
-    public descriptionRaw: string = "";
+    // public descriptionRaw: string = "";
     public docString: string = "";
     public docStringRaw: string = "";
     public dataTable: DataTableRow[] = [];

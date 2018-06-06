@@ -14,5 +14,6 @@ export default class JsonReporter implements IPostReporter {
 
         // write out the results as a json file
         fs.writeFileSync(file, JSON.stringify(results));
+        console.log("Json file: " + fs.realpathSync(file));
     }
 }

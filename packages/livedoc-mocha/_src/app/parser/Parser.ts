@@ -32,7 +32,7 @@ export class LiveDocGrammarParser {
         feature.displayTitle = this.formatDisplayTitle(description, type, 4);
         feature.description = parser.description;
         feature.tags = parser.tags;
-        feature.rawDescription = description;
+        // feature.rawDescription = description;
         feature.filename = filename;
 
 
@@ -52,7 +52,7 @@ export class LiveDocGrammarParser {
         background.description = parser.description;
         background.displayTitle = this.formatDisplayTitle(description, "Background", 4);
         background.tags = parser.tags;
-        background.rawDescription = description;
+        // background.rawDescription = description;
         feature.background = background;
 
         return background;
@@ -68,7 +68,7 @@ export class LiveDocGrammarParser {
         scenario.description = parser.description;
         scenario.displayTitle = this.formatDisplayTitle(description, type, 6);
         scenario.tags = parser.tags;
-        scenario.rawDescription = description;
+        // scenario.rawDescription = description;
         feature.scenarios.push(scenario);
         scenario.sequence = feature.scenarios.length;
 
@@ -89,7 +89,7 @@ export class LiveDocGrammarParser {
         scenarioOutline.description = parser.description;
         scenarioOutline.displayTitle = this.formatDisplayTitle(description, type, 6);
         scenarioOutline.tags = parser.tags;
-        scenarioOutline.rawDescription = description;
+        // scenarioOutline.rawDescription = description;
         scenarioOutline.tables = parser.tables;
 
         this.addExamplesAsScenarios(scenarioOutline, parser);
@@ -131,7 +131,7 @@ export class LiveDocGrammarParser {
             const dataRow = table.dataTable[i];
             const scenario = new model.ScenarioExample(scenarioOutline.parent, scenarioOutline);
             // Don't want to repeat the table etc for every scenario iteration
-            scenario.rawDescription = scenarioOutline.title;
+            // scenario.rawDescription = scenarioOutline.title;
             scenario.displayTitle = this.formatDisplayTitle(scenarioOutline.title, "Scenario", 6);
             scenario.example = parser.getTableRowAsEntity(headerRow, dataRow);
             scenario.exampleRaw = parser.getTableRowAsEntity(headerRow, dataRow, false);
@@ -151,7 +151,7 @@ export class LiveDocGrammarParser {
         let indentation = 10;
 
         // This is the top level feature
-        step.descriptionRaw = description;
+        // step.descriptionRaw = description;
         step.description = parser.description;
         step.docString = parser.docString;
         step.docStringRaw = parser.docString;

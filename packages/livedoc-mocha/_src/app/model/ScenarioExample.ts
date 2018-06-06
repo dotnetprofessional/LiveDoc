@@ -11,9 +11,6 @@ export class ScenarioExample extends Scenario {
 
     constructor (parent: Feature, public scenarioOutline: ScenarioOutline) {
         super(parent);
-        Object.defineProperty(this, 'scenarioOutline', {
-            enumerable: false
-        });
     }
 
     public addStep(step: StepDefinition): void {

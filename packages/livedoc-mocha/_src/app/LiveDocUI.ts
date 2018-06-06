@@ -129,35 +129,56 @@ export function liveDocMocha(suite) {
     }
 
     suite.on('pre-require', function (context, file, mocha) {
+
+        const deepAssign = function (target: Object, source: Object): Object {
+            Object.keys(source).forEach(key => {
+                const targetValue = target[key];
+                if (targetValue) {
+                    if (typeof targetValue === "object") {
+                        target[key] = deepAssign(targetValue, source[key]);
+                    } else {
+                        target[key] = source[key];
+                    }
+                } else {
+                    target[key] = source[key];
+                }
+            });
+            return target;
+        }
+
+
         // Apply options
         // Add the options to the mocha instance and then only process again if they've not been set
         if (!mocha.livedocInitialized) {
             mocha.livedocInitialized = true;
-            mocha.livedoc = Object.assign(new LiveDoc(), (global as any).livedoc);
-
-            let livedocOptions: LiveDocOptions = mocha.livedoc.options;
-            if (mocha.options.livedoc) {
-                // Need to perform a deep copy to ensure any changes don't update the global state
-                // replace the default with the passed in version
-                livedocOptions.rules = Object.assign(livedocOptions.rules, JSON.parse(JSON.stringify(mocha.options.livedoc.rules || {})));
-                livedocOptions.filters = Object.assign(livedocOptions.filters, JSON.parse(JSON.stringify(mocha.options.livedoc.filters || {})));
-                livedocOptions.reporterOptions = mocha.options.livedoc.reporterOptions || livedocOptions.reporterOptions
-            }
+            let livedocOptions: LiveDocOptions;
 
             // Report options/filters/rules can be set using the following options
             // 1. setting in code
             // 2. setting via mocha options
             // 3. setting via command line
 
-            if (mocha.options.livedoc && !mocha.options.livedoc.isolatedMode) {
-                const mochaIncludes = mocha.options.livedoc.filters.include || [];
-                const mochaExcludes = mocha.options.livedoc.filters.exclude || [];
-                livedocOptions.filters.include.push(...mochaIncludes);
-                livedocOptions.filters.exclude.push(...mochaExcludes);
-                livedocOptions.filters.showFilterConflicts = mocha.options.livedoc.filters.showFilterConflicts || livedocOptions.filters.showFilterConflicts
-            }
+            if (mocha.options.livedoc && mocha.options.livedoc.isolatedMode) {
+                livedocOptions = deepAssign(new LiveDocOptions, mocha.options.livedoc) as LiveDocOptions;
+            } else {
+                // Migrate options set in code
+                livedocOptions = Object.assign(new LiveDocOptions(), (global as any).livedoc.options);
 
-            if (!mocha.options.livedoc || !mocha.options.livedoc.isolatedMode) {
+                // Migrate options passed via mocha.options
+                if (mocha.options.livedoc) {
+                    // Need to perform a deep copy to ensure any changes don't update the global state
+                    // replace the default with the passed in version
+                    livedocOptions.rules = Object.assign(livedocOptions.rules, JSON.parse(JSON.stringify(mocha.options.livedoc.rules || {})));
+                    livedocOptions.filters = Object.assign(livedocOptions.filters, JSON.parse(JSON.stringify(mocha.options.livedoc.filters || {})));
+                    livedocOptions.reporterOptions = mocha.options.livedoc.reporterOptions || livedocOptions.reporterOptions
+
+                    const mochaIncludes = mocha.options.livedoc.filters.include || [];
+                    const mochaExcludes = mocha.options.livedoc.filters.exclude || [];
+                    livedocOptions.filters.include.push(...mochaIncludes);
+                    livedocOptions.filters.exclude.push(...mochaExcludes);
+                    livedocOptions.filters.showFilterConflicts = mocha.options.livedoc.filters.showFilterConflicts || livedocOptions.filters.showFilterConflicts
+                }
+
                 // Command line filters are additive and do not replace any existing filters
                 livedocOptions.filters.include.push(...getCommandLineOptions("--ld-include"));
                 livedocOptions.filters.exclude.push(...getCommandLineOptions("--ld-exclude"));
@@ -167,16 +188,18 @@ export function liveDocMocha(suite) {
                         livedoc.options.postReporters.push(require(reporter));
                     });
                 }
-                livedocOptions.postReporters.push();
                 livedocOptions.filters.showFilterConflicts = getCommandLineOption("--showFilterConflicts") || livedocOptions.filters.showFilterConflicts
-            }
 
-            if (livedocOptions.filters.include.length > 0 || livedocOptions.filters.exclude.length > 0) {
-                mocha.options.hasOnly = true
+                if (livedocOptions.filters.include.length > 0 || livedocOptions.filters.exclude.length > 0) {
+                    mocha.options.hasOnly = true
+                }
             }
 
             // update the option values with the new options
             mocha.options.livedoc = livedocOptions;
+            // Assign the global to the mocha instance, but need to make a copy so as mot to
+            // affect the existing global version
+            mocha.livedoc = Object.assign(new LiveDoc(), (global as any).livedoc);
             mocha.livedoc.options = livedocOptions;
         }
 

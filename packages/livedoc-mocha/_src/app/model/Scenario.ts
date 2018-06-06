@@ -4,9 +4,11 @@ import { StepDefinition } from "./StepDefinition";
 import { LiveDocSuite } from "./LiveDocSuite";
 import { Feature } from "./Feature";
 import { RuleViolations } from "./RuleViolations";
+import { jsonIgnore } from "../decorators/jsonIgnore";
 
 export class Scenario extends LiveDocSuite {
 
+    // @jsonIgnore
     public parent: Feature;
     public givens: StepDefinition[] = [];
     public whens: StepDefinition[] = [];
