@@ -127,12 +127,12 @@ export function liveDocMocha(suite) {
 
     suite.on('pre-require', function (context, file, mocha) {
 
-        const deepAssign = function (target: Object, source: Object): Object {
+        const deepMerge = function (target: Object, source: Object): Object {
             Object.keys(source).forEach(key => {
                 const targetValue = target[key];
                 if (targetValue) {
                     if (typeof targetValue === "object") {
-                        target[key] = deepAssign(targetValue, source[key]);
+                        target[key] = deepMerge(targetValue, source[key]);
                     } else {
                         target[key] = source[key];
                     }
@@ -156,7 +156,7 @@ export function liveDocMocha(suite) {
             // 3. setting via command line
 
             if (mocha.options.livedoc && mocha.options.livedoc.isolatedMode) {
-                livedocOptions = deepAssign(new LiveDocOptions, mocha.options.livedoc) as LiveDocOptions;
+                livedocOptions = deepMerge(new LiveDocOptions, mocha.options.livedoc) as LiveDocOptions;
             } else {
                 // Migrate options set in code
                 livedocOptions = Object.assign(new LiveDocOptions(), (global as any).livedoc.options);
@@ -355,7 +355,6 @@ function createStepAlias(file, suites, mocha, common) {
                     throw new model.ParserException(`This ${livedocContext.type} is using bdd syntax, did you mean to use given instead?`, title, file);
                 }
 
-                debugger;
                 // Some other Bdd language    
                 const bddContext = (livedocContext as any) as model.MochaSuite;
                 const bddTest = new model.LiveDocTest(bddContext, title);

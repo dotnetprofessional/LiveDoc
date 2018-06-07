@@ -5,5 +5,5 @@
 
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const postReporter_json = require("./release/reporter");
-exports = module.exports = postReporter_json.JsonReporter;
+const postReporter_json = require("./release/reporter/JsonReporter");
+exports = module.exports = postReporter_json.default;

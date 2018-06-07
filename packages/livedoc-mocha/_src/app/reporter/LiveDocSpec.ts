@@ -22,11 +22,16 @@ export class LiveDocReporterOptions {
     spec: boolean = false;
     summary: boolean = false;
     list: boolean = false;
-    output: string;
+    silent: boolean = false;
+    output: string = "";
 
-    public setDefaults() {
+    public setDefaults(): void {
         this.spec = true;
         this.summary = true;
+    }
+
+    public enableSilent(): void {
+        this.auto = this.spec = this.summary = this.list = false;
     }
 };
 
@@ -35,17 +40,20 @@ export class LiveDocSpec extends LiveDocReporter {
     private suiteIndent: number = 0;
 
     protected setOptions(options: LiveDocReporterOptions) {
-        if (Object.keys(options).length == 0) {
+        this.options = new LiveDocReporterOptions();
+        if (!(options as any).detailLevel) {
             // Default value
-            this.options = new LiveDocReporterOptions();
             this.options.setDefaults();
-        } else if ((options as any).detailLevel) {
+        } else {
             const userOptions = (options as any).detailLevel.split("+");
-            this.options = new LiveDocReporterOptions();
             this.options.output = options.output;
             userOptions.forEach(option => {
                 this.options[option] = true;
             });
+            // the special option of silent will redefine the values to all be false
+            if (this.options.silent) {
+                this.options.enableSilent();
+            }
         }
     }
 
@@ -84,8 +92,17 @@ export class LiveDocSpec extends LiveDocReporter {
     }
 
     scenarioEnd(scenario: model.Scenario): void {
-        if (this.options.spec)
+        if (this.options.spec) {
             this.writeLine(" ");
+
+            // Output any warnings
+            if (scenario.ruleViolations.length > 0) {
+                this.writeLine(this.colorTheme.statusFail("WARNING: Rule violations"));
+                scenario.ruleViolations.forEach(violation => {
+                    this.writeLine(this.colorTheme.statusFail(`${" ".repeat(5)} * ${violation.message}`));
+                });
+            }
+        }
     }
 
     scenarioOutlineStart(scenario: model.ScenarioOutline): void {

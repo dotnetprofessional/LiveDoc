@@ -8,9 +8,12 @@
 * ** BREAKING CHANGE** Enforced properly structured Gherkin. Removed some rule violation settings allowing mixing BDD and Gherkin. This needed to be removed to properly support reporting.
 * Added execution results to model
 * Reorganized and improved Specs and implemented Specs for areas that previously were manual or thew expected exceptions.
-* Added support to run Specs directly and receive an ExecutionResult object with the results of all Specs executed. This feature allowed verification of any scenario including failing ones.
+* Added support to run Specs directly and receive an ExecutionResult object with the results of all Specs executed. This feature allowed verification of any scenario including failing ones. This will be useful for 3rd party integrations and for the VSCode plugin.
 * Added limited livedoc support to other bdd ui's such as describe. This is to allow stock mocha to make use of future reporting. 
 * Added isolation of global livedoc object for supplying options. It will now be used as the basis for options but other ways to provide options such as via mocha.options and commandline will either extend or override the settings. If possible options should be passed via mocha.options if executing via code otherwise use the command line.
+* added support for post-reporters via the ld-reporters command line. This provides a new type of reporter that are executed post the standard reporter or ui-reporter. This is used for such things as trx, json or any other post reporting needs.
+* added livedoc-json reporter that will output the execution results as a json file to be consumed by 3rd party reporters
+* upgrade dependencies including typescript to 2.9.1
 
 ## 0.3.4
 * Feature: [#52](https://github.com/dotnetprofessional/LiveDoc/issues/52) Support filtering by tags  

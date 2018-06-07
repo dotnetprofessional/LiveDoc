@@ -23,7 +23,11 @@
                 "--ui",
                 "livedoc-mocha",
                 "--reporter",
-                "livedoc-mocha/livedocSpec",
+                "livedoc-mocha/livedoc-spec",
+                "--ld-reporters",
+                "livedoc-mocha/livedoc-json",
+                "-O",
+                "detailLevel=summary,json-output=results.json",
                 "${workspaceRoot}/build"
             ],
             "sourceMaps": true,

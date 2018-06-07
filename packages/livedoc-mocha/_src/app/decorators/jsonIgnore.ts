@@ -9,7 +9,7 @@
  */
 export function jsonIgnore(target: any, key: string) {
     // thanks to rdmchenry for the logic to get this working!!
-    const setupInstanceField = function (initialValue) {
+    const setupInstanceField = function (initialValue: any): any {
         let value = initialValue;
 
         const getter = function () {
@@ -30,10 +30,10 @@ export function jsonIgnore(target: any, key: string) {
 
     if (delete target[key]) {
         Object.defineProperty(target, key, {
-            get: setupInstanceField,
+            get: setupInstanceField as any,
             set: setupInstanceField,
             enumerable: false,
-            configurable: false
+            configurable: true
         });
     }
 }
