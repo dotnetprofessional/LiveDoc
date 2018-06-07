@@ -2,14 +2,17 @@ import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
 import { Statistics } from "./Statistics";
 import { SuiteBase } from "./SuiteBase";
+import { jsonIgnore } from "../decorators";
 
 export class LiveDocSuite extends SuiteBase<LiveDocSuite> {
+    @jsonIgnore
     public rawDescription: string;
     public ruleViolations: LiveDocRuleViolation[] = [];
+    @jsonIgnore
     public displayTitle: string;
     public description: string;
 
-    constructor () {
+    constructor() {
         super();
         this.statistics = new Statistics(this);
     }

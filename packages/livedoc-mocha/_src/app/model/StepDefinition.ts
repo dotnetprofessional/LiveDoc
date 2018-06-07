@@ -3,30 +3,29 @@ import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
 import { LiveDocTest } from "./LiveDocTest";
 import { Scenario } from ".";
+import { jsonIgnore } from "../decorators";
 
 export class StepDefinition extends LiveDocTest<Scenario> {
+    @jsonIgnore
     public displayTitle: string = "";
+    @jsonIgnore
     public rawTitle: string = "";
 
     public type: string;
     public description: string = "";
     // public descriptionRaw: string = "";
     public docString: string = "";
+    @jsonIgnore
     public docStringRaw: string = "";
     public dataTable: DataTableRow[] = [];
     public values: any[] = [];
+    @jsonIgnore
     public valuesRaw: string[] = [];
     public ruleViolations: LiveDocRuleViolation[] = [];
 
     public associatedScenarioId: number;
     public duration: number;
 
-    public setParent(parent: Scenario) {
-        this.parent = parent;
-        Object.defineProperty(this, 'parent', {
-            enumerable: false
-        });
-    }
     public getStepContext(): StepContext {
         const context = new StepContext();
         context.title = this.title;

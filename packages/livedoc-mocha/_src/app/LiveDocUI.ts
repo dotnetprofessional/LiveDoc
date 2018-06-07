@@ -117,9 +117,6 @@ export function liveDocMocha(suite) {
     // For the root suite, we also need to add tracking objects
     // its necessary to do here as the root suite doesn't get processed by suite.on
     if (suite.root) {
-        if (suite.livedoc) {
-            debugger;
-        }
         const rootSuite = new model.MochaSuite(null, "root", "describe");
         (suite as any).livedoc = rootSuite;
         // the suites parent is the root suite
@@ -358,6 +355,7 @@ function createStepAlias(file, suites, mocha, common) {
                     throw new model.ParserException(`This ${livedocContext.type} is using bdd syntax, did you mean to use given instead?`, title, file);
                 }
 
+                debugger;
                 // Some other Bdd language    
                 const bddContext = (livedocContext as any) as model.MochaSuite;
                 const bddTest = new model.LiveDocTest(bddContext, title);

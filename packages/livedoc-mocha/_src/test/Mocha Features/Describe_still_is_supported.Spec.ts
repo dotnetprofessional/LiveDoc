@@ -1,7 +1,7 @@
 import { LiveDoc } from "../../app/livedoc";
 import { SpecStatus, ExecutionResults } from "../../app/model";
 
-feature("Describe still functions the same as native mocha'", () => {
+feature("Describe still functions the same as native mocha", () => {
     let executionResults: ExecutionResults;
     let featureText: string;
 

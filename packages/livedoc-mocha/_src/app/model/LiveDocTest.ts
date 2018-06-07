@@ -1,11 +1,14 @@
 import { SpecStatus } from "./SpecStatus";
 import { Exception } from "./Exception";
 import { LiveDocSuite, MochaSuite } from ".";
+import { jsonIgnore } from "../decorators/jsonIgnore";
 
 export class LiveDocTest<P extends LiveDocSuite | MochaSuite> {
-    constructor (public parent: P, public title: string) {
-
+    constructor(parent: P, public title: string) {
+        this.parent = parent;
     }
+    @jsonIgnore
+    public parent: P;
     public id: string;
     public sequence: number;
     public duration: number;

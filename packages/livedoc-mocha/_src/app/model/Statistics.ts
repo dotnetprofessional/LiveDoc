@@ -1,6 +1,8 @@
 import { SpecStatus } from "./SpecStatus";
+import { jsonIgnore } from "../decorators";
 
 export class Statistics<T> {
+    @jsonIgnore
     public parent: T;
     public passCount: number = 0;
     public failedCount: number = 0;
@@ -13,11 +15,8 @@ export class Statistics<T> {
     public failedPercent: number = 0;
     public pendingPercent: number = 0;
 
-    constructor (parent: T) {
+    constructor(parent: T) {
         this.parent = parent;
-        Object.defineProperty(this, 'parent', {
-            enumerable: false
-        });
     }
 
     public updateStats(status: SpecStatus, duration: number) {

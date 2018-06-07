@@ -8,9 +8,11 @@ import { jsonIgnore } from "../decorators/jsonIgnore";
 
 export class Scenario extends LiveDocSuite {
 
-    // @jsonIgnore
+    @jsonIgnore
     public parent: Feature;
+    @jsonIgnore
     public givens: StepDefinition[] = [];
+    @jsonIgnore
     public whens: StepDefinition[] = [];
     public steps: StepDefinition[] = [];
 
@@ -18,23 +20,24 @@ export class Scenario extends LiveDocSuite {
     public executionTime: number;
 
     // Used for validations and grouping
+    @jsonIgnore
     private hasGiven: boolean = false;
+    @jsonIgnore
     private hasWhen: boolean = false;
+    @jsonIgnore
     private hasThen: boolean = false;
+    @jsonIgnore
     private processingStepType: string;
 
-    constructor (parent: Feature) {
+    constructor(parent: Feature) {
         super()
         this.parent = parent;
-        Object.defineProperty(this, 'parent', {
-            enumerable: false
-        });
     }
 
     public addStep(step: StepDefinition) {
         this.steps.push(step);
         step.sequence = this.steps.length;
-        step.setParent(this);
+        step.parent = this;
 
         // validate we have a description!
         if (!step.title) {

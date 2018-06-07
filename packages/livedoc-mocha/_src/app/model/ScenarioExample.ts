@@ -4,13 +4,18 @@ import { StepDefinition } from "./StepDefinition";
 import { ScenarioOutlineContext } from "./ScenarioOutlineContext";
 import { DescriptionParser } from "../parser/Parser";
 import { ScenarioOutline } from ".";
+import { jsonIgnore } from "../decorators";
 
 export class ScenarioExample extends Scenario {
     public example: DataTableRow;
+    @jsonIgnore
     public exampleRaw: DataTableRow;
+    @jsonIgnore
+    public scenarioOutline: ScenarioOutline;
 
-    constructor (parent: Feature, public scenarioOutline: ScenarioOutline) {
+    constructor(parent: Feature, scenarioOutline: ScenarioOutline) {
         super(parent);
+        this.scenarioOutline = scenarioOutline;
     }
 
     public addStep(step: StepDefinition): void {
