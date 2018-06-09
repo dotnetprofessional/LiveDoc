@@ -159,21 +159,11 @@ export function liveDocMocha(suite) {
                 livedocOptions = deepMerge(new LiveDocOptions, mocha.options.livedoc) as LiveDocOptions;
             } else {
                 // Migrate options set in code
-                livedocOptions = Object.assign(new LiveDocOptions(), (global as any).livedoc.options);
-
+                livedocOptions = deepMerge(new LiveDocOptions(), (global as any).livedoc.options) as LiveDocOptions;
                 // Migrate options passed via mocha.options
                 if (mocha.options.livedoc) {
-                    // Need to perform a deep copy to ensure any changes don't update the global state
-                    // replace the default with the passed in version
-                    livedocOptions.rules = Object.assign(livedocOptions.rules, JSON.parse(JSON.stringify(mocha.options.livedoc.rules || {})));
-                    livedocOptions.filters = Object.assign(livedocOptions.filters, JSON.parse(JSON.stringify(mocha.options.livedoc.filters || {})));
-                    livedocOptions.reporterOptions = mocha.options.livedoc.reporterOptions || livedocOptions.reporterOptions
-
-                    const mochaIncludes = mocha.options.livedoc.filters.include || [];
-                    const mochaExcludes = mocha.options.livedoc.filters.exclude || [];
-                    livedocOptions.filters.include.push(...mochaIncludes);
-                    livedocOptions.filters.exclude.push(...mochaExcludes);
-                    livedocOptions.filters.showFilterConflicts = mocha.options.livedoc.filters.showFilterConflicts || livedocOptions.filters.showFilterConflicts
+                    // deep merge options passed via mocha.options
+                    livedocOptions = deepMerge(livedocOptions, mocha.options.livedoc) as LiveDocOptions;
                 }
 
                 // Command line filters are additive and do not replace any existing filters
