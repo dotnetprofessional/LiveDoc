@@ -191,10 +191,13 @@ export class LiveDocReporter {
 
             // Now execute any post reporters
             if (livedocOptions.postReporters) {
-                livedocOptions.postReporters.forEach(reporter => {
+                livedocOptions.postReporters.forEach(async (reporter) => {
                     try {
                         const instance = new (reporter as any);
-                        instance.execute(actualResults, mochaOptions.reporterOptions || {});
+                        const result = instance.execute(actualResults, mochaOptions.reporterOptions || {});
+                        if (result && result["then"]) {
+                            await result;
+                        }
                     } catch (e) {
                         console.log(e);
                     }
