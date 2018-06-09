@@ -157,70 +157,70 @@ feature(`Filter exclude overrides include tags
 
         scenario("Using include option to specify ScenarioOutline to execute", () => {
             given(`the filter is
-        """
-        {
-            "include": ["filter:include"],
-            "exclude": ["filter:exclude"]
-        }
-        """
-        `, () => {
+                """
+                {
+                    "include": ["filter:include"],
+                    "exclude": ["filter:exclude"]
+                }
+                """
+                `, () => {
                     liveDocOptions.filters = stepContext.docStringAsEntity;
                 });
 
             and(`the following features
         
-        """
-        feature(\`This features Scenarios are executed they match the tag\`, () => {
-            scenarioOutline(\`a scenarioOutline within a tagged feature
-                @filter:include
+                """
+                feature(\`This features Scenarios are executed they match the tag\`, () => {
+                    scenarioOutline(\`a scenarioOutline within a tagged feature
+                        @filter:include
 
-                Examples:
-                | Col1  |
-                | dummy |
-                \`, () => {
-                given("given within a scenario", () => {
+                        Examples:
+                        | Col1  |
+                        | dummy |
+                        \`, () => {
+                        given("given within a scenario", () => {
 
+                        });
+                    });
+                    scenarioOutline(\`a scenario that's not executed due to exclude tag
+                        @filter:include
+                        @filter:exclude
+                        Examples:
+                        | Col1  |
+                        | dummy |
+                        \`, () => {
+                        given("given within a scenario", () => {
+
+                        });
+                    });
+                    scenarioOutline(\`another scenario within a tagged feature
+                        @filter:include
+
+                        Examples:
+                        | Col1  |
+                        | dummy |
+                        \`, () => {
+                        given("given within a scenario", () => {
+
+                        });
+                    });
                 });
-            });
-            scenarioOutline(\`a scenario that's not executed due to exclude tag
-                @filter:include
-                @filter:exclude
-                Examples:
-                | Col1  |
-                | dummy |
-                \`, () => {
-                given("given within a scenario", () => {
 
+                feature(\`This feature is not executed as there are no matching tags\`, () => {
+                    scenarioOutline(\`a non-tagged scenario
+
+                        Examples:
+                        | Col1  |
+                        | dummy |
+                    
+                    \`, () => {
+                        given("given within a scenario", () => {
+
+                        });
+                    });
                 });
-            });
-            scenarioOutline(\`another scenario within a tagged feature
-                @filter:include
-
-                Examples:
-                | Col1  |
-                | dummy |
-                \`, () => {
-                given("given within a scenario", () => {
-
-                });
-            });
-        });
-
-        feature(\`This feature is not executed as there are no matching tags\`, () => {
-            scenarioOutline(\`a non-tagged scenario
-
-                Examples:
-                | Col1  |
-                | dummy |
-            
-            \`, () => {
-                given("given within a scenario", () => {
-
-                });
-            });
-        });
-        """
-        `, () => {
+                """
+                `, () => {
                     featureText = stepContext.docString;
                 });
 

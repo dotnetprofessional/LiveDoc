@@ -423,9 +423,9 @@ export class LiveDocReporter {
 
     protected stepExampleEnd(step: model.StepDefinition): void { }
 
-    protected suiteStart(suite: model.LiveDocSuite): void { }
+    protected suiteStart(suite: model.MochaSuite): void { }
 
-    protected suiteEnd(suite: model.LiveDocSuite): void { }
+    protected suiteEnd(suite: model.MochaSuite): void { }
 
     protected testStart(test: model.LiveDocTest<model.MochaSuite>): void { }
 

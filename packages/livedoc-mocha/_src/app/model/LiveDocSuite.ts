@@ -12,7 +12,7 @@ export class LiveDocSuite extends SuiteBase<LiveDocSuite> {
     public displayTitle: string;
     public description: string;
 
-    constructor() {
+    constructor () {
         super();
         this.statistics = new Statistics(this);
     }
@@ -22,6 +22,9 @@ export class LiveDocSuite extends SuiteBase<LiveDocSuite> {
     }
 
     public addViolationInstance(violation: LiveDocRuleViolation): void {
+        if (this.ruleViolations.filter(v => v.rule === violation.rule).length > 0) {
+            return;
+        }
         this.ruleViolations.push(violation);
         this.registerRuleViolation();
     }

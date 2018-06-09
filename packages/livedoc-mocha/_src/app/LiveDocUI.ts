@@ -187,9 +187,10 @@ export function liveDocMocha(suite) {
                 }
                 livedocOptions.filters.showFilterConflicts = getCommandLineOption("--showFilterConflicts") || livedocOptions.filters.showFilterConflicts
 
-                if (livedocOptions.filters.include.length > 0 || livedocOptions.filters.exclude.length > 0) {
-                    mocha.options.hasOnly = true
-                }
+            }
+
+            if (livedocOptions.filters.include.length > 0 || livedocOptions.filters.exclude.length > 0) {
+                mocha.options.hasOnly = true
             }
 
             // update the option values with the new options
@@ -278,9 +279,6 @@ function createStepAlias(file, suites, mocha, common) {
             const suiteType = livedocContext && livedocContext.type;
             let stepDefinitionContextWrapper = stepDefinitionFunction;
 
-            if (suite.root) {
-                // Seems this step/it is being executed outside of a 
-            }
             if (isLiveDocType(type)) {
                 if (suite._beforeAll.length > 0) {
                     livedocContext.scenario.addViolation(RuleViolations.enforceUsingGivenOverBefore, `Using before does not help with readability, consider using a given instead.`, title);

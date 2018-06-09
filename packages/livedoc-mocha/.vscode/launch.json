@@ -121,7 +121,7 @@
             "internalConsoleOptions": "openOnSessionStart",
             // Prevents debugger from stepping into this code :)
             "skipFiles": [
-                "node_modules/**/*.js",
+                // "node_modules/**/*.js",
                 "<node_internals>/**/*.js"
             ]
         },
@@ -155,7 +155,7 @@
                 "-R",
                 "livedoc-spec-dev",
                 "-O",
-                "detailLevel=summary,json-output=results.json",
+                "json-output=results.json,detailLevel=silent",
                 "--ld-reporters",
                 "../../livedoc-json-dev",
                 "--ld-include",

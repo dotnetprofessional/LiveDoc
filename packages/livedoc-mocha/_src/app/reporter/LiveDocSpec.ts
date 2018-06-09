@@ -82,8 +82,13 @@ export class LiveDocSpec extends LiveDocReporter {
     }
 
     featureEnd(feature: model.Feature): void {
-        if (this.options.spec)
+        if (this.options.spec) {
             this.writeLine(" ");
+            if (feature.ruleViolations.length > 0) {
+                this.writeLine(this.colorTheme.statusFail("    WARNING: Rule violations"));
+                this.writeRuleViolations(feature.ruleViolations);
+            }
+        }
     }
 
     scenarioStart(scenario: model.Scenario): void {
@@ -96,11 +101,12 @@ export class LiveDocSpec extends LiveDocReporter {
             this.writeLine(" ");
 
             // Output any warnings
-            if (scenario.ruleViolations.length > 0) {
-                this.writeLine(this.colorTheme.statusFail("WARNING: Rule violations"));
-                scenario.ruleViolations.forEach(violation => {
-                    this.writeLine(this.colorTheme.statusFail(`${" ".repeat(5)} * ${violation.message}`));
-                });
+            if (scenario.ruleViolations.length > 0 || scenario.steps.filter(step => step.ruleViolations.length > 0).length > 0) {
+                this.writeLine(this.colorTheme.statusFail("    WARNING: Rule violations"));
+                this.writeRuleViolations(scenario.ruleViolations);
+                scenario.steps.forEach(step => {
+                    this.writeRuleViolations(step.ruleViolations);
+                })
             }
         }
     }
@@ -148,7 +154,13 @@ export class LiveDocSpec extends LiveDocReporter {
             this.outputStep(step, false);
     }
 
-    suiteStart(suite: any): void {
+    suiteStart(suite: model.MochaSuite): void {
+        if (suite.title == "root") {
+            // Only output if there's something recorded against the root
+            if (suite.children.length === 0 || suite.tests.length === 0) {
+                return;
+            }
+        }
         if (this.options.spec) {
             this.suiteIndent += 2;
             this.writeLine(" ");
@@ -156,19 +168,25 @@ export class LiveDocSpec extends LiveDocReporter {
         }
     }
 
-    suiteEnd(suite: any): void {
+    suiteEnd(suite: model.MochaSuite): void {
         if (this.options.spec) {
             this.suiteIndent -= 2;
         }
     }
 
-    testStart(test: any): void {
+    testStart(test: model.LiveDocTest<model.MochaSuite>): void {
     }
 
-    testEnd(test: any): void {
+    testEnd(test: model.LiveDocTest<model.MochaSuite>): void {
         if (this.options.spec) {
             this.outputTest(test);
         }
+    }
+
+    protected writeRuleViolations(violations: model.LiveDocRuleViolation[]) {
+        violations.forEach(violation => {
+            this.writeLine(this.colorTheme.statusFail(`${" ".repeat(5)} * ${violation.message}`));
+        });
     }
 
     protected writeLine(text: string) {
@@ -634,7 +652,7 @@ export class LiveDocSpec extends LiveDocReporter {
         if (step.dataTable) this.writeLine(this.applyBlockIndent(this.formatTable(step.dataTable, HeaderType.none), indent + hangingIndent));
     }
 
-    private outputTest(step: model.LiveDocTest<any>) {
+    private outputTest(step: model.LiveDocTest<model.MochaSuite>) {
         let indent = 2;
         let titleColor = this.colorTheme.stepDescription;
 
