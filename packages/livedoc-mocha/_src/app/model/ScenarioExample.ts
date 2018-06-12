@@ -22,7 +22,7 @@ export class ScenarioExample extends Scenario {
         super.addStep(step);
         const parser = new DescriptionParser();
         step.displayTitle = parser.bind(step.displayTitle, this.example);
-        step.title = step.displayTitle;
+        step.title = parser.bind(step.title, this.example);
         step.docString = parser.bind(step.docString, this.example);
     }
 
