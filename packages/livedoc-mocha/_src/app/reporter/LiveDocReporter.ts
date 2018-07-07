@@ -20,7 +20,7 @@ import { ColorTheme } from "./ColorTheme";
 
 var Base = require('mocha').reporters.Base;
 
-export class LiveDocReporter {
+export abstract class LiveDocReporter {
     protected options: Object;
     protected colorTheme: ColorTheme;
 
@@ -37,107 +37,128 @@ export class LiveDocReporter {
         this.executionStart();
 
         runner.on('suite', function (suite) {
-            const livedocContext: LiveDocContext = suite.livedoc;
+            try {
 
-            // Add a unique Id
-            const testContainer = _this.getTestContainer(suite);
-            if (!testContainer) {
-                return;
+                const livedocContext: LiveDocContext = suite.livedoc;
+
+                // Add a unique Id
+                const testContainer = _this.getTestContainer(suite);
+                if (!testContainer) {
+                    return;
+                }
+                testContainer.id = `${testContainer.parent ? testContainer.parent.id + "-" : ""}${fvn.hash(testContainer.title).str()}`;
+
+                // Notify reporter
+                switch (livedocContext.type) {
+                    case "Feature":
+                        _this.featureStart(testContainer);
+                        break;
+                    case "Background":
+                        _this.backgroundStart(testContainer);
+                        break;
+                    case "Scenario":
+                        _this.scenarioStart(testContainer);
+                        break;
+                    case "Scenario Outline":
+                        // Check if this is an Example or the original    
+                        if (testContainer.sequence === 1) {
+                            _this.scenarioOutlineStart(testContainer.scenarioOutline);
+                        }
+
+                        _this.scenarioExampleStart(testContainer);
+                        break;
+                    default:
+                        _this.suiteStart(testContainer);
+                }
             }
-            testContainer.id = `${testContainer.parent ? testContainer.parent.id + "-" : ""}${fvn.hash(testContainer.title).str()}`;
-
-            // Notify reporter
-            switch (livedocContext.type) {
-                case "Feature":
-                    _this.featureStart(testContainer);
-                    break;
-                case "Background":
-                    _this.backgroundStart(testContainer);
-                    break;
-                case "Scenario":
-                    _this.scenarioStart(testContainer);
-                    break;
-                case "Scenario Outline":
-                    // Check if this is an Example or the original    
-                    if (testContainer.sequence === 1) {
-                        _this.scenarioOutlineStart(testContainer.scenarioOutline);
-                    }
-
-                    _this.scenarioExampleStart(testContainer);
-                    break;
-                default:
-                    _this.suiteStart(testContainer);
+            catch (e) {
+                console.error("Reporter error: ", e);
             }
         });
 
         runner.on('suite end', function (suite) {
-            const livedocContext: LiveDocContext = suite.livedoc;
-            const testContainer = _this.getTestContainer(suite);
-            if (!testContainer) {
-                return;
+            try {
+                const livedocContext: LiveDocContext = suite.livedoc;
+                const testContainer = _this.getTestContainer(suite);
+                if (!testContainer) {
+                    return;
+                }
+
+                switch (livedocContext.type) {
+                    case "Feature":
+                        _this.featureEnd(testContainer);
+                        break;
+                    case "Background":
+                        _this.backgroundEnd(testContainer);
+                        break;
+                    case "Scenario":
+                        _this.scenarioEnd(testContainer);
+                        break;
+                    case "Scenario Outline":
+                        _this.scenarioExampleEnd(testContainer);
+
+                        if (testContainer.sequence === testContainer.scenarioOutline.examples.length) {
+                            _this.scenarioOutlineEnd(testContainer);
+                        }
+                        break;
+                    default:
+                        _this.suiteEnd(testContainer);
+                }
             }
-
-            switch (livedocContext.type) {
-                case "Feature":
-                    _this.featureEnd(testContainer);
-                    break;
-                case "Background":
-                    _this.backgroundEnd(testContainer);
-                    break;
-                case "Scenario":
-                    _this.scenarioEnd(testContainer);
-                    break;
-                case "Scenario Outline":
-                    _this.scenarioExampleEnd(testContainer);
-
-                    if (testContainer.sequence === testContainer.scenarioOutline.examples.length) {
-                        _this.scenarioOutlineEnd(testContainer);
-                    }
-                    break;
-                default:
-                    _this.suiteEnd(testContainer);
+            catch (e) {
+                console.error("Reporter error: ", e);
             }
         });
 
         runner.on('test', function (test: any) {
-            const step: model.LiveDocTest<any> = test.step;
-            if (!step.id) {
-                step.id = `${step.parent.id}-${fvn.hash(test.title).str()}`;
-            }
-
-            if (step.constructor.name === "StepDefinition") {
-                const stepDefinition = step as model.StepDefinition;
-                if (stepDefinition.parent.constructor.name === "ScenarioExample") {
-                    _this.stepExampleStart(test.step);
-                } else {
-                    _this.stepStart(test.step);
+            try {
+                const step: model.LiveDocTest<any> = test.step;
+                if (!step.id) {
+                    step.id = `${step.parent.id}-${fvn.hash(test.title).str()}`;
                 }
-            } else {
-                _this.testStart(step);
+
+                if (step.constructor.name === "StepDefinition") {
+                    const stepDefinition = step as model.StepDefinition;
+                    if (stepDefinition.parent.constructor.name === "ScenarioExample") {
+                        _this.stepExampleStart(test.step);
+                    } else {
+                        _this.stepStart(test.step);
+                    }
+                } else {
+                    _this.testStart(step);
+                }
+            }
+            catch (e) {
+                console.error("Reporter error: ", e);
             }
         });
 
         runner.on('test end', function (test: any) {
-            const step: model.LiveDocTest<any> = test.step;
+            try {
+                const step: model.LiveDocTest<any> = test.step;
 
-            step.code = test.fn ? test.fn.toString() : "";
-            step.duration = test.duration || 0;
-            step.setStatus(step.status, step.duration);
+                step.code = test.fn ? test.fn.toString() : "";
+                step.duration = test.duration || 0;
+                step.setStatus(step.status, step.duration);
 
-            if (step.constructor.name === "StepDefinition") {
-                const stepDefinition = step as model.StepDefinition;
-                if (stepDefinition.parent.constructor.name === "ScenarioExample") {
-                    _this.stepExampleEnd(test.step);
+                if (step.constructor.name === "StepDefinition") {
+                    const stepDefinition = step as model.StepDefinition;
+                    if (stepDefinition.parent.constructor.name === "ScenarioExample") {
+                        _this.stepExampleEnd(test.step);
+                    } else {
+                        _this.stepEnd(test.step);
+                    }
                 } else {
-                    _this.stepEnd(test.step);
+                    _this.testEnd(step);
                 }
-            } else {
-                _this.testEnd(step);
-            }
 
-            // locate the executionResults
-            if (!executionResults) {
-                executionResults = _this.getExecutionResults(test);
+                // locate the executionResults
+                if (!executionResults) {
+                    executionResults = _this.getExecutionResults(test);
+                }
+            }
+            catch (e) {
+                console.error("Reporter error: ", e);
             }
         });
 
@@ -146,18 +167,23 @@ export class LiveDocReporter {
         });
 
         runner.on('fail', function (test: any) {
-            const step: model.LiveDocTest<any> = test.step;
-            if (!step) {
-                // For some reason we dont' have a step 
-                return;
+            try {
+                const step: model.LiveDocTest<any> = test.step;
+                if (!step) {
+                    // For some reason we dont' have a step 
+                    return;
+                }
+                step.status = SpecStatus.fail;
+                test = test as any;
+                if (test.err) {
+                    step.exception.actual = test.err.actual || "";
+                    step.exception.expected = test.err.expected || "";
+                    step.exception.stackTrace = test.err.stack || "";
+                    step.exception.message = test.err.message || "";
+                }
             }
-            step.status = SpecStatus.fail;
-            test = test as any;
-            if (test.err) {
-                step.exception.actual = test.err.actual || "";
-                step.exception.expected = test.err.expected || "";
-                step.exception.stackTrace = test.err.stack || "";
-                step.exception.message = test.err.message || "";
+            catch (e) {
+                console.error("Reporter error: ", e);
             }
         });
 
@@ -166,42 +192,47 @@ export class LiveDocReporter {
         });
 
         runner.on('end', function (test) {
-            // results have all tests that have been defined, not just
-            // those that were executed. As such need to remove those
-            // that were not executed
-            const actualResults = new ExecutionResults();
-            executionResults.features.forEach((feature, index) => {
-                if (feature.statistics.totalCount !== 0) {
-                    const featureClone = Object.assign(new model.Feature(), feature);
-                    actualResults.features.push(featureClone);
-                    // Now remove any scenarios don't have any results
-                    featureClone.scenarios = featureClone.scenarios.filter(scenario => scenario.statistics.totalCount !== 0);
-                }
-            });
+            try {
+                // results have all tests that have been defined, not just
+                // those that were executed. As such need to remove those
+                // that were not executed
 
-            executionResults.suites.forEach((suite, index) => {
-                if (suite.statistics.totalCount !== 0) {
-                    const suite = executionResults.suites[index];
-                    actualResults.suites.push(suite);
-                    // Now remove any scenarios don't have any results
-                    suite.children = suite.children.filter(child => child.statistics.totalCount !== 0);
-                }
-            });
-            _this.executionEnd(actualResults);
-
-            // Now execute any post reporters
-            if (livedocOptions.postReporters) {
-                livedocOptions.postReporters.forEach(async (reporter) => {
-                    try {
-                        const instance = new (reporter as any);
-                        const result = instance.execute(actualResults, mochaOptions.reporterOptions || {});
-                        if (result && result["then"]) {
-                            await result;
-                        }
-                    } catch (e) {
-                        console.log(e);
+                const actualResults = new ExecutionResults();
+                executionResults.features.forEach((feature, index) => {
+                    if (feature.statistics.totalCount !== 0) {
+                        const featureClone = Object.assign(new model.Feature(), feature);
+                        actualResults.features.push(featureClone);
+                        // Now remove any scenarios don't have any results
+                        featureClone.scenarios = featureClone.scenarios.filter(scenario => scenario.statistics.totalCount !== 0);
                     }
                 });
+
+                executionResults.suites.forEach((suite, index) => {
+                    if (suite.statistics.totalCount !== 0) {
+                        const suite = executionResults.suites[index];
+                        actualResults.suites.push(suite);
+                        // Now remove any scenarios don't have any results
+                        suite.children = suite.children.filter(child => child.statistics.totalCount !== 0);
+                    }
+                });
+                _this.executionEnd(actualResults);
+                // Now execute any post reporters
+                if (livedocOptions.postReporters) {
+                    livedocOptions.postReporters.forEach(async (reporter) => {
+                        try {
+                            const instance = new (reporter as any);
+                            const result = instance.execute(actualResults, mochaOptions.reporterOptions || {});
+                            if (result && result["then"]) {
+                                await result;
+                            }
+                        } catch (e) {
+                            console.log(e);
+                        }
+                    });
+                }
+            }
+            catch (e) {
+                console.error("Reporter error: ", e);
             }
         });
 
@@ -209,7 +240,17 @@ export class LiveDocReporter {
 
     //#region Common Routines
 
-    protected createUnifiedDiff(actual, expected) {
+    /**
+     * Returns a string highlighting the differences between the actual
+     * and expected strings.
+     *
+     * @protected
+     * @param {*} actual
+     * @param {*} expected
+     * @returns {string}
+     * @memberof LiveDocReporter
+     */
+    protected createUnifiedDiff(actual, expected): string {
         var indent = '';
         const _this = this;
         function cleanUp(line) {
@@ -230,7 +271,7 @@ export class LiveDocReporter {
         function notBlank(line) {
             return typeof line !== 'undefined' && line !== null;
         }
-        var msg = diff.createPatch('string', actual, expected);
+        var msg = diff.createPatch('string', actual.toString(), expected.toString());
         var lines = msg.split('\n').splice(5);
         return (
             '\n' +
@@ -245,6 +286,15 @@ export class LiveDocReporter {
         );
     }
 
+    /**
+     * returns the context indented by the number of spaces specified by {number}
+     *
+     * @protected
+     * @param {string} content
+     * @param {number} indent
+     * @returns {string}
+     * @memberof LiveDocReporter
+     */
     protected applyBlockIndent(content: string, indent: number): string {
         const reader: TextBlockReader = new TextBlockReader(content);
 
@@ -257,14 +307,35 @@ export class LiveDocReporter {
         return lines.join("\n");
     }
 
-    protected highlight(content, regex: RegExp, color: Chalk) {
+    /**
+     * Will highlight matches based on the supplied regEx wit the supplied color
+     *
+     * @protected
+     * @param {*} content
+     * @param {RegExp} regex
+     * @param {Chalk} color
+     * @returns {string}
+     * @memberof LiveDocReporter
+     */
+    protected highlight(content, regex: RegExp, color: Chalk): string {
         return content.replace(regex, (item, pos, originalText) => {
             return color(item);
         });
 
     }
 
-    protected bind(content, model, color: Chalk) {
+    /**
+     * Will return the string substituting placeholders defined with <..> with 
+     * the value from the example
+     *
+     * @protected
+     * @param {*} content
+     * @param {*} model
+     * @param {Chalk} color
+     * @returns {string}
+     * @memberof LiveDocReporter
+     */
+    protected bind(content, model, color: Chalk): string {
         var regex = new RegExp("<[^>]+>", "g");
         return content.replace(regex, (item, pos, originalText) => {
             return color(this.applyBinding(item, model));
@@ -285,7 +356,18 @@ export class LiveDocReporter {
         return name.replace(/[ `’']/g, "");
     }
 
-    protected formatTable(dataTable: DataTableRow[], headerStyle: HeaderType, includeRowId: boolean = false, runningTotal: number = 0) {
+    /**
+     * Returns a formatted table of the dataTable data
+     *
+     * @protected
+     * @param {DataTableRow[]} dataTable
+     * @param {HeaderType} headerStyle
+     * @param {boolean} [includeRowId=false]
+     * @param {number} [runningTotal=0]
+     * @returns {string}
+     * @memberof LiveDocReporter
+     */
+    protected formatTable(dataTable: DataTableRow[], headerStyle: HeaderType, includeRowId: boolean = false, runningTotal: number = 0): string {
         // const headers = step.dataTable[0];
         // Determine the formatting based on table size etc
         if (headerStyle === HeaderType.none) {
@@ -348,7 +430,7 @@ export class LiveDocReporter {
      * 
      * @param {string} text 
      */
-    protected writeLine(text: string) {
+    protected writeLine(text: string): void {
         if (text) {
             if (!this.mochaOptions.useColors) {
                 // colors are added by default, setting chalk.level can affect other reporters
@@ -356,6 +438,24 @@ export class LiveDocReporter {
                 text = strip(text);
             }
             console.log(text);
+        }
+    }
+
+    /**
+     * adds the text to the reporters output stream
+     * without a line return
+     * 
+     * @param {string} text 
+     */
+    protected write(text: string): void {
+        if (text) {
+            if (!this.mochaOptions.useColors) {
+                // colors are added by default, setting chalk.level can affect other reporters
+                // so remove colors if no-color specified
+                text = strip(text);
+            }
+            // Output without a line return
+            process.stdout.write(text);
         }
     }
 

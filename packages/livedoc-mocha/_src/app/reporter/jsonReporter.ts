@@ -2,7 +2,7 @@ import * as fs from "fs-extra";
 import { IPostReporter } from "./IPostReporter";
 import { ExecutionResults } from "../model/ExecutionResults";
 
-export default class JsonReporter implements IPostReporter {
+export class JsonReporter implements IPostReporter {
     public execute(results: ExecutionResults, options: any) {
         if (!options || !options["json-output"]) {
             throw Error("json reporter: you must specify an output file");

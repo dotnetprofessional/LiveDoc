@@ -86,12 +86,12 @@ Then the customer <pays GST>
 
 Examples:
 
-    | Customer’s Country  | GST Amount  | Order Total  | Shipping Rate           |
-    | Australia           |       9.999 |        99.99 | Standard Domestic       |
-    | Australia           |       10.00 |       100.00 | Free                    |
-    | New Zealand         |           0 |        99.99 | Standard International  |
-    | New Zealand         |           0 |       100.00 | Standard International  |
-    | Zimbabwe            |           0 |       100.00 | Standard International  |
+    | Customer’s Country | GST Amount | Order Total |     Shipping Rate      |
+    | Australia          |      9.999 |       99.99 | Standard Domestic      |
+    | Australia          |      10.00 |      100.00 | Free                   |
+    | New Zealand        |          0 |       99.99 | Standard International |
+    | New Zealand        |          0 |      100.00 | Standard International |
+    | Zimbabwe           |          0 |      100.00 | Standard International |
 ```
 
 This style provides a number of benefits, namely that its very clear how GST is calculated and who is eligible for free shipping and _why_. Using a feature in Gherkin called _Scenario Outlines_ a set of examples were used to describe the different combinations without having to write them all out, as was the case in the more technical version.
@@ -115,12 +115,12 @@ Then the customer pays <GST Amount> GST
 
 Examples:
 
-    | customer’s country  | GSTamount  | order total  | shipping rate           |
-    | Australia           |      9.999 |        99.99 | Standard Domestic       |
-    | Australia           |      10.00 |       100.00 | Free                    |
-    | New Zealand         |          0 |        99.99 | Standard International  |
-    | New Zealand         |          0 |       100.00 | Standard International  |
-    | Zimbabwe            |          0 |       100.00 | Standard International  |
+    | customer’s country | GSTamount | order total |     shipping rate      |
+    | Australia          |     9.999 |       99.99 | Standard Domestic      |
+    | Australia          |     10.00 |      100.00 | Free                   |
+    | New Zealand        |         0 |       99.99 | Standard International |
+    | New Zealand        |         0 |      100.00 | Standard International |
+    | Zimbabwe           |         0 |      100.00 | Standard International |
 ```
 
 This version of the requirements, can now be used for validation of the system, but also serve as documentation which __anyone__ on the team can understand.
@@ -173,12 +173,12 @@ scenarioOutline(`Calculate GST status and shipping rate
 
     Examples:
 
-    | Customer’s Country  | GST Amount  | Order Total  | Shipping Rate           |
-    | Australia           |       9.999 |        99.99 | Standard Domestic       |
-    | Australia           |       10.00 |       100.00 | Free                    |
-    | New Zealand         |           0 |        99.99 | Standard International  |
-    | New Zealand         |           0 |       100.00 | Standard International  |
-    | Zimbabwe            |           0 |       100.00 | Standard International  |
+    | Customer’s Country | GST Amount | Order Total |     Shipping Rate      |
+    | Australia          |      9.999 |       99.99 | Standard Domestic      |
+    | Australia          |      10.00 |      100.00 | Free                   |
+    | New Zealand        |          0 |       99.99 | Standard International |
+    | New Zealand        |          0 |      100.00 | Standard International |
+    | Zimbabwe           |          0 |      100.00 | Standard International |
 `, () => {
         const cart = new ShoppingCart();
 

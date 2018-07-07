@@ -110,7 +110,7 @@ export class LiveDoc {
         }
 
         return new Promise<ExecutionResults>((resolve, reject) => {
-            const mochaInstance = new mocha(mochaOptions);
+            const mochaInstance = new mocha(mochaOptions as any);
 
             mochaInstance.addFile(filename);
             (mochaInstance.run() as any)

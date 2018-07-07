@@ -172,7 +172,7 @@ export function liveDocMocha(suite) {
                 const postReporters = getCommandLineOptions("--ld-reporters");
                 if (postReporters && postReporters.length > 0) {
                     postReporters.forEach(reporter => {
-                        livedoc.options.postReporters.push(require(reporter));
+                        livedocOptions.postReporters.push(require(reporter));
                     });
                 }
                 livedocOptions.filters.showFilterConflicts = getCommandLineOption("--showFilterConflicts") || livedocOptions.filters.showFilterConflicts

@@ -2,11 +2,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "node",
-            "request": "launch",
-            // Automatically stop program after launch.
-            "stopOnEntry": false,
             "name": "livedoc-reporter",
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
             "cwd": "${workspaceRoot}",
             "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
             "windows": {
@@ -22,12 +22,13 @@
                 "--require",
                 "build/app/index",
                 "--require",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "--ui",
                 "livedoc-mocha",
                 "${workspaceRoot}/build/test/**/*.Spec.js",
                 "-R",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
+                "build/app/reporter/LiveDocEmoji",
                 "--ld-include",
                 "dev"
             ],
@@ -43,11 +44,11 @@
             ]
         },
         {
-            "type": "node",
-            "request": "launch",
-            // Automatically stop program after launch.
-            "stopOnEntry": false,
             "name": "livedoc-reporter-nocolor",
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
             "cwd": "${workspaceRoot}",
             "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
             "windows": {
@@ -62,12 +63,12 @@
                 "--require",
                 "build/app/index",
                 "--require",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "--ui",
                 "livedoc-mocha",
                 "${workspaceRoot}/build/test/**/*.Spec.js",
                 "-R",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "--ld-include",
                 "dev"
             ],
@@ -83,11 +84,11 @@
             ]
         },
         {
+            "name": "livedoc-reporter-summary",
             "type": "node",
             "request": "launch",
             // Automatically stop program after launch.
             "stopOnEntry": false,
-            "name": "livedoc-reporter-summary",
             "cwd": "${workspaceRoot}",
             "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
             "windows": {
@@ -106,9 +107,9 @@
                 "livedoc-mocha",
                 "${workspaceRoot}/build/test/**/*.Spec.js",
                 "--require",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "-R",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "-O",
                 "detailLevel=summary",
                 "--ld-include",
@@ -126,11 +127,11 @@
             ]
         },
         {
+            "name": "livedoc-reporter-summary-json",
             "type": "node",
             "request": "launch",
             // Automatically stop program after launch.
             "stopOnEntry": false,
-            "name": "livedoc-reporter-summary-json",
             "cwd": "${workspaceRoot}",
             "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
             "windows": {
@@ -149,15 +150,15 @@
                 "livedoc-mocha",
                 "${workspaceRoot}/build/test/**/*.Spec.js",
                 "--require",
-                "livedoc-json-dev",
+                "build/app/livedoc-json",
                 "--require",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "-R",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "-O",
-                "json-output=results.json,detailLevel=silent",
+                "json-output=./results.json,detailLevel=silent",
                 "--ld-reporters",
-                "../../livedoc-json-dev",
+                "./livedoc-json",
                 "--ld-include",
                 "dev"
             ],
@@ -196,9 +197,9 @@
                 "livedoc-mocha",
                 "${workspaceRoot}/build/test/**/*.Spec.js",
                 "--require",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "-R",
-                "livedoc-spec-dev",
+                "build/app/livedoc-spec",
                 "-O",
                 "output=results.txt,detailLevel=summary",
                 "--ld-include",

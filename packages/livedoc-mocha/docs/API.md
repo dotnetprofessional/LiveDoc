@@ -146,7 +146,7 @@ _Gherkin_
 ``` Gherkin
 Given the account holders account has the following:
 
-    | balance | 100   |
+    | balance |   100 |
     | status  | valid |
   and the machine contains 1000 dollars
 When the Account Holder requests 20 dollars
@@ -158,7 +158,7 @@ _livedoc-mocha_
 ```js
 given(`the account holders account has the following:
 | account | 12345 |
-| balance | 100   |
+| balance |   100 |
 | status  | valid |
 `, () => {
     });
@@ -200,7 +200,7 @@ _Multicolumn table_
 
 ```js
 given(`Some title here:
-  | name   | email              | twitter         |
+  |  name  |       email        |     twitter     |
   | Aslak  | aslak@cucumber.io  | @aslak_hellesoy |
   | Julien | julien@cucumber.io | @jbpros         |
   | Matt   | matt@cucumber.io   | @mattwynne      |
@@ -217,7 +217,7 @@ _Two column table_
 ```js
 given(`Some title here:
     | account | 12345 |
-    | balance | 100   |
+    | balance |   100 |
     | status  | valid |
 `, () => { });
 ```
@@ -233,8 +233,8 @@ _Methods_
 _Single column table_
 ```js
 given(`Some title here:
-    | 17   |
-    | 42   |
+    |    17|
+    |   42 |
     | 4711 |
 `, () => { });
 ```
@@ -432,18 +432,18 @@ Livedoc-mocha forgoes the need to prefix each tag with an @ sign, as is done in 
 ## Type Coercion Support
 livedoc-mocha supports type coercion to make using your data in your tests easier. Any time data is retrieved via a context, it will be coerced. The following table shows the supported types:
 
-    | type          | example               |
-    | number        |                  1234 |
-    | numberZero    |                     0 |
-    | boolean true  | true                  |
-    | boolean false | false                 |
-    | array         | ["hello", "Goodbye"]  |
-    | object        | {"prop": "Goodbye"}   |
-    | null values   | null                  |
-    | USDate        | 01/02/2019            |
-    | ISODate       | 2019-01-02            |
-    | spaces        | " "                   |
-    | quotes        | " a \\" is here"      |
+    | type          | example              |
+    | number        |                 1234 |
+    | numberZero    |                    0 |
+    | boolean true  | true                 |
+    | boolean false | false                |
+    | array         | ["hello", "Goodbye"] |
+    | object        | {"prop": "Goodbye"}  |
+    | null values   | null                 |
+    | USDate        | 01/02/2019           |
+    | ISODate       | 2019-01-02           |
+    | spaces        | " "                  |
+    | quotes        | " a \\" is here"     |
 
 In general type coercion is handled by attempting to JSON.parse the value and if that fails will fall back to returning the original string. Dates are a special case and there is support for two common formats [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) and a simple US date format (mm/dd/yyy).
 
