@@ -1,0 +1,53 @@
+{
+  "name": "livedoc-emoji-reporter",
+  "version": "0.1.0",
+  "author": "Garry McGlennon",
+  "description": "A simple reporter that shows a smiley for each passing scenario.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git"
+  },
+  "homepage": "https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha#readme",
+  "bugs": {
+    "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "main": "release/emojiReporter.js",
+  "typings": "release/emojiReporter.d.ts",
+  "keywords": [
+    "livedoc",
+    "mocha",
+    "livedoc-reporter",
+    "emoji",
+    "javascript",
+    "testing",
+    "tests"
+  ],
+  "engines": {
+    "node": "*"
+  },
+  "scripts": {
+    "test": "mocha --require ./build/app/emojiReporter.js --colors --ui livedoc-mocha --reporter ../../../build/app/emojiReporter  --recursive build/**/*.Spec.js",
+    "xpretest": "tsc -p . && cls",
+    "release-web": "npm run compile-web && npm run compile-web-minify",
+    "compile": "rimraf build && tsc -d -p tsconfig.json",
+    "release": "rimraf release && tsc -d -p tsconfig.npm.json",
+    "watch": "tsc --watch -p .",
+    "vscode": "code --disable-gpu",
+    "xprepublish": "npm run release"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.3",
+    "@types/node": "^7.0.65",
+    "chai": "^4.1.2",
+    "mocha": "^5.2.0",
+    "rimraf": "^2.6.2",
+    "tslint": "^4.4.2",
+    "typescript": "^2.8.3"
+  },
+  "peerDependencies": {
+    "mocha": "4.x"
+  },
+  "dependencies": {
+    "livedoc-mocha": "file:livedoc-mocha-0.4.0-beta-2.tgz"
+  }
+}
