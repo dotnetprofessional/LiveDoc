@@ -12,20 +12,18 @@ import { LiveDocOptions } from "../LiveDocOptions";
 import * as strip from "strip-ansi";
 import { ColorTheme } from "./ColorTheme";
 
-//import * as fs from "fs-extra";
+var Base = require('mocha').reporters.Base
 
 /**
  * Module dependencies.
  */
 
-var Base = require('mocha').reporters.Base;
-
-export abstract class LiveDocReporter {
+export abstract class LiveDocReporter extends Base {
     protected options: Object;
     protected colorTheme: ColorTheme;
 
     constructor (runner, protected mochaOptions) {
-        Base.call(this, runner);
+        super(runner);
         const _this = this;
         const livedocOptions: LiveDocOptions = mochaOptions.livedoc;
 

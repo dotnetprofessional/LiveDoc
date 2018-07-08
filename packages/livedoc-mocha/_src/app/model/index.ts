@@ -16,3 +16,8 @@ export { SpecStatus } from "./SpecStatus";
 export { ExecutionResults } from "./ExecutionResults";
 export { ParserException } from "./ParserException";
 export { Statistics } from "./Statistics";
+export { FeatureContext } from "./FeatureContext";
+export { ScenarioContext } from "./ScenarioContext";
+export { BackgroundContext } from "./BackgroundContext";
+export { ScenarioOutlineContext } from "./ScenarioOutlineContext";
+export { StepContext } from "./StepContext";
