@@ -472,6 +472,21 @@ export class LiveDocSpec extends LiveDocReporter {
 
             // This will repeat the feature/scenario detail but at a minimized level, enough to provide
             // context.
+
+            // Output any errors occurring in the Backgrounds
+            if (feature.background.statistics.failedCount > 0) {
+                const background = feature.background;
+                this.writeLine(this.formatKeywordTitle("Background", background.title, this.colorTheme.keyword, this.colorTheme.backgroundTitle, indent));
+                // display the steps
+                debugger;
+                background.steps.forEach(step => {
+                    this.outputStep(step, false);
+                    if (step.status === model.SpecStatus.fail) {
+                        this.outputStepError(step);
+                    }
+                });
+            }
+
             feature.scenarios.forEach(scenario => {
                 if (scenario.statistics.failedCount > 0) {
                     if (scenario.constructor.name === "ScenarioOutline") {
@@ -544,8 +559,10 @@ export class LiveDocSpec extends LiveDocReporter {
         }
     }
 
+    private static errorCount: number = 0;
     private outputStepError(step: model.LiveDocTest<any>) {
         const color = this.colorTheme.dataTable;
+        LiveDocSpec.errorCount++;
 
         const table = new cliTable({
             chars: {
@@ -566,7 +583,7 @@ export class LiveDocSpec extends LiveDocReporter {
                 , 'middle': color('│')
             }
         });
-        table.push([{ colSpan: 2, content: color('Error') }]);
+        table.push([{ colSpan: 2, content: color('Error: ' + LiveDocSpec.errorCount) }]);
         table.push(["Message", step.exception.message]);
         if (step.exception.expected) {
             table.push(["Diff", this.createUnifiedDiff(step.exception.actual, step.exception.expected)]);
