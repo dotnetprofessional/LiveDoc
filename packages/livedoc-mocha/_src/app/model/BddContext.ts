@@ -1,4 +1,4 @@
-import { Describe } from "./Describe";
+import { MochaSuite } from ".";
 
 
 /**
@@ -7,8 +7,5 @@ import { Describe } from "./Describe";
  * @class BddContext
  */
 export class BddContext {
-    parent: BddContext;
-    type: string;
-    describe: Describe;
-    child: Describe;
+    mochaSuite: MochaSuite;
 }

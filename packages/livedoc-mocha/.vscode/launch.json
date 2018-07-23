@@ -2,6 +2,221 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "livedoc-reporter",
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
+            "cwd": "${workspaceRoot}",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha.cmd"
+            },
+            "runtimeArgs": [
+                "-u",
+                "tdd",
+                "--timeout",
+                "999999",
+                "--colors",
+                "--recursive",
+                "--require",
+                "build/app/index",
+                "--require",
+                "build/app/livedoc-spec",
+                "--ui",
+                "livedoc-mocha",
+                "${workspaceRoot}/build/test/**/*.Spec.js",
+                "-R",
+                "build/app/livedoc-spec",
+                "build/app/reporter/LiveDocEmoji",
+                "--ld-include",
+                "dev"
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/build"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            // Prevents debugger from stepping into this code :)
+            "skipFiles": [
+                "node_modules/**/*.js",
+                "<node_internals>/**/*.js"
+            ]
+        },
+        {
+            "name": "livedoc-reporter-nocolor",
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
+            "cwd": "${workspaceRoot}",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha.cmd"
+            },
+            "runtimeArgs": [
+                "-u",
+                "tdd",
+                "--timeout",
+                "999999",
+                "--recursive",
+                "--require",
+                "build/app/index",
+                "--require",
+                "build/app/livedoc-spec",
+                "--ui",
+                "livedoc-mocha",
+                "${workspaceRoot}/build/test/**/*.Spec.js",
+                "-R",
+                "build/app/livedoc-spec",
+                "--ld-include",
+                "dev"
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/build"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            // Prevents debugger from stepping into this code :)
+            "skipFiles": [
+                "node_modules/**/*.js",
+                "<node_internals>/**/*.js"
+            ]
+        },
+        {
+            "name": "livedoc-reporter-summary",
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
+            "cwd": "${workspaceRoot}",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha.cmd"
+            },
+            "runtimeArgs": [
+                "-u",
+                "tdd",
+                "--timeout",
+                "999999",
+                "--colors",
+                "--recursive",
+                "--require",
+                "build/app/index",
+                "--ui",
+                "livedoc-mocha",
+                "${workspaceRoot}/build/test/**/*.Spec.js",
+                "--require",
+                "build/app/livedoc-spec",
+                "-R",
+                "build/app/livedoc-spec",
+                "-O",
+                "detailLevel=summary",
+                "--ld-include",
+                "dev"
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/build"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            // Prevents debugger from stepping into this code :)
+            "skipFiles": [
+                // "node_modules/**/*.js",
+                "<node_internals>/**/*.js"
+            ]
+        },
+        {
+            "name": "livedoc-reporter-summary-json",
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
+            "cwd": "${workspaceRoot}",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha.cmd"
+            },
+            "runtimeArgs": [
+                "-u",
+                "tdd",
+                "--timeout",
+                "999999",
+                "--colors",
+                "--recursive",
+                "--require",
+                "build/app/index",
+                "--ui",
+                "livedoc-mocha",
+                "${workspaceRoot}/build/test/**/*.Spec.js",
+                "--require",
+                "build/app/livedoc-json",
+                "--require",
+                "build/app/livedoc-spec",
+                "-R",
+                "build/app/livedoc-spec",
+                "-O",
+                "json-output=./results.json,detailLevel=silent",
+                "--ld-reporters",
+                "./livedoc-json",
+                "--ld-include",
+                "dev"
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/build"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            // Prevents debugger from stepping into this code :)
+            "skipFiles": [
+                "node_modules/**/*.js",
+                "<node_internals>/**/*.js"
+            ]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            // Automatically stop program after launch.
+            "stopOnEntry": false,
+            "name": "livedoc-reporter-summary-file",
+            "cwd": "${workspaceRoot}",
+            "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha",
+            "windows": {
+                "runtimeExecutable": "${workspaceRoot}/node_modules/.bin/mocha.cmd"
+            },
+            "runtimeArgs": [
+                "-u",
+                "tdd",
+                "--timeout",
+                "999999",
+                "--colors",
+                "--recursive",
+                "--require",
+                "build/app/index",
+                "--ui",
+                "livedoc-mocha",
+                "${workspaceRoot}/build/test/**/*.Spec.js",
+                "--require",
+                "build/app/livedoc-spec",
+                "-R",
+                "build/app/livedoc-spec",
+                "-O",
+                "output=results.txt,detailLevel=summary",
+                "--ld-include",
+                "dev"
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/build"
+            ],
+            "internalConsoleOptions": "openOnSessionStart",
+            // Prevents debugger from stepping into this code :)
+            "skipFiles": [
+                "node_modules/**/*.js",
+                "<node_internals>/**/*.js"
+            ]
+        },
+        {
             "type": "node",
             "request": "launch",
             // Automatically stop program after launch.

@@ -10,3 +10,5 @@ npm-debug.log
 /build
 /release
 /mochawesome-reports
+/_temp
+/.nyc_output

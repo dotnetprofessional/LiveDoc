@@ -2,22 +2,6 @@ import { LiveDocRuleOption } from "./LiveDocRuleOption";
 
 export class LiveDocRules {
     /**
-     * Is triggered when a scenario, scenarioOutline or background is used without a feature
-     * 
-     * @type {LiveDocRuleOption}
-     * @memberof LiveDocRules
-     */
-    public missingFeature: LiveDocRuleOption; //done
-
-    /**
-     * Is triggered if a given, when or then is not a child of a scenario, scenarioOutline or background 
-     * 
-     * @type {LiveDocRuleOption}
-     * @memberof LiveDocRules
-     */
-    public givenWhenThenMustBeWithinScenario: LiveDocRuleOption; //done
-
-    /**
      * Is triggered when more than 1 given, when or then is used within a single scenario, scenarioOutline or background
      * 
      * @type {LiveDocRuleOption}
@@ -49,21 +33,13 @@ export class LiveDocRules {
      */
     public mustIncludeThen: LiveDocRuleOption; // not sure how to implement
 
-    /**
-     * Is triggered when an and or but doesn't also include a given, when or then
-     * 
-     * @type {LiveDocRuleOption}
-     * @memberof LiveDocRules
-     */
-    public andButMustHaveGivenWhenThen: LiveDocRuleOption; //done
-
-    /**
-     * Is triggered when the Gherkin language is mixed withe mocha's BDD language
-     * 
-     * @type {LiveDocRuleOption}
-     * @memberof LiveDocRules
-     */
-    public mustNotMixLanguages: LiveDocRuleOption; //done
+    // /**
+    //  * Is triggered when an and or but doesn't also include a given, when or then
+    //  * 
+    //  * @type {LiveDocRuleOption}
+    //  * @memberof LiveDocRules
+    //  */
+    // public andButMustHaveGivenWhenThen: LiveDocRuleOption; //done
 
     /**
      * Is triggered if a background uses when or then

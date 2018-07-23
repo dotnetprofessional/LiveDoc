@@ -6,6 +6,7 @@ export class StepContext {
     private _parser = new DescriptionParser();
 
     public title: string;
+    public displayTitle: string;
     public dataTable: DataTableRow[];
 
     public docString: string;

@@ -3,19 +3,27 @@ import { Feature } from "./Feature";
 import { StepDefinition } from "./StepDefinition";
 import { ScenarioOutlineContext } from "./ScenarioOutlineContext";
 import { DescriptionParser } from "../parser/Parser";
+import { ScenarioOutline } from ".";
+import { jsonIgnore } from "../decorators";
 
-export class ScenarioOutlineScenario extends Scenario {
+export class ScenarioExample extends Scenario {
     public example: DataTableRow;
+    @jsonIgnore
     public exampleRaw: DataTableRow;
+    @jsonIgnore
+    public scenarioOutline: ScenarioOutline;
 
-    constructor (parent: Feature) {
-        super(parent)
+    constructor(parent: Feature, scenarioOutline: ScenarioOutline) {
+        super(parent);
+        this.scenarioOutline = scenarioOutline;
     }
 
     public addStep(step: StepDefinition): void {
         super.addStep(step);
-        step.title = new DescriptionParser().bind(step.title, this.example);
-        step.displayTitle = new DescriptionParser().bind(step.displayTitle, this.example);
+        const parser = new DescriptionParser();
+        step.displayTitle = parser.bind(step.displayTitle, this.example);
+        step.title = parser.bind(step.title, this.example);
+        step.docString = parser.bind(step.docString, this.example);
     }
 
     public getScenarioContext(): ScenarioOutlineContext {

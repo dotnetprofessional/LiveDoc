@@ -1,30 +1,35 @@
 import { StepContext } from "./StepContext";
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
+import { LiveDocTest } from "./LiveDocTest";
+import { Scenario } from ".";
+import { jsonIgnore } from "../decorators";
 
-export class StepDefinition {
-    public id: number;
-    public title: string = "";
+export class StepDefinition extends LiveDocTest<Scenario> {
+    @jsonIgnore
     public displayTitle: string = "";
+    @jsonIgnore
+    public rawTitle: string = "";
 
     public type: string;
     public description: string = "";
-    public rawDescription: string = "";
+    // public descriptionRaw: string = "";
     public docString: string = "";
+    @jsonIgnore
+    public docStringRaw: string = "";
     public dataTable: DataTableRow[] = [];
     public values: any[] = [];
+    @jsonIgnore
     public valuesRaw: string[] = [];
-    public status: string;
-    public code: string;
     public ruleViolations: LiveDocRuleViolation[] = [];
-    //error: Exception = new Exception();
 
     public associatedScenarioId: number;
-    public executionTime: number;
+    public duration: number;
 
     public getStepContext(): StepContext {
         const context = new StepContext();
         context.title = this.title;
+        context.displayTitle = this.displayTitle;
         context.dataTable = this.dataTable;
         context.docString = this.docString;
         context.values = this.values;
@@ -35,5 +40,6 @@ export class StepDefinition {
 
     public addViolation(rule: RuleViolations, message: string, title: string): void {
         this.ruleViolations.push(new LiveDocRuleViolation(rule, message, title));
+        this.parent.registerRuleViolation();
     }
 }

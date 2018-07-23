@@ -12,7 +12,7 @@
         "sourceMap": true,
         "alwaysStrict": true,
         "forceConsistentCasingInFileNames": true,
-        "noImplicitThis": true,
+        "noImplicitThis": false,
         "noUnusedLocals": true,
         "pretty": true
     },

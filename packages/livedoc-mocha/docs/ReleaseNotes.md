@@ -1,4 +1,25 @@
 # Release Notes
+
+## [not released]
+* Refactor: [#62](https://github.com/dotnetprofessional/LiveDoc/issues/62) Convert to use ES6 modules
+* Feature: [#50](https://github.com/dotnetprofessional/LiveDoc/issues/50) Add support to highlight scenarioOutline parameters
+* Feature: [#66](https://github.com/dotnetprofessional/LiveDoc/issues/66) Add custom reporter
+
+* Bug: [#56](https://github.com/dotnetprofessional/LiveDoc/issues/56) Filtering by tag runs all tests if filter doesn't exist. This now works but only for Mocha versions less than v4.0. A new strategy is required for newer versions. 
+* Bug: [#70](https://github.com/dotnetprofessional/LiveDoc/issues/70) Errors occurring in Background not displaying
+* Bug: [#71](https://github.com/dotnetprofessional/LiveDoc/issues/71) Reporter fails when actual/expected are not strings
+
+### additional with no issue logged
+* ** BREAKING CHANGE** Enforced properly structured Gherkin. Removed some rule violation settings allowing mixing BDD and Gherkin. This needed to be removed to properly support reporting.
+* Added execution results to model
+* Reorganized and improved Specs and implemented Specs for areas that previously were manual or thew expected exceptions.
+* Added support to run Specs directly and receive an ExecutionResult object with the results of all Specs executed. This feature allowed verification of any scenario including failing ones. This will be useful for 3rd party integrations and for the VSCode plugin.
+* Added limited livedoc support to other bdd ui's such as describe. This is to allow stock mocha to make use of future reporting. 
+* Added isolation of global livedoc object for supplying options. It will now be used as the basis for options but other ways to provide options such as via mocha.options and commandline will either extend or override the settings. If possible options should be passed via mocha.options if executing via code otherwise use the command line.
+* added support for post-reporters via the ld-reporters command line. This provides a new type of reporter that are executed post the standard reporter or ui-reporter. This is used for such things as trx, json or any other post reporting needs.
+* added livedoc-json reporter that will output the execution results as a json file to be consumed by 3rd party reporters
+* upgrade dependencies including typescript to 2.9.1
+
 ## 0.3.4
 * Feature: [#52](https://github.com/dotnetprofessional/LiveDoc/issues/52) Support filtering by tags  
 * Feature: [#53](https://github.com/dotnetprofessional/LiveDoc/issues/53) Support explicit and implicit tagging  

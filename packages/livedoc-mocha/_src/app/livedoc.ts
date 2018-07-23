@@ -1,27 +1,41 @@
-import { LiveDocRules } from "./LiveDocRules";
-import { CommandLineOptions } from "./CommandLineOptions";
 import { LiveDocRuleOption } from "./LiveDocRuleOption";
+import * as mocha from "mocha";
+import { ExecutionResults } from "./model/ExecutionResults";
+import { LiveDocOptions } from "./LiveDocOptions";
+import { ParserException } from "./model";
+import { DefaultColorTheme, ReporterOptions, SilentReporter } from "./reporter";
+
+var fs = require('fs'),
+    crypto = require('crypto');
 
 export class LiveDoc {
     constructor () {
-        this.defaultRecommendations();
+        this.recommendedRuleSettings();
+        this.useDefaultReporter();
     }
 
-    public rules: LiveDocRules = new LiveDocRules();
-    public options: CommandLineOptions = new CommandLineOptions();
+    public options: LiveDocOptions = new LiveDocOptions();
 
     public shouldMarkAsPending(tags: string[]): boolean {
-        return this.markedAsExcluded(tags) && (!this.markedAsIncluded(tags) || this.options.showFilterConflicts);
+        return this.markedAsExcluded(tags) && (!this.markedAsIncluded(tags) || this.options.filters.showFilterConflicts);
     }
 
     public shouldInclude(tags: string[]): boolean {
-        return this.markedAsIncluded(tags) && (!this.markedAsExcluded(tags) || this.options.showFilterConflicts);
+        if (tags.length === 0) {
+            return false;
+        }
+
+        return this.markedAsIncluded(tags) && (!this.markedAsExcluded(tags) || this.options.filters.showFilterConflicts);
     }
 
     public markedAsExcluded(tags: string[]): boolean {
         // exclusions
-        for (let i = 0; i < this.options.exclude.length; i++) {
-            if (tags.indexOf(this.options.exclude[i]) > -1) {
+        if (tags.length === 0) {
+            return false;
+        }
+
+        for (let i = 0; i < this.options.filters.exclude.length; i++) {
+            if (tags.indexOf(this.options.filters.exclude[i]) > -1) {
                 // found a match so return true
                 return true;
             }
@@ -31,9 +45,12 @@ export class LiveDoc {
     }
 
     public markedAsIncluded(tags: string[]): boolean {
-        // exclusions
-        for (let i = 0; i < this.options.include.length; i++) {
-            if (tags.indexOf(this.options.include[i]) > -1) {
+        // inclusions
+        if (tags.length === 0) {
+            return false;
+        }
+        for (let i = 0; i < this.options.filters.include.length; i++) {
+            if (tags.indexOf(this.options.filters.include[i]) > -1) {
                 // found a match so return true
                 return true;
             }
@@ -41,21 +58,23 @@ export class LiveDoc {
 
         return false;
     }
+
+    public useDefaultReporter() {
+        // define the default reporter options
+        this.options.reporterOptions = new ReporterOptions();
+        this.options.reporterOptions.colors = new DefaultColorTheme();
+    }
     /**
      * Sets the minimal set of rules to ensure tests are structured correctly
      * 
      * @memberof LiveDoc
      */
-    public enforceMinimalRulesOnly() {
-        this.setAllRulesTo(LiveDocRuleOption.disabled);
-        const option = LiveDocRuleOption.enabled;
+    public defaultRuleSettings() {
+        const enabled = LiveDocRuleOption.enabled;
 
-        this.rules.missingFeature = option;
-        this.rules.givenWhenThenMustBeWithinScenario = option;
-        this.rules.mustNotMixLanguages = option;
-        this.rules.backgroundMustOnlyIncludeGiven = option;
-        this.rules.enforceUsingGivenOverBefore = option;
-        this.rules.enforceTitle = option;
+        this.options.rules.singleGivenWhenThen = enabled;
+        this.options.rules.backgroundMustOnlyIncludeGiven = enabled;
+        this.options.rules.enforceTitle = enabled;
     }
 
     /**
@@ -63,39 +82,74 @@ export class LiveDoc {
      * 
      * @memberof LiveDoc
      */
-    public defaultRecommendations() {
-        this.enforceMinimalRulesOnly();
+    public recommendedRuleSettings() {
+        const warning = LiveDocRuleOption.warning;
+        const enabled = LiveDocRuleOption.enabled;
 
-        const option = LiveDocRuleOption.enabled;
+        // minimal
+        this.options.rules.singleGivenWhenThen = enabled;
+        this.options.rules.backgroundMustOnlyIncludeGiven = enabled;
+        this.options.rules.enforceTitle = enabled;
 
-        this.rules.singleGivenWhenThen = option;
-        this.rules.mustIncludeGiven = LiveDocRuleOption.warning;
-        this.rules.mustIncludeWhen = LiveDocRuleOption.warning;
-        this.rules.mustIncludeThen = LiveDocRuleOption.warning;
-        this.rules.andButMustHaveGivenWhenThen = option;
+        // Additional recommendations
+        this.options.rules.enforceUsingGivenOverBefore = warning;
+        this.options.rules.mustIncludeGiven = warning;
+        this.options.rules.mustIncludeWhen = warning;
+        this.options.rules.mustIncludeThen = warning;
     }
 
-    /**
-     * Sets all rules to warnings
-     * 
-     * @memberof LiveDoc
-     */
-    public setAllRulesAsWarnings() {
-        this.setAllRulesTo(LiveDocRuleOption.warning);
+    public static executeTestAsync(filename: string, livedocOptions: LiveDocOptions = null): Promise<ExecutionResults> {
+
+        // Add isolated mode - this prevents command-line parameters from interfering with the options passed in
+        livedocOptions.isolatedMode = true;
+        // override the default reporter to be the silent one
+        let mochaOptions = {
+            ui: 'livedoc-mocha',
+            reporter: SilentReporter,
+            livedoc: livedocOptions,
+        }
+
+        return new Promise<ExecutionResults>((resolve, reject) => {
+            const mochaInstance = new mocha(mochaOptions as any);
+
+            mochaInstance.addFile(filename);
+            (mochaInstance.run() as any)
+                .on('end', function (x) {
+                    resolve(this.suite.livedocResults);
+                });
+        });
     }
 
-    private setAllRulesTo(option: LiveDocRuleOption) {
-        this.rules.missingFeature = option;
-        this.rules.givenWhenThenMustBeWithinScenario = option;
-        this.rules.singleGivenWhenThen = option;
-        this.rules.mustIncludeGiven = option;
-        this.rules.mustIncludeWhen = option;
-        this.rules.mustIncludeThen = option;
-        this.rules.andButMustHaveGivenWhenThen = option;
-        this.rules.mustNotMixLanguages = option;
-        this.rules.backgroundMustOnlyIncludeGiven = option;
-        this.rules.enforceUsingGivenOverBefore = option;
-        this.rules.enforceTitle = option;
+    public static async executeDynamicTestAsync(feature: string, livedocOptions: LiveDocOptions = new LiveDocOptions()): Promise<ExecutionResults> {
+        let filename: string;
+        try {
+            // Ensure we've been given something!
+            if (feature.length === 0) {
+                throw new ParserException("feature is empty!", "executeDynamicTestAsync", "");
+            }
+            filename = LiveDoc.writeToTempFile(feature);
+            return await LiveDoc.executeTestAsync(filename, livedocOptions);
+
+        } finally {
+            LiveDoc.deleteTempFile(filename);
+        }
+    }
+
+    private static deleteTempFile(filename: string) {
+        fs.unlinkSync(filename);
+    }
+
+    private static writeToTempFile(content: string): string {
+        const tempFolder = "_temp";
+
+        if (!fs.existsSync(tempFolder)) {
+            fs.mkdirSync(tempFolder);
+        }
+
+        var filename = '_temp/livedoc' + crypto.randomBytes(4).readUInt32LE(0) + '.feature';
+        fs.writeFileSync(filename, content);
+
+        return filename;
     }
 }
 

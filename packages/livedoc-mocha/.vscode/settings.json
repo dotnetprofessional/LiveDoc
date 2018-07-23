@@ -2,9 +2,6 @@
 {
     "typescript.check.tscVersion": false,
     "typescript.tsdk": "./node_modules/typescript/lib",
-    "markdown.styles": [
-        ".vscode/markdown.css"
-    ],
     "cSpell.words": [
         "Polyfils"
     ]

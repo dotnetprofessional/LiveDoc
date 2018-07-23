@@ -1,7 +1,10 @@
 import { RuleViolations } from "./RuleViolations";
+import { jsonIgnore } from "../decorators";
 
 export class LiveDocRuleViolation extends Error {
     private static errorCount: number = 0;
+
+    @jsonIgnore
     private _errorId: number = 0;
 
     constructor (public rule: RuleViolations, message: string, public title: string) {

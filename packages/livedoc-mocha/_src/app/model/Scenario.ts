@@ -1,13 +1,18 @@
 import { ScenarioContext } from "./ScenarioContext";
 import { StepContext } from "./StepContext";
 import { StepDefinition } from "./StepDefinition";
-import { LiveDocDescribe } from "./LiveDocDescribe";
+import { LiveDocSuite } from "./LiveDocSuite";
 import { Feature } from "./Feature";
 import { RuleViolations } from "./RuleViolations";
+import { jsonIgnore } from "../decorators/jsonIgnore";
 
-export class Scenario extends LiveDocDescribe {
+export class Scenario extends LiveDocSuite {
 
+    @jsonIgnore
+    public parent: Feature;
+    @jsonIgnore
     public givens: StepDefinition[] = [];
+    @jsonIgnore
     public whens: StepDefinition[] = [];
     public steps: StepDefinition[] = [];
 
@@ -15,17 +20,24 @@ export class Scenario extends LiveDocDescribe {
     public executionTime: number;
 
     // Used for validations and grouping
+    @jsonIgnore
     private hasGiven: boolean = false;
+    @jsonIgnore
     private hasWhen: boolean = false;
+    @jsonIgnore
     private hasThen: boolean = false;
+    @jsonIgnore
     private processingStepType: string;
 
-    constructor (public parent: Feature) {
+    constructor(parent: Feature) {
         super()
+        this.parent = parent;
     }
 
     public addStep(step: StepDefinition) {
         this.steps.push(step);
+        step.sequence = this.steps.length;
+        step.parent = this;
 
         // validate we have a description!
         if (!step.title) {
@@ -81,7 +93,7 @@ export class Scenario extends LiveDocDescribe {
                         break;
                     default:
                         // Seems we're not processing a GTW!?
-                        step.addViolation(RuleViolations.andButMustHaveGivenWhenThen, `a ${step.type} step definition must be preceded by a Given, When or Then.`, this.title);
+                        step.addViolation(RuleViolations.andButMustHaveGivenWhenThen, `${step.type} step definition must be preceded by a Given, When or Then.`, this.title);
                 }
         }
     }

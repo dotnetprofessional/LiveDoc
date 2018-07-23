@@ -1,6 +1,6 @@
 import * as Utils from './Utils';
-
-///<reference path="../app/livedoc.ts" />
+import { ExecutionResults, SpecStatus } from '../app/model';
+import { LiveDoc } from '../app/livedoc';
 require('chai').should();
 
 feature(`Step statement
@@ -16,6 +16,8 @@ feature(`Step statement
             given(`a simple title`, () => {
                 givenTitle = stepContext.title;
             });
+
+            when("using the stepContext", () => { });
 
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
@@ -46,16 +48,16 @@ feature(`Step statement
         });
 
         scenario("Step statement has a docString that includes significant spaces", () => {
-            let givenTitle = "";
             let docString = "";
             given(`a simple title
                 """
                     This string is indented
                     so they should be honoured
                 """`, () => {
-                    givenTitle = stepContext.title;
                     docString = stepContext.docString;
                 });
+
+            when("using the stepContext", () => { });
 
             then("the docString should match stepContext.docString including the significant spaces", () => {
                 docString.should.be.equal("    This string is indented\n    so they should be honoured");
@@ -139,6 +141,8 @@ feature(`Step statement
                 This is a table above!!
             `, () => { });
 
+            when("using the stepContext", () => { });
+
             then("the title should match stepContext.title", () => {
                 scenarioContext.given.title.should.be.equal("a simple title has a table");
             });
@@ -156,7 +160,6 @@ feature(`Step statement
         });
 
         scenario("Step statement has a two column table with names in first column", () => {
-            let stepTitle;
             let entity: DataTableRow;
             when(`a simple title has a table
 
@@ -167,7 +170,6 @@ feature(`Step statement
 
                 This is a table above!!
             `, () => {
-                    stepTitle = stepContext.title;
                     entity = stepContext.tableAsEntity;
                 });
 
@@ -188,6 +190,8 @@ feature(`Step statement
 
                 This is a table above!!
             `, () => { });
+
+            when("using the stepContext", () => { });
 
             then("the table should be convertible to a list using stepContext.tableToList", () => {
                 // Add the numbers up
@@ -218,6 +222,8 @@ feature(`Step statement
                 | quotes       | " a \\" is here"     |
                 
             `, () => { });
+
+            when("using the stepContext", () => { });
 
             then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", () => {
                 // Add the numbers up
@@ -308,30 +314,31 @@ feature(`Step statement
         });
 
         scenario("failing tests are reported as such", () => {
-            given("a step that will fail", () => {
-                throw new Error("Its ok I'm supposed to fail!");
+            let outlineGiven: StepContext;
+            let executionResults: ExecutionResults;
+            given(`a step that will fail
+                """
+                feature("A feature with a failing step", ()=> {
+                    scenario(\`A scenario with a failing step\`, () => {
+                        given("a step that will fail", () => {
+                            throw new Error("Its ok I'm supposed to fail!");
+                        });
+                    });            
+                });
+                """
+                `, () => {
+                    outlineGiven = stepContext;
+                });
+
+            when(`executing feature`, async () => {
+                executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString);
+            });
+
+            then(`the step is marked as failed`, () => {
+                const step = executionResults.features[0].scenarios[0].steps[0];
+                step.status.should.be.eq(SpecStatus.fail);
             });
         })
-
     });
 
-describe("Error test", () => {
-    it("Should fail", () => {
-        throw new TypeError("Bail...");
-    });
 
-    describe("yet another test of a describe", () => {
-        it("should still be working", () => {
-
-        });
-
-        it.skip("this should be ignored!", () => {
-            throw new Error("I shouldn't have been executed!!");
-        });
-
-        context("Oh lets try a context too!", () => {
-            it("needs to pass too!", () => {
-            });
-        })
-    })
-});

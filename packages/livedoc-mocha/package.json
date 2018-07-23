@@ -1,6 +1,6 @@
 {
   "name": "livedoc-mocha",
-  "version": "0.3.5-beta",
+  "version": "0.4.0-beta-2",
   "author": "Garry McGlennon",
   "description": "BDD extensions for Mocha that support LiveDoc reporting.",
   "repository": {
@@ -11,8 +11,8 @@
   "bugs": {
     "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
   },
-  "main": "release/index.js",
-  "typings": "release/index.d.ts",
+  "main": "index.js",
+  "typings": "index.d.ts",
   "keywords": [
     "livedoc",
     "mocha",
@@ -27,32 +27,60 @@
     "node": "*"
   },
   "scripts": {
-    "_comment_fitlering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
-    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/ --ld-exclude filter:exclude",
+    "_comment_filtering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
+    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-cc": "nyc mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-filtered": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter": "mocha --colors --require build/app/index --require \"build/app/livedoc-spec\" --reporter  build/app/livedoc-spec --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-nocolor": "mocha  --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-dev": "mocha --colors --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec --ui livedoc-mocha --ld-include dev --recursive build/test/**/*.Spec.js",
+    "test-reporter-summary": "mocha --colors --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec -O detailLevel=summary --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-list": "mocha --colors --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec -O detailLevel=list --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-summary-file": "mocha --colors --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec -O \"detailLevel=summary,output=results.txt\" --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-summary-json": "mocha --colors --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec --ld-reporters ./livedoc-json -O \"detailLevel=summary,json-output=results.json\" --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter-emoji": "mocha --colors --require build/app/index --require build/app/reporter/LiveDocEmoji --reporter build/app/reporter/LiveDocEmoji --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "xpretest": "tsc -p . && cls",
     "release-web": "npm run compile-web && npm run compile-web-minify",
+    "compile": "rimraf build && tsc -d -p tsconfig.json",
+    "postcompile": "",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
-    "release": "rimraf release && tsc -d -p tsconfig.npm.json",
+    "release": "rimraf release && tsc -d -p tsconfig.npm.json && npm run release-fix",
+    "release-fix": "cpx package.json release && npm run release-copy-globals && npm run release-copy-index",
+    "release-copy-globals": "node -e require('fs').copyFileSync('_src/app/globals.d.ts.legacy','release/globals.d.ts')",
+    "release-copy-index": "node -e require('fs').copyFileSync('_src/app/index.d.ts.legacy','release/index.d.ts')",
     "watch": "tsc --watch -p .",
+    "vscode": "code --disable-gpu",
+    "pack": "cd release && npm pack && cpx *.tgz ../ && rimraf *.tgz",
     "xprepublish": "npm run release"
   },
   "devDependencies": {
-    "@types/chai": "^3.4.35",
-    "@types/mocha": "^2.2.40",
-    "@types/node": "^7.0.43",
-    "chai": "^3.5.0",
-    "mocha": "^3.5.0",
-    "rimraf": "^2.6.1",
+    "@types/chai": "^4.1.3",
+    "@types/fs-extra": "^5.0.3",
+    "@types/node": "^7.0.65",
+    "chai": "^4.1.2",
+    "cpx": "^1.5.0",
+    "mocha": "^5.2.0",
+    "mocha-tags": "^1.0.1",
+    "nyc": "^12.0.2",
+    "rimraf": "^2.6.2",
     "tslint": "^4.4.2",
-    "typescript": "^2.1.6",
+    "typescript": "^2.9.1",
     "uglify-js": "^2.8.7"
   },
   "peerDependencies": {
     "mocha": "3.x"
   },
   "dependencies": {
-    "colors": "^1.1.2",
-    "moment": "^2.18.1"
+    "@types/mocha": "^5.2.1",
+    "chalk": "^2.4.1",
+    "cli-table2": "^0.2.0",
+    "colors": "^1.3.0",
+    "diff": "^3.5.0",
+    "emotikon": "^1.0.0",
+    "fnv-plus": "^1.2.12",
+    "fs-extra": "^5.0.0",
+    "moment": "^2.22.2",
+    "strip-ansi": "^4.0.0"
   }
 }

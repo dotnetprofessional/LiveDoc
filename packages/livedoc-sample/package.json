@@ -1,0 +1,61 @@
+{
+  "name": "livedoc-sample",
+  "version": "0.1.0",
+  "author": "Garry McGlennon",
+  "description": "A sample project validate the livedoc-mocha library.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git"
+  },
+  "homepage": "https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha#readme",
+  "bugs": {
+    "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "main": "release/index.js",
+  "typings": "release/index.d.ts",
+  "keywords": [
+    "livedoc",
+    "mocha",
+    "bdd",
+    "gherkin",
+    "cucumber",
+    "javascript",
+    "testing",
+    "tests"
+  ],
+  "engines": {
+    "node": "*"
+  },
+  "scripts": {
+    "_comment_filtering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
+    "test": "mocha --colors --ui livedoc-mocha --recursive build/**/*.Spec.js",
+    "test-filtered": "mocha --colors --ui livedoc-mocha --recursive build/**/*.Spec.js",
+    "test-reporter": "mocha --colors --ui livedoc-mocha --reporter livedoc-mocha/livedoc-spec --recursive build/**/*.Spec.js",
+    "test-reporter-nocolor": "mocha --reporter livedoc-mocha/livedoc-spec --ui livedoc-mocha --recursive build/**/*.Spec.js",
+    "test-reporter-dev": "mocha --colors --reporter livedoc-mocha/livedoc-spec --ui livedoc-mocha --ld-include dev --recursive build/**/*.Spec.js",
+    "test-reporter-summary": "mocha --colors --reporter livedoc-mocha/livedoc-spec -O detailLevel=summary --ui livedoc-mocha --recursive build/**/*.Spec.js",
+    "test-reporter-list": "mocha --colors --reporter livedoc-mocha/livedoc-spec -O detailLevel=list --ui livedoc-mocha --recursive build/**/*.Spec.js",
+    "test-reporter-summary-file": "mocha --colors --reporter livedoc-mocha/livedoc-spec -O \"detailLevel=summary,output=results.txt, detail-list\" --ui livedoc-mocha --recursive build/**/*.Spec.js",
+    "xpretest": "tsc -p . && cls",
+    "release-web": "npm run compile-web && npm run compile-web-minify",
+    "compile": "rimraf build && tsc -d -p tsconfig.json",
+    "release": "rimraf release && tsc -d -p tsconfig.npm.json",
+    "watch": "tsc --watch -p .",
+    "vscode": "code --disable-gpu",
+    "xprepublish": "npm run release"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.3",
+    "@types/node": "^7.0.64",
+    "chai": "^4.1.2",
+    "livedoc-mocha": "file:livedoc-mocha-0.3.5-beta-1.tgz",
+    "mocha": "^5.2.0",
+    "rimraf": "^2.6.2",
+    "tslint": "^4.4.2",
+    "typescript": "^2.8.3"
+  },
+  "peerDependencies": {
+    "mocha": "3.x"
+  },
+  "dependencies": {}
+}
