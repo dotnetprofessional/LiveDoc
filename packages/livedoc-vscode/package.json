@@ -10,7 +10,7 @@
         "url": "https://github.com/dotnetprofessional/LiveDoc.git"
     },
     "engines": {
-        "vscode": "^1.16.0"
+        "vscode": "^1.25.1"
     },
     "categories": [
         "Snippets"
