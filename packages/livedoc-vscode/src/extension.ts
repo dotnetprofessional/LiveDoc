@@ -3,10 +3,12 @@ import { ExecutionResultOutlineProvider } from "./ExecutionResultOutline/Executi
 import * as vscode from "vscode";
 import { activateTableFormatter, deactivateTableFormatter } from "./tableFormatter";
 import "livedoc-mocha";
+import { registerReporter } from "./reporter/register";
 
 export function activate(context: vscode.ExtensionContext) {
     activateTreeView(context);
     activateTableFormatter(context);
+    registerReporter(context);
 }
 
 export function deactivate() {
