@@ -1,11 +1,12 @@
-import * as path from "path";
-import * as fs from "fs";
+import { ExecutionResultOutlineProvider } from "./ExecutionResultOutline/ExecutionResultOutlineProvider";
+
 import * as vscode from "vscode";
-import { ExtensionContext } from "vscode";
 import { activateTableFormatter, deactivateTableFormatter } from "./tableFormatter";
+import "livedoc-mocha";
 import { registerReporter } from "./reporter/register";
 
-export function activate(context: ExtensionContext) {
+export function activate(context: vscode.ExtensionContext) {
+    activateTreeView(context);
     activateTableFormatter(context);
     registerReporter(context);
 }
@@ -13,3 +14,12 @@ export function activate(context: ExtensionContext) {
 export function deactivate() {
     deactivateTableFormatter();
 }
+
+function activateTreeView(context: vscode.ExtensionContext) {
+    const rootPath = vscode.workspace.rootPath;
+    const executionResultsProvider = new ExecutionResultOutlineProvider(rootPath, context.extensionPath);
+
+    vscode.window.registerTreeDataProvider('livedoc', executionResultsProvider);
+    vscode.commands.registerCommand('livedoc.refreshEntry', () => executionResultsProvider.refresh());
+};
+
