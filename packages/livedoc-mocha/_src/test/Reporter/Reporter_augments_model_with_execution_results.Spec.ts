@@ -198,8 +198,8 @@ feature(`Reporter returns model including execution results`, () => {
                 "exception": {
                     "actual": "You say Goodbye",
                     "expected": "I say Hello",
-                    "stackTrace": "AssertionError [ERR_ASSERTION]: 'You say Goodbye' deepStrictEqual 'I say Hello'",
-                    "message": "'You say Goodbye' deepStrictEqual 'I say Hello'"
+                    "stackTrace": "AssertionError [ERR_ASSERTION]: Input A expected to strictly deep-equal input B:",
+                    "message": "Input A expected to strictly deep-equal input B:"
                 }
             }
             """
@@ -211,6 +211,9 @@ feature(`Reporter returns model including execution results`, () => {
                     "exception": step.exception,
                 }
 
+                // This output will vary depending on the version of node being used. This is being tested
+                // against node v10.7.0
+                actual.exception.message = actual.exception.message.split('\n')[0];
                 // As the stack trace is not predictable, only validate the first line which is predictable.
                 actual.exception.stackTrace = actual.exception.stackTrace.split('\n')[0];
                 actual.should.be.eql(expected);

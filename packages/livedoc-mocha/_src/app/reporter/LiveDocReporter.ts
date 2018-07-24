@@ -22,7 +22,7 @@ export abstract class LiveDocReporter extends Base {
     protected options: Object;
     protected colorTheme: ColorTheme;
 
-    constructor (runner, protected mochaOptions) {
+    constructor(runner, protected mochaOptions) {
         super(runner);
         const _this = this;
         const livedocOptions: LiveDocOptions = mochaOptions.livedoc;
@@ -230,6 +230,7 @@ export abstract class LiveDocReporter extends Base {
                 }
             }
             catch (e) {
+                debugger;
                 console.error("Reporter error: ", e);
             }
         });

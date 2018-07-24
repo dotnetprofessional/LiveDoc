@@ -474,7 +474,7 @@ export class LiveDocSpec extends LiveDocReporter {
             // context.
 
             // Output any errors occurring in the Backgrounds
-            if (feature.background.statistics.failedCount > 0) {
+            if (feature.background && feature.background.statistics.failedCount > 0) {
                 const background = feature.background;
                 this.writeLine(this.formatKeywordTitle("Background", background.title, this.colorTheme.keyword, this.colorTheme.backgroundTitle, indent));
                 // display the steps

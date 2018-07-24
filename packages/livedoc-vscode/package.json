@@ -27,7 +27,8 @@
         "onLanguage:typescriptreact",
         "onLanguage:javascriptreact",
         "onLanguage:javascript",
-        "onLanguage:plaintext"
+        "onLanguage:plaintext",
+        "onView:livedoc"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -50,7 +51,24 @@
                 "language": "javascript",
                 "path": "./snippets/livedoc.json"
             }
-        ]
+        ],
+        "viewContainers": {
+            "activitybar": [
+                {
+                    "id": "livedoc-explorer",
+                    "title": "livedoc explorer",
+                    "icon": "images/icon.png"
+                }
+            ]
+        },
+        "views": {
+            "livedoc-explorer": [
+                {
+                    "id": "livedoc",
+                    "name": "livedoc explorer"
+                }
+            ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
@@ -58,12 +76,17 @@
         "watch": "tsc -watch -p ./",
         "package": "vsce package",
         "postinstall": "node ./node_modules/vscode/bin/install",
-        "test": "npm run compile && node ./node_modules/vscode/bin/test"
+        "test": "npm run compile && node ./node_modules/vscode/bin/test",
+        "link-livedoc": "node scripts/link-livedoc.js"
     },
     "devDependencies": {
-        "typescript": "^2.5.3",
-        "vscode": "^1.1.5",
+        "@types/mocha": "^2.2.42",
         "@types/node": "^7.0.43",
-        "@types/mocha": "^2.2.42"
+        "fs-extra": "^7.0.0",
+        "typescript": "^2.5.3",
+        "vscode": "^1.1.5"
+    },
+    "dependencies": {
+        "livedoc-mocha": "file:livedoc-mocha-0.4.0-beta-2.tgz"
     }
 }
