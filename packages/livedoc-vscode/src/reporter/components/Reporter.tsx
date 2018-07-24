@@ -36,8 +36,8 @@ export class Reporter extends React.PureComponent {
         return (
             <div className={css(Reporter.styles.flexible)}>
                 <Filter />
-                <SummaryFilter />
-                <TestsSummary model={this.state && this.state.model || ""} />
+                <SummaryFilter model={this.state && this.state.model || {}} />
+                <TestsSummary model={this.state && this.state.model || {}} />
             </div>
         );
     }

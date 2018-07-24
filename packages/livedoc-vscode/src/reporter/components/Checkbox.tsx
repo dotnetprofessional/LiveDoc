@@ -2,19 +2,21 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { StyleSheet, css } from "aphrodite/no-important";
 
+export interface ICheckboxProps {
+    id: string;
+    label: string;
+    groupingName: string;
+}
+
 export class Checkbox extends React.PureComponent<
-    {
-        id: string;
-        label: string;
-        groupingName: string;
-    },
+    ICheckboxProps,
     {}> {
 
     public render() {
         return (
             <div className={css(Checkbox.styles.flexibleRow)}>
-                <label htmlFor={this.props.id} className={css(Checkbox.styles.block)}>{this.props.label}</label>
                 <input type="checkbox" name={this.props.groupingName} className={css(Checkbox.styles.flex)} />
+                <label htmlFor={this.props.id} className={css(Checkbox.styles.block)}>{this.props.label}</label>
             </div>
         );
     }

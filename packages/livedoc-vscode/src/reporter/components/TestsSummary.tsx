@@ -46,7 +46,7 @@ export class TestsSummary extends React.PureComponent<
                             {feature.statistics.pendingCount}
                         </td>
                         <td className={css(TestsSummary.styles.alignCenter)}>
-                            {(feature.statistics.ruleViolations || []).length}
+                            {feature.statistics.totalRuleViolations}
                         </td>
                     </tr>
                     {scenarios}
