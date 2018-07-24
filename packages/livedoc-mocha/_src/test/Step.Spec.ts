@@ -11,7 +11,7 @@ feature(`Step statement
         and   - used by given/when/then to add additional context
         but   - used by given/when/then to provide an exclusion context`, () => {
 
-        scenario("Step statement is just a title", () => {
+        scenario("Given step statement is just a title", () => {
             let givenTitle = "";
             given(`a simple title`, () => {
                 givenTitle = stepContext.title;
@@ -22,29 +22,6 @@ feature(`Step statement
             then("the title should match stepContext.title", () => {
                 givenTitle.should.be.equal("a simple title");
             });
-        });
-
-        scenario("Step statement has a title and a docString", () => {
-            let givenTitle = "";
-            let docString = "";
-            given(`a simple title
-                """
-                With this docString that
-                has multiple lines
-                """`, () => {
-                    givenTitle = stepContext.title;
-                    docString = stepContext.docString;
-                });
-
-            when("accessing the value from the stepContext", () => { });
-
-            then("the title should match stepContext.title", () => {
-                givenTitle.should.be.equal("a simple title");
-            });
-
-            and("the docString should match stepContext.docString", () => {
-                docString.should.be.equal("With this docString that\nhas multiple lines");
-            })
         });
 
         scenario("Step statement has a docString that includes significant spaces", () => {
@@ -64,7 +41,7 @@ feature(`Step statement
             })
         });
 
-        scenario("Step statement is just a title", () => {
+        scenario("When step statement is just a title", () => {
             let whenTitle = "";
             given(`a simple title`, () => {
                 whenTitle = stepContext.title;
