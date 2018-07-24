@@ -25,9 +25,31 @@ const CheckboxWithCount: React.StatelessComponent<ICheckboxWithCountProps> = (pr
 
 export class SummaryFilter extends React.PureComponent<
     {
-        model: model.ExecutionResults
+        model: model.ExecutionResults;
     },
-    {}> {
+    {
+        filters?: {
+            passed: boolean;
+            failed: boolean;
+            pending: boolean;
+            warning: boolean;
+        }
+    }> {
+
+    public constructor(props) {
+        super(props);
+
+        this.state = {
+            filters: {
+                passed: true,
+                failed: true,
+                pending: true,
+                warning: true
+            }
+        }
+
+        this.filterChanged = this.filterChanged.bind(this);
+    }
 
     private rollupFeatureStatistics(): { passCount: number; failedCount: number; pendingCount: number; ruleViolationsCount: number } {
         return (this.props.model && this.props.model.features || [])
@@ -48,24 +70,39 @@ export class SummaryFilter extends React.PureComponent<
                     id="passed"
                     label="Passed"
                     groupingName="test-result"
-                    count={statisticsRollup.passCount} />
+                    count={statisticsRollup.passCount}
+                    onChange={this.filterChanged.bind(null, "passed")}
+                    checked={this.state.filters.passed} />
                 <CheckboxWithCount
                     id="failed"
                     label="Failed"
                     groupingName="test-result"
-                    count={statisticsRollup.failedCount} />
+                    count={statisticsRollup.failedCount}
+                    onChange={this.filterChanged.bind(null, "failed")}
+                    checked={this.state.filters.failed} />
                 <CheckboxWithCount
                     id="pending"
                     label="Pending"
                     groupingName="test-result"
-                    count={statisticsRollup.pendingCount} />
+                    count={statisticsRollup.pendingCount}
+                    onChange={this.filterChanged.bind(null, "pending")}
+                    checked={this.state.filters.pending} />
                 <CheckboxWithCount
                     id="warning"
                     label="Warning"
                     groupingName="test-result"
-                    count={statisticsRollup.ruleViolationsCount} />
+                    count={statisticsRollup.ruleViolationsCount}
+                    onChange={this.filterChanged.bind(null, "warning")}
+                    checked={this.state.filters.warning} />
             </Collapsable>
         );
+    }
+
+    private filterChanged(name: string, value: boolean) {
+        const newFilters = Object.assign({}, this.state.filters, { [name]: value });
+        this.setState({
+            filters: newFilters
+        });
     }
 
     private static styles = StyleSheet.create({
