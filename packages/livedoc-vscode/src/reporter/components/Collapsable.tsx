@@ -2,9 +2,22 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { StyleSheet, css } from "aphrodite/no-important";
 
+export const CollapsableWithTitle: React.StatelessComponent<{ title: string }> = (props) => {
+    return (
+        <Collapsable
+            renderTitle={(renderCollapse) => {
+                return (
+                    <h2>{props.title} {renderCollapse()}</h2>
+                );
+            }}>
+            {props.children}
+        </Collapsable>
+    );
+};
+
 export class Collapsable extends React.PureComponent<
     {
-        title: string;
+        renderTitle: (renderCollapse: () => JSX.Element) => JSX.Element;
     }, {
         expanded?: boolean;
     }> {
@@ -15,12 +28,20 @@ export class Collapsable extends React.PureComponent<
         this.state = {
             expanded: true
         };
+
+        this.renderCollapse = this.renderCollapse.bind(this);
+    }
+
+    private renderCollapse() {
+        return (
+            <a href="#" onClick={() => { this.setState({ expanded: !this.state.expanded }) }}>+-</a>
+        );
     }
 
     public render() {
         return (
             <div>
-                <h2>{this.props.title} <a href="#" onClick={() => { this.setState({ expanded: !this.state.expanded }) }}>+-</a></h2>
+                {this.props.renderTitle(this.renderCollapse)}
                 <div
                     className={css(
                         Collapsable.styles.flexible,
@@ -35,7 +56,9 @@ export class Collapsable extends React.PureComponent<
 
     private static styles = StyleSheet.create({
         flexible: {
-            display: "flex"
+            display: "flex",
+            flexFlow: "column nowrap",
+            alignContent: "stretch"
         },
         expandable: {
             overflow: "hidden"
