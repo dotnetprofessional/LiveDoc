@@ -5,7 +5,8 @@ import * as vscode from "vscode";
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem } from "./ExecutionResultTreeViewItem";
+import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem } from "./ExecutionResultTreeViewItem";
+import { ScenarioStatus } from "./ScenarioStatus";
 
 export interface IExecutionModel extends livedocConfig.TestSuite {
     results: FeatureGroup[];
@@ -64,7 +65,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     if (configForSuiteMatch) {
                         const config = configForSuiteMatch[0] as IExecutionModel;
                         results = config.results.map(group => {
-                            return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed);
+                            return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     }
                     break;
@@ -72,11 +73,11 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     const groupView = (element as ExecutionFolderTreeViewItem);
                     if (groupView.group.children.length === 0) {
                         results = groupView.group.features.map(feature => {
-                            return new FeatureTreeViewItem(feature, vscode.TreeItemCollapsibleState.Collapsed);
+                            return new FeatureTreeViewItem(feature, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     } else {
                         results = groupView.group.children.map(group => {
-                            return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed);
+                            return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     }
                     break;
@@ -93,19 +94,19 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     }
     private getTreeViewItemsForNode(node: livedoc.SuiteBase<any>): vscode.ProviderResult<ExecutionResultTreeViewItem[]> {
         const nodeType: string = node.constructor.name;
-        let children: livedoc.SuiteBase<any>[] = [];
+        let children: livedoc.Scenario[] = [];
         switch (node.type) {
             case "Feature":
                 children = (node as livedoc.Feature).scenarios;
         }
         const results = children.map(node => {
-            return new ExecutionResultTreeViewItem(node, vscode.TreeItemCollapsibleState.None, this.extensionPath);
+            return new ScenarioTreeViewItem(node, vscode.TreeItemCollapsibleState.None, this.extensionPath);
         });
         return results;
     }
 
     private buildFeatureGroup(suite: IExecutionModel) {
-        const rootFeatureGroup = new FeatureGroup("root");
+        const rootFeatureGroup = new FeatureGroup(null, "root");
 
         suite.executionResults.features.forEach(feature => {
             let activeGroup = rootFeatureGroup;
@@ -116,13 +117,13 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                 if (foundGroup.length !== 0) { // ie found a group
                     activeGroup = foundGroup[0];
                 } else {
-                    const group = new FeatureGroup(part);
+                    const group = new FeatureGroup(activeGroup, part);
                     activeGroup.children.push(group);
                     activeGroup = group;
                 }
             }
             // At this point we should be at the end of the path with the correct group
-            activeGroup.features.push(feature);
+            activeGroup.addFeature(feature);
         });
 
         // transfer the children of the root to the top level as results
@@ -131,9 +132,55 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 }
 
 export class FeatureGroup {
-    constructor(public title) {
-
+    constructor(public parent: FeatureGroup, public title) {
     }
+
+    public status: ScenarioStatus = ScenarioStatus.unknown;
     public children: FeatureGroup[] = [];
     public features: livedoc.Feature[] = [];
+
+    public addFeature(feature: livedoc.Feature) {
+        this.features.push(feature);
+        const status = this.getStatus(feature);
+        this.updateStatus(status);
+    }
+
+    public updateStatus(status: ScenarioStatus) {
+        if (this.status === ScenarioStatus.unknown) {
+            this.status = status;
+        } else {
+            const isPending = !!(this.status & ScenarioStatus.pending);
+            if (this.status !== (this.status & ScenarioStatus.fail)) {
+                this.status |= status;
+            }
+            if (isPending) {
+                this.status |= ScenarioStatus.pending;
+            }
+        }
+
+        // Now propagate this status to the parent
+        if (this.parent) {
+            this.parent.updateStatus(this.status);
+        }
+    }
+
+    // TODO: Refactor as this is in the ExecutionResultTreeViewItem as well. Should move
+    //       the livedoc model as it seems to be needed a lot.
+    private getStatus(suite: livedoc.SuiteBase<any>): ScenarioStatus {
+        let status = ScenarioStatus.unknown;
+        const stats = suite.statistics;
+        // These status' are export binary
+        if (stats.failedCount > 0) {
+            status = ScenarioStatus.fail;
+        }
+        else if (stats.passCount > 0) {
+            status = ScenarioStatus.pass;
+        }
+        // These status' are additive
+        if (stats.pendingCount > 0) {
+            status |= ScenarioStatus.pending;
+        }
+        // warnings have been ignored for now.
+        return status;
+    }
 }
