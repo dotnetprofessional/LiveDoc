@@ -54,7 +54,7 @@ export class ExecutionConfigTreeViewItem extends vscode.TreeItem {
  *
  * @export
  * @class ExecutionFolderTreeViewItem
- * @extends {vscode.TreeItem}
+ * @extends ExecutionResultTreeViewItem
  */
 export class ExecutionFolderTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly group: FeatureGroup, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
@@ -68,7 +68,7 @@ export class ExecutionFolderTreeViewItem extends ExecutionResultTreeViewItem {
  *
  * @export
  * @class FeatureTreeViewItem
- * @extends {vscode.TreeItem}
+ * @extends ExecutionResultTreeViewItem
  */
 export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly feature: livedoc.Feature, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
@@ -81,12 +81,28 @@ export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
  * This tree view item is used to support Features 
  *
  * @export
- * @class FeatureGroupTreeViewItem
- * @extends {vscode.TreeItem}
+ * @class ScenarioTreeViewItem
+ * @extends ExecutionResultTreeViewItem
  */
 export class ScenarioTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly scenario: livedoc.Scenario, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
         super(scenario.title, collapsibleState, extensionPath, command);
         this.annotateNode(this.getStatus(scenario));
+    }
+}
+
+/**
+ * This tree view item is used to support Features 
+ *
+ * @export
+ * @class StepTreeViewItem
+ * @extends ExecutionResultTreeViewItem
+ */
+export class StepTreeViewItem extends ExecutionResultTreeViewItem {
+    constructor(public readonly step: livedoc.StepDefinition, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
+        super(step.displayTitle, collapsibleState, extensionPath, command);
+        const stepStatus = step.status as string;
+        const scenarioStatus = ScenarioStatus[stepStatus];
+        this.annotateNode(scenarioStatus);
     }
 }
