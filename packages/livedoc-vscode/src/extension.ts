@@ -20,6 +20,8 @@ function activateTreeView(context: vscode.ExtensionContext) {
     const executionResultsProvider = new ExecutionResultOutlineProvider(rootPath, context.extensionPath);
 
     vscode.window.registerTreeDataProvider('livedoc', executionResultsProvider);
+    vscode.commands.registerCommand('livedoc.navigateToScenarioInReporter', (testSuite, item) => executionResultsProvider.navigateToScenarioInReporterCommand(testSuite, item));
+    vscode.commands.registerCommand('livedoc.navigateToSummaryInReporterCommand', item => executionResultsProvider.navigateToSummaryInReporterCommand(item));
     vscode.commands.registerCommand('livedoc.refreshEntry', () => executionResultsProvider.refresh());
 };
 
