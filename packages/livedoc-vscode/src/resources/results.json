@@ -9,7 +9,7 @@
                 "pendingCount": 0,
                 "totalCount": 10,
                 "totalRuleViolations": 0,
-                "duration": 56,
+                "duration": 50,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -118,7 +118,7 @@
                             "sequence": 1,
                             "id": "a57q7cuj28-a55f2z6d00-ggvigarlts",
                             "code": "() => {\r\n            someValue += stepContext.values[0];\r\n        }",
-                            "duration": 23
+                            "duration": 22
                         },
                         {
                             "title": "someValue should be '110'",
@@ -152,7 +152,7 @@
                             "sequence": 3,
                             "id": "a57q7cuj28-a55f2z6d00-79cpckl48l",
                             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Using a second background still awaits",
@@ -165,7 +165,7 @@
             "title": "Background supports async operations",
             "description": "",
             "tags": [],
-            "filename": "Background_suports_async_operations.Spec.js",
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Background_Keyword/Background_suports_async_operations.Spec.js",
             "background": {
                 "type": "Background",
                 "ruleViolations": [],
@@ -175,7 +175,7 @@
                     "pendingCount": 0,
                     "totalCount": 4,
                     "totalRuleViolations": 0,
-                    "duration": 33,
+                    "duration": 27,
                     "passPercent": 1,
                     "failedPercent": 0,
                     "pendingPercent": 0
@@ -196,7 +196,7 @@
                         "sequence": 1,
                         "id": "a57q7cuj28-15t5wl0ufzp-ggssvcrzv4",
                         "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            yield Utils.sleep(10);\r\n            someValue = backgroundContext.given.values[0];\r\n        })",
-                        "duration": 18
+                        "duration": 13
                     },
                     {
                         "title": "we add '70' to somevalue",
@@ -213,7 +213,7 @@
                         "sequence": 2,
                         "id": "a57q7cuj28-15t5wl0ufzp-rplb0lzu83",
                         "code": "() => {\r\n            someValue += backgroundContext.and[0].values[0];\r\n        }",
-                        "duration": 1
+                        "duration": 0
                     },
                     {
                         "title": "the stepContext is available so should get '10' from this step",
@@ -255,7 +255,8 @@
                 "tags": [],
                 "id": "a57q7cuj28-15t5wl0ufzp"
             },
-            "id": "a57q7cuj28"
+            "id": "a57q7cuj28",
+            "path": "Background_Keyword"
         },
         {
             "type": "Feature",
@@ -266,7 +267,7 @@
                 "pendingCount": 0,
                 "totalCount": 13,
                 "totalRuleViolations": 0,
-                "duration": 2,
+                "duration": 7,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -281,7 +282,7 @@
                         "pendingCount": 0,
                         "totalCount": 12,
                         "totalRuleViolations": 0,
-                        "duration": 2,
+                        "duration": 6,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -300,7 +301,7 @@
                             "sequence": 1,
                             "id": "1fjmoze8kl-g3utex4jl9-pzr70hzc74",
                             "code": "() => {\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the background executes",
@@ -315,7 +316,7 @@
                             "sequence": 2,
                             "id": "1fjmoze8kl-g3utex4jl9-a56tzj75sc",
                             "code": "() => { }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "afterBackgroundCheck should be '10'",
@@ -332,7 +333,7 @@
                             "sequence": 3,
                             "id": "1fjmoze8kl-g3utex4jl9-ggqex728v4",
                             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "tables": [
@@ -368,7 +369,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 0,
+                                "duration": 3,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -387,7 +388,7 @@
                                     "sequence": 1,
                                     "id": "1fjmoze8kl-g3utex4jl9-pzr70hzc74",
                                     "code": "() => {\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "the background executes",
@@ -402,7 +403,7 @@
                                     "sequence": 2,
                                     "id": "1fjmoze8kl-g3utex4jl9-a56tzj75sc",
                                     "code": "() => { }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "afterBackgroundCheck should be '10'",
@@ -419,7 +420,7 @@
                                     "sequence": 3,
                                     "id": "1fjmoze8kl-g3utex4jl9-ggqex728v4",
                                     "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -438,7 +439,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 1,
+                                "duration": 2,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -489,7 +490,7 @@
                                     "sequence": 3,
                                     "id": "1fjmoze8kl-g3utex4jl9-ggqex728v4",
                                     "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -508,7 +509,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 1,
+                                "duration": 0,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -542,7 +543,7 @@
                                     "sequence": 2,
                                     "id": "1fjmoze8kl-g3utex4jl9-a56tzj75sc",
                                     "code": "() => { }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "afterBackgroundCheck should be '10'",
@@ -578,7 +579,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 0,
+                                "duration": 1,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -629,7 +630,7 @@
                                     "sequence": 3,
                                     "id": "1fjmoze8kl-g3utex4jl9-ggqex728v4",
                                     "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -650,7 +651,7 @@
             "title": "Background works with Scenario Outlines",
             "description": "",
             "tags": [],
-            "filename": "Background_suports_Scenario_Outline.Spec.js",
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Background_Keyword/Background_suports_Scenario_Outline.Spec.js",
             "background": {
                 "type": "Background",
                 "ruleViolations": [],
@@ -660,7 +661,7 @@
                     "pendingCount": 0,
                     "totalCount": 1,
                     "totalRuleViolations": 0,
-                    "duration": 0,
+                    "duration": 1,
                     "passPercent": 1,
                     "failedPercent": 0,
                     "pendingPercent": 0
@@ -679,7 +680,7 @@
                         "sequence": 1,
                         "id": "1fjmoze8kl-12bxwddetkr-cn7n8ue8uo",
                         "code": "() => {\r\n            afterBackgroundCheck += 10;\r\n        }",
-                        "duration": 0
+                        "duration": 1
                     }
                 ],
                 "title": "Validate afterBackground",
@@ -687,7 +688,8 @@
                 "tags": [],
                 "id": "1fjmoze8kl-12bxwddetkr"
             },
-            "id": "1fjmoze8kl"
+            "id": "1fjmoze8kl",
+            "path": "Background_Keyword"
         },
         {
             "type": "Feature",
@@ -698,7 +700,7 @@
                 "pendingCount": 0,
                 "totalCount": 16,
                 "totalRuleViolations": 0,
-                "duration": 3,
+                "duration": 2,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -768,7 +770,7 @@
                             "sequence": 3,
                             "id": "12pezr0es5p-lqyuwqefog-79cpckl48l",
                             "code": "() => {\r\n            afterBackgroundCheck.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the background has been executed '1' times so far",
@@ -785,7 +787,7 @@
                             "sequence": 4,
                             "id": "12pezr0es5p-lqyuwqefog-tscg4x2mct",
                             "code": "() => {\r\n            count.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "title": "Add 10 to someValue",
@@ -914,7 +916,7 @@
                             "sequence": 1,
                             "id": "12pezr0es5p-6fbmr7dd4j-7gsbd9dp4j",
                             "code": "() => {\r\n            someValue += stepContext.values[0];\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "someValue should be '300'",
@@ -931,7 +933,7 @@
                             "sequence": 2,
                             "id": "12pezr0es5p-6fbmr7dd4j-ggswl946y8",
                             "code": "() => {\r\n            someValue.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "afterBackgroundCheck should be '10'",
@@ -978,7 +980,7 @@
             "title": "Background statement",
             "description": "Background statements are used to define a common given that is\napplied to each scenario. The background is executed before each scenario",
             "tags": [],
-            "filename": "Background.Spec.js",
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Background_Keyword/Background.Spec.js",
             "background": {
                 "type": "Background",
                 "ruleViolations": [],
@@ -988,7 +990,7 @@
                     "pendingCount": 0,
                     "totalCount": 4,
                     "totalRuleViolations": 0,
-                    "duration": 1,
+                    "duration": 0,
                     "passPercent": 1,
                     "failedPercent": 0,
                     "pendingPercent": 0
@@ -1026,7 +1028,7 @@
                         "sequence": 2,
                         "id": "12pezr0es5p-15t5wl0ufzp-rplb0lzu83",
                         "code": "() => {\r\n            someValue += backgroundContext.and[0].values[0];\r\n        }",
-                        "duration": 1
+                        "duration": 0
                     },
                     {
                         "title": "the stepContext is available so should get '10' from this step",
@@ -1068,7 +1070,8 @@
                 "tags": [],
                 "id": "12pezr0es5p-15t5wl0ufzp"
             },
-            "id": "12pezr0es5p"
+            "id": "12pezr0es5p",
+            "path": "Background_Keyword"
         },
         {
             "type": "Feature",
@@ -1079,7 +1082,7 @@
                 "pendingCount": 0,
                 "totalCount": 7,
                 "totalRuleViolations": 0,
-                "duration": 2,
+                "duration": 4,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -1094,7 +1097,7 @@
                         "pendingCount": 0,
                         "totalCount": 7,
                         "totalRuleViolations": 0,
-                        "duration": 2,
+                        "duration": 4,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -1174,8 +1177,8 @@
                             "type": "and",
                             "sequence": 5,
                             "id": "38awd0goi5-bqw1nc70bv-ckwyxztl6j",
-                            "code": "() => {\r\n            featureContext.filename.should.be.equal(filename);\r\n        }",
-                            "duration": 0
+                            "code": "() => {\r\n            featureContext.filename.should.contain(filename);\r\n        }",
+                            "duration": 3
                         },
                         {
                             "title": "the global variable featureContext.description should match 'Features are used to define a feature that requires testing'",
@@ -1209,7 +1212,7 @@
                             "sequence": 7,
                             "id": "38awd0goi5-bqw1nc70bv-ggtr2ube74",
                             "code": "() => {\r\n            featureContext.tags.should.be.eql(tags);\r\n        }",
-                            "duration": 2
+                            "duration": 1
                         }
                     ],
                     "title": "Using the feature statement to create a new feature",
@@ -1226,8 +1229,9 @@
                 "tag-sample:test2",
                 "even-more"
             ],
-            "filename": "Feature.Spec.js",
-            "id": "38awd0goi5"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Feature_Keyword/Feature.Spec.js",
+            "id": "38awd0goi5",
+            "path": "Feature_Keyword"
         },
         {
             "type": "Feature",
@@ -1238,7 +1242,7 @@
                 "pendingCount": 0,
                 "totalCount": 22,
                 "totalRuleViolations": 0,
-                "duration": 60,
+                "duration": 53,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -1253,7 +1257,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 19,
+                        "duration": 17,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -1272,7 +1276,7 @@
                             "sequence": 1,
                             "id": "mptbh0gc0t-15m765ae1rf-16oiwkcbywj",
                             "code": "() => {\r\n            liveDocOptions.filters = stepContext.docStringAsEntity;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the following features",
@@ -1302,7 +1306,7 @@
                             "sequence": 3,
                             "id": "mptbh0gc0t-15m765ae1rf-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);\r\n        })",
-                            "duration": 18
+                            "duration": 17
                         },
                         {
                             "title": "'2' features are processed",
@@ -1367,7 +1371,7 @@
                         "pendingCount": 0,
                         "totalCount": 8,
                         "totalRuleViolations": 0,
-                        "duration": 16,
+                        "duration": 13,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -1416,7 +1420,7 @@
                             "sequence": 3,
                             "id": "mptbh0gc0t-10zserxjd6j-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);\r\n        })",
-                            "duration": 14
+                            "duration": 9
                         },
                         {
                             "title": "'2' features are processed",
@@ -1433,7 +1437,7 @@
                             "sequence": 4,
                             "id": "mptbh0gc0t-10zserxjd6j-17nibnvwv8j",
                             "code": "() => {\r\n            executionResults.features.length.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the first scenarios steps are executed",
@@ -1463,7 +1467,7 @@
                             "sequence": 6,
                             "id": "mptbh0gc0t-10zserxjd6j-jkiqu1iqsg",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[1].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.unknown);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the third scenarios steps are executed",
@@ -1478,7 +1482,7 @@
                             "sequence": 7,
                             "id": "mptbh0gc0t-10zserxjd6j-86e8vkq2yr",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[2].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the steps for the second feature are NOT executed",
@@ -1493,7 +1497,7 @@
                             "sequence": 8,
                             "id": "mptbh0gc0t-10zserxjd6j-jkrho8y88w",
                             "code": "() => {\r\n            const keyword = executionResults.features[1].scenarios[0].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.unknown);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Using include and exclude option to specify Scenarios to execute",
@@ -1511,7 +1515,7 @@
                         "pendingCount": 0,
                         "totalCount": 8,
                         "totalRuleViolations": 0,
-                        "duration": 25,
+                        "duration": 23,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -1560,7 +1564,7 @@
                             "sequence": 3,
                             "id": "mptbh0gc0t-lr3mh10a5c-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);\r\n        })",
-                            "duration": 23
+                            "duration": 22
                         },
                         {
                             "title": "'2' features are processed",
@@ -1607,7 +1611,7 @@
                             "sequence": 6,
                             "id": "mptbh0gc0t-lr3mh10a5c-jkiqu1iqsg",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[1];\r\n            keyword.examples[0].steps[0].status.should.be.eq(model_1.SpecStatus.unknown);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the third scenarios steps are executed",
@@ -1650,8 +1654,9 @@
             "title": "Filter exclude overrides include tags",
             "description": "",
             "tags": [],
-            "filename": "Filter_exclude_overrides_include.Spec.js",
-            "id": "mptbh0gc0t"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Filtering/Filter_exclude_overrides_include.Spec.js",
+            "id": "mptbh0gc0t",
+            "path": "Filtering"
         },
         {
             "type": "Feature",
@@ -1662,7 +1667,7 @@
                 "pendingCount": 0,
                 "totalCount": 22,
                 "totalRuleViolations": 0,
-                "duration": 68,
+                "duration": 64,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -1677,7 +1682,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 25,
+                        "duration": 22,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -1696,7 +1701,7 @@
                             "sequence": 1,
                             "id": "ohnzscmz0r-lqw01sbuyo-b30sudozy8",
                             "code": "() => {\r\n            liveDocOptions.filters = stepContext.docStringAsEntity;\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the following features",
@@ -1711,7 +1716,7 @@
                             "sequence": 2,
                             "id": "ohnzscmz0r-lqw01sbuyo-b37w7mmxfk",
                             "code": "() => {\r\n            featureText = stepContext.docString;\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the feature is executed",
@@ -1726,7 +1731,7 @@
                             "sequence": 3,
                             "id": "ohnzscmz0r-lqw01sbuyo-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);\r\n        })",
-                            "duration": 25
+                            "duration": 20
                         },
                         {
                             "title": "'2' features are processed",
@@ -1791,7 +1796,7 @@
                         "pendingCount": 0,
                         "totalCount": 8,
                         "totalRuleViolations": 0,
-                        "duration": 19,
+                        "duration": 15,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -1825,7 +1830,7 @@
                             "sequence": 2,
                             "id": "ohnzscmz0r-6fbrn2b6a5-3c36uxnznf",
                             "code": "() => {\r\n            featureText = stepContext.docString;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the feature is executed",
@@ -1840,7 +1845,7 @@
                             "sequence": 3,
                             "id": "ohnzscmz0r-6fbrn2b6a5-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);\r\n        })",
-                            "duration": 17
+                            "duration": 14
                         },
                         {
                             "title": "'2' features are processed",
@@ -1857,7 +1862,7 @@
                             "sequence": 4,
                             "id": "ohnzscmz0r-6fbrn2b6a5-17nibnvwv8j",
                             "code": "() => {\r\n            executionResults.features.length.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the first scenarios steps are NOT executed and marked as pending",
@@ -1872,7 +1877,7 @@
                             "sequence": 5,
                             "id": "ohnzscmz0r-6fbrn2b6a5-q63qxqavls",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[0].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pending);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the second scenarios steps are executed",
@@ -1935,7 +1940,7 @@
                         "pendingCount": 0,
                         "totalCount": 8,
                         "totalRuleViolations": 0,
-                        "duration": 24,
+                        "duration": 27,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -1984,7 +1989,7 @@
                             "sequence": 3,
                             "id": "ohnzscmz0r-2vlyv278v7-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);\r\n            }\r\n            catch (e) {\r\n                console.log(e);\r\n            }\r\n        })",
-                            "duration": 22
+                            "duration": 26
                         },
                         {
                             "title": "'2' features are processed",
@@ -2001,7 +2006,7 @@
                             "sequence": 4,
                             "id": "ohnzscmz0r-2vlyv278v7-17nibnvwv8j",
                             "code": "() => {\r\n            executionResults.features.length.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the first scenarios steps are NOT executed and marked as pending",
@@ -2031,7 +2036,7 @@
                             "sequence": 6,
                             "id": "ohnzscmz0r-2vlyv278v7-jkoidphxwg",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[1];\r\n            keyword.examples[0].steps[0].status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the third scenarios steps are NOT executed and marked as pending",
@@ -2061,7 +2066,7 @@
                             "sequence": 8,
                             "id": "ohnzscmz0r-2vlyv278v7-jkqnlqwnlc",
                             "code": "() => {\r\n            const keyword = executionResults.features[1].scenarios[0];\r\n            keyword.examples[0].steps[0].status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "title": "Using exclude option to specify ScenarioOutline to execute",
@@ -2074,8 +2079,9 @@
             "title": "Filter exclude restricts spec to non-matching tags",
             "description": "",
             "tags": [],
-            "filename": "Filter_exclude_restricts_spec_to_non-matching_tags.Spec.js",
-            "id": "ohnzscmz0r"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Filtering/Filter_exclude_restricts_spec_to_non-matching_tags.Spec.js",
+            "id": "ohnzscmz0r",
+            "path": "Filtering"
         },
         {
             "type": "Feature",
@@ -2086,7 +2092,7 @@
                 "pendingCount": 0,
                 "totalCount": 22,
                 "totalRuleViolations": 0,
-                "duration": 46,
+                "duration": 44,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -2101,7 +2107,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 13,
+                        "duration": 11,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -2150,7 +2156,7 @@
                             "sequence": 3,
                             "id": "c2oidhw0hh-lr0upcie1s-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);\r\n        })",
-                            "duration": 12
+                            "duration": 9
                         },
                         {
                             "title": "'2' features are processed",
@@ -2197,7 +2203,7 @@
                             "sequence": 6,
                             "id": "c2oidhw0hh-lr0upcie1s-jkrho8y88w",
                             "code": "() => {\r\n            const keyword = executionResults.features[1].scenarios[0].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.unknown);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Using include option to specify Features to execute",
@@ -2215,7 +2221,7 @@
                         "pendingCount": 0,
                         "totalCount": 8,
                         "totalRuleViolations": 0,
-                        "duration": 13,
+                        "duration": 16,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -2234,7 +2240,7 @@
                             "sequence": 1,
                             "id": "c2oidhw0hh-h2gg01xzff-b303gny6ps",
                             "code": "() => {\r\n            liveDocOptions.filters = stepContext.docStringAsEntity;\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the following features",
@@ -2296,7 +2302,7 @@
                             "sequence": 5,
                             "id": "c2oidhw0hh-h2gg01xzff-jknxiezilc",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[0].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the second scenarios steps are NOT executed",
@@ -2326,7 +2332,7 @@
                             "sequence": 7,
                             "id": "c2oidhw0hh-h2gg01xzff-86e8vkq2yr",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[2].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the steps for the second feature are NOT executed",
@@ -2359,7 +2365,7 @@
                         "pendingCount": 0,
                         "totalCount": 8,
                         "totalRuleViolations": 0,
-                        "duration": 20,
+                        "duration": 17,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -2378,7 +2384,7 @@
                             "sequence": 1,
                             "id": "c2oidhw0hh-lr3mh10a5c-b303gny6ps",
                             "code": "() => {\r\n            liveDocOptions.filters = stepContext.docStringAsEntity;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the following features",
@@ -2440,7 +2446,7 @@
                             "sequence": 5,
                             "id": "c2oidhw0hh-lr3mh10a5c-jknxiezilc",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[0];\r\n            keyword.examples[0].steps[0].status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the second scenarios steps are NOT executed",
@@ -2470,7 +2476,7 @@
                             "sequence": 7,
                             "id": "c2oidhw0hh-lr3mh10a5c-86e8vkq2yr",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[2];\r\n            keyword.examples[0].steps[0].status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the steps for the second feature are NOT executed",
@@ -2498,8 +2504,9 @@
             "title": "Filter include restricts spec to matching tags",
             "description": "",
             "tags": [],
-            "filename": "Filter_include_restricts_spec_to_matching_tags.Spec.js",
-            "id": "c2oidhw0hh"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Filtering/Filter_include_restricts_spec_to_matching_tags.Spec.js",
+            "id": "c2oidhw0hh",
+            "path": "Filtering"
         },
         {
             "type": "Feature",
@@ -2680,8 +2687,9 @@
             "title": "Filters with no matches have no results",
             "description": "",
             "tags": [],
-            "filename": "Filters_with_no_matches_have_no_results.Spec.js",
-            "id": "a5564whwqo"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Filtering/Filters_with_no_matches_have_no_results.Spec.js",
+            "id": "a5564whwqo",
+            "path": "Filtering"
         },
         {
             "type": "Feature",
@@ -2692,7 +2700,7 @@
                 "pendingCount": 0,
                 "totalCount": 11,
                 "totalRuleViolations": 0,
-                "duration": 33,
+                "duration": 28,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -2707,7 +2715,7 @@
                         "pendingCount": 0,
                         "totalCount": 7,
                         "totalRuleViolations": 0,
-                        "duration": 21,
+                        "duration": 15,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -2741,7 +2749,7 @@
                             "sequence": 2,
                             "id": "d6dhuwl1i8-jkqnl9xbts-2utzft5z4d",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText);\r\n        })",
-                            "duration": 20
+                            "duration": 14
                         },
                         {
                             "title": "'2' top level describe is processed",
@@ -2773,7 +2781,7 @@
                             "sequence": 4,
                             "id": "d6dhuwl1i8-jkqnl9xbts-11l40ooc6lc",
                             "code": "() => {\r\n            const keyword = executionResults.suites[1].tests[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.fail);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the first it for the second level describe is marked as pass",
@@ -2803,7 +2811,7 @@
                             "sequence": 6,
                             "id": "d6dhuwl1i8-jkqnl9xbts-q5zic4oisw",
                             "code": "() => {\r\n            const keyword = executionResults.suites[1].children[0].tests[1];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pending);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the first it for the third level context is marked as pass",
@@ -2836,7 +2844,7 @@
                         "pendingCount": 0,
                         "totalCount": 4,
                         "totalRuleViolations": 0,
-                        "duration": 12,
+                        "duration": 13,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -2870,7 +2878,7 @@
                             "sequence": 2,
                             "id": "d6dhuwl1i8-13ucd5r2ukj-2utzft5z4d",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText);\r\n        })",
-                            "duration": 11
+                            "duration": 12
                         },
                         {
                             "title": "'1' top level suite exists which is the root suite",
@@ -2915,8 +2923,9 @@
             "title": "Describe still functions the same as native mocha",
             "description": "",
             "tags": [],
-            "filename": "Describe_still_is_supported.Spec.js",
-            "id": "d6dhuwl1i8"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Mocha Features/Describe_still_is_supported.Spec.js",
+            "id": "d6dhuwl1i8",
+            "path": "Mocha Features"
         },
         {
             "type": "Feature",
@@ -2927,7 +2936,7 @@
                 "pendingCount": 0,
                 "totalCount": 19,
                 "totalRuleViolations": 0,
-                "duration": 63,
+                "duration": 36,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -2942,7 +2951,7 @@
                         "pendingCount": 0,
                         "totalCount": 5,
                         "totalRuleViolations": 0,
-                        "duration": 16,
+                        "duration": 9,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -2976,7 +2985,7 @@
                             "sequence": 2,
                             "id": "ggo274cfuo-me10lpy38l-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText);\r\n        })",
-                            "duration": 15
+                            "duration": 9
                         },
                         {
                             "title": "'2' features are processed",
@@ -3023,7 +3032,7 @@
                             "sequence": 5,
                             "id": "ggo274cfuo-me10lpy38l-jkqnlqwnlc",
                             "code": "() => {\r\n            const keyword = executionResults.features[1].scenarios[0].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "title": "Using skip to specify Features to execute",
@@ -3041,7 +3050,7 @@
                         "pendingCount": 0,
                         "totalCount": 7,
                         "totalRuleViolations": 0,
-                        "duration": 22,
+                        "duration": 12,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3060,7 +3069,7 @@
                             "sequence": 1,
                             "id": "ggo274cfuo-me0vb4lmob-b38a0382f4",
                             "code": "() => {\r\n            featureText = stepContext.docString;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the feature is executed",
@@ -3075,7 +3084,7 @@
                             "sequence": 2,
                             "id": "ggo274cfuo-me0vb4lmob-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText);\r\n        })",
-                            "duration": 20
+                            "duration": 10
                         },
                         {
                             "title": "'2' features are processed",
@@ -3092,7 +3101,7 @@
                             "sequence": 3,
                             "id": "ggo274cfuo-me0vb4lmob-17nibnvwv8j",
                             "code": "() => {\r\n            executionResults.features.length.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the first scenarios steps are executed",
@@ -3107,7 +3116,7 @@
                             "sequence": 4,
                             "id": "ggo274cfuo-me0vb4lmob-jknxiezilc",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[0].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the second scenarios steps are marked as pending",
@@ -3122,7 +3131,7 @@
                             "sequence": 5,
                             "id": "ggo274cfuo-me0vb4lmob-knraxtiegz",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[1].steps[0];\r\n            keyword.status.should.be.eq(model_1.SpecStatus.pending);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the third scenarios steps are executed",
@@ -3170,7 +3179,7 @@
                         "pendingCount": 0,
                         "totalCount": 7,
                         "totalRuleViolations": 0,
-                        "duration": 25,
+                        "duration": 15,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3204,7 +3213,7 @@
                             "sequence": 2,
                             "id": "ggo274cfuo-pxqfzrdohn-jkohj6hrls",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureText);\r\n        })",
-                            "duration": 24
+                            "duration": 14
                         },
                         {
                             "title": "'2' features are processed",
@@ -3221,7 +3230,7 @@
                             "sequence": 3,
                             "id": "ggo274cfuo-pxqfzrdohn-17nibnvwv8j",
                             "code": "() => {\r\n            executionResults.features.length.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the first scenarios steps are executed",
@@ -3236,7 +3245,7 @@
                             "sequence": 4,
                             "id": "ggo274cfuo-pxqfzrdohn-jknxiezilc",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[0];\r\n            keyword.examples[0].steps[0].status.should.be.eq(model_1.SpecStatus.pass);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the second scenarios steps are marked as pending",
@@ -3294,8 +3303,101 @@
             "title": "Skip works with describe alias'",
             "description": "",
             "tags": [],
-            "filename": "Skip_works_with_describe_alias.Spec.js",
-            "id": "ggo274cfuo"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Mocha Features/Skip_works_with_describe_alias.Spec.js",
+            "id": "ggo274cfuo",
+            "path": "Mocha Features"
+        },
+        {
+            "type": "Feature",
+            "ruleViolations": [],
+            "statistics": {
+                "passCount": 3,
+                "failedCount": 0,
+                "pendingCount": 0,
+                "totalCount": 3,
+                "totalRuleViolations": 0,
+                "duration": 1,
+                "passPercent": 1,
+                "failedPercent": 0,
+                "pendingPercent": 0
+            },
+            "scenarios": [
+                {
+                    "type": "Scenario",
+                    "ruleViolations": [],
+                    "statistics": {
+                        "passCount": 3,
+                        "failedCount": 0,
+                        "pendingCount": 0,
+                        "totalCount": 3,
+                        "totalRuleViolations": 0,
+                        "duration": 1,
+                        "passPercent": 1,
+                        "failedPercent": 0,
+                        "pendingPercent": 0
+                    },
+                    "steps": [
+                        {
+                            "title": "the following Feature filenames",
+                            "status": "pass",
+                            "exception": {},
+                            "rawTitle": "the following Feature filenames",
+                            "description": "",
+                            "docString": "[\n    \"D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/test/Reporter/Feature1.Spec.js\",\n    \"D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/test/Reporter/Feature3.Spec.js\",\n    \"D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/test/Background/Feature1.Spec.js\",\n    \"D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/test/Someother/Feature1.Spec.js\",\n    \"D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/test/Background/Feature2.Spec.js\",\n    \"D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/x/Feature2.Spec.js\",\n    \"D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/test/DeepFolder/Level2/Feature1.Spec.js\"\n]",
+                            "values": [],
+                            "ruleViolations": [],
+                            "type": "Given",
+                            "sequence": 1,
+                            "id": "sekooqptz4-a52dbi6qgw-r5sdaa7a5n",
+                            "code": "() => {\r\n        }",
+                            "duration": 0
+                        },
+                        {
+                            "title": "extracting the path root",
+                            "status": "pass",
+                            "exception": {},
+                            "rawTitle": "extracting the path root",
+                            "description": "",
+                            "docString": "",
+                            "values": [],
+                            "ruleViolations": [],
+                            "type": "When",
+                            "sequence": 2,
+                            "id": "sekooqptz4-a52dbi6qgw-c3kpk67cez",
+                            "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            rootPath = reporter_1.LiveDocReporter.findRootPath(scenarioContext.given.docStringAsEntity);\r\n        })",
+                            "duration": 1
+                        },
+                        {
+                            "title": "the root path is 'D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src'",
+                            "status": "pass",
+                            "exception": {},
+                            "rawTitle": "the root path is 'D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src'",
+                            "description": "",
+                            "docString": "",
+                            "values": [
+                                "D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src"
+                            ],
+                            "ruleViolations": [],
+                            "type": "Then",
+                            "sequence": 3,
+                            "id": "sekooqptz4-a52dbi6qgw-16l4nzs6mjn",
+                            "code": "() => {\r\n            rootPath.should.be.eq(stepContext.values[0]);\r\n        }",
+                            "duration": 0
+                        }
+                    ],
+                    "title": "Multiple Features are executed with various paths",
+                    "description": "",
+                    "tags": [],
+                    "sequence": 1,
+                    "id": "sekooqptz4-a52dbi6qgw"
+                }
+            ],
+            "title": "Remove the root path from filenames to define a path",
+            "description": "",
+            "tags": [],
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Reporter/Find_root_path.Spec.js",
+            "id": "sekooqptz4",
+            "path": "Reporter"
         },
         {
             "type": "Feature",
@@ -3306,7 +3408,7 @@
                 "pendingCount": 0,
                 "totalCount": 17,
                 "totalRuleViolations": 0,
-                "duration": 210,
+                "duration": 184,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -3321,7 +3423,7 @@
                         "pendingCount": 0,
                         "totalCount": 5,
                         "totalRuleViolations": 0,
-                        "duration": 160,
+                        "duration": 137,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3355,7 +3457,7 @@
                             "sequence": 2,
                             "id": "c2oaueee5f-11l73l3wixs-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            results = yield livedoc_1.LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString.replace(/\\$/g, '\"'));\r\n            step = results.features[0].scenarios[0].steps[0];\r\n        })",
-                            "duration": 156
+                            "duration": 136
                         },
                         {
                             "title": "the execution results for the step are:",
@@ -3385,7 +3487,7 @@
                             "sequence": 4,
                             "id": "c2oaueee5f-11l73l3wixs-b321bi37ls",
                             "code": "() => {\r\n            const expected = stepContext.docString;\r\n            step.code.should.contain(expected);\r\n        }",
-                            "duration": 2
+                            "duration": 0
                         },
                         {
                             "title": "the elapsed time is captured",
@@ -3400,7 +3502,7 @@
                             "sequence": 5,
                             "id": "c2oaueee5f-11l73l3wixs-pwyfktp4h1",
                             "code": "() => {\r\n            step.duration.should.be.greaterThan(0);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "title": "Each passing step is captured as part of the model",
@@ -3418,7 +3520,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 16,
+                        "duration": 17,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3467,7 +3569,7 @@
                             "sequence": 3,
                             "id": "c2oaueee5f-8cvu9tdov1-b31h7bily8",
                             "code": "() => {\r\n            const expected = stepContext.docStringAsEntity;\r\n            const step = results.features[0].scenarios[0].steps[0];\r\n            const actual = {\r\n                \"status\": step.status,\r\n                \"exception\": step.exception,\r\n            };\r\n            actual.exception.stackTrace = actual.exception.stackTrace.split('\\n')[0];\r\n            actual.should.be.eql(expected);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Steps that throw an exception have the meta-data added to model",
@@ -3485,7 +3587,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 18,
+                        "duration": 17,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3519,7 +3621,7 @@
                             "sequence": 2,
                             "id": "c2oaueee5f-q3frrndkpn-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            results = yield livedoc_1.LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);\r\n        })",
-                            "duration": 17
+                            "duration": 16
                         },
                         {
                             "title": "the execution results include the error details:",
@@ -3552,7 +3654,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 16,
+                        "duration": 13,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3571,7 +3673,7 @@
                             "sequence": 1,
                             "id": "c2oaueee5f-mptcrkjhdh-le9ebylp85",
                             "code": "() => {\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "executing describe",
@@ -3603,7 +3705,7 @@
                             "sequence": 3,
                             "id": "c2oaueee5f-mptcrkjhdh-a5bsgrjt5s",
                             "code": "() => {\r\n            results.suites.length.should.be.eq(2);\r\n            mochaSuite.tests.length.should.be.eq(stepContext.values[0]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the first it is marked as 'pass'",
@@ -3620,7 +3722,7 @@
                             "sequence": 4,
                             "id": "c2oaueee5f-mptcrkjhdh-n81yc1xbvp",
                             "code": "() => {\r\n            mochaSuite.tests[0].status.should.be.equal(model_1.SpecStatus[stepContext.values[0]]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the second it is marked as 'fail'",
@@ -3667,8 +3769,9 @@
             "title": "Reporter returns model including execution results",
             "description": "",
             "tags": [],
-            "filename": "Reporter_augments_model_with_execution_results.Spec.js",
-            "id": "c2oaueee5f"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Reporter/Reporter_augments_model_with_execution_results.Spec.js",
+            "id": "c2oaueee5f",
+            "path": "Reporter"
         },
         {
             "type": "Feature",
@@ -3679,7 +3782,7 @@
                 "pendingCount": 0,
                 "totalCount": 15,
                 "totalRuleViolations": 0,
-                "duration": 61,
+                "duration": 46,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -3694,7 +3797,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 26,
+                        "duration": 18,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3728,7 +3831,7 @@
                             "sequence": 2,
                             "id": "ywq51a5msb-at2bsuq231-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 14
+                            "duration": 11
                         },
                         {
                             "title": "a parse exception with the following description is thrown",
@@ -3743,7 +3846,7 @@
                             "sequence": 3,
                             "id": "ywq51a5msb-at2bsuq231-cilndp6u00",
                             "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "tables": [
@@ -3776,7 +3879,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 15,
+                                "duration": 11,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -3810,7 +3913,7 @@
                                     "sequence": 2,
                                     "id": "ywq51a5msb-at2bsuq231-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 14
+                                    "duration": 11
                                 },
                                 {
                                     "title": "a parse exception with the following description is thrown",
@@ -3825,7 +3928,7 @@
                                     "sequence": 3,
                                     "id": "ywq51a5msb-at2bsuq231-cilndp6u00",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -3845,7 +3948,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 7,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -3879,7 +3982,7 @@
                                     "sequence": 2,
                                     "id": "ywq51a5msb-at2bsuq231-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 11
+                                    "duration": 6
                                 },
                                 {
                                     "title": "a parse exception with the following description is thrown",
@@ -3894,7 +3997,7 @@
                                     "sequence": 3,
                                     "id": "ywq51a5msb-at2bsuq231-77xc9d6oaz",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -3919,7 +4022,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 12,
+                        "duration": 11,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -3953,7 +4056,7 @@
                             "sequence": 2,
                             "id": "ywq51a5msb-ggvpqwqj8g-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 12
+                            "duration": 11
                         },
                         {
                             "title": "a parse exception with the following description is thrown",
@@ -3986,7 +4089,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 23,
+                        "duration": 17,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -4005,7 +4108,7 @@
                             "sequence": 1,
                             "id": "ywq51a5msb-ggv9371zao-b37qtuopeo",
                             "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "executing feature",
@@ -4020,7 +4123,7 @@
                             "sequence": 2,
                             "id": "ywq51a5msb-ggv9371zao-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 9
+                            "duration": 7
                         },
                         {
                             "title": "a parse exception with the following description is thrown",
@@ -4035,7 +4138,7 @@
                             "sequence": 3,
                             "id": "ywq51a5msb-ggv9371zao-ua1tebwt0z",
                             "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "tables": [
@@ -4068,7 +4171,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 7,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4087,7 +4190,76 @@
                                     "sequence": 1,
                                     "id": "ywq51a5msb-ggv9371zao-b37qtuopeo",
                                     "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
+                                },
+                                {
+                                    "title": "executing feature",
+                                    "status": "pass",
+                                    "exception": {},
+                                    "rawTitle": "executing feature",
+                                    "description": "",
+                                    "docString": "",
+                                    "values": [],
+                                    "ruleViolations": [],
+                                    "type": "When",
+                                    "sequence": 2,
+                                    "id": "ywq51a5msb-ggv9371zao-144l3mxesp9",
+                                    "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
+                                    "duration": 7
+                                },
+                                {
+                                    "title": "a parse exception with the following description is thrown",
+                                    "status": "pass",
+                                    "exception": {},
+                                    "rawTitle": "a parse exception with the following description is thrown",
+                                    "description": "",
+                                    "docString": "The async keyword is not supported for Scenario",
+                                    "values": [],
+                                    "ruleViolations": [],
+                                    "type": "Then",
+                                    "sequence": 3,
+                                    "id": "ywq51a5msb-ggv9371zao-ua1tebwt0z",
+                                    "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
+                                    "duration": 0
+                                }
+                            ],
+                            "example": {
+                                "alias": "scenario",
+                                "displayname": "Scenario"
+                            },
+                            "title": "Use of async on child level describe alias'",
+                            "sequence": 1,
+                            "id": "ywq51a5msb-ggv9371zao"
+                        },
+                        {
+                            "type": "ScenarioExample",
+                            "ruleViolations": [],
+                            "statistics": {
+                                "passCount": 3,
+                                "failedCount": 0,
+                                "pendingCount": 0,
+                                "totalCount": 3,
+                                "totalRuleViolations": 0,
+                                "duration": 10,
+                                "passPercent": 1,
+                                "failedPercent": 0,
+                                "pendingPercent": 0
+                            },
+                            "steps": [
+                                {
+                                    "title": "the following feature",
+                                    "status": "pass",
+                                    "exception": {},
+                                    "rawTitle": "the following feature",
+                                    "description": "",
+                                    "docString": "feature(\"Describe alias' do not support async\", ()=> {\n    background(\"Background may not be marked as async\", async () => { });            \n});",
+                                    "values": [],
+                                    "ruleViolations": [],
+                                    "type": "Given",
+                                    "sequence": 1,
+                                    "id": "ywq51a5msb-ggv9371zao-b36cawtw4w",
+                                    "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
+                                    "duration": 0
                                 },
                                 {
                                     "title": "executing feature",
@@ -4110,75 +4282,6 @@
                                     "exception": {},
                                     "rawTitle": "a parse exception with the following description is thrown",
                                     "description": "",
-                                    "docString": "The async keyword is not supported for Scenario",
-                                    "values": [],
-                                    "ruleViolations": [],
-                                    "type": "Then",
-                                    "sequence": 3,
-                                    "id": "ywq51a5msb-ggv9371zao-ua1tebwt0z",
-                                    "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 1
-                                }
-                            ],
-                            "example": {
-                                "alias": "scenario",
-                                "displayname": "Scenario"
-                            },
-                            "title": "Use of async on child level describe alias'",
-                            "sequence": 1,
-                            "id": "ywq51a5msb-ggv9371zao"
-                        },
-                        {
-                            "type": "ScenarioExample",
-                            "ruleViolations": [],
-                            "statistics": {
-                                "passCount": 3,
-                                "failedCount": 0,
-                                "pendingCount": 0,
-                                "totalCount": 3,
-                                "totalRuleViolations": 0,
-                                "duration": 12,
-                                "passPercent": 1,
-                                "failedPercent": 0,
-                                "pendingPercent": 0
-                            },
-                            "steps": [
-                                {
-                                    "title": "the following feature",
-                                    "status": "pass",
-                                    "exception": {},
-                                    "rawTitle": "the following feature",
-                                    "description": "",
-                                    "docString": "feature(\"Describe alias' do not support async\", ()=> {\n    background(\"Background may not be marked as async\", async () => { });            \n});",
-                                    "values": [],
-                                    "ruleViolations": [],
-                                    "type": "Given",
-                                    "sequence": 1,
-                                    "id": "ywq51a5msb-ggv9371zao-b36cawtw4w",
-                                    "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                                    "duration": 1
-                                },
-                                {
-                                    "title": "executing feature",
-                                    "status": "pass",
-                                    "exception": {},
-                                    "rawTitle": "executing feature",
-                                    "description": "",
-                                    "docString": "",
-                                    "values": [],
-                                    "ruleViolations": [],
-                                    "type": "When",
-                                    "sequence": 2,
-                                    "id": "ywq51a5msb-ggv9371zao-144l3mxesp9",
-                                    "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 11
-                                },
-                                {
-                                    "title": "a parse exception with the following description is thrown",
-                                    "status": "pass",
-                                    "exception": {},
-                                    "rawTitle": "a parse exception with the following description is thrown",
-                                    "description": "",
                                     "docString": "The async keyword is not supported for Background",
                                     "values": [],
                                     "ruleViolations": [],
@@ -4186,7 +4289,7 @@
                                     "sequence": 3,
                                     "id": "ywq51a5msb-ggv9371zao-ebcr1ex7vh",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -4206,8 +4309,9 @@
             "title": "Enforce mocha limitations",
             "description": "mocha only supports async operations on it statements. Describes must be synchronous",
             "tags": [],
-            "filename": "Enforce_mocha_limitations.Spec.js",
-            "id": "ywq51a5msb"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Rule Violations/Enforce_mocha_limitations.Spec.js",
+            "id": "ywq51a5msb",
+            "path": "Rule Violations"
         },
         {
             "type": "Feature",
@@ -4218,7 +4322,7 @@
                 "pendingCount": 0,
                 "totalCount": 39,
                 "totalRuleViolations": 0,
-                "duration": 157,
+                "duration": 111,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -4233,7 +4337,7 @@
                         "pendingCount": 0,
                         "totalCount": 9,
                         "totalRuleViolations": 0,
-                        "duration": 37,
+                        "duration": 29,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -4267,7 +4371,7 @@
                             "sequence": 2,
                             "id": "16885jmhr6d-a52pd9d24g-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 13
+                            "duration": 10
                         },
                         {
                             "title": "a parseException with the following description is thrown",
@@ -4319,7 +4423,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 13,
+                                "duration": 10,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4353,7 +4457,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-a52pd9d24g-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 13
+                                    "duration": 10
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -4388,7 +4492,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 13,
+                                "duration": 6,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4422,7 +4526,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-a52pd9d24g-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 13
+                                    "duration": 6
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -4457,7 +4561,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 13,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4476,7 +4580,7 @@
                                     "sequence": 1,
                                     "id": "16885jmhr6d-a52pd9d24g-j61h2yw1at",
                                     "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "executing feature",
@@ -4491,7 +4595,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-a52pd9d24g-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 10
+                                    "duration": 13
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -4531,7 +4635,7 @@
                         "pendingCount": 0,
                         "totalCount": 15,
                         "totalRuleViolations": 0,
-                        "duration": 55,
+                        "duration": 40,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -4565,7 +4669,7 @@
                             "sequence": 2,
                             "id": "16885jmhr6d-16b0fts1jeo-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 11
+                            "duration": 6
                         },
                         {
                             "title": "a parseException with the following description is thrown",
@@ -4625,7 +4729,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 6,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4659,7 +4763,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-16b0fts1jeo-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 11
+                                    "duration": 6
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -4694,7 +4798,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 6,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4728,7 +4832,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-16b0fts1jeo-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 11
+                                    "duration": 6
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -4763,7 +4867,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 12,
+                                "duration": 11,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4812,7 +4916,7 @@
                                     "sequence": 3,
                                     "id": "16885jmhr6d-16b0fts1jeo-cim7v30vb4",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -4832,7 +4936,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 9,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4866,7 +4970,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-16b0fts1jeo-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 11
+                                    "duration": 9
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -4901,7 +5005,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 10,
+                                "duration": 8,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -4935,7 +5039,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-16b0fts1jeo-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 10
+                                    "duration": 8
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -4975,7 +5079,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 31,
+                        "duration": 18,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -4994,7 +5098,7 @@
                             "sequence": 1,
                             "id": "16885jmhr6d-330nff8oyd-arn51mua1p",
                             "code": "() => {\r\n            featureGherkin = stepContext.docString;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "executing feature",
@@ -5009,7 +5113,7 @@
                             "sequence": 2,
                             "id": "16885jmhr6d-330nff8oyd-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 18
+                            "duration": 9
                         },
                         {
                             "title": "a parseException with the following description is thrown",
@@ -5024,7 +5128,7 @@
                             "sequence": 3,
                             "id": "16885jmhr6d-330nff8oyd-si75xehjjh",
                             "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "tables": [
@@ -5057,7 +5161,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 20,
+                                "duration": 9,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -5076,7 +5180,7 @@
                                     "sequence": 1,
                                     "id": "16885jmhr6d-330nff8oyd-arn51mua1p",
                                     "code": "() => {\r\n            featureGherkin = stepContext.docString;\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "executing feature",
@@ -5091,7 +5195,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-330nff8oyd-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 18
+                                    "duration": 9
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -5106,7 +5210,7 @@
                                     "sequence": 3,
                                     "id": "16885jmhr6d-330nff8oyd-si75xehjjh",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -5126,7 +5230,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 9,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -5160,7 +5264,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-330nff8oyd-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 11
+                                    "duration": 9
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -5200,7 +5304,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 23,
+                        "duration": 18,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -5234,7 +5338,7 @@
                             "sequence": 2,
                             "id": "16885jmhr6d-aathzp28ln-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 11
+                            "duration": 12
                         },
                         {
                             "title": "a parseException with the following description is thrown",
@@ -5282,7 +5386,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 12,
+                                "duration": 13,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -5316,7 +5420,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-aathzp28ln-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 11
+                                    "duration": 12
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -5351,7 +5455,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 5,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -5385,7 +5489,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-aathzp28ln-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 10
+                                    "duration": 5
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -5400,7 +5504,7 @@
                                     "sequence": 3,
                                     "id": "16885jmhr6d-aathzp28ln-qqc7wxrzub",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -5425,7 +5529,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 11,
+                        "duration": 6,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -5459,7 +5563,7 @@
                             "sequence": 2,
                             "id": "16885jmhr6d-1802tpf8sbf-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                            "duration": 10
+                            "duration": 6
                         },
                         {
                             "title": "a parseException with the following description is thrown",
@@ -5474,7 +5578,7 @@
                             "sequence": 3,
                             "id": "16885jmhr6d-1802tpf8sbf-77xj3qngud",
                             "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "tables": [
@@ -5503,7 +5607,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 3,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 6,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -5537,7 +5641,7 @@
                                     "sequence": 2,
                                     "id": "16885jmhr6d-1802tpf8sbf-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(featureGherkin);\r\n            }\r\n            catch (e) {\r\n                parseException = e;\r\n            }\r\n        })",
-                                    "duration": 10
+                                    "duration": 6
                                 },
                                 {
                                     "title": "a parseException with the following description is thrown",
@@ -5552,7 +5656,7 @@
                                     "sequence": 3,
                                     "id": "16885jmhr6d-1802tpf8sbf-77xj3qngud",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(parseException.description);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -5572,8 +5676,9 @@
             "title": "Ensure correctly structured Specs",
             "description": "",
             "tags": [],
-            "filename": "Ensure_correctly_structured_Specs.Spec.js",
-            "id": "16885jmhr6d"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Rule Violations/Ensure_correctly_structured_Specs.Spec.js",
+            "id": "16885jmhr6d",
+            "path": "Rule Violations"
         },
         {
             "type": "Feature",
@@ -5584,7 +5689,7 @@
                 "pendingCount": 8,
                 "totalCount": 55,
                 "totalRuleViolations": 0,
-                "duration": 145,
+                "duration": 122,
                 "passPercent": 0.8545454545454545,
                 "failedPercent": 0,
                 "pendingPercent": 0.14545454545454545
@@ -5599,7 +5704,7 @@
                         "pendingCount": 0,
                         "totalCount": 12,
                         "totalRuleViolations": 0,
-                        "duration": 32,
+                        "duration": 37,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -5648,7 +5753,7 @@
                             "sequence": 3,
                             "id": "10wnlox4vib-a5bcvpooxs-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n            }\r\n            catch (e) {\r\n                violation = e;\r\n            }\r\n        })",
-                            "duration": 10
+                            "duration": 12
                         },
                         {
                             "title": "a rule violation with the following description is thrown",
@@ -5700,7 +5805,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 10,
+                                "duration": 12,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -5749,7 +5854,7 @@
                                     "sequence": 3,
                                     "id": "10wnlox4vib-a5bcvpooxs-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n            }\r\n            catch (e) {\r\n                violation = e;\r\n            }\r\n        })",
-                                    "duration": 10
+                                    "duration": 12
                                 },
                                 {
                                     "title": "a rule violation with the following description is thrown",
@@ -5868,7 +5973,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 11,
+                                "duration": 14,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -5917,7 +6022,7 @@
                                     "sequence": 3,
                                     "id": "10wnlox4vib-a5bcvpooxs-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            try {\r\n                yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n            }\r\n            catch (e) {\r\n                violation = e;\r\n            }\r\n        })",
-                                    "duration": 10
+                                    "duration": 14
                                 },
                                 {
                                     "title": "a rule violation with the following description is thrown",
@@ -5932,7 +6037,7 @@
                                     "sequence": 4,
                                     "id": "10wnlox4vib-a5bcvpooxs-cig8x18zj4",
                                     "code": "() => {\r\n            stepContext.docString.should.eql(violation.message);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -5957,7 +6062,7 @@
                         "pendingCount": 0,
                         "totalCount": 12,
                         "totalRuleViolations": 0,
-                        "duration": 48,
+                        "duration": 34,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -6006,7 +6111,7 @@
                             "sequence": 3,
                             "id": "10wnlox4vib-a59nie2jls-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                            "duration": 14
+                            "duration": 11
                         },
                         {
                             "title": "a rule violation with the following description is added to the rule violations collection of the step",
@@ -6021,7 +6126,7 @@
                             "sequence": 4,
                             "id": "10wnlox4vib-a59nie2jls-cij6296h1s",
                             "code": "() => {\r\n            const step = executionResults.features[0].scenarios[0].steps[3];\r\n            step.ruleViolations[0].message.should.be.eq(stepContext.docString);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "tables": [
@@ -6058,7 +6163,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 15,
+                                "duration": 11,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -6107,7 +6212,7 @@
                                     "sequence": 3,
                                     "id": "10wnlox4vib-a59nie2jls-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                                    "duration": 14
+                                    "duration": 11
                                 },
                                 {
                                     "title": "a rule violation with the following description is added to the rule violations collection of the step",
@@ -6122,7 +6227,7 @@
                                     "sequence": 4,
                                     "id": "10wnlox4vib-a59nie2jls-cij6296h1s",
                                     "code": "() => {\r\n            const step = executionResults.features[0].scenarios[0].steps[3];\r\n            step.ruleViolations[0].message.should.be.eq(stepContext.docString);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -6142,7 +6247,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 18,
+                                "duration": 14,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -6191,7 +6296,7 @@
                                     "sequence": 3,
                                     "id": "10wnlox4vib-a59nie2jls-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                                    "duration": 18
+                                    "duration": 14
                                 },
                                 {
                                     "title": "a rule violation with the following description is added to the rule violations collection of the step",
@@ -6226,7 +6331,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 15,
+                                "duration": 9,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -6275,7 +6380,7 @@
                                     "sequence": 3,
                                     "id": "10wnlox4vib-a59nie2jls-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                                    "duration": 15
+                                    "duration": 9
                                 },
                                 {
                                     "title": "a rule violation with the following description is added to the rule violations collection of the step",
@@ -6315,7 +6420,7 @@
                         "pendingCount": 0,
                         "totalCount": 8,
                         "totalRuleViolations": 0,
-                        "duration": 27,
+                        "duration": 23,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -6349,7 +6454,7 @@
                             "sequence": 2,
                             "id": "10wnlox4vib-hbl6mmzvtf-ar4ffseutf",
                             "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "executing feature",
@@ -6364,7 +6469,7 @@
                             "sequence": 3,
                             "id": "10wnlox4vib-hbl6mmzvtf-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                            "duration": 11
+                            "duration": 13
                         },
                         {
                             "title": "a rule violation with the following description is thrown",
@@ -6409,7 +6514,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 12,
+                                "duration": 15,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -6443,7 +6548,7 @@
                                     "sequence": 2,
                                     "id": "10wnlox4vib-hbl6mmzvtf-ar4ffseutf",
                                     "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "executing feature",
@@ -6458,7 +6563,7 @@
                                     "sequence": 3,
                                     "id": "10wnlox4vib-hbl6mmzvtf-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                                    "duration": 11
+                                    "duration": 13
                                 },
                                 {
                                     "title": "a rule violation with the following description is thrown",
@@ -6492,7 +6597,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 15,
+                                "duration": 8,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -6541,7 +6646,7 @@
                                     "sequence": 3,
                                     "id": "10wnlox4vib-hbl6mmzvtf-144l3mxesp9",
                                     "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                                    "duration": 15
+                                    "duration": 8
                                 },
                                 {
                                     "title": "a rule violation with the following description is thrown",
@@ -6580,7 +6685,7 @@
                         "pendingCount": 0,
                         "totalCount": 11,
                         "totalRuleViolations": 0,
-                        "duration": 21,
+                        "duration": 15,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -6599,7 +6704,7 @@
                             "sequence": 1,
                             "id": "10wnlox4vib-mptc600ux1-o4u4v6wnzh",
                             "code": "() => {\r\n            ruleOptions.rules = stepContext.docStringAsEntity;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the following feature",
@@ -6629,7 +6734,7 @@
                             "sequence": 3,
                             "id": "10wnlox4vib-mptc600ux1-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                            "duration": 18
+                            "duration": 15
                         },
                         {
                             "title": "the feature has following rule violation added",
@@ -6644,7 +6749,7 @@
                             "sequence": 4,
                             "id": "10wnlox4vib-mptc600ux1-wne8haoisr",
                             "code": "() => {\r\n            const keyword = executionResults.features[0];\r\n            keyword.ruleViolations[0].message.should.be.eq(stepContext.docString);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the scenarioOutline has following rule violation added",
@@ -6674,7 +6779,7 @@
                             "sequence": 6,
                             "id": "10wnlox4vib-mptc600ux1-g37d8lyo8j",
                             "code": "() => {\r\n            const keyword = executionResults.features[0].scenarios[0];\r\n            keyword.ruleViolations[0].message.should.be.eq(stepContext.docString);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the Given has following rule violation added",
@@ -6767,7 +6872,7 @@
                         "pendingCount": 0,
                         "totalCount": 4,
                         "totalRuleViolations": 0,
-                        "duration": 17,
+                        "duration": 13,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -6801,7 +6906,7 @@
                             "sequence": 2,
                             "id": "10wnlox4vib-12kzjo2jyff-b34ajkrhw0",
                             "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "executing feature",
@@ -6816,7 +6921,7 @@
                             "sequence": 3,
                             "id": "10wnlox4vib-12kzjo2jyff-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString, ruleOptions);\r\n        })",
-                            "duration": 16
+                            "duration": 12
                         },
                         {
                             "title": "a rule violation with the following description is thrown",
@@ -6831,7 +6936,7 @@
                             "sequence": 4,
                             "id": "10wnlox4vib-12kzjo2jyff-g37iggnivh",
                             "code": "() => {\r\n            const scenario = executionResults.features[0].scenarios[0];\r\n            scenario.ruleViolations[0].message.should.be.eq(stepContext.docString);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Using before instead of given in scenario",
@@ -7102,8 +7207,9 @@
             "title": "Validate step rules",
             "description": "There are some rules which are technically valid but are not recommended due to readability.\nThese rules can be marked as Warning, Exception or Ignore. By default they are marked as warning.",
             "tags": [],
-            "filename": "Validate_step_rules.Spec.js",
-            "id": "10wnlox4vib"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Rule Violations/Validate_step_rules.Spec.js",
+            "id": "10wnlox4vib",
+            "path": "Rule Violations"
         },
         {
             "type": "Feature",
@@ -7114,7 +7220,7 @@
                 "pendingCount": 0,
                 "totalCount": 5,
                 "totalRuleViolations": 0,
-                "duration": 4,
+                "duration": 5,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -7129,7 +7235,7 @@
                         "pendingCount": 0,
                         "totalCount": 5,
                         "totalRuleViolations": 0,
-                        "duration": 4,
+                        "duration": 5,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -7213,7 +7319,7 @@
                             "sequence": 4,
                             "id": "h4urpvl8c3-a59lguapq8-a5ajlhyd6o",
                             "code": "() => {\r\n            cashReceived.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the account balance should be '80' dollars",
@@ -7243,8 +7349,9 @@
             "title": "Account Holder withdraws cash",
             "description": "Account Holders should be able to withdraw cash at any of the\ncompanies ATMs.\n\nRules:\n* Account Holders should have a valid keycard\n* Have sufficient available funds\n* The ATM has the necessary funds",
             "tags": [],
-            "filename": "Example.Spec.js",
-            "id": "h4urpvl8c3"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Sample/Example.Spec.js",
+            "id": "h4urpvl8c3",
+            "path": "Sample"
         },
         {
             "type": "Feature",
@@ -7255,7 +7362,7 @@
                 "pendingCount": 0,
                 "totalCount": 21,
                 "totalRuleViolations": 0,
-                "duration": 1,
+                "duration": 6,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -7270,7 +7377,7 @@
                         "pendingCount": 0,
                         "totalCount": 20,
                         "totalRuleViolations": 0,
-                        "duration": 1,
+                        "duration": 6,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -7289,7 +7396,7 @@
                             "sequence": 1,
                             "id": "a571a5694w-17oapmevvl1-maxxfp0rf9",
                             "code": "() => {\r\n            cart.country = scenarioOutlineContext.example.CustomersCountry;\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the customer’s order totals 99.99",
@@ -7319,7 +7426,7 @@
                             "sequence": 3,
                             "id": "a571a5694w-17oapmevvl1-w1mdbiptkw",
                             "code": "() => {\r\n            cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "they are charged the Standard Domestic shipping rate",
@@ -7391,7 +7498,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 0,
+                                "duration": 2,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -7410,7 +7517,7 @@
                                     "sequence": 1,
                                     "id": "a571a5694w-17oapmevvl1-maxxfp0rf9",
                                     "code": "() => {\r\n            cart.country = scenarioOutlineContext.example.CustomersCountry;\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "the customer’s order totals 99.99",
@@ -7440,7 +7547,7 @@
                                     "sequence": 3,
                                     "id": "a571a5694w-17oapmevvl1-w1mdbiptkw",
                                     "code": "() => {\r\n            cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "they are charged the Standard Domestic shipping rate",
@@ -7563,7 +7670,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 1,
+                                "duration": 3,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -7597,7 +7704,7 @@
                                     "sequence": 2,
                                     "id": "a571a5694w-17oapmevvl1-wa29k5l8i3",
                                     "code": "() => {\r\n            const item = new CartItem();\r\n            item.quantity = 1;\r\n            item.price = scenarioOutlineContext.example.OrderTotal;\r\n            item.product = \"tea\";\r\n            cart.items.push(item);\r\n            cart.calculateInvoice();\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "the customer pays 0 GST",
@@ -7612,7 +7719,7 @@
                                     "sequence": 3,
                                     "id": "a571a5694w-17oapmevvl1-w1lk52tgsw",
                                     "code": "() => {\r\n            cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "they are charged the Standard International shipping rate",
@@ -7627,7 +7734,7 @@
                                     "sequence": 4,
                                     "id": "a571a5694w-17oapmevvl1-lr3r13n4tc",
                                     "code": "() => {\r\n            const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(\" \", \"\")];\r\n            cart.shipping.should.be.equal(rate);\r\n        }",
-                                    "duration": 0
+                                    "duration": 2
                                 }
                             ],
                             "example": {
@@ -7735,7 +7842,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 4,
                                 "totalRuleViolations": 0,
-                                "duration": 0,
+                                "duration": 1,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -7799,7 +7906,7 @@
                                     "sequence": 4,
                                     "id": "a571a5694w-17oapmevvl1-lr3r13n4tc",
                                     "code": "() => {\r\n            const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(\" \", \"\")];\r\n            cart.shipping.should.be.equal(rate);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -7821,7 +7928,7 @@
             "title": "Beautiful Tea Shipping Costs",
             "description": "* Australian customers pay GST\n* Overseas customers don’t pay GST\n* Australian customers get free shipping for orders $100 and above\n* Overseas customers all pay the same shipping rate regardless of order size",
             "tags": [],
-            "filename": "Tutorial.Spec.js",
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Sample/Tutorial.Spec.js",
             "background": {
                 "type": "Background",
                 "ruleViolations": [],
@@ -7858,7 +7965,8 @@
                 "tags": [],
                 "id": "a571a5694w-9pbsb4"
             },
-            "id": "a571a5694w"
+            "id": "a571a5694w",
+            "path": "Sample"
         },
         {
             "type": "Feature",
@@ -7869,7 +7977,7 @@
                 "pendingCount": 0,
                 "totalCount": 21,
                 "totalRuleViolations": 0,
-                "duration": 9,
+                "duration": 11,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -7951,7 +8059,7 @@
                         "pendingCount": 0,
                         "totalCount": 5,
                         "totalRuleViolations": 0,
-                        "duration": 3,
+                        "duration": 2,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -7995,7 +8103,7 @@
                             "sequence": 2,
                             "id": "180zejlxqwt-cnab7sovog-cn3s214hc0",
                             "code": "() => { }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the scenarioContext.title should match title",
@@ -8063,7 +8171,7 @@
                         "pendingCount": 0,
                         "totalCount": 4,
                         "totalRuleViolations": 0,
-                        "duration": 2,
+                        "duration": 4,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -8092,7 +8200,7 @@
                             "sequence": 1,
                             "id": "180zejlxqwt-33vlq7dwf9-11ywthusfkt",
                             "code": "() => {\r\n            givenContext = stepContext;\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "using the scenarioContext",
@@ -8122,7 +8230,7 @@
                             "sequence": 3,
                             "id": "180zejlxqwt-33vlq7dwf9-8mhejqwusl",
                             "code": "() => {\r\n            givenContext.tableAsEntity.title.should.be.equal(scenarioContext.title);\r\n        }",
-                            "duration": 1
+                            "duration": 2
                         },
                         {
                             "title": "the scenarioContext.description should match description",
@@ -8249,7 +8357,7 @@
                             "sequence": 5,
                             "id": "180zejlxqwt-q55419hy79-hif07xwi59",
                             "code": "() => {\r\n            scenarioContext.and.length.should.be.equal(1);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the scenarioContext.and[0].values should contain a '1' and a '2' from the given's and",
@@ -8267,7 +8375,7 @@
                             "sequence": 6,
                             "id": "180zejlxqwt-q55419hy79-jkp6unkq0w",
                             "code": "() => {\r\n            scenarioContext.and[0].values[0].should.be.equal(stepContext.values[0]);\r\n            scenarioContext.and[0].values[1].should.be.equal(stepContext.values[1]);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Given step is associated with scenarioContext.given",
@@ -8285,7 +8393,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 1,
+                        "duration": 2,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -8344,7 +8452,7 @@
                             "sequence": 3,
                             "id": "180zejlxqwt-cy7baf03k-hf54skbqyz",
                             "code": "() => {\r\n            const entity = scenarioContext.given.tableAsEntity;\r\n            entity.property3.should.be.equal(\"value3\");\r\n            entity.property4.should.be.equal(\"value4\");\r\n        }",
-                            "duration": 1
+                            "duration": 2
                         }
                     ],
                     "title": "Given step is associated with scenarioContext.given and does not provide data from a previous scenario",
@@ -8357,8 +8465,9 @@
             "title": "Scenario statement",
             "description": "Scenarios are used to define the actions or events of a feature",
             "tags": [],
-            "filename": "Scenario.Spec.js",
-            "id": "180zejlxqwt"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Scenario.Spec.js",
+            "id": "180zejlxqwt",
+            "path": ""
         },
         {
             "type": "Feature",
@@ -8403,7 +8512,7 @@
                             "sequence": 1,
                             "id": "4moqvlezet-11l6glo95hc-b31dsqj85c",
                             "code": "() => { }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "executing feature",
@@ -8418,7 +8527,7 @@
                             "sequence": 2,
                             "id": "4moqvlezet-11l6glo95hc-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);\r\n        })",
-                            "duration": 14
+                            "duration": 16
                         },
                         {
                             "title": "the execution results for the step are:",
@@ -8433,7 +8542,7 @@
                             "sequence": 3,
                             "id": "4moqvlezet-11l6glo95hc-b383nw9hpc",
                             "code": "() => {\r\n            const expected = stepContext.docStringAsEntity;\r\n            const scenarioOutline = executionResults.features[0].scenarios[0];\r\n            const actual = {\r\n                \"title\": scenarioOutline.title,\r\n                \"description\": scenarioOutline.description,\r\n                \"tags\": scenarioOutline.tags,\r\n                \"tables\": scenarioOutline.tables\r\n            };\r\n            actual.should.be.eql(expected);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "title": "Meta-data for Scenario Outline added to model",
@@ -8446,8 +8555,9 @@
             "title": "Scenario Outline keyword",
             "description": "",
             "tags": [],
-            "filename": "ScenarioOutline.Spec.js",
-            "id": "4moqvlezet"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/ScenarioOutline.Spec.js",
+            "id": "4moqvlezet",
+            "path": ""
         },
         {
             "type": "Feature",
@@ -8458,7 +8568,7 @@
                 "pendingCount": 0,
                 "totalCount": 66,
                 "totalRuleViolations": 0,
-                "duration": 12,
+                "duration": 5,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -8473,7 +8583,7 @@
                         "pendingCount": 0,
                         "totalCount": 20,
                         "totalRuleViolations": 0,
-                        "duration": 5,
+                        "duration": 3,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -8522,7 +8632,7 @@
                             "sequence": 3,
                             "id": "cn3hh2wgu8-fq1gmhkxp9-exvishcqgw",
                             "code": "() => {\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the protein should be 215 kg",
@@ -8552,7 +8662,7 @@
                             "sequence": 5,
                             "id": "cn3hh2wgu8-fq1gmhkxp9-qut9w7c63v",
                             "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "tables": [
@@ -8647,7 +8757,7 @@
                                     "sequence": 3,
                                     "id": "cn3hh2wgu8-fq1gmhkxp9-exvishcqgw",
                                     "code": "() => {\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "the protein should be 215 kg",
@@ -8677,7 +8787,7 @@
                                     "sequence": 5,
                                     "id": "cn3hh2wgu8-fq1gmhkxp9-qut9w7c63v",
                                     "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -8698,7 +8808,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 5,
                                 "totalRuleViolations": 0,
-                                "duration": 1,
+                                "duration": 0,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -8777,7 +8887,7 @@
                                     "sequence": 5,
                                     "id": "cn3hh2wgu8-fq1gmhkxp9-12oya6ju9xv",
                                     "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -8798,7 +8908,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 5,
                                 "totalRuleViolations": 0,
-                                "duration": 1,
+                                "duration": 0,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -8877,7 +8987,7 @@
                                     "sequence": 5,
                                     "id": "cn3hh2wgu8-fq1gmhkxp9-15jbggvi4hv",
                                     "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -8947,7 +9057,7 @@
                                     "sequence": 3,
                                     "id": "cn3hh2wgu8-fq1gmhkxp9-exwhf2037k",
                                     "code": "() => {\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "the protein should be 305 kg",
@@ -8977,7 +9087,7 @@
                                     "sequence": 5,
                                     "id": "cn3hh2wgu8-fq1gmhkxp9-12oya6ju9xv",
                                     "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                                    "duration": 2
+                                    "duration": 1
                                 }
                             ],
                             "example": {
@@ -9003,7 +9113,7 @@
                         "pendingCount": 0,
                         "totalCount": 40,
                         "totalRuleViolations": 0,
-                        "duration": 6,
+                        "duration": 2,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -9037,7 +9147,7 @@
                             "sequence": 2,
                             "id": "cn3hh2wgu8-a56k17p7u0-37ear0d18j",
                             "code": "() => {\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "the energy should be 26500 MJ",
@@ -9082,7 +9192,7 @@
                             "sequence": 5,
                             "id": "cn3hh2wgu8-a56k17p7u0-qut9w7c63v",
                             "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "tables": [
@@ -9193,7 +9303,7 @@
                                     "sequence": 2,
                                     "id": "cn3hh2wgu8-a56k17p7u0-37ear0d18j",
                                     "code": "() => {\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "the energy should be 26500 MJ",
@@ -9238,7 +9348,7 @@
                                     "sequence": 5,
                                     "id": "cn3hh2wgu8-a56k17p7u0-qut9w7c63v",
                                     "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -9278,7 +9388,7 @@
                                     "sequence": 1,
                                     "id": "cn3hh2wgu8-a56k17p7u0-q5vh6bnh28",
                                     "code": "(args) => {\r\n            weightTotalMultiTable += scenarioOutlineContext.example.weight;\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "we calculate the feeding requirements",
@@ -9293,7 +9403,7 @@
                                     "sequence": 2,
                                     "id": "cn3hh2wgu8-a56k17p7u0-37ear0d18j",
                                     "code": "() => {\r\n        }",
-                                    "duration": 0
+                                    "duration": 1
                                 },
                                 {
                                     "title": "the energy should be 29500 MJ",
@@ -9459,7 +9569,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 5,
                                 "totalRuleViolations": 0,
-                                "duration": 2,
+                                "duration": 0,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -9493,7 +9603,7 @@
                                     "sequence": 2,
                                     "id": "cn3hh2wgu8-a56k17p7u0-37ear0d18j",
                                     "code": "() => {\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "the energy should be 37000 MJ",
@@ -9538,7 +9648,7 @@
                                     "sequence": 5,
                                     "id": "cn3hh2wgu8-a56k17p7u0-12oya6ju9xv",
                                     "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -9559,7 +9669,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 5,
                                 "totalRuleViolations": 0,
-                                "duration": 1,
+                                "duration": 0,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -9638,7 +9748,7 @@
                                     "sequence": 5,
                                     "id": "cn3hh2wgu8-a56k17p7u0-xy8h7pvk0r",
                                     "code": "() => {\r\n            stepContext.title.should.contain(scenarioOutlineContext.example.weight);\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 }
                             ],
                             "example": {
@@ -9659,7 +9769,7 @@
                                 "pendingCount": 0,
                                 "totalCount": 5,
                                 "totalRuleViolations": 0,
-                                "duration": 1,
+                                "duration": 0,
                                 "passPercent": 1,
                                 "failedPercent": 0,
                                 "pendingPercent": 0
@@ -9723,7 +9833,7 @@
                                     "sequence": 4,
                                     "id": "cn3hh2wgu8-a56k17p7u0-15y145so419",
                                     "code": "() => {\r\n        }",
-                                    "duration": 1
+                                    "duration": 0
                                 },
                                 {
                                     "title": "the title should have the examples bound 1500",
@@ -9964,7 +10074,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 1,
+                        "duration": 0,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -10015,7 +10125,7 @@
                             "sequence": 3,
                             "id": "cn3hh2wgu8-a563mxhiq8-gguzjypluo",
                             "code": "() => {\r\n            weightTotal.should.be.equal(stepContext.values[0]);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "title": "validate outline provided the correct values to steps",
@@ -10097,8 +10207,9 @@
             "title": "Scenario Outline statement",
             "description": "",
             "tags": [],
-            "filename": "ScenarioOutline.Spec.js",
-            "id": "cn3hh2wgu8"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/ScenarioOutline.Spec.js",
+            "id": "cn3hh2wgu8",
+            "path": ""
         },
         {
             "type": "Feature",
@@ -10109,7 +10220,7 @@
                 "pendingCount": 0,
                 "totalCount": 43,
                 "totalRuleViolations": 0,
-                "duration": 49,
+                "duration": 45,
                 "passPercent": 1,
                 "failedPercent": 0,
                 "pendingPercent": 0
@@ -10124,7 +10235,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 0,
+                        "duration": 2,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -10143,7 +10254,7 @@
                             "sequence": 1,
                             "id": "fnaiusqvet-lqvfr0441s-bqw6jfmcql",
                             "code": "() => {\r\n            givenTitle = stepContext.title;\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         },
                         {
                             "title": "using the stepContext",
@@ -10173,7 +10284,7 @@
                             "sequence": 3,
                             "id": "fnaiusqvet-lqvfr0441s-147459fps6d",
                             "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Given step statement is just a title",
@@ -10191,7 +10302,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 0,
+                        "duration": 1,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -10240,7 +10351,7 @@
                             "sequence": 3,
                             "id": "fnaiusqvet-tt8euckbyj-kxybmb19rn",
                             "code": "() => {\r\n            docString.should.be.equal(\"    This string is indented\\n    so they should be honoured\");\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Step statement has a docString that includes significant spaces",
@@ -10258,7 +10369,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 1,
+                        "duration": 0,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -10277,7 +10388,7 @@
                             "sequence": 1,
                             "id": "fnaiusqvet-lqwheyip8g-bqw6jfmcql",
                             "code": "() => {\r\n            whenTitle = stepContext.title;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "accessing the value from the stepContext",
@@ -10325,7 +10436,7 @@
                         "pendingCount": 0,
                         "totalCount": 4,
                         "totalRuleViolations": 0,
-                        "duration": 0,
+                        "duration": 1,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -10389,7 +10500,7 @@
                             "sequence": 4,
                             "id": "fnaiusqvet-pzbvsy1b8t-q5zd3npbc0",
                             "code": "() => {\r\n            docString.should.be.equal(\"With this docString that\\nhas multiple lines\\n1\\n2\\n3\\n4\");\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Step statement has a title and a docString",
@@ -10407,7 +10518,7 @@
                         "pendingCount": 0,
                         "totalCount": 4,
                         "totalRuleViolations": 0,
-                        "duration": 1,
+                        "duration": 0,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -10456,7 +10567,7 @@
                             "sequence": 3,
                             "id": "fnaiusqvet-z0f4rzpa6l-147459fps6d",
                             "code": "() => {\r\n            givenTitle.should.be.equal(\"a simple title\");\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the docStringAsEntity should return an object with the correct properties",
@@ -10560,7 +10671,7 @@
                             "sequence": 3,
                             "id": "fnaiusqvet-134suapjkxn-147459fps6d",
                             "code": "() => {\r\n            scenarioContext.given.title.should.be.equal(\"a simple title has a table\");\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "the table should match stepContext.table",
@@ -10575,7 +10686,7 @@
                             "sequence": 4,
                             "id": "fnaiusqvet-134suapjkxn-lqz5zll2vk",
                             "code": "() => {\r\n            const table = scenarioContext.given.table;\r\n            table.length.should.be.equal(3);\r\n            table[0].name.should.be.equal(\"Aslak\");\r\n            table[0].email.should.be.equal(\"aslak@cucumber.io\");\r\n            table[0].twitter.should.be.equal(\"@aslak_hellesoy\");\r\n            table[2].name.should.be.equal(\"Matt\");\r\n            table[2].email.should.be.equal(\"matt@cucumber.io\");\r\n            table[2].twitter.should.be.equal(\"@mattwynne\");\r\n        }",
-                            "duration": 7
+                            "duration": 8
                         }
                     ],
                     "title": "Step statement has a title and a table",
@@ -10630,7 +10741,7 @@
                             "sequence": 1,
                             "id": "fnaiusqvet-ktkgy81omr-qptoo9ator",
                             "code": "() => {\r\n            entity = stepContext.tableAsEntity;\r\n        }",
-                            "duration": 3
+                            "duration": 2
                         },
                         {
                             "title": "the table should be convertible to an entity using stepContext.tableToEntity",
@@ -10645,7 +10756,7 @@
                             "sequence": 2,
                             "id": "fnaiusqvet-ktkgy81omr-jbm6ud9bkz",
                             "code": "() => {\r\n            entity.name.should.be.equal(\"Aslak\");\r\n            entity.email.should.be.equal(\"aslak@cucumber.io\");\r\n            entity.twitter.should.be.equal(\"@aslak_hellesoy\");\r\n            entity.address.should.be.equal(\"1 street\");\r\n        }",
-                            "duration": 0
+                            "duration": 1
                         }
                     ],
                     "title": "Step statement has a two column table with names in first column",
@@ -10741,7 +10852,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 6,
+                        "duration": 5,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -10840,7 +10951,7 @@
                             "sequence": 3,
                             "id": "fnaiusqvet-144kwwy0903-q60iekdoc0",
                             "code": "() => {\r\n            const entity = scenarioContext.given.tableAsEntity;\r\n            (typeof entity.string).should.be.equal(\"string\");\r\n            (typeof entity.number).should.be.equal(\"number\");\r\n            (typeof entity.numberZero).should.be.equal(\"number\");\r\n            (typeof entity.booleanTrue).should.be.equal(\"boolean\");\r\n            (typeof entity.booleanFalse).should.be.equal(\"boolean\");\r\n            (typeof entity.array).should.be.equal(\"object\");\r\n            entity.array[0].should.be.equal(\"hello\");\r\n            entity.array[1].should.be.equal(\"Goodbye\");\r\n            (typeof entity.object).should.be.equal(\"object\");\r\n            entity.object.prop.should.be.equal(\"Goodbye\");\r\n            true.should.equal(entity.nullValue === null);\r\n            const expectedDate = new Date(\"Jan 2, 2019\").getTime();\r\n            entity.USDate.getTime().should.be.equal(expectedDate);\r\n            entity.ISODate.getTime().should.be.equal(expectedDate);\r\n            (typeof entity.spaces).should.be.equal(\"string\");\r\n            entity.spaces.should.be.equal(\" \");\r\n            (typeof entity.quotes).should.be.equal(\"string\");\r\n            entity.quotes.should.be.equal(' a \" is here');\r\n        }",
-                            "duration": 6
+                            "duration": 5
                         }
                     ],
                     "title": "Step statement has a column of values of different intrinsic types as a table",
@@ -10930,7 +11041,7 @@
                         "pendingCount": 0,
                         "totalCount": 6,
                         "totalRuleViolations": 0,
-                        "duration": 1,
+                        "duration": 0,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -11041,7 +11152,7 @@
                             "sequence": 6,
                             "id": "fnaiusqvet-vl3dpyjz8d-5xb6pn2uz",
                             "code": "() => {\r\n            (typeof stepContext.values[0]).should.be.equal(\"object\");\r\n            stepContext.values[0][0].should.be.equal(1);\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         }
                     ],
                     "title": "Step statement uses quoted ' values to define values",
@@ -11059,7 +11170,7 @@
                         "pendingCount": 0,
                         "totalCount": 2,
                         "totalRuleViolations": 0,
-                        "duration": 11,
+                        "duration": 12,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -11078,7 +11189,7 @@
                             "sequence": 1,
                             "id": "fnaiusqvet-s1dpzpjp0d-hf1b87jbog",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            value = 10;\r\n            yield Utils.sleep(10);\r\n            value = 20;\r\n        })",
-                            "duration": 11
+                            "duration": 12
                         },
                         {
                             "title": "the test should continue after the async operation",
@@ -11111,7 +11222,7 @@
                         "pendingCount": 0,
                         "totalCount": 3,
                         "totalRuleViolations": 0,
-                        "duration": 17,
+                        "duration": 12,
                         "passPercent": 1,
                         "failedPercent": 0,
                         "pendingPercent": 0
@@ -11130,7 +11241,7 @@
                             "sequence": 1,
                             "id": "fnaiusqvet-vbp74q2plv-73tkxxcb0z",
                             "code": "() => {\r\n            outlineGiven = stepContext;\r\n        }",
-                            "duration": 1
+                            "duration": 0
                         },
                         {
                             "title": "executing feature",
@@ -11145,7 +11256,7 @@
                             "sequence": 2,
                             "id": "fnaiusqvet-vbp74q2plv-144l3mxesp9",
                             "code": "() => __awaiter(this, void 0, void 0, function* () {\r\n            executionResults = yield livedoc_1.LiveDoc.executeDynamicTestAsync(outlineGiven.docString);\r\n        })",
-                            "duration": 15
+                            "duration": 11
                         },
                         {
                             "title": "the step is marked as failed",
@@ -11173,8 +11284,9 @@
             "title": "Step statement",
             "description": "Step statements are used to define the details of a test, the supported steps are:\n    given - sets up the state for the scenario\n    when  - defines an action performed by a user/system\n    then  - defines the outcome of the when steps\n    and   - used by given/when/then to add additional context\n    but   - used by given/when/then to provide an exclusion context",
             "tags": [],
-            "filename": "Step.Spec.js",
-            "id": "fnaiusqvet"
+            "filename": "C:/_Dev/github/LiveDoc/packages/livedoc-mocha/build/test/Step.Spec.js",
+            "id": "fnaiusqvet",
+            "path": ""
         }
     ],
     "suites": []
