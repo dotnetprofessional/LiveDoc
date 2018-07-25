@@ -3,9 +3,11 @@ import * as vscode from "vscode";
 import * as path from 'path';
 
 import { ScenarioStatus } from "./ScenarioStatus";
+import { FeatureGroup } from "./ExecutionResultOutlineProvider";
 
 export class ExecutionResultTreeViewItem extends vscode.TreeItem {
     private icons = {
+        unknown: "passed.svg",
         pass: "passed.svg",
         fail: "failed.svg",
         pending: "pending.svg",
@@ -21,6 +23,7 @@ export class ExecutionResultTreeViewItem extends vscode.TreeItem {
         const icon = this.icons[ScenarioStatus[status]];
         this.iconPath = path.join(this.extensionPath + "/images/icons/", icon);
     }
+
     private getStatus(suite: livedoc.SuiteBase<any>): ScenarioStatus {
         let status = ScenarioStatus.unknown;
         const stats = suite.statistics;
@@ -37,5 +40,55 @@ export class ExecutionResultTreeViewItem extends vscode.TreeItem {
         }
         // warnings have been ignored for now.
         return status;
+    }
+}
+
+export class ExecutionConfigTreeViewItem extends vscode.TreeItem {
+    constructor(public readonly title: string, public readonly key: string, public readonly collapsibleState: vscode.TreeItemCollapsibleState, public readonly command?: vscode.Command) {
+        super(title, collapsibleState);
+    }
+}
+
+/**
+ * This tree view item is used to support the virtual tree based on the Feature.path property 
+ *
+ * @export
+ * @class ExecutionFolderTreeViewItem
+ * @extends {vscode.TreeItem}
+ */
+export class ExecutionFolderTreeViewItem extends vscode.TreeItem {
+    constructor(public readonly group: FeatureGroup, public readonly collapsibleState: vscode.TreeItemCollapsibleState, public readonly command?: vscode.Command) {
+        super(group.title, collapsibleState);
+    }
+    // private annotateNode(suite: livedoc.SuiteBase<any>) {
+    //     const status = this.getStatus(suite);
+    //     const icon = this.icons[ScenarioStatus[status]];
+    //     this.iconPath = path.join(this.extensionPath + "/images/icons/", icon);
+    // }
+}
+
+/**
+ * This tree view item is used to support Features 
+ *
+ * @export
+ * @class FeatureTreeViewItem
+ * @extends {vscode.TreeItem}
+ */
+export class FeatureTreeViewItem extends vscode.TreeItem {
+    constructor(public readonly feature: livedoc.Feature, public readonly collapsibleState: vscode.TreeItemCollapsibleState, public readonly command?: vscode.Command) {
+        super(feature.title, collapsibleState);
+    }
+}
+
+/**
+ * This tree view item is used to support Features 
+ *
+ * @export
+ * @class FeatureGroupTreeViewItem
+ * @extends {vscode.TreeItem}
+ */
+export class ScenarioTreeViewItem extends vscode.TreeItem {
+    constructor(public readonly scenario: livedoc.Scenario, public readonly collapsibleState: vscode.TreeItemCollapsibleState, public readonly command?: vscode.Command) {
+        super(scenario.title, collapsibleState);
     }
 }

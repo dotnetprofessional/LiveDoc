@@ -1,7 +1,7 @@
 import { Statistics } from "./Statistics";
 
 export class SuiteBase<T> {
-    constructor () {
+    constructor() {
         this.type = this.constructor.name;
     }
     public type: string;
@@ -12,4 +12,5 @@ export class SuiteBase<T> {
     public title: string;
 
     public tags: string[];
+    public path: string;
 }

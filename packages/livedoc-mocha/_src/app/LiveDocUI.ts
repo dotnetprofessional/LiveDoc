@@ -446,7 +446,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
         function wrapper(title: string, fn: Function, opts: { pending?: boolean, isOnly?: boolean } = {}) {
             let suite: mocha.ISuite;
 
-            const shortFilename = file.replace(/^.*[\\\/]/, '');
+            const filenameToRecord = file.replace(/[\\]/g, "/");
             switch (type) {
                 case "Feature":
                 case "Scenario":
@@ -459,7 +459,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                     switch (type) {
                         case "Feature":
                             resetGlobalVariables(context);
-                            feature = liveDocGrammarParser.createFeature(title, shortFilename);
+                            feature = liveDocGrammarParser.createFeature(title, filenameToRecord);
                             suiteDefinition = feature;
                             break;
                         default:
@@ -467,7 +467,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                             // Validate that we have a feature
                             if (!suites[0].livedoc || !suites[0].livedoc.feature) {
                                 // No feature!!
-                                throw new model.ParserException(`${type} must be within a feature.`, title, shortFilename);
+                                throw new model.ParserException(`${type} must be within a feature.`, title, filenameToRecord);
                             }
                             feature = suites[0].livedoc.feature;
                             break;
@@ -559,7 +559,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
 
                             const result = fn.call(scenarioExampleSuite);
                             if (result && result["then"]) {
-                                throwAsyncNotSupported(type, title, shortFilename);
+                                throwAsyncNotSupported(type, title, filenameToRecord);
                             }
                             suites.shift();
                         }
@@ -568,7 +568,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                     break;
                 default:
                     resetGlobalVariables(context);
-                    suite = processBddDescribe(suites, type, title, shortFilename);
+                    suite = processBddDescribe(suites, type, title, filenameToRecord);
             }
 
             if (opts.pending || suites[0].isPending()) {
@@ -582,7 +582,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
             suites.unshift(suite);
             const result = fn.call(suite);
             if (result && result["then"]) {
-                throwAsyncNotSupported(type, title, shortFilename);
+                throwAsyncNotSupported(type, title, filenameToRecord);
             }
 
             suites.shift();
