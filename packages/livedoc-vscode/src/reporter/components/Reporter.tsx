@@ -15,7 +15,7 @@ export class Reporter extends React.PureComponent<
         viewScenario?: model.Scenario;
     }> {
 
-    private _model: model.ExecutionResults;
+    private _serializedModel: string;
     private _filters: [string, (featureOrScenario: model.Feature | model.Scenario) => boolean][] = [];
 
     public constructor(props) {
@@ -34,10 +34,10 @@ export class Reporter extends React.PureComponent<
     }
 
     private handleMessage(event) {
-        debugger;
-        this._model = JSON.parse(event.data)
+        this._serializedModel = event.data;
+        const model = JSON.parse(event.data)
         this.setState({
-            model: this._model,
+            model,
             viewScenario: null
         });
     }
@@ -47,7 +47,7 @@ export class Reporter extends React.PureComponent<
             let include = filterFn(featureOrScenario);
 
             if (featureOrScenario.hasOwnProperty("scenarios")) {
-                include = include || (featureOrScenario as model.Feature).scenarios.length > 0;
+                include = include || (featureOrScenario as any).hasMatchedScenarios;
             }
             return include;
         }
@@ -79,11 +79,15 @@ export class Reporter extends React.PureComponent<
             }
         }
 
-        const filteredFeatures = this._model.features.map(feature => {
+        const model = JSON.parse(this._serializedModel);
+        const filteredFeatures = model.features.map(feature => {
             const filteredScenarios = feature.scenarios.filter(predicate);
-            return Object.assign({}, feature, { scenarios: filteredScenarios });
+            if (filteredScenarios.length > 0) {
+                feature = Object.assign({}, feature, { scenarios: filteredScenarios, hasMatchedScenarios: true });
+            }
+            return feature;
         }).filter(predicate);
-        const filteredModel = Object.assign({}, this._model, { features: filteredFeatures });
+        const filteredModel = Object.assign({}, model, { features: filteredFeatures });
 
         this.setState({
             model: filteredModel
@@ -91,7 +95,7 @@ export class Reporter extends React.PureComponent<
     }
 
     private getRawModel(): model.ExecutionResults {
-        return JSON.parse(JSON.stringify(this._model || {}));
+        return JSON.parse(this._serializedModel || "{}");
     }
 
     private goToSummary() {
@@ -160,7 +164,9 @@ export class Reporter extends React.PureComponent<
             display: "none"
         },
         screenActive: {
-            flex: "1 1 auto"
+            flex: "1 1 auto",
+            display: "flex",
+            flexFlow: "column nowrap"
         }
     });
 }

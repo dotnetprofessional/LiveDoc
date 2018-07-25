@@ -90,7 +90,7 @@ export class Filter extends React.PureComponent<
                         <button onClick={this.clearCriteria.bind(this)}>Clear</button>
                     </div>
                 </div>
-            </Collapsable>
+            </CollapsableWithTitle>
         );
     }
 
@@ -121,13 +121,32 @@ export class Filter extends React.PureComponent<
     }
 
     private applyFilter() {
-        this.props.applyFilter(featureOrScenario => {
+        const filterFn = featureOrScenario => {
             return (
                 this.state.strings.length === 0
-                || this.state.strings.some(s => featureOrScenario.title.includes(s) || featureOrScenario.description.includes(s))
+                || this.state.strings.some(s => {
+                    const stringRegex = new RegExp(s, "i");
+                    return stringRegex.test(featureOrScenario.title) || stringRegex.test(featureOrScenario.description);
+                })
             )
-                && (this.state.tags.length === 0 || this.state.tags.some(filterTag => featureOrScenario.tags.some(tag => filterTag.endsWith("*") ? tag.startsWith(filterTag.replace("*", "")) : tag === filterTag)));
-        });
+                && (
+                    this.state.tags.length === 0
+                    || this.state.tags.some(filterTag => {
+                        if (filterTag.endsWith("*")) {
+                            filterTag = "^" + filterTag.replace("*", "");
+                        } else {
+                            filterTag = "^" + filterTag + "$";
+                        }
+                        const tagRegex = new RegExp(filterTag, "i");
+                        return featureOrScenario.tags.some(tag => tagRegex.test(tag));
+                    })
+                );
+        };
+        const namedFilterFn = function filter(featureOrScenario: model.Feature | model.Scenario) {
+            return filterFn(featureOrScenario);
+        };
+
+        this.props.applyFilter(namedFilterFn);
     }
 
     private static styles = StyleSheet.create({
