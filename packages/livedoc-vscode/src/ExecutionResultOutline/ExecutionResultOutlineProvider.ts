@@ -5,7 +5,7 @@ import * as vscode from "vscode";
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem } from "./ExecutionResultTreeViewItem";
+import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem } from "./ExecutionResultTreeViewItem";
 import { ScenarioStatus } from "./ScenarioStatus";
 
 export interface IExecutionModel extends livedocConfig.TestSuite {
@@ -20,15 +20,15 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
     constructor(private rootPath: string, private extensionPath: string) {
         this.config = new livedocConfig.LiveDocConfig();
-        let localSuite = new livedocConfig.TestSuite();
+        let localSuite = new livedocConfig.TestSuite() as IExecutionModel;
         localSuite.name = "unit tests";
         localSuite.path = "build/test/**/*.Spec.js";
         localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"));
         this.buildFeatureGroup(localSuite as IExecutionModel);
 
-        //this.config.testSuites.push(localSuite);
+        this.config.testSuites.push(localSuite);
 
-        localSuite = new livedocConfig.TestSuite();
+        localSuite = new livedocConfig.TestSuite() as IExecutionModel;
         localSuite.name = "bvt tests";
         localSuite.path = "build/bvt/**/*.Spec.js";
         localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results.json"))
@@ -65,6 +65,9 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     if (configForSuiteMatch) {
                         const config = configForSuiteMatch[0] as IExecutionModel;
                         results = config.results.map(group => {
+                            if (!group.title) {
+                                group.title = "root";
+                            }
                             return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     }
@@ -85,6 +88,15 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     const featureView = (element as FeatureTreeViewItem);
                     results = this.getTreeViewItemsForNode(featureView.feature) as vscode.TreeItem[];
                     break;
+                case "ScenarioTreeViewItem":
+                    const scenarioView = (element as ScenarioTreeViewItem);
+                    results = scenarioView.scenario.steps.map(step => {
+                        // create the display title (can't work out how to get VSCode to not truncate leading spaces)
+                        const indent = ["and", "but"].indexOf(step.type) >= 0 ? String.fromCharCode(160).repeat(4) : "";
+                        step.displayTitle = `${indent}${step.type} ${step.title}`
+                        return new StepTreeViewItem(step, vscode.TreeItemCollapsibleState.None, this.extensionPath);
+                    });
+                    break;
                 default:
                     break;
             }
@@ -100,7 +112,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                 children = (node as livedoc.Feature).scenarios;
         }
         const results = children.map(node => {
-            return new ScenarioTreeViewItem(node, vscode.TreeItemCollapsibleState.None, this.extensionPath);
+            return new ScenarioTreeViewItem(node, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
         });
         return results;
     }
