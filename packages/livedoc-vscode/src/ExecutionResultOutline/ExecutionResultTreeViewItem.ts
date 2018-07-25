@@ -78,7 +78,7 @@ export class ExecutionFolderTreeViewItem extends ExecutionResultTreeViewItem {
  */
 export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly feature: livedoc.Feature, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
-        super(feature.title, collapsibleState, extensionPath);
+        super("Feature: " + feature.title, collapsibleState, extensionPath);
         this.annotateNode(this.getStatus(feature));
     }
 }
@@ -92,7 +92,7 @@ export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
  */
 export class ScenarioTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly scenario: livedoc.Scenario, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
-        super(scenario.title, collapsibleState, extensionPath, command);
+        super("Scenario: " + scenario.title, collapsibleState, extensionPath, command);
         this.annotateNode(this.getStatus(scenario));
     }
 }
@@ -110,5 +110,19 @@ export class StepTreeViewItem extends ExecutionResultTreeViewItem {
         const stepStatus = step.status as string;
         const scenarioStatus = ScenarioStatus[stepStatus];
         this.annotateNode(scenarioStatus);
+    }
+}
+
+/**
+ * This tree view item is used to support Feature Backgrounds
+ *
+ * @export
+ * @class StepTreeViewItem
+ * @extends ExecutionResultTreeViewItem
+ */
+export class BackgroundTreeViewItem extends ExecutionResultTreeViewItem {
+    constructor(public readonly background: livedoc.Background, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
+        super("Background: " + background.title, collapsibleState, extensionPath, command);
+        this.annotateNode(this.getStatus(background));
     }
 }

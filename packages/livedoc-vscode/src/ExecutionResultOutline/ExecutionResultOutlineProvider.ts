@@ -5,7 +5,7 @@ import * as vscode from "vscode";
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem } from "./ExecutionResultTreeViewItem";
+import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem, BackgroundTreeViewItem } from "./ExecutionResultTreeViewItem";
 import { ScenarioStatus } from "./ScenarioStatus";
 
 export interface IExecutionModel extends livedocConfig.TestSuite {
@@ -20,7 +20,15 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
     constructor(private rootPath: string, private extensionPath: string) {
         this.config = new livedocConfig.LiveDocConfig();
+
         let localSuite = new livedocConfig.TestSuite() as IExecutionModel;
+        localSuite.name = "production";
+        localSuite.path = "http://build/bvt/**/*.Spec.js";
+        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results.json"))
+        this.buildFeatureGroup(localSuite as IExecutionModel);
+        this.config.testSuites.push(localSuite);
+
+        localSuite = new livedocConfig.TestSuite() as IExecutionModel;
         localSuite.name = "unit tests";
         localSuite.path = "build/test/**/*.Spec.js";
         localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"));
@@ -28,12 +36,6 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
         this.config.testSuites.push(localSuite);
 
-        localSuite = new livedocConfig.TestSuite() as IExecutionModel;
-        localSuite.name = "bvt tests";
-        localSuite.path = "build/bvt/**/*.Spec.js";
-        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results.json"))
-        this.buildFeatureGroup(localSuite as IExecutionModel);
-        this.config.testSuites.push(localSuite);
     }
 
     private loadModelFromFile(path: string): livedoc.ExecutionResults {
@@ -87,6 +89,19 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                 case "FeatureTreeViewItem":
                     const featureView = (element as FeatureTreeViewItem);
                     results = this.getTreeViewItemsForNode(featureView.feature) as vscode.TreeItem[];
+                    if (featureView.feature.background) {
+                        // Add the background to the feature
+                        results.unshift(new BackgroundTreeViewItem(featureView.feature.background, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath));
+                    }
+                    break;
+                case "BackgroundTreeViewItem":
+                    const backgroundView = (element as BackgroundTreeViewItem);
+                    results = backgroundView.background.steps.map(step => {
+                        // create the display title (can't work out how to get VSCode to not truncate leading spaces)
+                        const indent = ["and", "but"].indexOf(step.type) >= 0 ? String.fromCharCode(160).repeat(4) : "";
+                        step.displayTitle = `${indent}${step.type} ${step.title}`
+                        return new StepTreeViewItem(step, vscode.TreeItemCollapsibleState.None, this.extensionPath);
+                    });
                     break;
                 case "ScenarioTreeViewItem":
                     const scenarioView = (element as ScenarioTreeViewItem);
