@@ -75,7 +75,7 @@ export class TestsSummary extends React.PureComponent<
                 <React.Fragment>
                     <tr key={feature.id}>
                         <td>
-                            <a href="javascript:void(0)" onClick={this.toggleNodeCollapsed.bind(null, feature.id)}>+-</a>
+                            <a href="javascript:void(0)" onClick={this.toggleNodeCollapsed.bind(null, feature.id)}>+-</a>{"  "}
                             {feature.title}
                         </td>
                         <td className={css(TestsSummary.styles.alignCenter)}>
@@ -113,7 +113,7 @@ export class TestsSummary extends React.PureComponent<
                 <table className={css(TestsSummary.styles.flex, TestsSummary.styles.table)}>
                     <thead>
                         <th className={css(TestsSummary.styles.alignLeft)}>
-                            <a href="javascript:void(0)" onClick={this.toggleAllNodesCollapsed}>+-</a>
+                            <a href="javascript:void(0)" onClick={this.toggleAllNodesCollapsed}>+-</a>{"  "}
                             Feature
                         </th>
                         <th>
@@ -167,7 +167,7 @@ export class TestsSummary extends React.PureComponent<
             textAlign: "left"
         },
         scenario: {
-            padding: "5px 10px"
+            padding: "5px 10px 5px 25px"
         }
     });
 };
