@@ -164,7 +164,9 @@ export class Reporter extends React.PureComponent<
             display: "none"
         },
         screenActive: {
-            flex: "1 1 auto"
+            flex: "1 1 auto",
+            display: "flex",
+            flexFlow: "column nowrap"
         }
     });
 }
