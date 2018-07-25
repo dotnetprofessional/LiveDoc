@@ -4,6 +4,7 @@ import * as path from 'path';
 
 import { ScenarioStatus } from "./ScenarioStatus";
 import { FeatureGroup } from "./ExecutionResultOutlineProvider";
+import { TestSuite } from "../../node_modules/livedoc-mocha/model/config";
 
 
 export abstract class ExecutionResultTreeViewItem extends vscode.TreeItem {
@@ -63,7 +64,7 @@ export class ExecutionConfigTreeViewItem extends vscode.TreeItem {
  * @extends ExecutionResultTreeViewItem
  */
 export class ExecutionFolderTreeViewItem extends ExecutionResultTreeViewItem {
-    constructor(public readonly group: FeatureGroup, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
+    constructor(public readonly tesSuite: TestSuite, public readonly group: FeatureGroup, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
         super(group.title, collapsibleState, extensionPath);
         this.annotateNode(group.status);
     }
@@ -77,8 +78,8 @@ export class ExecutionFolderTreeViewItem extends ExecutionResultTreeViewItem {
  * @extends ExecutionResultTreeViewItem
  */
 export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
-    constructor(public readonly feature: livedoc.Feature, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
-        super(feature.title, collapsibleState, extensionPath);
+    constructor(public readonly tesSuite: TestSuite, public readonly feature: livedoc.Feature, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
+        super("Feature: " + feature.title, collapsibleState, extensionPath);
         this.annotateNode(this.getStatus(feature));
     }
 }
@@ -91,8 +92,8 @@ export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
  * @extends ExecutionResultTreeViewItem
  */
 export class ScenarioTreeViewItem extends ExecutionResultTreeViewItem {
-    constructor(public readonly scenario: livedoc.Scenario, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
-        super(scenario.title, collapsibleState, extensionPath, command);
+    constructor(public readonly tesSuite: TestSuite, public readonly scenario: livedoc.Scenario, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
+        super("Scenario: " + scenario.title, collapsibleState, extensionPath, command);
         this.annotateNode(this.getStatus(scenario));
     }
 }
@@ -110,5 +111,19 @@ export class StepTreeViewItem extends ExecutionResultTreeViewItem {
         const stepStatus = step.status as string;
         const scenarioStatus = ScenarioStatus[stepStatus];
         this.annotateNode(scenarioStatus);
+    }
+}
+
+/**
+ * This tree view item is used to support Feature Backgrounds
+ *
+ * @export
+ * @class StepTreeViewItem
+ * @extends ExecutionResultTreeViewItem
+ */
+export class BackgroundTreeViewItem extends ExecutionResultTreeViewItem {
+    constructor(public readonly tesSuite: TestSuite, public readonly background: livedoc.Background, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
+        super("Background: " + background.title, collapsibleState, extensionPath, command);
+        this.annotateNode(this.getStatus(background));
     }
 }

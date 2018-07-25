@@ -5,8 +5,9 @@ import * as vscode from "vscode";
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem } from "./ExecutionResultTreeViewItem";
+import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem, BackgroundTreeViewItem } from "./ExecutionResultTreeViewItem";
 import { ScenarioStatus } from "./ScenarioStatus";
+import { TestSuite } from "livedoc-mocha/model/config";
 
 export interface IExecutionModel extends livedocConfig.TestSuite {
     results: FeatureGroup[];
@@ -20,7 +21,15 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
     constructor(private rootPath: string, private extensionPath: string) {
         this.config = new livedocConfig.LiveDocConfig();
+
         let localSuite = new livedocConfig.TestSuite() as IExecutionModel;
+        localSuite.name = "production";
+        localSuite.path = "http://build/bvt/**/*.Spec.js";
+        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results.json"))
+        this.buildFeatureGroup(localSuite as IExecutionModel);
+        this.config.testSuites.push(localSuite);
+
+        localSuite = new livedocConfig.TestSuite() as IExecutionModel;
         localSuite.name = "unit tests";
         localSuite.path = "build/test/**/*.Spec.js";
         localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"));
@@ -28,12 +37,6 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
         this.config.testSuites.push(localSuite);
 
-        localSuite = new livedocConfig.TestSuite() as IExecutionModel;
-        localSuite.name = "bvt tests";
-        localSuite.path = "build/bvt/**/*.Spec.js";
-        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results.json"))
-        this.buildFeatureGroup(localSuite as IExecutionModel);
-        this.config.testSuites.push(localSuite);
     }
 
     private loadModelFromFile(path: string): livedoc.ExecutionResults {
@@ -55,7 +58,11 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
             results = [];
             this.config.testSuites.forEach(suite => {
                 const prefix = suite.path.toLocaleLowerCase().startsWith("http") ? "REMOTE" : "LOCAL";
-                results.push(new ExecutionConfigTreeViewItem(`${prefix}:${suite.name.toLocaleUpperCase()}`, suite.name, vscode.TreeItemCollapsibleState.Collapsed));
+                results.push(new ExecutionConfigTreeViewItem(`${prefix}:${suite.name.toLocaleUpperCase()}`, suite.name, vscode.TreeItemCollapsibleState.Collapsed, {
+                    command: 'livedoc.navigateToSummaryInReporterCommand',
+                    title: '',
+                    arguments: [suite]
+                }));
             });
         }
         else {
@@ -68,7 +75,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                             if (!group.title) {
                                 group.title = "root";
                             }
-                            return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
+                            return new ExecutionFolderTreeViewItem(config, group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     }
                     break;
@@ -76,17 +83,30 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     const groupView = (element as ExecutionFolderTreeViewItem);
                     if (groupView.group.children.length === 0) {
                         results = groupView.group.features.map(feature => {
-                            return new FeatureTreeViewItem(feature, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
+                            return new FeatureTreeViewItem(groupView.tesSuite, feature, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     } else {
                         results = groupView.group.children.map(group => {
-                            return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
+                            return new ExecutionFolderTreeViewItem(groupView.tesSuite, group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     }
                     break;
                 case "FeatureTreeViewItem":
                     const featureView = (element as FeatureTreeViewItem);
-                    results = this.getTreeViewItemsForNode(featureView.feature) as vscode.TreeItem[];
+                    results = this.getTreeViewItemsForNode(featureView) as vscode.TreeItem[];
+                    if (featureView.feature.background) {
+                        // Add the background to the feature
+                        results.unshift(new BackgroundTreeViewItem(featureView.tesSuite, featureView.feature.background, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath));
+                    }
+                    break;
+                case "BackgroundTreeViewItem":
+                    const backgroundView = (element as BackgroundTreeViewItem);
+                    results = backgroundView.background.steps.map(step => {
+                        // create the display title (can't work out how to get VSCode to not truncate leading spaces)
+                        const indent = ["and", "but"].indexOf(step.type) >= 0 ? String.fromCharCode(160).repeat(4) : "";
+                        step.displayTitle = `${indent}${step.type} ${step.title}`
+                        return new StepTreeViewItem(step, vscode.TreeItemCollapsibleState.None, this.extensionPath);
+                    });
                     break;
                 case "ScenarioTreeViewItem":
                     const scenarioView = (element as ScenarioTreeViewItem);
@@ -104,15 +124,14 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         }
         return results;
     }
-    private getTreeViewItemsForNode(node: livedoc.SuiteBase<any>): vscode.ProviderResult<ExecutionResultTreeViewItem[]> {
-        const nodeType: string = node.constructor.name;
+    private getTreeViewItemsForNode(featureView: FeatureTreeViewItem): vscode.ProviderResult<ExecutionResultTreeViewItem[]> {
         let children: livedoc.Scenario[] = [];
-        switch (node.type) {
-            case "Feature":
-                children = (node as livedoc.Feature).scenarios;
-        }
-        const results = children.map(node => {
-            return new ScenarioTreeViewItem(node, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
+        const results = featureView.feature.scenarios.map(scenario => {
+            return new ScenarioTreeViewItem(featureView.tesSuite, scenario, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath, {
+                command: 'livedoc.navigateToScenarioInReporter',
+                title: '',
+                arguments: [featureView.tesSuite, scenario]
+            });
         });
         return results;
     }
@@ -140,6 +159,15 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
         // transfer the children of the root to the top level as results
         suite.results = rootFeatureGroup.children.map(feature => feature);
+    }
+
+    // Commands
+    public navigateToScenarioInReporterCommand(testSuite: TestSuite, scenario: livedoc.Scenario) {
+        vscode.window.showInformationMessage(`(${testSuite.name}) navigate to scenario: ${scenario.title}`);
+    }
+
+    public navigateToSummaryInReporterCommand(testSuite: TestSuite) {
+        vscode.window.showInformationMessage('navigate to summary page for config: ' + testSuite.name);
     }
 }
 
