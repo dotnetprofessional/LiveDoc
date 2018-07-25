@@ -8,7 +8,6 @@ import { jsonIgnore } from "../decorators";
 export class StepDefinition extends LiveDocTest<Scenario> {
     @jsonIgnore
     public displayTitle: string = "";
-    @jsonIgnore
     public rawTitle: string = "";
 
     public type: string;

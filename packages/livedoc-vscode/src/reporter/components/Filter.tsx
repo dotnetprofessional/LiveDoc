@@ -126,7 +126,7 @@ export class Filter extends React.PureComponent<
                 this.state.strings.length === 0
                 || this.state.strings.some(s => featureOrScenario.title.includes(s) || featureOrScenario.description.includes(s))
             )
-                && (this.state.tags.length === 0 || this.state.tags.some(filterTag => featureOrScenario.tags.some(tag => tag === filterTag)));
+                && (this.state.tags.length === 0 || this.state.tags.some(filterTag => featureOrScenario.tags.some(tag => filterTag.endsWith("*") ? tag.startsWith(filterTag.replace("*", "")) : tag === filterTag)));
         });
     }
 

@@ -3,12 +3,10 @@ import * as ReactDOM from "react-dom";
 import { StyleSheet, css } from "aphrodite/no-important";
 import * as model from "livedoc-mocha/model";
 
-import { Collapsable } from "./Collapsable";
-import { Checkbox } from "./Checkbox";
-
 export class TestsSummary extends React.PureComponent<
     {
         model: model.ExecutionResults;
+        viewScenario: (sceanrio: model.Scenario, feature: model.Feature) => void
     },
     {
         collapsedKeys?: string[]
@@ -52,11 +50,14 @@ export class TestsSummary extends React.PureComponent<
         }
     }
 
-    private renderScenario(scenario: model.Scenario) {
+    private renderScenario(feature: model.Feature, scenario: model.Scenario) {
         return (
             <tr key={scenario.id}>
                 <td colSpan={5} className={css(TestsSummary.styles.scenario)}>
-                    {scenario.title}
+                    <a href="javascript:void(0)"
+                        onClick={() => this.props.viewScenario(scenario, feature)}>
+                        {scenario.title}
+                    </a>
                 </td>
             </tr>
         );
@@ -68,7 +69,7 @@ export class TestsSummary extends React.PureComponent<
             let scenarios;
             if (collapsedKeys.indexOf(feature.id) === -1) {
                 scenarios = (feature.scenarios || [])
-                    .map(this.renderScenario);
+                    .map(this.renderScenario.bind(this, feature));
             }
 
             return (
