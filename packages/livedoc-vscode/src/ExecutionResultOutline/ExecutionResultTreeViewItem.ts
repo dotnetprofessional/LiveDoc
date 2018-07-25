@@ -13,15 +13,21 @@ export abstract class ExecutionResultTreeViewItem extends vscode.TreeItem {
         fail: "failed.svg",
         pending: "pending.svg",
         passPending: "pending-autorun-light.svg",
-        failPending: "failed-faint-autorun-light.svg"
+        failPending: "failed-faint-autorun-light.svg",
+        passFailPending: "failed-faint-autorun-light.svg"
     };
 
     constructor(public title: string, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
         super(title, collapsibleState);
     }
     protected annotateNode(status: ScenarioStatus) {
-        const icon = this.icons[ScenarioStatus[status]];
-        this.iconPath = path.join(this.extensionPath + "/images/icons/", icon);
+        // TODO: This needs fixing as there are bugs in the way status is calculated
+        try {
+            const icon = this.icons[ScenarioStatus[status]];
+            this.iconPath = path.join(this.extensionPath + "/images/icons/", icon);
+        } catch (e) {
+            this.iconPath = path.join(this.extensionPath + "/images/icons/", this.icons.unknown);
+        }
     }
 
     protected getStatus(suite: livedoc.SuiteBase<any>): ScenarioStatus {

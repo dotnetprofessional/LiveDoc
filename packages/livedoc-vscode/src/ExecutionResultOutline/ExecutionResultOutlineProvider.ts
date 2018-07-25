@@ -20,15 +20,15 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
     constructor(private rootPath: string, private extensionPath: string) {
         this.config = new livedocConfig.LiveDocConfig();
-        let localSuite = new livedocConfig.TestSuite();
+        let localSuite = new livedocConfig.TestSuite() as IExecutionModel;
         localSuite.name = "unit tests";
         localSuite.path = "build/test/**/*.Spec.js";
         localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"));
         this.buildFeatureGroup(localSuite as IExecutionModel);
 
-        //this.config.testSuites.push(localSuite);
+        this.config.testSuites.push(localSuite);
 
-        localSuite = new livedocConfig.TestSuite();
+        localSuite = new livedocConfig.TestSuite() as IExecutionModel;
         localSuite.name = "bvt tests";
         localSuite.path = "build/bvt/**/*.Spec.js";
         localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results.json"))
@@ -65,6 +65,9 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     if (configForSuiteMatch) {
                         const config = configForSuiteMatch[0] as IExecutionModel;
                         results = config.results.map(group => {
+                            if (!group.title) {
+                                group.title = "root";
+                            }
                             return new ExecutionFolderTreeViewItem(group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
                         });
                     }
