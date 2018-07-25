@@ -26,7 +26,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"));
         this.buildFeatureGroup(localSuite as IExecutionModel);
 
-        this.config.testSuites.push(localSuite);
+        //this.config.testSuites.push(localSuite);
 
         localSuite = new livedocConfig.TestSuite();
         localSuite.name = "bvt tests";

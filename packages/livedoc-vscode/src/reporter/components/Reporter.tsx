@@ -5,13 +5,14 @@ import { Filter } from "./Filter";
 import { SummaryFilter } from "./SummaryFilter";
 import { TestsSummary } from "./TestsSummary";
 import * as model from "livedoc-mocha/model";
-import { debug } from "util";
+import { Scenario } from "./Scenario";
 
 export class Reporter extends React.PureComponent<
     {
 
     }, {
         model?: model.ExecutionResults;
+        viewScenario?: model.Scenario;
     }> {
 
     private _model: model.ExecutionResults;
@@ -20,16 +21,24 @@ export class Reporter extends React.PureComponent<
     public constructor(props) {
         super(props);
 
+        this.state = {
+            model: null,
+            viewScenario: null
+        };
+
         this.handleMessage = this.handleMessage.bind(this);
         this.applyFilter = this.applyFilter.bind(this);
         this.getRawModel = this.getRawModel.bind(this);
+        this.goToSummary = this.goToSummary.bind(this);
+        this.goToScenario = this.goToScenario.bind(this);
     }
 
     private handleMessage(event) {
         debugger;
         this._model = JSON.parse(event.data)
         this.setState({
-            model: this._model
+            model: this._model,
+            viewScenario: null
         });
     }
 
@@ -85,6 +94,20 @@ export class Reporter extends React.PureComponent<
         return JSON.parse(JSON.stringify(this._model || {}));
     }
 
+    private goToSummary() {
+        this.setState({
+            viewScenario: null
+        });
+    }
+
+    private goToScenario(scenario: model.Scenario, feature: model.Feature) {
+        const viewScenario = scenario;
+        viewScenario.parent = feature;
+        this.setState({
+            viewScenario
+        });
+    }
+
     public componentDidMount() {
         const vscode = acquireVsCodeApi();
         window.addEventListener("message", this.handleMessage);
@@ -99,15 +122,29 @@ export class Reporter extends React.PureComponent<
     }
 
     public render() {
+        const model = this.state.model || {} as model.ExecutionResults;
         return (
             <div className={css(Reporter.styles.flexible)}>
-                <Filter
-                    applyFilter={this.applyFilter} />
-                <SummaryFilter
-                    applyFilter={this.applyFilter}
-                    model={this.state && this.state.model || {} as model.ExecutionResults}
-                    getRawModel={this.getRawModel} />
-                <TestsSummary model={this.state && this.state.model || {} as model.ExecutionResults} />
+                <div className={css(
+                    Reporter.styles.screenActive,
+                    this.state.viewScenario && Reporter.styles.screenInactive
+                )}>
+                    <Filter
+                        applyFilter={this.applyFilter} />
+                    <SummaryFilter
+                        applyFilter={this.applyFilter}
+                        model={model}
+                        getRawModel={this.getRawModel} />
+                    <TestsSummary model={model}
+                        viewScenario={this.goToScenario} />
+                </div>
+                {
+                    this.state.viewScenario
+                    &&
+                    <Scenario
+                        scenario={this.state.viewScenario}
+                        back={this.goToSummary} />
+                }
             </div>
         );
     }
@@ -118,6 +155,12 @@ export class Reporter extends React.PureComponent<
             flexDirection: "column",
             alignContent: "stretch",
             height: "100vh"
+        },
+        screenInactive: {
+            display: "none"
+        },
+        screenActive: {
+            flex: "1 1 auto"
         }
     });
 }
