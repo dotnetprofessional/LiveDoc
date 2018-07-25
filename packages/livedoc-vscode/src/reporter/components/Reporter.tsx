@@ -7,15 +7,18 @@ import { TestsSummary } from "./TestsSummary";
 import * as model from "livedoc-mocha/model";
 import { Scenario } from "./Scenario";
 
+interface IReporterState {
+    model?: model.ExecutionResults;
+    viewScenario?: model.Scenario;
+}
+
 export class Reporter extends React.PureComponent<
     {
 
-    }, {
-        model?: model.ExecutionResults;
-        viewScenario?: model.Scenario;
-    }> {
+    }, IReporterState> {
 
     private _serializedModel: string;
+    private _extensionRootPath: string;
     private _filters: [string, (featureOrScenario: model.Feature | model.Scenario) => boolean][] = [];
 
     public constructor(props) {
@@ -34,12 +37,18 @@ export class Reporter extends React.PureComponent<
     }
 
     private handleMessage(event) {
-        this._serializedModel = event.data;
-        const model = JSON.parse(event.data)
-        this.setState({
-            model,
-            viewScenario: null
-        });
+        const { model, extensionRootPath } = event.data;
+
+        if (extensionRootPath) {
+            this._extensionRootPath = extensionRootPath;
+        }
+
+        const stateToUpdate: IReporterState = {};
+        if (model) {
+            this._serializedModel = JSON.stringify(model);
+            stateToUpdate.model = model;
+        }
+        this.setState(stateToUpdate);
     }
 
     private applyFilter(filterFn: (featureOrScenario: model.Feature | model.Scenario) => boolean) {
@@ -147,7 +156,8 @@ export class Reporter extends React.PureComponent<
                     &&
                     <Scenario
                         scenario={this.state.viewScenario}
-                        back={this.goToSummary} />
+                        back={this.goToSummary}
+                        extensionRootPath={this._extensionRootPath} />
                 }
             </div>
         );

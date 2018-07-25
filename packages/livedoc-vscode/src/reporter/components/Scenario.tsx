@@ -7,6 +7,7 @@ export class Scenario extends React.PureComponent<
     {
         scenario: model.Scenario | model.ScenarioOutline;
         back: () => void;
+        extensionRootPath: string;
     },
     {
         selectedExample?: model.ScenarioExample;
@@ -20,6 +21,10 @@ export class Scenario extends React.PureComponent<
         };
 
         this.selectExample = this.selectExample.bind(this);
+    }
+
+    private getStatusIcon(status: string) {
+        return this.props.extensionRootPath + "/src/images/icons/passed.svg";
     }
 
     private getStatusFromStatistics(statistics: model.Statistics<model.LiveDocSuite>) {
@@ -71,9 +76,6 @@ export class Scenario extends React.PureComponent<
                     );
                 } else {
                     const example = examples[rowOffset + rowIndex - 1];
-                    if (!example) {
-                        debugger;
-                    }
                     const selectedStyle = example === this.state.selectedExample && Scenario.styles.selectedRow;
 
                     const columns = cols.map((value, colIndex) => {
@@ -81,7 +83,10 @@ export class Scenario extends React.PureComponent<
                             <td key={colIndex} className={css(Scenario.styles.borderedCell, selectedStyle)}>{value}</td>
                         );
                     });
-                    columns.unshift(<td key={`status${rowIndex}`} className={css(Scenario.styles.borderedCell, selectedStyle)}>{this.getStatusFromStatistics(example.statistics)}</td>);
+                    columns.unshift(<td key={`status${rowIndex}`} className={css(Scenario.styles.borderedCell, selectedStyle)}>
+                        {this.getStatusFromStatistics(example.statistics)}
+                        {/*<img src={this.getStatusIcon("pass")} />*/}
+                    </td>);
 
                     return (
                         <tr key={rowIndex} role="button" onClick={this.selectExample.bind(null, example)}>

@@ -99,7 +99,7 @@ export class SummaryFilter extends React.PureComponent<
                         onChange={this.filterChanged.bind(null, "warning")}
                         checked={this.state.filters.warning} />
                 </div>
-            </Collapsable>
+            </CollapsableWithTitle>
         );
     }
 
@@ -122,13 +122,6 @@ export class SummaryFilter extends React.PureComponent<
             const filter = function summaryFilter(featureOrSceanrio: model.Feature | model.Scenario) {
                 return predicate(featureOrSceanrio);
             }
-
-            // this.props.applyFilter(fs => {
-            //     return (this.state.filters.passed && fs.statistics.passCount > 0)
-            //         || (this.state.filters.failed && fs.statistics.failedCount > 0)
-            //         || (this.state.filters.pending && fs.statistics.pendingCount > 0)
-            //         || (this.state.filters.warning && fs.statistics.totalRuleViolations > 0)
-            // });
             this.props.applyFilter(filter)
         });
     }
