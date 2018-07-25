@@ -36,7 +36,7 @@ export function registerReporter(context: ExtensionContext) {
 
         panel.webview.onDidReceiveMessage(message => {
             if (message === "listening") {
-                const model = fs.readFileSync(path.join(context.extensionPath, "out", "testResources", "results.json"), "utf8");
+                const model = fs.readFileSync(path.join(context.extensionPath, "src", "resources", "results.json"), "utf8");
                 panel.webview.postMessage(model);
             }
         });

@@ -10,12 +10,52 @@ export class TestsSummary extends React.PureComponent<
     {
         model: model.ExecutionResults;
     },
-    {}> {
+    {
+        collapsedKeys?: string[]
+    }> {
+
+    public constructor(props) {
+        super(props);
+
+        this.state = {
+            collapsedKeys: []
+        };
+
+        this.toggleNodeCollapsed = this.toggleNodeCollapsed.bind(this);
+        this.toggleAllNodesCollapsed = this.toggleAllNodesCollapsed.bind(this);
+    }
+
+    private toggleNodeCollapsed(key: string) {
+        const foundIndex = this.state.collapsedKeys.indexOf(key);
+        if (foundIndex > -1) {
+            const newCollapsedKeys = this.state.collapsedKeys.slice(0, foundIndex).concat(this.state.collapsedKeys.slice(foundIndex + 1));
+            this.setState({
+                collapsedKeys: newCollapsedKeys
+            });
+        } else {
+            this.setState({
+                collapsedKeys: this.state.collapsedKeys.concat([key])
+            })
+        }
+    }
+
+    private toggleAllNodesCollapsed() {
+        if (this.props.model && this.props.model.features) {
+            let collapsedKeys = [];
+            if (this.state.collapsedKeys.length === 0) {
+                collapsedKeys = this.props.model.features.map(f => f.id);
+            }
+
+            this.setState({
+                collapsedKeys
+            });
+        }
+    }
 
     private renderScenario(scenario: model.Scenario) {
         return (
             <tr key={scenario.id}>
-                <td colSpan="5" className={css(TestsSummary.styles.scenario)}>
+                <td colSpan={5} className={css(TestsSummary.styles.scenario)}>
                     {scenario.title}
                 </td>
             </tr>
@@ -23,14 +63,19 @@ export class TestsSummary extends React.PureComponent<
     }
 
     private renderFeatures() {
+        const { collapsedKeys } = this.state;
         const features = (this.props.model && this.props.model.features || []).map(feature => {
-            const scenarios = (feature.scenarios || [])
-                .map(this.renderScenario);
+            let scenarios;
+            if (collapsedKeys.indexOf(feature.id) === -1) {
+                scenarios = (feature.scenarios || [])
+                    .map(this.renderScenario);
+            }
 
             return (
                 <React.Fragment>
                     <tr key={feature.id}>
                         <td>
+                            <a href="javascript:void(0)" onClick={this.toggleNodeCollapsed.bind(null, feature.id)}>+-</a>
                             {feature.title}
                         </td>
                         <td className={css(TestsSummary.styles.alignCenter)}>
@@ -68,6 +113,7 @@ export class TestsSummary extends React.PureComponent<
                 <table className={css(TestsSummary.styles.flex, TestsSummary.styles.table)}>
                     <thead>
                         <th className={css(TestsSummary.styles.alignLeft)}>
+                            <a href="javascript:void(0)" onClick={this.toggleAllNodesCollapsed}>+-</a>
                             Feature
                         </th>
                         <th>
