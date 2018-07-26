@@ -23,6 +23,12 @@ export class Scenario extends React.PureComponent<
         this.selectExample = this.selectExample.bind(this);
     }
 
+    public componentWillReceiveProps(nextProps) {
+        if (this.props.scenario !== nextProps.scenario) {
+            this.setState({ selectedExample: null });
+        }
+    }
+
     private getStatusIcon(status: string) {
         return this.props.extensionRootPath + "/src/images/icons/passed.svg";
     }
