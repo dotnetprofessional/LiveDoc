@@ -25,13 +25,9 @@ export class Checkbox extends React.PureComponent<
 
     public render() {
         return (
-            <div className={css(Checkbox.styles.flexibleRow)}>
-                <input
-                    ref={this.setRef.bind(null, "checkbox")}
-                    checked={this.props.checked}
-                    onChange={this.onChange}
-                    type="checkbox" name={this.props.groupingName} className={css(Checkbox.styles.flex)} />
-                <label htmlFor={this.props.id} className={css(Checkbox.styles.block)}>{this.props.label}</label>
+            <div className="form-check form-check-inline">
+                <input id={this.props.id} ref={this.setRef.bind(null, "checkbox")} checked={this.props.checked} onChange={this.onChange} name={this.props.groupingName} className="form-check-input" type="checkbox" />
+                <label className="form-check-label" htmlFor={this.props.id}>{this.props.label}</label>
             </div>
         );
     }
