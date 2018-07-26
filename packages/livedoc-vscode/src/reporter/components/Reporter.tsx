@@ -37,7 +37,7 @@ export class Reporter extends React.PureComponent<
     }
 
     private handleMessage(event) {
-        const { model, extensionRootPath } = event.data;
+        const { model, extensionRootPath, scenarioId } = event.data;
 
         if (extensionRootPath) {
             this._extensionRootPath = extensionRootPath;
@@ -47,6 +47,16 @@ export class Reporter extends React.PureComponent<
         if (model) {
             this._serializedModel = JSON.stringify(model);
             stateToUpdate.model = model;
+        }
+
+        if (scenarioId) {
+            debugger;
+            const searchModel: model.ExecutionResults = model || this.state.model;
+            const [featureId] = scenarioId.split("-");
+
+            const feature = searchModel.features.find(f => f.id === featureId);
+            const scenario = feature.scenarios.find(s => s.id === scenarioId);
+            this.goToScenario(scenario, feature);
         }
         this.setState(stateToUpdate);
     }

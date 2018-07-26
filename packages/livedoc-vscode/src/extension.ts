@@ -4,8 +4,11 @@ import * as vscode from "vscode";
 import { activateTableFormatter, deactivateTableFormatter } from "./tableFormatter";
 import "livedoc-mocha";
 import { registerReporter } from "./reporter/register";
+import { reporterWebview } from "./reporter/ReporterWebView";
 
 export function activate(context: vscode.ExtensionContext) {
+    reporterWebview.setExtensionContext(context);
+
     activateTreeView(context);
     activateTableFormatter(context);
     registerReporter(context);

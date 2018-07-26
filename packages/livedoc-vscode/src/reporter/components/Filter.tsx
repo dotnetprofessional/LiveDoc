@@ -38,56 +38,76 @@ export class Filter extends React.PureComponent<
                 <div className={css(Filter.styles.flexibleRow)}>
                     <div className={css(Filter.styles.flexible, Filter.styles.flex)}>
                         <div className={css(Filter.styles.flexibleRow, Filter.styles.flex)}>
-                            <label htmlFor="search-text" className={css(Filter.styles.inputLabel, Filter.styles.block)}>Search</label>
-                            <input ref={this.setRef.bind(null, "search-text")} id="search-text" type="text" className={css(Filter.styles.flex)} />
-                            <button onClick={this.addString.bind(this, "search-text", "strings")}>Add</button>
+                            <div className={`${css(Filter.styles.flex)} input-group mb-3`}>
+                                <input ref={this.setRef.bind(null, "search-text")} id="search-text" type="text" className="form-control" placeholder="Enter text to search" aria-label="Filter by text" aria-describedby="button-add-search-text" />
+                                <div className="input-group-append">
+                                    <button onClick={this.addString.bind(this, "search-text", "strings")} className="btn btn-outline-secondary" type="button" id="button-add-search-text">Add</button>
+                                </div>
+                            </div>
                         </div>
-                        {
-                            this.state.strings.map(s => {
-                                return (
-                                    <div>
-                                        <span>{s}</span>
-                                        <a href="javascript:void(0)" onClick={() => {
-                                            const stringIndex = this.state.strings.indexOf(s);
-                                            const newStrings = this.state.strings.slice(0, stringIndex).concat(this.state.strings.slice(stringIndex + 1));
-                                            this.setState({
-                                                strings: newStrings
-                                            }, () => {
-                                                this.applyFilter();
-                                            });
-                                        }}>-</a>
-                                    </div>
-                                );
-                            })
-                        }
+                        <div>
+                            {
+                                this.state.strings.map(s => {
+                                    return (
+                                        <span className="badge badge-info mr-2">
+                                            {s}
+                                            &nbsp;&nbsp;
+                                            <a className="badge badge-danger badge-pill"
+                                                href="javascript:void(0)"
+                                                onClick={() => {
+                                                    const stringIndex = this.state.strings.indexOf(s);
+                                                    const newStrings = this.state.strings.slice(0, stringIndex).concat(this.state.strings.slice(stringIndex + 1));
+                                                    this.setState({
+                                                        strings: newStrings
+                                                    }, () => {
+                                                        this.applyFilter();
+                                                    });
+                                                }}>
+                                                &times;
+                                                </a>
+                                        </span>
+                                    );
+                                })
+                            }
+                        </div>
                     </div>
                     <div className={css(Filter.styles.flexible, Filter.styles.flex)}>
                         <div className={css(Filter.styles.flexibleRow, Filter.styles.flex)}>
-                            <label htmlFor="search-tag" className={css(Filter.styles.inputLabel, Filter.styles.block)}>Tags</label>
-                            <input ref={this.setRef.bind(null, "tag-text")} id="search-tag" type="text" className={css(Filter.styles.flex)} />
-                            <button onClick={this.addString.bind(this, "tag-text", "tags")}>Add</button>
+                            <div className={`${css(Filter.styles.flex)} input-group mb-3`}>
+                                <input ref={this.setRef.bind(null, "tag-text")} id="tag-text" type="text" className="form-control" placeholder="Enter a tag" aria-label="Filter by tag" aria-describedby="button-add-search-tag" />
+                                <div className="input-group-append">
+                                    <button onClick={this.addString.bind(this, "tag-text", "tags")} className="btn btn-outline-secondary" type="button" id="button-add-search-tag">Add</button>
+                                </div>
+                            </div>
                         </div>
-                        {
-                            this.state.tags.map(s => {
-                                return (
-                                    <div>
-                                        <span>{s}</span>
-                                        <a href="javascript:void(0)" onClick={() => {
-                                            const tagIndex = this.state.tags.indexOf(s);
-                                            const newTags = this.state.tags.slice(0, tagIndex).concat(this.state.tags.slice(tagIndex + 1));
-                                            this.setState({
-                                                tags: newTags
-                                            }, () => {
-                                                this.applyFilter();
-                                            });
-                                        }}>-</a>
-                                    </div>
-                                );
-                            })
-                        }
+                        <div>
+                            {
+                                this.state.tags.map(s => {
+                                    return (
+                                        <span className="badge badge-info mr-2">
+                                            {s}
+                                            &nbsp;&nbsp;
+                                            <a className="badge badge-danger badge-pill"
+                                                href="javascript:void(0)"
+                                                onClick={() => {
+                                                    const tagIndex = this.state.tags.indexOf(s);
+                                                    const newTags = this.state.tags.slice(0, tagIndex).concat(this.state.tags.slice(tagIndex + 1));
+                                                    this.setState({
+                                                        tags: newTags
+                                                    }, () => {
+                                                        this.applyFilter();
+                                                    });
+                                                }}>
+                                                &times;
+                                                </a>
+                                        </span>
+                                    );
+                                })
+                            }
+                        </div>
                     </div>
-                    <div>
-                        <button onClick={this.clearCriteria.bind(this)}>Clear</button>
+                    <div className={css(Filter.styles.flexibleRow)}>
+                        <button onClick={this.clearCriteria.bind(this)} type="button" className="btn btn-outline-secondary">Clear</button>
                     </div>
                 </div>
             </CollapsableWithTitle>
@@ -105,7 +125,7 @@ export class Filter extends React.PureComponent<
 
     private addString(inputKey: string, stateKey: string) {
         const input = this._refs[inputKey] as HTMLInputElement;
-        if (input) {
+        if (input && input.value.trim()) {
             if (this.state[stateKey].indexOf(input.value) > -1) {
                 return;
             }

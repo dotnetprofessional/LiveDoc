@@ -9,6 +9,8 @@ import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFold
 import { ScenarioStatus } from "./ScenarioStatus";
 import { TestSuite } from "livedoc-mocha/model/config";
 
+import { reporterWebview } from "../reporter/ReporterWebView";
+
 export interface IExecutionModel extends livedocConfig.TestSuite {
     results: FeatureGroup[];
     executionResults: livedoc.ExecutionResults;
@@ -25,7 +27,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         let localSuite = new livedocConfig.TestSuite() as IExecutionModel;
         localSuite.name = "production";
         localSuite.path = "http://build/bvt/**/*.Spec.js";
-        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results.json"))
+        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-pa.json"))
         this.buildFeatureGroup(localSuite as IExecutionModel);
         this.config.testSuites.push(localSuite);
 
@@ -162,12 +164,14 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     }
 
     // Commands
-    public navigateToScenarioInReporterCommand(testSuite: TestSuite, scenario: livedoc.Scenario) {
-        vscode.window.showInformationMessage(`(${testSuite.name}) navigate to scenario: ${scenario.title}`);
+    public navigateToScenarioInReporterCommand(testSuite: IExecutionModel, scenario: livedoc.Scenario) {
+        reporterWebview.navigateScenario(testSuite.executionResults, scenario.id);
+        //vscode.window.showInformationMessage(`(${testSuite.name}) navigate to scenario: ${scenario.title}`);
     }
 
-    public navigateToSummaryInReporterCommand(testSuite: TestSuite) {
-        vscode.window.showInformationMessage('navigate to summary page for config: ' + testSuite.name);
+    public navigateToSummaryInReporterCommand(testSuite: IExecutionModel) {
+        reporterWebview.navigateSummary(testSuite.executionResults);
+        //vscode.window.showInformationMessage('navigate to summary page for config: ' + testSuite.name);
     }
 }
 
