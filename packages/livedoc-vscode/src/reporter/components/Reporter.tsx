@@ -59,7 +59,7 @@ export class Reporter extends React.PureComponent<
             const [featureId] = scenarioId.split("-");
 
             const feature = searchModel.features.find(f => f.id === featureId);
-            const scenario = feature.scenarios.find(s => s.id === scenarioId);
+            const scenario = feature.scenarios.find(s => s.id === scenarioId || s.examples && s.examples[0].id === scenarioId);
             this.goToScenario(scenario, feature);
         }
         this.setState(stateToUpdate);

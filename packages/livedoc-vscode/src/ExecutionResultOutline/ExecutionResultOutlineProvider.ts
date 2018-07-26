@@ -164,8 +164,12 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     }
 
     // Commands
-    public navigateToScenarioInReporterCommand(testSuite: IExecutionModel, scenario: livedoc.Scenario) {
-        reporterWebview.navigateScenario(testSuite.executionResults, scenario.id);
+    public navigateToScenarioInReporterCommand(testSuite: IExecutionModel, scenario: livedoc.Scenario | livedoc.ScenarioOutline) {
+        let scenarioId = scenario.id;
+        if (scenario.hasOwnProperty("examples")) {
+            scenarioId = (scenario as livedoc.ScenarioOutline).examples[0].id;
+        }
+        reporterWebview.navigateScenario(testSuite.executionResults, scenarioId);
         //vscode.window.showInformationMessage(`(${testSuite.name}) navigate to scenario: ${scenario.title}`);
     }
 
