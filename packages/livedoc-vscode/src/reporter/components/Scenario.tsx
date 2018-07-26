@@ -171,7 +171,7 @@ export class Scenario extends React.PureComponent<
                     }
                     <span className={css(Scenario.styles.stepType)}>{step.type}</span>
                     {" "}
-                    {step.rawTitle}
+                    <span dangerouslySetInnerHTML={{ __html: step.rawTitle.replace(/<[^>]+>/g, match => `<span class="${css(Scenario.styles.binding)}">${match.replace("<", "&lt;").replace(">", "&gt;")}</span>`) }}></span>
                     {
                         step.description
                         &&
@@ -182,7 +182,7 @@ export class Scenario extends React.PureComponent<
                         &&
                         <p>
                             <div>"""</div>
-                            <div dangerouslySetInnerHTML={{ __html: step.docString.replace(/\n/g, "<br/>").replace(/\s{2}/g, "&nbsp;") }} />
+                            <div dangerouslySetInnerHTML={{ __html: step.docString.replace(/<[^>]+>/g, match => `<span class="${css(Scenario.styles.binding)}">${match.replace("<", "&lt;").replace(">", "&gt;")}</span>`).replace(/\n/g, "<br/>").replace(/\s{2}/g, "&nbsp;") }} />
                             <div>"""</div>
                         </p>
                     }
@@ -269,6 +269,9 @@ export class Scenario extends React.PureComponent<
         },
         stepType: {
             color: "blue"
+        },
+        binding: {
+            color: "firebrick"
         }
     });
 }
