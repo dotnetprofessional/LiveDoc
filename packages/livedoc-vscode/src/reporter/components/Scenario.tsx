@@ -30,7 +30,19 @@ export class Scenario extends React.PureComponent<
     }
 
     private getStatusIcon(status: string) {
-        return this.props.extensionRootPath + "/src/images/icons/passed.svg";
+        let className;
+        switch (status) {
+            case "fail":
+            case "fail-pending":
+            case "fail-warning":
+                className = "fa-times-circle";
+                break;
+            default:
+                className = "fa-check-circle";
+        }
+        return (
+            <i className={`fas ${className}`} />
+        );
     }
 
     private getStatusFromStatistics(statistics: model.Statistics<model.LiveDocSuite>) {
@@ -90,8 +102,7 @@ export class Scenario extends React.PureComponent<
                         );
                     });
                     columns.unshift(<td key={`status${rowIndex}`} className={css(Scenario.styles.borderedCell, selectedStyle)}>
-                        {this.getStatusFromStatistics(example.statistics)}
-                        {/*<img src={this.getStatusIcon("pass")} />*/}
+                        {this.getStatusIcon(this.getStatusFromStatistics(example.statistics))}
                     </td>);
 
                     return (
@@ -118,9 +129,14 @@ export class Scenario extends React.PureComponent<
         const steps = example.steps.map(step => {
             return (
                 <li key={step.id}>
-                    {step.status}
-                    {"  "}
-                    {step.type}
+                    {this.getStatusIcon(this.getStatusFromStatistics(example.statistics))}
+                    {String.fromCharCode(160).repeat(2)}
+                    {
+                        ["and", "but"].indexOf(step.type) > -1
+                        &&
+                        String.fromCharCode(160).repeat(4)
+                    }
+                    <span className={css(Scenario.styles.stepType)}>{step.type}</span>
                     {" "}
                     {step.title}
                 </li>
@@ -129,8 +145,8 @@ export class Scenario extends React.PureComponent<
 
         return (
             <div>
-                <h4>Example Steps</h4>
-                <ul>
+                <h4>Example</h4>
+                <ul className={css(Scenario.styles.noListStyle)}>
                     {steps}
                 </ul>
             </div>
@@ -145,9 +161,15 @@ export class Scenario extends React.PureComponent<
                     {
                         !isScenarioOutline
                         &&
-                        `${step.status}  `
+                        this.getStatusIcon(step.status)
                     }
-                    {step.type}
+                    {String.fromCharCode(160).repeat(2)}
+                    {
+                        ["and", "but"].indexOf(step.type) > -1
+                        &&
+                        String.fromCharCode(160).repeat(4)
+                    }
+                    <span className={css(Scenario.styles.stepType)}>{step.type}</span>
                     {" "}
                     {step.rawTitle}
                     {
@@ -170,8 +192,7 @@ export class Scenario extends React.PureComponent<
 
         return (
             <div>
-                <h4>{!isScenarioOutline ? "Steps" : "Step Definitions"}</h4>
-                <ul>
+                <ul className={css(Scenario.styles.noListStyle)}>
                     {steps}
                 </ul>
             </div>
@@ -242,6 +263,12 @@ export class Scenario extends React.PureComponent<
         },
         selectedRow: {
             backgroundColor: "royalblue"
+        },
+        noListStyle: {
+            listStyleType: "none"
+        },
+        stepType: {
+            color: "blue"
         }
     });
 }

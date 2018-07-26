@@ -55,6 +55,7 @@ class ReporterWebView {
 
         const indexJsPath = vscode.Uri.file(path.join(this._context.extensionPath, "out/reporter/index.js")).with({ scheme: "vscode-resource" });
         const bootstrapCssPath = vscode.Uri.file(path.join(this._context.extensionPath, "src/resources/css/bootstrap.min.css")).with({ scheme: "vscode-resource" });
+        const faCssPath = vscode.Uri.file(path.join(this._context.extensionPath, "src/resources/fontawesome/css/all.min.css")).with({ scheme: "vscode-resource" });
 
         this._webviewPanel.webview.html = `
             <!DOCTYPE html>
@@ -64,6 +65,7 @@ class ReporterWebView {
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <title></title>
                     <link rel="stylesheet" href="${bootstrapCssPath}" />
+                    <link rel="stylesheet" href="${faCssPath}" />
                     <script src="${indexJsPath}"></script>
                 </head>
                 <body>
