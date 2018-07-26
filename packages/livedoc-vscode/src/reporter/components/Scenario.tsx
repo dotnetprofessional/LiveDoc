@@ -106,7 +106,7 @@ export class Scenario extends React.PureComponent<
             return (
                 <div key={tableIndex}>
                     <h4>Examples: {table.name}</h4>
-                    <table cellPadding={0} cellSpacing={0}>
+                    <table cellPadding={0} cellSpacing={0} className="table table-bordered table-sm">
                         {htmlTableContents}
                     </table>
                 </div>
@@ -189,14 +189,14 @@ export class Scenario extends React.PureComponent<
                     {
                         feature.description
                         &&
-                        <p>{feature.description}</p>
+                        <p dangerouslySetInnerHTML={{ __html: feature.description.replace(/\n/g, "<br/>").replace(/\s{2}/g, "&nbsp;") }}></p>
                     }
                 </div>
                 <h3>Scenario: {scenario.title}</h3>
                 {
                     scenario.description
                     &&
-                    <p>{scenario.description}</p>
+                    <p dangerouslySetInnerHTML={{ __html: scenario.description.replace(/\n/g, "<br/>").replace(/\s{2}/g, "&nbsp;") }}></p>
                 }
 
                 {this.renderStepsDefinition(scenario as model.Scenario)}

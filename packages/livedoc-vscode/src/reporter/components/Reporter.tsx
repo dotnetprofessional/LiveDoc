@@ -47,6 +47,10 @@ export class Reporter extends React.PureComponent<
         if (model) {
             this._serializedModel = JSON.stringify(model);
             stateToUpdate.model = model;
+
+            if (!scenarioId) {
+                stateToUpdate.viewScenario = null;
+            }
         }
 
         if (scenarioId) {
