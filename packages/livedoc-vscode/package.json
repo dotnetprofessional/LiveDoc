@@ -56,7 +56,7 @@
                 "path": "./snippets/livedoc.json"
             }
         ],
-        "viewContainers": {
+        "viewsContainers": {
             "activitybar": [
                 {
                     "id": "livedoc-explorer",
