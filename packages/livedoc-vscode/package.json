@@ -61,7 +61,7 @@
                 {
                     "id": "livedoc-explorer",
                     "title": "livedoc explorer",
-                    "icon": "images/icon.png"
+                    "icon": "images/activity-bar-icon.svg"
                 }
             ]
         },
