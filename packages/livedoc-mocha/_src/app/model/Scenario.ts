@@ -30,7 +30,7 @@ export class Scenario extends LiveDocSuite {
     private processingStepType: string;
 
     constructor(parent: Feature) {
-        super()
+        super();
         this.parent = parent;
     }
 
@@ -42,6 +42,10 @@ export class Scenario extends LiveDocSuite {
         // validate we have a description!
         if (!step.title) {
             step.addViolation(RuleViolations.enforceTitle, `${step.type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, step.title)
+        } else {
+            // set and validate the id
+            this.generateId();
+            this.validateIdUniqueness(this.id, this.parent.scenarios);
         }
 
         switch (step.type) {

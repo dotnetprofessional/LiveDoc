@@ -3,6 +3,7 @@ import { Background } from "./Background";
 import { Scenario } from "./Scenario";
 import { FeatureContext } from "./FeatureContext";
 import { BackgroundContext } from "./BackgroundContext";
+import { RuleViolations } from "./RuleViolations";
 
 export class Feature extends LiveDocSuite {
     public filename: string;
@@ -11,8 +12,18 @@ export class Feature extends LiveDocSuite {
 
     public executionTime: number;
 
-    constructor () {
-        super()
+    constructor() {
+        super();
+    }
+
+    public addScenario(scenario: Scenario) {
+        // validate we have a description!
+        if (!scenario.title) {
+            scenario.addViolation(RuleViolations.enforceTitle, `${scenario.type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, scenario.title);
+        }
+
+        this.scenarios.push(scenario);
+        scenario.sequence = scenario.parent.scenarios.length;
     }
 
     public getFeatureContext(): FeatureContext {

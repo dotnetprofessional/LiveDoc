@@ -6,7 +6,6 @@ import { Chalk } from "chalk";
 
 import { SpecStatus } from "../model/SpecStatus";
 import { LiveDocContext } from "../LiveDocContext";
-import * as fvn from "fnv-plus";
 import { ExecutionResults } from "../model";
 import { LiveDocOptions } from "../LiveDocOptions";
 import * as strip from "strip-ansi";
@@ -45,7 +44,6 @@ export abstract class LiveDocReporter extends Base {
                 if (!testContainer) {
                     return;
                 }
-                testContainer.id = `${testContainer.parent ? testContainer.parent.id + "-" : ""}${fvn.hash(testContainer.title).str()}`;
 
                 // Notify reporter
                 switch (livedocContext.type) {
@@ -112,9 +110,9 @@ export abstract class LiveDocReporter extends Base {
         runner.on('test', function (test: any) {
             try {
                 const step: model.LiveDocTest<any> = test.step;
-                if (!step.id) {
-                    step.id = `${step.parent.id}-${fvn.hash(test.title).str()}`;
-                }
+                // if (!step.id) {
+                //     step.id = `${step.parent.id}-${fvn.hash(test.title).str()}`;
+                // }
 
                 if (step.constructor.name === "StepDefinition") {
                     const stepDefinition = step as model.StepDefinition;

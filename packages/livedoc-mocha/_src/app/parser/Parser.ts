@@ -68,14 +68,8 @@ export class LiveDocGrammarParser {
         scenario.description = parser.description;
         scenario.displayTitle = this.formatDisplayTitle(description, type, 6);
         scenario.tags = parser.tags;
-        // scenario.rawDescription = description;
-        feature.scenarios.push(scenario);
-        scenario.sequence = feature.scenarios.length;
+        feature.addScenario(scenario);
 
-        // validate we have a description!
-        if (!parser.title) {
-            scenario.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, parser.title);
-        }
         return scenario;
     }
 
@@ -176,7 +170,7 @@ export class DescriptionParser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor () {
+    constructor() {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
