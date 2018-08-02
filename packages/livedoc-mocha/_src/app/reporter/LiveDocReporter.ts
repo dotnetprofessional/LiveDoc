@@ -11,6 +11,10 @@ import { LiveDocOptions } from "../LiveDocOptions";
 import * as strip from "strip-ansi";
 import { ColorTheme } from "./ColorTheme";
 import * as path from "path";
+import * as map from "source-map";
+import * as mapSupport from "source-map-support";
+
+import * as fs from "fs-extra";
 
 var Base = require('mocha').reporters.Base
 
@@ -188,7 +192,7 @@ export abstract class LiveDocReporter extends Base {
             (test as any).step.status = SpecStatus.pending;
         });
 
-        runner.on('end', function (test) {
+        runner.on('end', async function (test) {
             try {
                 // results have all tests that have been defined, not just
                 // those that were executed. As such need to remove those
@@ -212,6 +216,29 @@ export abstract class LiveDocReporter extends Base {
                     }
                 });
 
+                const remapFilenameFromSourceMap = async function (f: model.Feature | model.MochaSuite) {
+                    const mapFile = f.filename + ".map";
+                    if (await fs.exists(mapFile)) {
+                        const sourceMap = await fs.readFile(mapFile, { encoding: 'utf-8' });
+                        await map.SourceMapConsumer.with(sourceMap, null, function (consumer) {
+                            if (consumer.sources.length > 0) {
+                                f.filename = path.resolve(path.dirname(f.filename), consumer.sources[0]);
+                            }
+                        });
+                    }
+                }
+
+                // The original filenames recorded may not be the original due to source maps, here we
+                // find the original file from the source map if possible.
+                for (let i = 0; i < executionResults.features.length; i++) {
+                    const f = executionResults.features[i];
+                    await remapFilenameFromSourceMap(f);
+                }
+
+                for (let i = 0; i < executionResults.suites.length; i++) {
+                    const f = executionResults.suites[i];
+                    await remapFilenameFromSourceMap(f);
+                }
 
                 // The filenames were recorded, but its also helpful to know what the root path
                 // is for reporting purposes. This routine strips the root path from the filename

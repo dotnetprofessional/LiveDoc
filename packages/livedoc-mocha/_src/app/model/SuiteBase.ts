@@ -28,7 +28,7 @@ export class SuiteBase<T> {
             // lookup one of the items with the id
             const duplicate = children.find(child => child.id === id);
             const message = `Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
-            Title: ${duplicate.title}`;
+  Title: ${duplicate.title}`;
             throw new LiveDocRuleViolation(RuleViolations.error,
                 message,
                 "Duplicate Title");

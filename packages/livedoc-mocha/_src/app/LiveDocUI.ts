@@ -256,7 +256,7 @@ function getCommandLineOption(key: string): boolean {
 /** @internal */
 function createStepAlias(file, suites, mocha, common) {
     return function testTypeCreator(type) {
-        async function testType(title, stepDefinitionFunction?) {
+        function testType(title, stepDefinitionFunction?) {
             var suite, test;
             let testName: string;
 

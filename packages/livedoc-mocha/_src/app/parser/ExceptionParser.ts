@@ -2,6 +2,14 @@
 
 const slash = "/";
 export class ExceptionParser {
+
+    public printException(error: Error) {
+        const cleanException = this.cleanError(error);
+        console.log("Error:");
+        console.log("Message: " + cleanException.message);
+        console.log(cleanException.stack);
+    }
+
     public parse(error: Error): Error {
         //const errors = callsites();
         debugger;
@@ -12,9 +20,12 @@ export class ExceptionParser {
         return this.cleanError(error);
     }
 
-    private cleanError(e) {
+    private cleanError(e): Error {
         if (!e.stack) return e;
         var stack = e.stack.split('\n');
+        var message = e.message.split('\n');
+        // remove message from stack trace
+        stack = stack.slice(message.length);
         const cwd = process.cwd() + slash;
         stack = stack.reduce((list, line) => {
             // Strip out certain lines.
@@ -46,6 +57,10 @@ export class ExceptionParser {
         e.stack = stack.join('\n');
         return e;
     }
+
+    /*
+ * detect if a line is from a 3rd-party module.
+ */
 
     /*
      * detect if a line is from a 3rd-party module.
@@ -116,32 +131,6 @@ export class ExceptionParser {
             (~line.indexOf('GeneratorFunctionPrototype.next (native)')) ||
             false;
     }
-
-    /*
-     * puts filenames first.
-     *
-     *     "   at foobar (example.js:2:3)"
-     *     => "example.js:2:3: foobar"
-     *
-     *     "   at example.js:2:3"
-     *     => "example.js:2:3:"
-     */
-
-    // private reorderFilename(line) {
-    //     var m;
-    //     m = line.match(/^(\s*)at (.*?) \(native\)$/);
-    //     if (m) return "" + m[1] + "[native]: " + m[2];
-
-    //     m = line.match(/^(\s*)at (.*?) \((.*?)\)$/);
-    //     if (m) return "" + m[1] + m[3] + ": " + m[2];
-
-    //     m = line.match(/^(\s*)at (.*?)$/);
-    //     if (m) return "" + m[1] + m[2] + ":";
-
-    //     return line;
-    // }
-
-
 }
 
 export class ExceptionEx {

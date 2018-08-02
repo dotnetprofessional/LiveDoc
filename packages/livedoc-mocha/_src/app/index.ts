@@ -10,7 +10,5 @@ import { ExceptionParser } from "./parser/ExceptionParser";
 (mocha as any).interfaces['livedoc-mocha'] = module.exports = liveDocMocha;
 
 process.on('uncaughtException', function (error) {
-    const exception = new ExceptionParser().parse(error);
-
-    console.log(exception.stack);
+    new ExceptionParser().printException(error);
 });
