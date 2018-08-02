@@ -17,19 +17,21 @@ export class SuiteBase<T> {
     public tags: string[];
     public path: string;
 
-    protected generateId() {
-        const parent: any = (this as any).parent;
-        this.id = `${parent ? parent.id + "-" : ""}${fvn.hash(this.title).str()}`;
+    protected generateId(item: any) {
+        const parent: any = item.parent;
+        item.id = `${parent ? parent.id + "-" : ""}${fvn.hash(item.title).str()}`;
     }
 
     protected validateIdUniqueness(id: string, children: any[]) {
-        children.forEach(child => {
-            if (child.id === id) {
-                const message = `Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.`;
-                throw new LiveDocRuleViolation(RuleViolations.error,
-                    message,
-                    "Duplicate Title");
-            }
-        });
+        const count: number = children.filter(child => child.id === id).length;
+        if (count > 1) {
+            // lookup one of the items with the id
+            const duplicate = children.find(child => child.id === id);
+            const message = `Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
+            Title: ${duplicate.title}`;
+            throw new LiveDocRuleViolation(RuleViolations.error,
+                message,
+                "Duplicate Title");
+        }
     }
 }

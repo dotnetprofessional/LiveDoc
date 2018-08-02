@@ -5,7 +5,7 @@ import * as mocha from "mocha";
 
 import { liveDocMocha } from "./LiveDocUI";
 import "source-map-support/register";
-import { ExceptionEx, ExceptionParser } from "./parser/ExceptionParser";
+import { ExceptionParser } from "./parser/ExceptionParser";
 
 (mocha as any).interfaces['livedoc-mocha'] = module.exports = liveDocMocha;
 

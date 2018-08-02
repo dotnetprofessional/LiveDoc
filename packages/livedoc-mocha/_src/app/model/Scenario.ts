@@ -44,8 +44,8 @@ export class Scenario extends LiveDocSuite {
             step.addViolation(RuleViolations.enforceTitle, `${step.type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, step.title)
         } else {
             // set and validate the id
-            this.generateId();
-            this.validateIdUniqueness(this.id, this.parent.scenarios);
+            this.generateId(step);
+            this.validateIdUniqueness(step.id, this.steps);
         }
 
         switch (step.type) {

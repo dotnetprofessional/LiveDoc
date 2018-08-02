@@ -256,7 +256,7 @@ function getCommandLineOption(key: string): boolean {
 /** @internal */
 function createStepAlias(file, suites, mocha, common) {
     return function testTypeCreator(type) {
-        function testType(title, stepDefinitionFunction?) {
+        async function testType(title, stepDefinitionFunction?) {
             var suite, test;
             let testName: string;
 
@@ -284,7 +284,8 @@ function createStepAlias(file, suites, mocha, common) {
                         (livedocContext.scenario as model.ScenarioExample).scenarioOutline.steps.push(stepDefinition);
                     }
                 } else {
-                    throw new model.ParserException(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline`, title, mocha.filename);
+                    const filename = mocha.filename;
+                    throw new model.ParserException(`Invalid Gherkin, ${type} can only appear within a Background, Scenario or Scenario Outline`, title, filename);
                 }
 
                 testName = stepDefinition.displayTitle;
@@ -624,8 +625,8 @@ function createDescribeAlias(file, suites, context, mocha, common) {
 
         return suite;
     }
-
 }
+
 
 export default (mocha as any).interfaces['livedoc-mocha'];
 

@@ -1,4 +1,4 @@
-import * as callsites from "callsites";
+// import * as callsites from "callsites";
 
 const slash = "/";
 export class ExceptionParser {
@@ -21,15 +21,18 @@ export class ExceptionParser {
             if (this.isNodeModule(line) ||
                 this.isMochaInternal(line) ||
                 this.isNodeInternal(line) ||
-                this.isMochaCleanInternal(line))
+                this.isLiveDocAPI(line) ||
+                this.isMochaCleanInternal(line)) {
                 return list;
+            }
 
-            if (this.isMochaCleanInternal(line))
+            if (this.isMochaCleanInternal(line)) {
                 return list;
+            }
 
             // Clean up cwd.
             //   if (!env().SHOW_ABSOLUTE_PATHS)
-            line = line.replace(cwd, '');
+            line = line.replace(cwd, "");
 
             // experimental: show errors in a format
             // like "example/foo.js:10:19: at functionName"
@@ -52,6 +55,9 @@ export class ExceptionParser {
         return (~line.indexOf('node_modules'));
     }
 
+    private isLiveDocAPI(line) {
+        return (~line.indexOf('_src\\app\\'));
+    }
     /*
      * detect stuff from mocha itself.
      * usually not needed, but if SHOW_NODE_MODULES is on, you probably wanna
@@ -121,19 +127,19 @@ export class ExceptionParser {
      *     => "example.js:2:3:"
      */
 
-    private reorderFilename(line) {
-        var m;
-        m = line.match(/^(\s*)at (.*?) \(native\)$/);
-        if (m) return "" + m[1] + "[native]: " + m[2];
+    // private reorderFilename(line) {
+    //     var m;
+    //     m = line.match(/^(\s*)at (.*?) \(native\)$/);
+    //     if (m) return "" + m[1] + "[native]: " + m[2];
 
-        m = line.match(/^(\s*)at (.*?) \((.*?)\)$/);
-        if (m) return "" + m[1] + m[3] + ": " + m[2];
+    //     m = line.match(/^(\s*)at (.*?) \((.*?)\)$/);
+    //     if (m) return "" + m[1] + m[3] + ": " + m[2];
 
-        m = line.match(/^(\s*)at (.*?)$/);
-        if (m) return "" + m[1] + m[2] + ":";
+    //     m = line.match(/^(\s*)at (.*?)$/);
+    //     if (m) return "" + m[1] + m[2] + ":";
 
-        return line;
-    }
+    //     return line;
+    // }
 
 
 }
