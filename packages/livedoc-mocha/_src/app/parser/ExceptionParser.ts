@@ -10,16 +10,15 @@ export class ExceptionParser {
         console.log(cleanException.stack);
     }
 
-    public parse(error: Error): Error {
-        //const errors = callsites();
-        debugger;
-        // const exception = new ExceptionEx();
-        // exception.linenumber = errors[0].linenumber;
-
-        // return exception;
-        return this.cleanError(error);
-    }
-
+    /**
+     * Strips out lines from the stack trace that are considered noise and
+     * don't aid in understanding the error.
+     *
+     * @private
+     * @param {*} e
+     * @returns {Error}
+     * @memberof ExceptionParser
+     */
     private cleanError(e): Error {
         if (!e.stack) return e;
         var stack = e.stack.split('\n');
@@ -44,11 +43,6 @@ export class ExceptionParser {
             // Clean up cwd.
             //   if (!env().SHOW_ABSOLUTE_PATHS)
             line = line.replace(cwd, "");
-
-            // experimental: show errors in a format
-            // like "example/foo.js:10:19: at functionName"
-            // if (env().FILENAMES_FIRST)
-            //     line = reorderFilename(line);
 
             list.push(line);
             return list;

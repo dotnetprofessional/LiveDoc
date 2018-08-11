@@ -1,5 +1,5 @@
 import { Statistics } from "./Statistics";
-import * as fvn from "fnv-plus";
+import * as hash from "hash-sum";
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
 
@@ -19,7 +19,7 @@ export class SuiteBase<T> {
 
     protected generateId(item: any) {
         const parent: any = item.parent;
-        item.id = `${parent ? parent.id + "-" : ""}${fvn.hash(item.title).str()}`;
+        item.id = `${parent ? parent.id + "-" : ""}${hash(item.title)}`;
     }
 
     protected validateIdUniqueness(id: string, children: any[]) {

@@ -27,15 +27,14 @@ feature.only(`Suites and Steps have uniqueIds`, () => {
         });
 
         then(`the model has the following Ids for each of the feature parts
-            | type       | Id |
-            | Feature    | x  |
-            | Background | d  |
-            | Scenario   | x  |
-            | Given      | x  |
-            | When       | X  |
-            | Then       | X  |
-            | and        | X  |
-            | but        | X  |
+            | Feature    | d629e814                   |
+            | Background | d629e814-bba68bf6          |
+            | Scenario   | d629e814-28e1fae0          |
+            | Given      | d629e814-28e1fae0-ffd46f06 |
+            | When       | d629e814-28e1fae0-39be8b8c |
+            | Then       | d629e814-28e1fae0-39c145c6 |
+            | and        | d629e814-28e1fae0-b789fa12 |
+            | but        | d629e814-28e1fae0-b789f0be |
         
         `, () => {
                 const feature = executionResults.features[0];
@@ -50,11 +49,9 @@ feature.only(`Suites and Steps have uniqueIds`, () => {
                     but: feature.scenarios[0].steps[4].id
                 };
 
-                debugger;
                 const expected = stepContext.tableAsEntity;
 
-                actual.should.be.eq(expected);
-                // NOTES: Use mocha-clean for the rules and callsites for the parsing.
+                actual.should.be.eql(expected);
             });
     });
 });

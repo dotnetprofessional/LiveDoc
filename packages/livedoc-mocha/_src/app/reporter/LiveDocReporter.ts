@@ -12,7 +12,6 @@ import * as strip from "strip-ansi";
 import { ColorTheme } from "./ColorTheme";
 import * as path from "path";
 import * as map from "source-map";
-import * as mapSupport from "source-map-support";
 
 import * as fs from "fs-extra";
 
@@ -114,9 +113,6 @@ export abstract class LiveDocReporter extends Base {
         runner.on('test', function (test: any) {
             try {
                 const step: model.LiveDocTest<any> = test.step;
-                // if (!step.id) {
-                //     step.id = `${step.parent.id}-${fvn.hash(test.title).str()}`;
-                // }
 
                 if (step.constructor.name === "StepDefinition") {
                     const stepDefinition = step as model.StepDefinition;

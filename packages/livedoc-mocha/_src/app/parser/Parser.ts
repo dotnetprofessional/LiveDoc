@@ -1,6 +1,7 @@
 import { TextBlockReader } from "./TextBlockReader";
 import * as model from "../model";
 import { RuleViolations } from "../model/RuleViolations";
+import { ParserException } from "../model";
 
 var moment = require("moment");
 
@@ -44,6 +45,10 @@ export class LiveDocGrammarParser {
     }
 
     public addBackground(feature: model.Feature, description: string): model.Background {
+        if (feature.background) {
+            throw new ParserException("Can not have more than one background defined", "Duplicate Background", feature.filename);
+        }
+
         const background = new model.Background(feature);
         const parser = new DescriptionParser();
         parser.parseDescription(description);
@@ -53,7 +58,9 @@ export class LiveDocGrammarParser {
         background.displayTitle = this.formatDisplayTitle(description, "Background", 4);
         background.tags = parser.tags;
         // background.rawDescription = description;
+
         feature.background = background;
+        (feature as any).generateId(background);
 
         return background;
     }
