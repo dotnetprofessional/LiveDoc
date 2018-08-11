@@ -4,7 +4,6 @@ import { Scenario } from "./Scenario";
 import { FeatureContext } from "./FeatureContext";
 import { BackgroundContext } from "./BackgroundContext";
 import { RuleViolations } from "./RuleViolations";
-import { ParserException } from "./ParserException";
 
 export class Feature extends LiveDocSuite {
     public filename: string;

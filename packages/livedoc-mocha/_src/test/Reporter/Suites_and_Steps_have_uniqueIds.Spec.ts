@@ -2,7 +2,7 @@ import { LiveDoc } from "../../app/livedoc";
 import { ExecutionResults } from "../../app/model";
 require('chai').should();
 
-feature.only(`Suites and Steps have uniqueIds`, () => {
+feature(`Suites and Steps have uniqueIds`, () => {
     let executionResults: ExecutionResults;
 
     scenario(`Features have Ids for suites and steps added to the model`, () => {
