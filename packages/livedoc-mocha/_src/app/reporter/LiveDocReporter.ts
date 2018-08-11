@@ -318,9 +318,6 @@ export abstract class LiveDocReporter extends Base {
     }
 
     private static splitPath(filepath: string) {
-        if (!filepath) {
-            debugger;
-        }
         let paths = filepath.split(path.sep);
         if (paths.length === 1) {
             // Seems its not using the system seperator
