@@ -35,7 +35,6 @@ export class Scenario extends LiveDocSuite {
     }
 
     public addStep(step: StepDefinition) {
-        this.steps.push(step);
         step.sequence = this.steps.length;
         step.parent = this;
 
@@ -47,6 +46,7 @@ export class Scenario extends LiveDocSuite {
             this.generateId(step);
             this.validateIdUniqueness(step.id, this.steps);
         }
+        this.steps.push(step);
 
         switch (step.type) {
             case "Given":

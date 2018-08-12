@@ -22,12 +22,13 @@ export class Feature extends LiveDocSuite {
             scenario.addViolation(RuleViolations.enforceTitle, `${scenario.type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, scenario.title);
         }
 
-        this.scenarios.push(scenario);
         scenario.sequence = scenario.parent.scenarios.length;
 
         // Assign unique ids
         this.generateId(scenario);
         this.validateIdUniqueness(scenario.id, this.scenarios);
+
+        this.scenarios.push(scenario);
     }
 
     public getFeatureContext(): FeatureContext {

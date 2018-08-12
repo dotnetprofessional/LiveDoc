@@ -24,7 +24,7 @@ export class SuiteBase<T> {
 
     protected validateIdUniqueness(id: string, children: any[]) {
         const count: number = children.filter(child => child.id === id).length;
-        if (count > 1) {
+        if (count > 0) {
             // lookup one of the items with the id
             const duplicate = children.find(child => child.id === id);
             const message = `Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.

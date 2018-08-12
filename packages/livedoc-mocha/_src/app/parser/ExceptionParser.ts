@@ -19,7 +19,7 @@ export class ExceptionParser {
      * @returns {Error}
      * @memberof ExceptionParser
      */
-    private cleanError(e): Error {
+    public cleanError(e): Error {
         if (!e.stack) return e;
         var stack = e.stack.split('\n');
         var message = e.message.split('\n');

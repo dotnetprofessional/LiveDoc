@@ -26,7 +26,7 @@
                 "--require",
                 "./build/app/emojiReporter.js",
                 "--reporter",
-                "../../../build/app/emojiReporter",
+                "./build/app/emojiReporter",
                 "--recursive",
                 "build/**/*.Spec.js"
             ],

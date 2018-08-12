@@ -4,6 +4,7 @@ require('chai').should();
 
 feature(`Suites and Steps have uniqueIds`, () => {
     let executionResults: ExecutionResults;
+    let exception: Error;
 
     scenario(`Features have Ids for suites and steps added to the model`, () => {
         given(`the following feature
@@ -23,7 +24,11 @@ feature(`Suites and Steps have uniqueIds`, () => {
         `, () => { });
 
         when(`feature is executed`, async () => {
-            executionResults = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
+            try {
+                executionResults = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
+            } catch (e) {
+                exception = e;
+            }
         });
 
         then(`the model has the following Ids for each of the feature parts
@@ -54,4 +59,110 @@ feature(`Suites and Steps have uniqueIds`, () => {
                 actual.should.be.eql(expected);
             });
     });
+
+    scenario(`Features with duplicate titles`, () => {
+        given(`the following feature
+        
+        """
+            feature("Sample Feature", ()=> {
+                scenario("Sample Scenario", ()=> {
+                    given("Sample Given", ()=> {});
+                });
+            });
+
+            feature("Sample Feature", ()=> {
+                scenario("Sample Scenario", ()=> {
+                    given("Sample Given", ()=> {});
+                });
+            });
+
+        """
+        `, () => { });
+
+        when(`feature is executed`, async () => {
+            try {
+                executionResults = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
+            } catch (e) {
+                exception = e;
+            }
+        });
+
+        then(`the following exception is thrown
+        """
+        Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
+          Title: Sample Feature
+        """
+        `, () => {
+                debugger;
+                stepContext.docString.should.be.equal(exception.message);
+            });
+    });
+
+    scenario(`Scenarios with duplicate titles within a Feature`, () => {
+        given(`the following feature
+        
+        """
+            feature("Sample Feature", ()=> {
+                scenario("Sample Scenario", ()=> {
+                    given("Sample Given", ()=> {});
+                });
+
+                scenario("Sample Scenario", ()=> {
+                    given("Sample Given", ()=> {});
+                });
+            });
+        """
+        `, () => { });
+
+        when(`feature is executed`, async () => {
+            try {
+                executionResults = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
+            } catch (e) {
+                exception = e;
+            }
+        });
+
+        then(`the following exception is thrown
+        """
+        Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
+          Title: Sample Scenario
+        """
+        `, () => {
+                stepContext.docString.should.be.equal(exception.message);
+            });
+    });
+
+    scenario(`Steps with duplicate titles within a Scenario`, () => {
+        given(`the following feature
+        
+        """
+            feature("Sample Feature", ()=> {
+                scenario("Sample Scenario", ()=> {
+                    given("Sample Given", ()=> {});
+                    given("Sample Given", ()=> {});
+                });
+
+            });
+        """
+        `, () => { });
+
+        when(`feature is executed`, async () => {
+            try {
+                executionResults = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
+            } catch (e) {
+                exception = e;
+            }
+        });
+
+        then(`the following exception is thrown
+        """
+        Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
+          Title: Sample Given
+        """
+        `, () => {
+                stepContext.docString.should.be.equal(exception.message);
+            });
+    });
 });
+
+

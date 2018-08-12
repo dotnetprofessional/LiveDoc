@@ -14,6 +14,7 @@ import * as path from "path";
 import * as map from "source-map";
 
 import * as fs from "fs-extra";
+import { ExceptionParser } from "../parser/ExceptionParser";
 
 var Base = require('mocha').reporters.Base
 
@@ -172,6 +173,10 @@ export abstract class LiveDocReporter extends Base {
                 }
                 step.status = SpecStatus.fail;
                 test = test as any;
+                // simplify the error stack traces
+                if (test.err.stack) {
+                    new ExceptionParser().cleanError(test.err);
+                }
                 if (test.err) {
                     step.exception.actual = test.err.actual || "";
                     step.exception.expected = test.err.expected || "";
