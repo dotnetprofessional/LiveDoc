@@ -1,8 +1,11 @@
+> These docs reference livedoc 0.4.0 Beta 2.
+> For docs on the current stable version [click here](https://github.com/dotnetprofessional/LiveDoc/tree/b8ddf23d23ed6b65e7f9f5bb2a9bf14b22809e08/packages/livedoc-mocha) 
 # LiveDoc-mocha
 LiveDoc-mocha is a library for adding behavior using a language called [Gherkin](https://cucumber.io/docs/reference#gherkin) to the mocha testing library. The [Gherkin](https://cucumber.io/docs/reference#gherkin) syntax uses a combination of keywords and natural language. The specifications are written in plain english and are meant to be read by anyone on your team and used to aid in improving collaboration, communication and trust within the team. These specifications also help to reduce ambiguity, confusion about what needs to be built, the rules and importantly why its being built. This is the first step to the concept of [Living Documentation](https://leanpub.com/livingdocumentation).
 
 > NB: If you are viewing this from npmjs.com, links and images may be broken. Please visit the [project site](https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha#readme) to view this document.
 
+* [VSCode Plugin](https://marketplace.visualstudio.com/items?itemName=dotNetProfessional.livedoc-vscode)
 * [Installing](README.md#Installing)
 * [API reference](README.md#api)
 * [Command line options](README.md#command-line)
@@ -110,8 +113,10 @@ npm install mocha --save-dev
 ```
 Once you have mocha installed you need to configure mocha to run your tests and to use livedoc-mocha, a basic setup would be running this command from the command line:
 ```bat
-mocha --ui livedoc-mocha --recursive path-to-my-tests/
+mocha --ui livedoc-mocha --reporter livedoc-mocha/livedoc-spec --recursive path-to-my-tests/
 ```
+The `--reporter` switch makes use of livedocs enchanced reporter specifically designed for Gherkin style Specs. However, this is optional and can be omitted, however the livedoc reporter is highly recommended.
+
 For more details configuring mocha see the official [mocha.js site](http://mochajs.org/).
 
 __Typescript__

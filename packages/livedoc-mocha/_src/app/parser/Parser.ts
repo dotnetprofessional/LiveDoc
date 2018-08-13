@@ -1,6 +1,7 @@
 import { TextBlockReader } from "./TextBlockReader";
 import * as model from "../model";
 import { RuleViolations } from "../model/RuleViolations";
+import { ParserException } from "../model";
 
 var moment = require("moment");
 
@@ -44,6 +45,10 @@ export class LiveDocGrammarParser {
     }
 
     public addBackground(feature: model.Feature, description: string): model.Background {
+        if (feature.background) {
+            throw new ParserException("Can not have more than one background defined", "Duplicate Background", feature.filename);
+        }
+
         const background = new model.Background(feature);
         const parser = new DescriptionParser();
         parser.parseDescription(description);
@@ -53,7 +58,9 @@ export class LiveDocGrammarParser {
         background.displayTitle = this.formatDisplayTitle(description, "Background", 4);
         background.tags = parser.tags;
         // background.rawDescription = description;
+
         feature.background = background;
+        (feature as any).generateId(background);
 
         return background;
     }
@@ -68,14 +75,8 @@ export class LiveDocGrammarParser {
         scenario.description = parser.description;
         scenario.displayTitle = this.formatDisplayTitle(description, type, 6);
         scenario.tags = parser.tags;
-        // scenario.rawDescription = description;
-        feature.scenarios.push(scenario);
-        scenario.sequence = feature.scenarios.length;
+        feature.addScenario(scenario);
 
-        // validate we have a description!
-        if (!parser.title) {
-            scenario.addViolation(RuleViolations.enforceTitle, `${type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`, parser.title);
-        }
         return scenario;
     }
 
@@ -176,7 +177,7 @@ export class DescriptionParser {
     public docString: string = "";
     public quotedValues: string[];
 
-    constructor () {
+    constructor() {
         this.jsonDateParser = this.jsonDateParser.bind(this);
     }
 
