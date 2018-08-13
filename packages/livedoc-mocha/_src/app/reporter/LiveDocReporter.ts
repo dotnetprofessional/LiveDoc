@@ -6,12 +6,15 @@ import { Chalk } from "chalk";
 
 import { SpecStatus } from "../model/SpecStatus";
 import { LiveDocContext } from "../LiveDocContext";
-import * as fvn from "fnv-plus";
 import { ExecutionResults } from "../model";
 import { LiveDocOptions } from "../LiveDocOptions";
 import * as strip from "strip-ansi";
 import { ColorTheme } from "./ColorTheme";
 import * as path from "path";
+import * as map from "source-map";
+
+import * as fs from "fs-extra";
+import { ExceptionParser } from "../parser/ExceptionParser";
 
 var Base = require('mocha').reporters.Base
 
@@ -45,7 +48,6 @@ export abstract class LiveDocReporter extends Base {
                 if (!testContainer) {
                     return;
                 }
-                testContainer.id = `${testContainer.parent ? testContainer.parent.id + "-" : ""}${fvn.hash(testContainer.title).str()}`;
 
                 // Notify reporter
                 switch (livedocContext.type) {
@@ -112,9 +114,6 @@ export abstract class LiveDocReporter extends Base {
         runner.on('test', function (test: any) {
             try {
                 const step: model.LiveDocTest<any> = test.step;
-                if (!step.id) {
-                    step.id = `${step.parent.id}-${fvn.hash(test.title).str()}`;
-                }
 
                 if (step.constructor.name === "StepDefinition") {
                     const stepDefinition = step as model.StepDefinition;
@@ -174,6 +173,10 @@ export abstract class LiveDocReporter extends Base {
                 }
                 step.status = SpecStatus.fail;
                 test = test as any;
+                // simplify the error stack traces
+                if (test.err.stack) {
+                    new ExceptionParser().cleanError(test.err);
+                }
                 if (test.err) {
                     step.exception.actual = test.err.actual || "";
                     step.exception.expected = test.err.expected || "";
@@ -190,7 +193,7 @@ export abstract class LiveDocReporter extends Base {
             (test as any).step.status = SpecStatus.pending;
         });
 
-        runner.on('end', function (test) {
+        runner.on('end', async function (test) {
             try {
                 // results have all tests that have been defined, not just
                 // those that were executed. As such need to remove those
@@ -214,6 +217,29 @@ export abstract class LiveDocReporter extends Base {
                     }
                 });
 
+                const remapFilenameFromSourceMap = async function (f: model.Feature | model.MochaSuite) {
+                    const mapFile = f.filename + ".map";
+                    if (await fs.exists(mapFile)) {
+                        const sourceMap = await fs.readFile(mapFile, { encoding: 'utf-8' });
+                        await map.SourceMapConsumer.with(sourceMap, null, function (consumer) {
+                            if (consumer.sources.length > 0) {
+                                f.filename = path.resolve(path.dirname(f.filename), consumer.sources[0]);
+                            }
+                        });
+                    }
+                }
+
+                // The original filenames recorded may not be the original due to source maps, here we
+                // find the original file from the source map if possible.
+                for (let i = 0; i < executionResults.features.length; i++) {
+                    const f = executionResults.features[i];
+                    await remapFilenameFromSourceMap(f);
+                }
+
+                for (let i = 0; i < executionResults.suites.length; i++) {
+                    const f = executionResults.suites[i];
+                    await remapFilenameFromSourceMap(f);
+                }
 
                 // The filenames were recorded, but its also helpful to know what the root path
                 // is for reporting purposes. This routine strips the root path from the filename
@@ -297,9 +323,6 @@ export abstract class LiveDocReporter extends Base {
     }
 
     private static splitPath(filepath: string) {
-        if (!filepath) {
-            debugger;
-        }
         let paths = filepath.split(path.sep);
         if (paths.length === 1) {
             // Seems its not using the system seperator
