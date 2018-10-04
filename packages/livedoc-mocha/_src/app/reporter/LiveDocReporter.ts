@@ -28,7 +28,28 @@ export abstract class LiveDocReporter extends Base {
 
     constructor(runner, protected mochaOptions) {
         super(runner);
-        const _this = this;
+
+        // This code is required to resolve an issue with the use of the --exit switch
+        // when used, mocha will terminate the process before everything has finished running
+        // this code overrides this behaviour by wrapping the exit function and waiting for
+        // a flag to be set indicating that livedoc has finished, then executing the exit
+        // function as usual. Better solutions should be logged as an issue :)
+        const runCurrent: Function = runner.__proto__.run.bind(runner);
+        runner.__proto__.run = (fn) => {
+            const wait = () => {
+                setTimeout(() => {
+                    if (this.runner.suite.livedocComplete === true) {
+                        // execute the exit function
+                        fn();
+                    } else {
+                        wait();
+                    }
+                }, 500);
+            };
+            return runCurrent(wait);
+        };
+
+        const _this: LiveDocReporter = this;
         const livedocOptions: LiveDocOptions = mochaOptions.livedoc;
 
         this.colorTheme = livedocOptions.reporterOptions.colors;
@@ -271,12 +292,12 @@ export abstract class LiveDocReporter extends Base {
                         }
                     });
                 }
-            }
-            catch (e) {
+            } catch (e) {
                 console.error("Reporter error: ", e);
+            } finally {
+                this.suite.livedocComplete = true;
             }
         });
-
     }
 
     private createPathFromFile(filename: string, rootPath: string) {
