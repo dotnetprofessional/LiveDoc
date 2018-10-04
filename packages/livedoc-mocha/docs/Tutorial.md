@@ -1,7 +1,7 @@
 # Tutorial
 For those getting starting with Gherkin, it can be a bit to take in. There's plenty of information on internet about Cucumber, Specflow and Gherkin, and most of it is relevant to livedoc-mocha. However, it can still be a little confusing to start. This brief tutorial is designed to get you up and running quickly. It can also be used as a starting point for your team to get up to speed writing tests using this style.
 
-> To help explain how to use livedoc-mocha, I'll be using the same example that was presented by [Alister Scott](https://www.thoughtworks.com/profiles/alister-scott) in his article [Specification by Example: a Love Story](https://watirmelon.blog/2011/05/18/specification-by-example-a-love-story/), which is a recommended read. This tutorial provides an alternative approach to the same lessons.
+> To help explain how to use livedoc-mocha, I'll be using the same example that was presented by [Alister Scott](https://www.thoughtworks.com/profiles/alister-scott) in his article [Specification by Example: a Love Story](https://watirmelon.files.wordpress.com/2011/05/specificationbyexamplealovestory1.pdf), which is a recommended read. This tutorial provides an alternative approach to the same lessons.
 
 Lets assume we have a shipping company in Australia that wants to ship tea. The business comes to you and explains that they need to following implemented on their website:
 

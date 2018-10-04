@@ -1,6 +1,6 @@
 # Release Notes
 
-## [not released]
+## 0.4.0-beta-2
 * Refactor: [#62](https://github.com/dotnetprofessional/LiveDoc/issues/62) Convert to use ES6 modules
 * Feature: [#50](https://github.com/dotnetprofessional/LiveDoc/issues/50) Add support to highlight scenarioOutline parameters
 * Feature: [#66](https://github.com/dotnetprofessional/LiveDoc/issues/66) Add custom reporter

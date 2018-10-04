@@ -18,7 +18,7 @@ Add the following command line switch to use the livedoc reporter
 The livedoc reporter supports the following switches:
 
 ### --output \<filename>
-Will write the output to a file, stripping any ANSI color codes.
+Will write the output of the test run to a file, stripping any ANSI color codes.
 
 ### --reporter-options | -O
 Supported options are:
@@ -30,13 +30,20 @@ Supported options are:
 
 The detailLevel options can be combined using a '+' to achieve the desired outcome. To include the spec and summary options you would write:
 ```
-detailLevel=spec+summary
+--reporter-options detailLevel=spec+summary
 ``` 
 Regardless of the level selected, when a failure occurs the failure detail will be displayed a the end of the output. For large projects, its recommended to use the `summary` option when running all Specs and the `spec` option when debugging a single Spec.
 
 If not specified the default option will be 
 ```
 spec+summary
+```
+
+### Output result as JSON
+The test run can also be output as a JSON file. This for example can be used to generate custom reporting such as Living Documentation. The output includes a lot of detail of the test run and the results.
+
+```
+
 ```
 
 

@@ -93,7 +93,6 @@ feature(`Suites and Steps have uniqueIds`, () => {
           Title: Sample Feature
         """
         `, () => {
-                debugger;
                 stepContext.docString.should.be.equal(exception.message);
             });
     });

@@ -9,6 +9,7 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 * [Installing](README.md#Installing)
 * [API reference](README.md#api)
 * [Command line options](README.md#command-line)
+* [Reporters](docs/Reporters.md)
 * [Why another library?](README.md#why-another-library)
 
 ## So what does this look like?
@@ -90,7 +91,7 @@ As can be seen by this simple example the actual test code is small and concise 
 
 This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](docs/API.md).
 
-The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Example.ts).
+The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Sample/Example.Spec.ts).
 
 ## Installing
 This library builds off the mocha.js library as a custom ui. To setup, follow these steps.
@@ -99,7 +100,7 @@ __NPM__
 ```bat
 npm install --save-dev livedoc-mocha
 ```
-To get the latest code and bug fixes, you can install the current beta. You can find details of the releases on the [releases tab](https://github.com/dotnetprofessional/LiveDoc/releases).
+To get the latest code and bug fixes, you can install the current beta, however this version may have bugs. You can find details of the releases on the [releases tab](https://github.com/dotnetprofessional/LiveDoc/releases).
 ```bat
 npm install --save-dev livedoc-mocha@beta
 ```
@@ -164,6 +165,8 @@ The <code>--ld-include</code> and <code>ld-exclude</code> switches can be used t
 
 > For more details on tags and tagging, refer to the [Tags](docs/API.md#tags) documentation in teh API reference.
 
+* Reporters: reporters support command line options. Refer to the specific docs on [Reporters](docs/Reporters.md) for more details.
+  
 # Why another library?
 There are a number of different libraries that bring the Gherkin language to javascript and even mocha:
 
