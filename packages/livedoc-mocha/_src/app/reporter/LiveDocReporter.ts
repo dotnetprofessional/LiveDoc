@@ -34,8 +34,9 @@ export abstract class LiveDocReporter extends Base {
         // this code overrides this behaviour by wrapping the exit function and waiting for
         // a flag to be set indicating that livedoc has finished, then executing the exit
         // function as usual. Better solutions should be logged as an issue :)
-        const runCurrent: Function = runner.__proto__.run.bind(runner);
-        runner.__proto__.run = (fn) => {
+        const runCurrent: Function = runner.__proto__.run;
+        runner.run = (fn) => {
+            const boundRun = runCurrent.bind(runner);
             const wait = () => {
                 setTimeout(() => {
                     if (this.runner.suite.livedocComplete === true) {
@@ -46,7 +47,7 @@ export abstract class LiveDocReporter extends Base {
                     }
                 }, 500);
             };
-            return runCurrent(wait);
+            return boundRun(wait);
         };
 
         const _this: LiveDocReporter = this;
