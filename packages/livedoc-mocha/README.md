@@ -144,7 +144,10 @@ Also for a brief tutorial on how to write Gherkin specs using livedoc-mocha see 
 Release notes can be found [here](docs/ReleaseNotes.md)
 
 ## Command Line
-livedoc-mocha supports the following command line options. These are useful when wanting to filter the features/scenarios that you want to run:
+livedoc-mocha supports the following command line options. 
+
+### Filtering
+These are useful when wanting to filter the features/scenarios that you want to run:
 
 * <code>--ld-include</code>: Used to only include features/scenarios that have been marked with the tags provided. Example use would be to only run what's been tagged with @integration. 
 
@@ -164,6 +167,20 @@ example:
 The <code>--ld-include</code> and <code>ld-exclude</code> switches can be used together to both include and exclude features/scenarios. You should note that when specifying the tags you don't include the @ symbol. When a conflict occurs by default the exclude will take precedence. However, there may be times when you want to know what the conflicts were. In that case using the <code>--showFilterConflicts</code> will show the otherwise excluded scenarios but mark them as pending, so they are still not executed.
 
 > For more details on tags and tagging, refer to the [Tags](docs/API.md#tags) documentation in teh API reference.
+
+### Output
+It can be useful to have the output sent to a text file. In these cases you can add the following to your command line:
+
+`--reporter-options output=results.txt`
+
+### Reporters
+livedoc-mocha supports a new type of reporter called a [post-reporter](docs/Post-Reporters.md), as well as the more traditional reporter known as a [ui-reporter](docs/UI-Reporters.md). To add a new post-reporter use the following:
+
+```--ld-reporters reporter-name```
+
+Post-reporters make use of the same ```--reporter-options``` parameter and so if a reporter requires additional parameters they should be added there. See the following for more details
+
+[Reporters](docs\Reporters.md)
 
 * Reporters: reporters support command line options. Refer to the specific docs on [Reporters](docs/Reporters.md) for more details.
   

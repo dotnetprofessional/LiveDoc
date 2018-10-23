@@ -6,12 +6,12 @@ The JSON reporter outputs the results of the test execution as a JSON file. This
 To configure the reporter add the following to the commandline:
 
 ```
---ld-reporters livedoc/livedoc-json -reporter-options json-output=results.json
+--ld-reporters livedoc-mocha/livedoc-json -reporter-options json-output=results.json
 ```
 
 If you're also using the livedoc spec reporter or another UI reporter then you need to configure like the following:
 
 ```
---reporter livedoc/livedoc-spec --ld-reporters livedoc/livedoc-json --reporter-options \"detailLevel=summary,json-output=results.json\"
+--reporter livedoc-mocha/livedoc-spec --ld-reporters livedoc-mocha/livedoc-json --reporter-options \"detailLevel=summary,json-output=results.json\"
 ```
 The main thing to notice is that Post Reporters share the same `--reporter-options` parameter, with multiple parameters being seperated by a `,`. The json reporter uses the `json-output` key.

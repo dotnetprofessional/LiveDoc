@@ -157,7 +157,11 @@ export abstract class LiveDocReporter extends Base {
             try {
                 const step: model.LiveDocTest<any> = test.step;
 
-                step.code = test.fn ? test.fn.toString() : "";
+                if (step.status === model.SpecStatus.fail) {
+                    // Only add the function code if it fails as it can easily bloat the model, when serialized.
+                    step.code = test.fn ? test.fn.toString() : "";
+                }
+
                 step.duration = test.duration || 0;
                 step.setStatus(step.status, step.duration);
 
@@ -253,21 +257,21 @@ export abstract class LiveDocReporter extends Base {
 
                 // The original filenames recorded may not be the original due to source maps, here we
                 // find the original file from the source map if possible.
-                for (let i = 0; i < executionResults.features.length; i++) {
-                    const f = executionResults.features[i];
+                for (let i = 0; i < actualResults.features.length; i++) {
+                    const f = actualResults.features[i];
                     await remapFilenameFromSourceMap(f);
                 }
 
-                for (let i = 0; i < executionResults.suites.length; i++) {
-                    const f = executionResults.suites[i];
+                for (let i = 0; i < actualResults.suites.length; i++) {
+                    const f = actualResults.suites[i];
                     await remapFilenameFromSourceMap(f);
                 }
 
                 // The filenames were recorded, but its also helpful to know what the root path
                 // is for reporting purposes. This routine strips the root path from the filename
                 // and adds the result as a path property.
-                const featureRoot = LiveDocReporter.findRootPath(executionResults.features.map(f => f.filename));
-                const suiteRoot = LiveDocReporter.findRootPath(executionResults.suites.slice(1).map(f => f.filename));
+                const featureRoot = LiveDocReporter.findRootPath(actualResults.features.map(f => f.filename));
+                const suiteRoot = LiveDocReporter.findRootPath(actualResults.suites.slice(1).map(f => f.filename));
                 actualResults.features.forEach((feature, index) => {
                     feature.path = _this.createPathFromFile(feature.filename, featureRoot);
                 });
@@ -281,7 +285,7 @@ export abstract class LiveDocReporter extends Base {
                 _this.executionEnd(actualResults);
                 // Now execute any post reporters
                 if (livedocOptions.postReporters) {
-                    livedocOptions.postReporters.forEach(async (reporter) => {
+                    await livedocOptions.postReporters.forEach(async (reporter) => {
                         try {
                             const instance = new (reporter as any);
                             const result = instance.execute(actualResults, mochaOptions.reporterOptions || {});
