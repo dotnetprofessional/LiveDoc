@@ -311,49 +311,47 @@ export abstract class LiveDocReporter extends Base {
         }
     }
 
-    public static findRootPath(paths: string[]): string {
-        // sort the paths
-        if (paths.length === 1 || paths.length === 0) {
+    public static findRootPath(strs: string[]) {
+        if (!strs || strs.length === 0)
             return "";
-        }
-        let sortedPaths = paths.sort();
+        if (strs.length === 1)
+            return strs[0];
 
-        // Now split paths into segments
-        let compareFirst = LiveDocReporter.splitPath(sortedPaths[0]);
-
-        let rootPathId = compareFirst.length;
-        for (let i = 1; i < sortedPaths.length; i++) {
-            const compareSecond = LiveDocReporter.splitPath(sortedPaths[i]);
-            const index = LiveDocReporter.findCommonPathIndex(compareFirst, compareSecond, rootPathId);
-            if (index < rootPathId) {
-                rootPathId = index;
-            }
-            compareFirst = compareSecond;
-        }
-
-        return compareFirst.slice(0, rootPathId).join("/");
-    }
-
-    private static findCommonPathIndex(path1: string[], path2: string[], index: number = 0): number {
-        for (let i = 0; i < index + 1; i++) {
-            if (path1[i] !== path2[i]) {
-                return i;
+        // find the longest string
+        let shortestString = "";
+        let shortestLength = Number.MAX_SAFE_INTEGER;
+        for (let i = 0; i < strs.length; i++) {
+            if (strs[i].length < shortestLength) {
+                shortestString = strs[i];
+                shortestLength = shortestString.length;
             }
         }
 
-        return index;
-    }
-
-    private static splitPath(filepath: string) {
-        let paths = filepath.split(path.sep);
-        if (paths.length === 1) {
-            // Seems its not using the system seperator
-            paths = filepath.split(path.sep == "/" ? "\\" : "/");
+        const matchPrefix = function (prefix) {
+            for (let i = 0; i < strs.length; i++) {
+                if (!strs[i].startsWith(prefix)) {
+                    return false;
+                }
+            }
+            return true;
         }
 
-        return paths;
-    }
-    //#region Common Routines
+        let l = 0;
+        let h = shortestString.length - 1;
+
+        let scp = "";
+        while (l <= h) {
+            let mid = Math.floor((l + h) / 2);
+            const prefix = shortestString.substr(0, mid + 1);
+            if (matchPrefix(prefix)) {
+                scp = prefix;
+                l = mid + 1;
+            } else {
+                h = mid - 1;
+            }
+        }
+        return scp;
+    };
 
     /**
      * Returns a string highlighting the differences between the actual
