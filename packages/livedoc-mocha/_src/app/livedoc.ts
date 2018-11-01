@@ -9,7 +9,7 @@ var fs = require('fs'),
     crypto = require('crypto');
 
 export class LiveDoc {
-    constructor () {
+    constructor() {
         this.recommendedRuleSettings();
         this.useDefaultReporter();
     }

@@ -1,11 +1,15 @@
+> These docs reference livedoc 0.4.0 Beta 2.
+> For docs on the current stable version [click here](https://github.com/dotnetprofessional/LiveDoc/tree/b8ddf23d23ed6b65e7f9f5bb2a9bf14b22809e08/packages/livedoc-mocha) 
 # LiveDoc-mocha
 LiveDoc-mocha is a library for adding behavior using a language called [Gherkin](https://cucumber.io/docs/reference#gherkin) to the mocha testing library. The [Gherkin](https://cucumber.io/docs/reference#gherkin) syntax uses a combination of keywords and natural language. The specifications are written in plain english and are meant to be read by anyone on your team and used to aid in improving collaboration, communication and trust within the team. These specifications also help to reduce ambiguity, confusion about what needs to be built, the rules and importantly why its being built. This is the first step to the concept of [Living Documentation](https://leanpub.com/livingdocumentation).
 
 > NB: If you are viewing this from npmjs.com, links and images may be broken. Please visit the [project site](https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/livedoc-mocha#readme) to view this document.
 
+* [VSCode Plugin](https://marketplace.visualstudio.com/items?itemName=dotNetProfessional.livedoc-vscode)
 * [Installing](README.md#Installing)
 * [API reference](README.md#api)
 * [Command line options](README.md#command-line)
+* [Reporters](docs/Reporters.md)
 * [Why another library?](README.md#why-another-library)
 
 ## So what does this look like?
@@ -87,7 +91,7 @@ As can be seen by this simple example the actual test code is small and concise 
 
 This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](docs/API.md).
 
-The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Example.ts).
+The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Sample/Example.Spec.ts).
 
 ## Installing
 This library builds off the mocha.js library as a custom ui. To setup, follow these steps.
@@ -96,7 +100,7 @@ __NPM__
 ```bat
 npm install --save-dev livedoc-mocha
 ```
-To get the latest code and bug fixes, you can install the current beta. You can find details of the releases on the [releases tab](https://github.com/dotnetprofessional/LiveDoc/releases).
+To get the latest code and bug fixes, you can install the current beta, however this version may have bugs. You can find details of the releases on the [releases tab](https://github.com/dotnetprofessional/LiveDoc/releases).
 ```bat
 npm install --save-dev livedoc-mocha@beta
 ```
@@ -110,8 +114,10 @@ npm install mocha --save-dev
 ```
 Once you have mocha installed you need to configure mocha to run your tests and to use livedoc-mocha, a basic setup would be running this command from the command line:
 ```bat
-mocha --ui livedoc-mocha --recursive path-to-my-tests/
+mocha --ui livedoc-mocha --reporter livedoc-mocha/livedoc-spec --recursive path-to-my-tests/
 ```
+The `--reporter` switch makes use of livedocs enchanced reporter specifically designed for Gherkin style Specs. However, this is optional and can be omitted, however the livedoc reporter is highly recommended.
+
 For more details configuring mocha see the official [mocha.js site](http://mochajs.org/).
 
 __Typescript__
@@ -138,7 +144,10 @@ Also for a brief tutorial on how to write Gherkin specs using livedoc-mocha see 
 Release notes can be found [here](docs/ReleaseNotes.md)
 
 ## Command Line
-livedoc-mocha supports the following command line options. These are useful when wanting to filter the features/scenarios that you want to run:
+livedoc-mocha supports the following command line options. 
+
+### Filtering
+These are useful when wanting to filter the features/scenarios that you want to run:
 
 * <code>--ld-include</code>: Used to only include features/scenarios that have been marked with the tags provided. Example use would be to only run what's been tagged with @integration. 
 
@@ -159,6 +168,22 @@ The <code>--ld-include</code> and <code>ld-exclude</code> switches can be used t
 
 > For more details on tags and tagging, refer to the [Tags](docs/API.md#tags) documentation in teh API reference.
 
+### Output
+It can be useful to have the output sent to a text file. In these cases you can add the following to your command line:
+
+`--reporter-options output=results.txt`
+
+### Reporters
+livedoc-mocha supports a new type of reporter called a [post-reporter](docs/Post-Reporters.md), as well as the more traditional reporter known as a [ui-reporter](docs/UI-Reporters.md). To add a new post-reporter use the following:
+
+```--ld-reporters reporter-name```
+
+Post-reporters make use of the same ```--reporter-options``` parameter and so if a reporter requires additional parameters they should be added there. See the following for more details
+
+[Reporters](docs\Reporters.md)
+
+* Reporters: reporters support command line options. Refer to the specific docs on [Reporters](docs/Reporters.md) for more details.
+  
 # Why another library?
 There are a number of different libraries that bring the Gherkin language to javascript and even mocha:
 

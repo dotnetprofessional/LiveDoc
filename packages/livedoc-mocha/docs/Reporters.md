@@ -1,132 +1,13 @@
 # Reporters
-Creating a custom reporter for livedoc using the default mocha mechanism is challenging and requires quite a bit of work. To resolve this issue, livedoc supplies a custom class that can be inherited from, which provides a clean simple API which understands the Gherkin language.
+Livedoc supports two types of reporters:
+* [UI Reporter](UI-Reporters.md): Used to output results as the tests are being executed.
+* [Post Reporter](Post-Reporters.md): These run after the tests have been executed. A post-reporter receives a JSON object with the results of the test execution.
 
-Rather than hook into events, you override one of the many methods that define the current progress of the running Specs. Each method takes as its parameter the relevant object from the execution model, this provides a rich set of information relevant to the current context. The following code shows the methods that can be overridden and their model objects.
+In mocha a UI Reporter is known simply as a reporter. Livedoc defines these as UI Reporters to clearly identify them as the reporters that will output text as a test is being executed. In Mocha all reporters are executed as the tests are being executed. This causes issues with running multiple reporters. Refer to this discussion on the [mochajs site](https://github.com/mochajs/mocha/pull/2184). To avoid these issues livedoc advocates a single UI Reporter. 
 
+The question then arises, but we need additional reporters to output to a file, or to output as a trx file format. The approach livedoc takes to to refer to these as Post-Reporters, that is they run after the tests have finished executing. These reporters are then provided a rich execution results object that can be easily navigated to produce any output required. Tehre can be any number of these reporters added as they don't run at the same time as the UI Reporters. It also means you can add a Post-Reporter than can output to the screen without interfering with the UI Reporter.
 
-```ts
-export abstract class LiveDocReporter {
-    protected options: Object;
-    protected colorTheme: ColorTheme;
+Livedoc ships with one Post-Reporter for outputing the results as a JSON file.
 
-    protected executionStart(): void { }
+[JSON Reporter](JSON-Reporter.md)
 
-    protected executionEnd(results: model.ExecutionResults): void { }
-
-    protected featureStart(feature: model.Feature): void { }
-
-    protected featureEnd(feature: model.Feature): void { }
-
-    protected scenarioStart(scenario: model.Scenario): void { }
-
-    protected scenarioEnd(scenario: model.Scenario): void { }
-
-    protected scenarioOutlineStart(scenario: model.ScenarioOutline): void { }
-
-    protected scenarioOutlineEnd(scenario: model.ScenarioOutline): void { }
-
-    protected scenarioExampleStart(example: model.ScenarioExample): void { }
-
-    protected scenarioExampleEnd(example: model.ScenarioExample): void { }
-
-    protected backgroundStart(background: model.Background): void { }
-
-    protected backgroundEnd(background: model.Background): void { }
-
-    protected stepStart(step: model.StepDefinition): void { }
-
-    protected stepEnd(step: model.StepDefinition): void { }
-
-    protected stepExampleStart(step: model.StepDefinition): void { }
-
-    protected stepExampleEnd(step: model.StepDefinition): void { }
-
-    protected suiteStart(suite: model.MochaSuite): void { }
-
-    protected suiteEnd(suite: model.MochaSuite): void { }
-
-    protected testStart(test: model.LiveDocTest<model.MochaSuite>): void { }
-
-    protected testEnd(test: model.LiveDocTest<model.MochaSuite>): void { }
-}
-```
-
-As many operations are common between reporters, the base class also has a number of methods that can be used to help speed up development. The following protected methods are also included in the base class.
-
-```ts
-/**
- * returns the context indented by the number of spaces specified by {number}
- */
-protected applyBlockIndent(content: string, indent: number): string
-
-/**
- * Will highlight matches based on the supplied regEx wit the supplied color
- */
-protected highlight(content, regex: RegExp, color: Chalk): string
-
-/**
- * Will return the string substituting placeholders defined with <..> with 
- * the value from the example
- */
-protected bind(content, model, color: Chalk): string 
-
-/**
- * Returns a formatted table of the dataTable data
- */
-protected formatTable(dataTable: DataTableRow[], headerStyle: HeaderType, includeRowId: boolean = false, runningTotal: number = 0): string
-
-/**
- * adds the text to the reporters output stream
- */
-protected writeLine(text: string): void
-
-/**
- * adds the text to the reporters output stream
- * without a line return
- */
-protected write(text: string): void
-
-```
-To demonstrate how easy it is to create your own UI reporter. Only the following code is necessary to create a very basic UI reporter that will print a smiley face for each passing scenario and an angry/rage face for each failing scenario.
-
-```ts
-import { LiveDocReporter } from "./LiveDocReporter";
-import * as model from "../model";
-import * as emotikon from "emotikon";
-
-exports = module.exports = liveDocEmoji;
-
-function liveDocEmoji(runner, options) {
-    new LiveDocEmoji(runner, options);
-}
-
-class LiveDocEmoji extends LiveDocReporter {
-
-    protected featureStart(feature: model.Feature): void {
-        this.write(feature.title + ": ");
-    }
-
-    protected featureEnd(feature: model.Feature): void {
-        this.writeLine(" ");
-    }
-
-    protected scenarioEnd(scenario: model.Scenario): void {
-        this.outputEmoji(scenario);
-    }
-
-    protected scenarioExampleEnd(example: model.ScenarioExample) {
-        this.outputEmoji(example);
-    }
-
-    private outputEmoji(scenario: model.Scenario) {
-        if (scenario.statistics.failedCount === 0) {
-            this.write(emotikon.smiley + " ");
-        } else {
-            this.write(emotikon.rage);
-        }
-    }
-}
-```
-The output of this reporter prints out the name of the Feature and an emojie for eachh looks like this:
-
-![Mocha Test Result](images/reporter-emoji.PNG)

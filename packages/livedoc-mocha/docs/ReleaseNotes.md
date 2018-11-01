@@ -1,6 +1,6 @@
 # Release Notes
 
-## [not released]
+## 0.4.0-beta-2
 * Refactor: [#62](https://github.com/dotnetprofessional/LiveDoc/issues/62) Convert to use ES6 modules
 * Feature: [#50](https://github.com/dotnetprofessional/LiveDoc/issues/50) Add support to highlight scenarioOutline parameters
 * Feature: [#66](https://github.com/dotnetprofessional/LiveDoc/issues/66) Add custom reporter
@@ -8,6 +8,7 @@
 * Bug: [#56](https://github.com/dotnetprofessional/LiveDoc/issues/56) Filtering by tag runs all tests if filter doesn't exist. This now works but only for Mocha versions less than v4.0. A new strategy is required for newer versions. 
 * Bug: [#70](https://github.com/dotnetprofessional/LiveDoc/issues/70) Errors occurring in Background not displaying
 * Bug: [#71](https://github.com/dotnetprofessional/LiveDoc/issues/71) Reporter fails when actual/expected are not strings
+* Bug: [#74](https://github.com/dotnetprofessional/LiveDoc/issues/74) Add rule to prevent duplicate sceanrio names within a Feature
 
 ### additional with no issue logged
 * ** BREAKING CHANGE** Enforced properly structured Gherkin. Removed some rule violation settings allowing mixing BDD and Gherkin. This needed to be removed to properly support reporting.

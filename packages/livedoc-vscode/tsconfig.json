@@ -4,13 +4,19 @@
         "target": "es6",
         "outDir": "out",
         "lib": [
-            "es6"
+            "es6",
+            "dom"
         ],
         "sourceMap": true,
-        "rootDir": "src"
+        "rootDir": "src",
+        "jsx": "react"
     },
+    "include": [
+        "src/**/*"
+    ],
     "exclude": [
         "node_modules",
-        ".vscode-test"
+        ".vscode-test",
+        "src/reporter"
     ]
 }

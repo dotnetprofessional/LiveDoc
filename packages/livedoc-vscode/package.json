@@ -10,7 +10,7 @@
         "url": "https://github.com/dotnetprofessional/LiveDoc.git"
     },
     "engines": {
-        "vscode": "^1.16.0"
+        "vscode": "^1.25.1"
     },
     "categories": [
         "Snippets"
@@ -27,7 +27,8 @@
         "onLanguage:typescriptreact",
         "onLanguage:javascriptreact",
         "onLanguage:javascript",
-        "onLanguage:plaintext"
+        "onLanguage:plaintext",
+        "onView:livedoc"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -35,6 +36,10 @@
             {
                 "command": "extension.formatDataTables",
                 "title": "LiveDoc: Format Data Tables"
+            },
+            {
+                "command": "webview.start",
+                "title": "LiveDoc: Reporter"
             }
         ],
         "snippets": [
@@ -50,7 +55,24 @@
                 "language": "javascript",
                 "path": "./snippets/livedoc.json"
             }
-        ]
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "livedoc-explorer",
+                    "title": "livedoc explorer",
+                    "icon": "images/activity-bar-icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "livedoc-explorer": [
+                {
+                    "id": "livedoc",
+                    "name": "livedoc explorer"
+                }
+            ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
@@ -58,12 +80,24 @@
         "watch": "tsc -watch -p ./",
         "package": "vsce package",
         "postinstall": "node ./node_modules/vscode/bin/install",
-        "test": "npm run compile && node ./node_modules/vscode/bin/test"
+        "test": "npm run compile && node ./node_modules/vscode/bin/test",
+        "link-livedoc": "node scripts/link-livedoc.js",
+        "parcel-watch": "parcel watch src/reporter/index.tsx --no-hmr --no-autoinstall --out-dir out/reporter"
     },
     "devDependencies": {
-        "typescript": "^2.5.3",
-        "vscode": "^1.1.5",
+        "@types/mocha": "^2.2.42",
         "@types/node": "^7.0.43",
-        "@types/mocha": "^2.2.42"
+        "fs-extra": "^7.0.0",
+        "@types/react": "^16.4.6",
+        "@types/react-dom": "^16.0.6",
+        "parcel-bundler": "^1.9.7",
+        "typescript": "^2.5.3",
+        "vscode": "^1.1.5"
+    },
+    "dependencies": {
+        "aphrodite": "^2.2.2",
+        "livedoc-mocha": "file:livedoc-mocha-0.4.0-beta-2.tgz",
+        "react": "^16.4.1",
+        "react-dom": "^16.4.1"
     }
 }

@@ -28,7 +28,7 @@ feature(`Feature statement
             });
 
             and(`the global variable featureContext.filename should match '${filename}'`, () => {
-                featureContext.filename.should.be.equal(filename);
+                featureContext.filename.should.contain(filename);
             });
 
             and(`the global variable featureContext.description should match '${description}'`, () => {

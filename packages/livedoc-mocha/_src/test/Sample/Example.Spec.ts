@@ -38,7 +38,7 @@ class ATM {
     }
 }
 
-feature(`Account Holder withdraws cash
+feature.only(`Account Holder withdraws cash
 
         Account Holders should be able to withdraw cash at any of the
         companies ATMs.
