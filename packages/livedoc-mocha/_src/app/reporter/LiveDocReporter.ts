@@ -245,7 +245,7 @@ export abstract class LiveDocReporter extends Base {
 
                 const remapFilenameFromSourceMap = async function (f: model.Feature | model.MochaSuite) {
                     const mapFile = f.filename + ".map";
-                    if (await fs.exists(mapFile)) {
+                    if (await fs.existsSync(mapFile)) {
                         const sourceMap = await fs.readFile(mapFile, { encoding: 'utf-8' });
                         await map.SourceMapConsumer.with(sourceMap, null, function (consumer) {
                             if (consumer.sources.length > 0) {
