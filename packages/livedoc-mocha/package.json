@@ -31,7 +31,7 @@
     "test": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-cc": "nyc mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-filtered": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
-    "test-reporter": "mocha --colors --require build/app/index --require \"build/app/livedoc-spec\" --reporter  build/app/livedoc-spec --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
+    "test-reporter": "mocha --exit --colors --require build/app/index --require \"build/app/livedoc-spec\" --reporter  build/app/livedoc-spec --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-reporter-nocolor": "mocha  --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-reporter-dev": "mocha --colors --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec --ui livedoc-mocha --ld-include dev --recursive build/test/**/*.Spec.js",
     "test-reporter-summary": "mocha --colors --require build/app/index --require build/app/livedoc-spec --reporter build/app/livedoc-spec -O detailLevel=summary --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
