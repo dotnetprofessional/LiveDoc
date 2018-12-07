@@ -41,7 +41,7 @@ export abstract class LiveDocReporter extends Base {
                 setTimeout(() => {
                     if (this.runner.suite.livedocComplete === true) {
                         // execute the exit function
-                        fn();
+                        fn(this.runner.failures);
                     } else {
                         wait();
                     }

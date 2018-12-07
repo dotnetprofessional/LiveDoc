@@ -1,5 +1,7 @@
 import { ExecutionResults, SpecStatus, StepDefinition, MochaSuite } from "../../app/model";
 import { LiveDoc } from "../../app/livedoc";
+import * as chai from "chai";
+let should = chai.should();
 
 feature(`Reporter returns model including execution results`, () => {
     scenario(`Each passing step is captured as part of the model`, () => {
@@ -107,13 +109,10 @@ feature(`Reporter returns model including execution results`, () => {
                 actual.should.be.eql(expected);
             });
 
-        and(`the code of the step is captured which includes
-            """
-            const a = 1;
-            """
+        // Only captured for errors to save space
+        and(`the code of the step is not captured as they are only captured for error steps
             `, () => {
-                const expected = stepContext.docString;
-                step.code.should.contain(expected);
+                should.equal(undefined, step.code);
             });
 
         and(`the elapsed time is captured`, () => {
