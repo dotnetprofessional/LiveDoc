@@ -77,8 +77,10 @@ export class LiveDocSpec extends LiveDocReporter {
     }
 
     featureStart(feature: model.Feature): void {
-        if (this.options.spec)
-            this.outputFeature(feature);
+        if (this.options.spec) {
+            this.outputFeature(feature)
+            this.writeLine(" ");
+        };
     }
 
     featureEnd(feature: model.Feature): void {
@@ -144,7 +146,11 @@ export class LiveDocSpec extends LiveDocReporter {
         }
     }
 
-    backgroundEnd(background: model.Background): void { }
+    backgroundEnd(background: model.Background): void {
+        if (this.options.spec) {
+            this.writeLine(" ");
+        }
+    }
 
     stepStart(step: model.StepDefinition): void {
     }

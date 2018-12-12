@@ -22,7 +22,7 @@ feature(`Remove the root path from filenames to define a path`, () => {
             rootPath = LiveDocReporter.findRootPath(scenarioContext.given.docStringAsEntity);
         });
 
-        then(`the root path is 'D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src'`, () => {
+        then(`the root path is 'D:/dev/git.public/LiveDoc/packages/livedoc-mocha/_src/'`, () => {
             rootPath.should.be.eq(stepContext.values[0]);
         });
     });
