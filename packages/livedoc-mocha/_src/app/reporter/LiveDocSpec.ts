@@ -6,6 +6,7 @@ import { Chalk } from "chalk";
 import * as cliTable from "cli-table2";
 
 import { LiveDocReporter, HeaderType } from "./LiveDocReporter";
+const wrap = require("wordwrap")(140);
 
 enum StatusIdentifiers {
     pass = '√',
@@ -589,16 +590,16 @@ export class LiveDocSpec extends LiveDocReporter {
             }
         });
         table.push([{ colSpan: 2, content: color('Error: ' + LiveDocSpec.errorCount) }]);
-        table.push(["Message", step.exception.message]);
+        table.push(["Message", wrap(step.exception.message)]);
         if (step.exception.expected) {
-            table.push(["Diff", this.createUnifiedDiff(step.exception.actual, step.exception.expected)]);
+            table.push(["Diff", wrap(this.createUnifiedDiff(step.exception.actual, step.exception.expected))]);
         }
-        table.push(["Code", step.code.replace(/\r/g, "")]);
-        table.push(["Stack trace", step.exception.stackTrace]);
+        table.push(["Code", wrap(step.code.replace(/\r/g, ""))]);
+        table.push(["Stack trace", wrap(step.exception.stackTrace)]);
         if (step.constructor.name === "StepDefinition") {
-            table.push(["Filename", step.parent.parent.filename]);
+            table.push(["Filename", wrap(step.parent.parent.filename)]);
         } else {
-            table.push(["Filename", step.parent.filename]);
+            table.push(["Filename", wrap(step.parent.filename)]);
         }
 
         this.writeLine(table.toString());
@@ -671,7 +672,9 @@ export class LiveDocSpec extends LiveDocReporter {
 
             this.writeLine(this.applyBlockIndent(this.colorTheme.docString(`"""\n${docString}\n"""`), indent + hangingIndent));
         }
-        if (step.dataTable) this.writeLine(this.applyBlockIndent(this.formatTable(step.dataTable, HeaderType.none), indent + hangingIndent));
+        if (step.dataTable) {
+            this.writeLine(this.applyBlockIndent(this.formatTable(step.dataTable, HeaderType.none), indent + hangingIndent));
+        }
     }
 
     private outputTest(step: model.LiveDocTest<model.MochaSuite>) {

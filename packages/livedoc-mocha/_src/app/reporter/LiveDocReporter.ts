@@ -17,6 +17,7 @@ import * as fs from "fs-extra";
 import { ExceptionParser } from "../parser/ExceptionParser";
 
 var Base = require('mocha').reporters.Base
+const wrap = require("wordwrap")(130);
 
 /**
  * Module dependencies.
@@ -507,10 +508,10 @@ export abstract class LiveDocReporter extends Base {
             // Format the cell within the row if necessary
             switch (headerStyle) {
                 case HeaderType.Left:
-                    table[i][0] = this.colorTheme.dataTableHeader(dataTable[i][0]);
+                    table[i][0] = this.colorTheme.dataTableHeader(wrap(dataTable[i][0]));
                     let rowColor = this.colorTheme.dataTable;
                     for (let c = 1; c < table[i].length; c++) {
-                        table[i][c] = rowColor(dataTable[i][c]);
+                        table[i][c] = rowColor(wrap(dataTable[i][c]));
                     }
                     break;
                 case HeaderType.Top:
@@ -520,7 +521,7 @@ export abstract class LiveDocReporter extends Base {
                             table[i][0] = " ";
                         }
                         for (let c = 0; c < dataTable[0].length; c++) {
-                            table[i][c + offset] = this.colorTheme.dataTableHeader(dataTable[0][c]);
+                            table[i][c + offset] = this.colorTheme.dataTableHeader(wrap(dataTable[0][c]));
                         }
                     } else {
                         let rowColor = this.colorTheme.dataTable;
@@ -531,7 +532,7 @@ export abstract class LiveDocReporter extends Base {
                             table[i][0] = rowColor((i + runningTotal).toString());
                         }
                         for (let c = 0; c < dataTable[i].length; c++) {
-                            table[i][c + offset] = rowColor(dataTable[i][c]);
+                            table[i][c + offset] = rowColor(wrap(dataTable[i][c]));
                         }
                     }
 
