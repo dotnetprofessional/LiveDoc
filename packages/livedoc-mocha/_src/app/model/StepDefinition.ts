@@ -2,8 +2,8 @@ import { StepContext } from "./StepContext";
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
 import { LiveDocTest } from "./LiveDocTest";
-import { Scenario } from ".";
 import { jsonIgnore } from "../decorators";
+import { Scenario } from "./Scenario";
 
 export class StepDefinition extends LiveDocTest<Scenario> {
     @jsonIgnore

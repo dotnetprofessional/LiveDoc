@@ -2,10 +2,13 @@
 
 ## 0.4.0-beta-5
 * Bug: [#81](https://github.com/dotnetprofessional/LiveDoc/issues/81) livedoc-spec doesn't report errors using process exitcode
+* Bug: [#54](https://github.com/dotnetprofessional/LiveDoc/issues/54) Fixed issue with using .only and backgrounds 
 
 ### additional with no issue logged
 * Added whitespace after Background and Features
 * Fixed some tests
+* added word wrapping to livedoc-spec reporter when data is contained within a table.
+* fixed issue with filename in reported error not being mapped to source file
 
 ## 0.4.0-beta-3/4
 * Fixing corrupt package

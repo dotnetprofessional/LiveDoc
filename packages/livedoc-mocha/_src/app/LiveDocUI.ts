@@ -488,7 +488,7 @@ function createDescribeAlias(file, suites, context, mocha, common) {
 
                     suite = mochaSuite.create(suites[0], suiteDefinition.displayTitle);
                     (suite as any).pending = opts.pending || mocha.livedoc.shouldMarkAsPending(suiteDefinition.tags);
-                    if (mocha.livedoc.shouldInclude(suiteDefinition.tags)) {
+                    if (mocha.livedoc.shouldInclude(suiteDefinition.tags) || opts.isOnly) {
                         const suiteParent = suite.parent as any;
                         suiteParent._onlySuites = suiteParent._onlySuites.concat(suite);
 

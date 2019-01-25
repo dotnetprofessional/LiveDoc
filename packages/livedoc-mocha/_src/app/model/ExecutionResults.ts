@@ -1,4 +1,5 @@
-import { Feature, MochaSuite } from ".";
+import { Feature } from "./Feature";
+import { MochaSuite } from "./MochaSuite";
 
 /**
  * Contains the results of a test run

@@ -1,4 +1,4 @@
-import { MochaSuite } from ".";
+import { MochaSuite } from "./MochaSuite";
 
 
 /**

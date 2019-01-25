@@ -113,8 +113,10 @@ export class LiveDoc {
             const mochaInstance = new mocha(mochaOptions as any);
 
             mochaInstance.addFile(filename);
-            (mochaInstance.run() as any)
-                .on('end', function (x) {
+            (mochaInstance.run(function (failures: number) {
+                process.exitCode = failures;  // exit with non-zero status if there were failures
+            }) as any)
+                .on('end', function () {
                     resolve(this.suite.livedocResults);
                 });
         });

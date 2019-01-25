@@ -1,7 +1,8 @@
 import { SpecStatus } from "./SpecStatus";
 import { Exception } from "./Exception";
-import { LiveDocSuite, MochaSuite } from ".";
 import { jsonIgnore } from "../decorators/jsonIgnore";
+import { LiveDocSuite } from "./LiveDocSuite";
+import { MochaSuite } from "./MochaSuite";
 
 export class LiveDocTest<P extends LiveDocSuite | MochaSuite> {
     constructor(parent: P, public title: string) {

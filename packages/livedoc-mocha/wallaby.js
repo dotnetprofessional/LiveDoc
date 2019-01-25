@@ -1,12 +1,12 @@
 module.exports = function () {
     return {
         files: [
-            '_src/app/*.ts',
-            '_src/app/*.js'
+            '_src/app/**/*.ts',
+            '_src/app/**/*.js'
         ],
 
         tests: [
-            '_src/test/*.ts'
+            '_src/test/**/*.ts'
         ],
 
         env: {

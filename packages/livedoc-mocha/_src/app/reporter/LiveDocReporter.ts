@@ -222,7 +222,31 @@ export abstract class LiveDocReporter extends Base {
 
         runner.on('end', async function (test) {
             try {
-                // results have all tests that have been defined, not just
+
+                const remapFilenameFromSourceMap = async function (f: model.Feature | model.MochaSuite) {
+                    const mapFile = f.filename + ".map";
+                    if (fs.existsSync(mapFile)) {
+                        const sourceMap = await fs.readFile(mapFile, { encoding: 'utf-8' });
+                        await map.SourceMapConsumer.with(sourceMap, null, function (consumer) {
+                            if (consumer.sources.length > 0) {
+                                f.filename = path.resolve(path.dirname(f.filename), consumer.sources[0]);
+                            }
+                        });
+                    }
+                }
+
+                // The original filenames recorded may not be the original due to source maps, here we
+                // find the original file from the source map if possible.
+                for (let i = 0; i < executionResults.features.length; i++) {
+                    const f = executionResults.features[i];
+                    await remapFilenameFromSourceMap(f);
+                }
+
+                for (let i = 0; i < executionResults.suites.length; i++) {
+                    const f = executionResults.suites[i];
+                    await remapFilenameFromSourceMap(f);
+                }
+
                 // those that were executed. As such need to remove those
                 // that were not executed
                 const actualResults = new ExecutionResults();
@@ -243,30 +267,6 @@ export abstract class LiveDocReporter extends Base {
                         suite.children = suite.children.filter(child => child.statistics.totalCount !== 0);
                     }
                 });
-
-                const remapFilenameFromSourceMap = async function (f: model.Feature | model.MochaSuite) {
-                    const mapFile = f.filename + ".map";
-                    if (fs.existsSync(mapFile)) {
-                        const sourceMap = await fs.readFile(mapFile, { encoding: 'utf-8' });
-                        await map.SourceMapConsumer.with(sourceMap, null, function (consumer) {
-                            if (consumer.sources.length > 0) {
-                                f.filename = path.resolve(path.dirname(f.filename), consumer.sources[0]);
-                            }
-                        });
-                    }
-                }
-
-                // The original filenames recorded may not be the original due to source maps, here we
-                // find the original file from the source map if possible.
-                for (let i = 0; i < actualResults.features.length; i++) {
-                    const f = actualResults.features[i];
-                    await remapFilenameFromSourceMap(f);
-                }
-
-                for (let i = 0; i < actualResults.suites.length; i++) {
-                    const f = actualResults.suites[i];
-                    await remapFilenameFromSourceMap(f);
-                }
 
                 // The filenames were recorded, but its also helpful to know what the root path
                 // is for reporting purposes. This routine strips the root path from the filename

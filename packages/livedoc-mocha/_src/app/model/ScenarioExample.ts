@@ -3,8 +3,8 @@ import { Feature } from "./Feature";
 import { StepDefinition } from "./StepDefinition";
 import { ScenarioOutlineContext } from "./ScenarioOutlineContext";
 import { DescriptionParser } from "../parser/Parser";
-import { ScenarioOutline } from ".";
 import { jsonIgnore } from "../decorators";
+import { ScenarioOutline } from "./ScenarioOutline";
 
 export class ScenarioExample extends Scenario {
     public example: DataTableRow;
