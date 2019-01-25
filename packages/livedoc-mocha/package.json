@@ -46,14 +46,15 @@
     "postcompile": "",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
-    "release": "rimraf release && tsc -d -p tsconfig.npm.json && npm run release-fix",
+    "release": "rimraf releaseX && tsc -d -p tsconfig.npm.json && npm run release-fix",
     "release-fix": "cpx package.json release && npm run release-copy-globals && npm run release-copy-index",
     "release-copy-globals": "node -e require('fs').copyFileSync('_src/app/globals.d.ts.legacy','release/globals.d.ts')",
     "release-copy-index": "node -e require('fs').copyFileSync('_src/app/index.d.ts.legacy','release/index.d.ts')",
     "watch": "tsc --watch -p .",
     "vscode": "code --disable-gpu",
-    "pack": "cd release && npm pack && cpx *.tgz ../ && rimraf *.tgz",
-    "xprepublish": "npm run release"
+    "pack": "cd release && npm pack && cpx *.tgz ../ && rimraf *.tgz && cd ..",
+    "prepack": "",
+    "npm-publish": "npm publish livedoc-mocha-0.4.0-beta-5.tgz --tag beta"
   },
   "devDependencies": {
     "@types/chai": "^4.1.3",
