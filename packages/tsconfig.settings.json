@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        // manditory for ts-project references
+        "composite": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        // optional
+        "strict": true,
+        "esModuleInterop": true,
+        "target": "esnext",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "isolatedModules": false,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "noImplicitAny": false,
+        "noImplicitUseStrict": false,
+        "strictNullChecks": false,
+        "noEmitHelpers": true,
+        "importHelpers": true,
+        "noLib": false
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}

@@ -1,0 +1,17 @@
+{
+    "files": [],
+    "references": [
+        {
+            "path": "livedoc-mocha"
+        },
+        {
+            "path": "livedoc-vscode"
+        },
+        {
+            "path": "livedoc-emoji-reporter"
+        },
+        {
+            "path": "livedoc-sample"
+        },
+    ]
+}

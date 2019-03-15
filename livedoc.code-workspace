@@ -1,0 +1,21 @@
+{
+    "folders": [
+        {
+            "path": "packages\\livedoc-mocha"
+        },
+        {
+            "path": "packages\\livedoc-vscode"
+        },
+        {
+            "path": "packages\\livedoc-emoji-reporter"
+        },
+        {
+            "path": "packages\\livedoc-sample"
+        },
+        {
+            "name": "Project Root",
+            "path": "."
+        }
+    ],
+    "settings": {}
+}
