@@ -1,6 +1,6 @@
 {
   "name": "livedoc-mocha",
-  "version": "0.4.0-beta-5",
+  "version": "0.4.0-beta-6",
   "author": "Garry McGlennon",
   "description": "BDD extensions for Mocha that support LiveDoc reporting.",
   "repository": {
@@ -29,6 +29,7 @@
   "scripts": {
     "_comment_filtering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
     "test": "mocha --colors --require build/app/index --ui livedoc-mocha --reporter  build/app/livedoc-spec -O \"detailLevel=summary+list\" --recursive build/test/**/*.Spec.js",
+    "test-mocha": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-spec": "mocha --colors --require build/app/index --ui livedoc-mocha --reporter  build/app/livedoc-spec --recursive build/test/**/*.Spec.js",
     "test-cc": "nyc mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-filtered": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
@@ -46,7 +47,7 @@
     "postcompile": "",
     "compile-web": "rimraf release/web && tsc -p tsconfig.web.json",
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
-    "release": "rimraf releaseX && tsc -d -p tsconfig.npm.json && npm run release-fix",
+    "release": "rimraf release && tsc -d -p tsconfig.npm.json && npm run release-fix",
     "release-fix": "cpx package.json release && npm run release-copy-globals && npm run release-copy-index",
     "release-copy-globals": "node -e require('fs').copyFileSync('_src/app/globals.d.ts.legacy','release/globals.d.ts')",
     "release-copy-index": "node -e require('fs').copyFileSync('_src/app/index.d.ts.legacy','release/index.d.ts')",
@@ -54,7 +55,7 @@
     "vscode": "code --disable-gpu",
     "pack": "cd release && npm pack && cpx *.tgz ../ && rimraf *.tgz && cd ..",
     "prepack": "",
-    "npm-publish": "npm publish livedoc-mocha-0.4.0-beta-5.tgz --tag beta"
+    "npm-publish": "npm publish livedoc-mocha-0.4.0-beta-6.tgz --tag beta"
   },
   "devDependencies": {
     "@types/chai": "^4.1.3",

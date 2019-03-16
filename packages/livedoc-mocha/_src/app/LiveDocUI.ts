@@ -256,7 +256,7 @@ function getCommandLineOption(key: string): boolean {
 /** @internal */
 function createStepAlias(file, suites, mocha, common) {
     return function testTypeCreator(type) {
-        function testType(title, stepDefinitionFunction?) {
+        function testType(title, stepDefinitionFunction?, passedParam?) {
             var suite, test;
             let testName: string;
 
@@ -274,7 +274,7 @@ function createStepAlias(file, suites, mocha, common) {
                     livedocContext.scenario.addViolation(RuleViolations.enforceUsingGivenOverBefore, `Using before does not help with readability, consider using a given instead.`, title);
                 }
 
-                stepDefinition = liveDocGrammarParser.createStep(type, title);
+                stepDefinition = liveDocGrammarParser.createStep(type, title, passedParam);
                 if (suiteType === "Background") {
                     livedocContext.feature.background.addStep(stepDefinition);
                 } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {
