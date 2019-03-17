@@ -445,7 +445,7 @@ livedoc-mocha supports type coercion to make using your data in your tests easie
     | spaces        | " "                  |
     | quotes        | " a \\" is here"     |
 
-In general type coercion is handled by attempting to JSON.parse the value and if that fails will fall back to returning the original string. Dates are a special case and there is support for two common formats [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) and a simple US date format (mm/dd/yyy).
+In general type coercion is handled by attempting to JSON.parse the value and if that fails will fall back to returning the original string. Dates are a special case and there is support for two common formats [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) and a simple US date format (mm/dd/yyyy).
 
 ## Async Support
 Livedoc-mocha supports the async/await syntax for writing tests. However, there are a few minor limitations which need to be kept in mind when using this feature.
