@@ -1,5 +1,9 @@
 # Release Notes
 
+## 0.4.0
+* Public release. See beta notes for details on features/bugs fixed.
+* Updated docs
+
 ## 0.4.0-beta-5
 * Bug: [#81](https://github.com/dotnetprofessional/LiveDoc/issues/81) livedoc-spec doesn't report errors using process exitcode
 * Bug: [#54](https://github.com/dotnetprofessional/LiveDoc/issues/54) Fixed issue with using .only and backgrounds 
