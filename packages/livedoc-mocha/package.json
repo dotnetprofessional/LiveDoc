@@ -49,7 +49,7 @@
     "compile-web-minify": "uglifyjs out/livedoc-mocha.js --output out/livedoc-mocha.min.js --compress dead_code,drop_debugger,conditionals,booleans,loops,properties,drop_console --mangle",
     "release": "rimraf release && tsc -d -p tsconfig.npm.json && npm run release-fix",
     "release-fix": "cpx package.json release && npm run release-copy-globals && npm run release-copy-index",
-    "release-copy-globals": "node -e require('fs').copyFileSync('_src/app/globals.d.ts.legacy','release/globals.d.ts')",
+    "release-copy-globals": "node -e require('fs').copyFileSync('_src/app/globals.d.ts','release/globals.d.ts')",
     "release-copy-index": "node -e require('fs').copyFileSync('_src/app/index.d.ts.legacy','release/index.d.ts')",
     "watch": "tsc --watch -p .",
     "vscode": "code --disable-gpu",

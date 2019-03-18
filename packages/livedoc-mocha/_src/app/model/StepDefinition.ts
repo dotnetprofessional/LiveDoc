@@ -11,11 +11,22 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     private _displayTitle: string = "";
     @jsonIgnore
     private _docString: string = "";
+    @jsonIgnore
+    private _passedParam: object | Function;
 
     public rawTitle: string = "";
 
-    @jsonIgnore
-    public passedParam: object;
+    public get passedParam(): object | Function {
+        if (typeof this._passedParam === "function") {
+            return this._passedParam();
+        } else {
+            return this._passedParam;
+        }
+    };
+
+    public set passedParam(value: object | Function) {
+        this._passedParam = value;
+    }
 
     public type: string;
     public description: string = "";

@@ -9,7 +9,8 @@ feature(`Step statement
         when  - defines an action performed by a user/system
         then  - defines the outcome of the when steps
         and   - used by given/when/then to add additional context
-        but   - used by given/when/then to provide an exclusion context`, () => {
+        but   - used by given/when/then to provide an exclusion context`
+    , () => {
 
         scenario("Given step statement is just a title", () => {
             let givenTitle = "";
@@ -331,6 +332,26 @@ feature(`Step statement
             when(`defining a step that binds the variable name <name>`, () => {
                 stepText = stepContext.displayTitle;
             }, myVariable);
+
+            then(`the step display title includes the bound values`, () => {
+                stepText.should.contain(myVariable.name);
+            });
+        });
+
+        scenario(`Step statement narration can be bound using custom function at time of execution`, () => {
+            let myVariable: { name: string } = { name: "" };
+            let stepText = "";
+
+            given(`the variable myVariable has a name property`, () => {
+
+            });
+            and(`the name property is updated in this step to 'hello world'`, () => {
+                myVariable.name = stepContext.values[0];
+            });
+
+            when(`defining a step that binds the variable name <name>`, () => {
+                stepText = stepContext.displayTitle;
+            }, () => ({ name: myVariable.name }));
 
             then(`the step display title includes the bound values`, () => {
                 stepText.should.contain(myVariable.name);
