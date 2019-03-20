@@ -115,9 +115,8 @@ interface ColorTheme {
 }
 
 interface ILiveDocTestDefinition {
-    (expectation: string, callback?: (this: ITestCallbackContext, done: MochaDone) => PromiseLike<any> | void, passedParam?: object | Function): ITest;
-    only(expectation: string, callback?: (this: ITestCallbackContext, done: MochaDone) => PromiseLike<any> | void): ITest;
-    skip(expectation: string, callback?: (this: ITestCallbackContext, done: MochaDone) => PromiseLike<any> | void): void;
+    (expectation: string, callback?: (this: Mocha.ITestCallbackContext, done: MochaDone) => PromiseLike<any> | void, passedParam?: object | Function): Mocha.ITest;
+    skip(expectation: string, callback?: (this: Mocha.ITestCallbackContext, done: MochaDone) => PromiseLike<any> | void, passedParam?: object | Function): void;
     timeout(ms: number | string): void;
     state: "failed" | "passed";
 }
