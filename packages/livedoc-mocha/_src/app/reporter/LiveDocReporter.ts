@@ -454,6 +454,8 @@ export abstract class LiveDocReporter extends Base {
      * @memberof LiveDocReporter
      */
     protected bind(content, model, color: Chalk): string {
+        if (!model) return;
+
         var regex = new RegExp("<[^>]+>", "g");
         return content.replace(regex, (item, pos, originalText) => {
             return color(this.applyBinding(item, model));

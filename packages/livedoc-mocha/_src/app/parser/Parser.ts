@@ -143,7 +143,7 @@ export class LiveDocGrammarParser {
 
     }
 
-    public createStep(type: string, description: string): model.StepDefinition {
+    public createStep(type: string, description: string, passedParam: object): model.StepDefinition {
         const parser = new DescriptionParser();
         parser.parseDescription(description);
 
@@ -162,6 +162,7 @@ export class LiveDocGrammarParser {
         step.rawTitle = step.title;
         step.values = parser.coerceValues(step.valuesRaw);
         step.type = type;
+        step.passedParam = passedParam;
 
         return step;
     }

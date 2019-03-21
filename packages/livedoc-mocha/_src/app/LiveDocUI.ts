@@ -185,7 +185,7 @@ export function liveDocMocha(suite) {
 
             // update the option values with the new options
             mocha.options.livedoc = livedocOptions;
-            // Assign the global to the mocha instance, but need to make a copy so as mot to
+            // Assign the global to the mocha instance, but need to make a copy so as not to
             // affect the existing global version
             mocha.livedoc = Object.assign(new LiveDoc(), (global as any).livedoc);
             mocha.livedoc.options = livedocOptions;
@@ -256,7 +256,7 @@ function getCommandLineOption(key: string): boolean {
 /** @internal */
 function createStepAlias(file, suites, mocha, common) {
     return function testTypeCreator(type) {
-        function testType(title, stepDefinitionFunction?) {
+        function testType(title: string, stepDefinitionFunction?: Function, passedParam?: object | Function) {
             var suite, test;
             let testName: string;
 
@@ -274,7 +274,7 @@ function createStepAlias(file, suites, mocha, common) {
                     livedocContext.scenario.addViolation(RuleViolations.enforceUsingGivenOverBefore, `Using before does not help with readability, consider using a given instead.`, title);
                 }
 
-                stepDefinition = liveDocGrammarParser.createStep(type, title);
+                stepDefinition = liveDocGrammarParser.createStep(type, title, passedParam);
                 if (suiteType === "Background") {
                     livedocContext.feature.background.addStep(stepDefinition);
                 } else if (suiteType === "Scenario" || suiteType === "Scenario Outline") {

@@ -649,6 +649,12 @@ export class LiveDocSpec extends LiveDocReporter {
             }
         }
 
+        // Special formatting for passedParams
+        if (step.passedParam) {
+            // Apply binding
+            title = this.bind(step.rawTitle, step.passedParam, this.colorTheme.valuePlaceholders);
+        }
+
         // Now highlight any values within the title
         title = this.highlight(title, /('[^']+')|("[^"]+")/g, this.colorTheme.valuePlaceholders)
 
@@ -656,14 +662,16 @@ export class LiveDocSpec extends LiveDocReporter {
         indent += 4;
         if (step.description) this.writeLine(this.applyBlockIndent(step.description, indent + hangingIndent));
         if (step.docString) {
-
             let docString = step.docStringRaw;
             if (step.docString != docString) {
                 if (useDefinition) {
                     // output the docString before binding
                     docString = this.highlight(step.docStringRaw, new RegExp("<[^>]+>", "g"), this.colorTheme.valuePlaceholders);
                 } else {
+                    // bind using example if available
                     docString = this.bind(step.docStringRaw, (step.parent as model.ScenarioExample).example, this.colorTheme.valuePlaceholders);
+                    // bind using passedParam if available
+                    docString = this.bind(step.docString, step.passedParam, this.colorTheme.valuePlaceholders);
                 }
             } else {
                 // non scenario outline based doc string

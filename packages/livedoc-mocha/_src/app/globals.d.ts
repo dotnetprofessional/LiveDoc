@@ -114,17 +114,23 @@ interface ColorTheme {
     valuePlaceholders: Object;
 }
 
+interface ILiveDocTestDefinition {
+    (expectation: string, callback?: (this: Mocha.ITestCallbackContext, done: MochaDone) => PromiseLike<any> | void, passedParam?: object | Function): Mocha.ITest;
+    skip(expectation: string, callback?: (this: Mocha.ITestCallbackContext, done: MochaDone) => PromiseLike<any> | void, passedParam?: object | Function): void;
+    timeout(ms: number | string): void;
+    state: "failed" | "passed";
+}
 
 //region Globals
 declare var feature: Mocha.IContextDefinition;
 declare var background: Mocha.IContextDefinition;
 declare var scenario: Mocha.IContextDefinition;
 declare var scenarioOutline: Mocha.IContextDefinition;
-declare var given: Mocha.ITestDefinition;
-declare var when: Mocha.ITestDefinition;
-declare var then: Mocha.ITestDefinition;
-declare var and: Mocha.ITestDefinition;
-declare var but: Mocha.ITestDefinition;
+declare var given: ILiveDocTestDefinition;
+declare var when: ILiveDocTestDefinition;
+declare var then: ILiveDocTestDefinition;
+declare var and: ILiveDocTestDefinition;
+declare var but: ILiveDocTestDefinition;
 
 declare var afterBackground: (fn) => void;
 

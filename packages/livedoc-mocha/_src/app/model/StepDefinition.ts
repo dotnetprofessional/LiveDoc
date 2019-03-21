@@ -4,16 +4,34 @@ import { RuleViolations } from "./RuleViolations";
 import { LiveDocTest } from "./LiveDocTest";
 import { jsonIgnore } from "../decorators";
 import { Scenario } from "./Scenario";
+import { DescriptionParser } from "../parser/Parser";
 
 export class StepDefinition extends LiveDocTest<Scenario> {
     @jsonIgnore
-    public displayTitle: string = "";
+    private _displayTitle: string = "";
+    @jsonIgnore
+    private _docString: string = "";
+    @jsonIgnore
+    private _passedParam: object | Function;
+
     public rawTitle: string = "";
+
+    public get passedParam(): object | Function {
+        if (typeof this._passedParam === "function") {
+            return this._passedParam();
+        } else {
+            return this._passedParam;
+        }
+    };
+
+    public set passedParam(value: object | Function) {
+        this._passedParam = value;
+    }
 
     public type: string;
     public description: string = "";
     // public descriptionRaw: string = "";
-    public docString: string = "";
+    // public docString: string = "";
     @jsonIgnore
     public docStringRaw: string = "";
     public dataTable: DataTableRow[] = [];
@@ -24,6 +42,34 @@ export class StepDefinition extends LiveDocTest<Scenario> {
 
     public associatedScenarioId: number;
     public duration: number;
+
+    public get displayTitle(): string {
+        // bind the step if paramsPass available
+        if (this.passedParam) {
+            const parser = new DescriptionParser();
+            return parser.bind(this._displayTitle, this.passedParam);
+        } else {
+            return this._displayTitle;
+        }
+    };
+
+    public set displayTitle(value: string) {
+        this._displayTitle = value;
+    }
+
+    public get docString(): string {
+        // bind the step if paramsPass available
+        if (this.passedParam) {
+            const parser = new DescriptionParser();
+            return parser.bind(this._docString, this.passedParam);
+        } else {
+            return this._docString;
+        }
+    };
+
+    public set docString(value: string) {
+        this._docString = value;
+    }
 
     public getStepContext(): StepContext {
         const context = new StepContext();
@@ -40,5 +86,20 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     public addViolation(rule: RuleViolations, message: string, title: string): void {
         this.ruleViolations.push(new LiveDocRuleViolation(rule, message, title));
         this.parent.registerRuleViolation();
+    }
+
+    public toJSON(): object {
+        return {
+            rawTitle: this.rawTitle,
+            docString: this.docString,
+            title: this.title,
+            type: this.type,
+            description: this.description,
+            dataTable: this.dataTable,
+            values: this.values,
+            ruleViolations: this.ruleViolations,
+            associatedScenarioId: this.associatedScenarioId,
+            duration: this.duration
+        };
     }
 }
