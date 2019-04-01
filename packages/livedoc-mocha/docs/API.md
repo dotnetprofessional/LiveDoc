@@ -1,7 +1,7 @@
 # API
-The livedoc-mocha API implements the [Gherkin](https://cucumber.io/docs/reference#gherkin) language as close as practically possible. For a good description of the Gherkin language refer to the [reference section](https://cucumber.io/docs/reference) on [cucumber.io](https://cucumber.io/).
+The livedoc-mocha API implements the [Gherkin](https://docs.cucumber.io/gherkin/reference#gherkin) language as close as practically possible. For a good description of the Gherkin language refer to the [reference section](https://docs.cucumber.io/gherkin/reference) on [cucumber.io](https://cucumber.io/).
 
-livedoc-mocha follows the Gherkin language, livedoc-mocha uses global functions to represent each Gherkin keyword. Each keyword accepts a string that describes the Gherkin language. More background details on the language can be found on this [reference page](https://cucumber.io/docs/reference#gherkin). The supported keywords are:
+livedoc-mocha follows the Gherkin language, livedoc-mocha uses global functions to represent each Gherkin keyword. Each keyword accepts a string that describes the Gherkin language. More background details on the language can be found on this [reference page](https://docs.cucumber.io/gherkin/reference#gherkin). The supported keywords are:
 
 * [Feature](#feature)
 * [Background](#background)
@@ -20,7 +20,7 @@ There are a few extra keywords as well:
 * @ ([Tags](#tags)): Used by reporting tools to navigate specs and to provide cross references
 * \# (Comments) :
 
-# [Feature](https://cucumber.io/docs/reference#feature)
+# [Feature](https://docs.cucumber.io/gherkin/reference#feature)
 Each file should contain only one feature, although there is no restriction on this. It is more of a convention, which makes finding your features easier. Features have a title and a description. Each feature is made up of one or more of the following:
 
 * [Background](#background)
@@ -63,7 +63,7 @@ Each feature has a context which is defined by the global variable <code>feature
 * __description:__ This is any line after the first line. In the example above it would be 'Account Holders should be able ...'
 
 
-# [Background](https://cucumber.io/docs/reference#background)
+# [Background](https://docs.cucumber.io/gherkin/reference#background)
 Backgrounds provide a way to define a given that is repeated for all scenarios. As the given is repeated, its an indication that its not necessary to describe the particular scenario but is required to provide context overall. Backgrounds have a <code>backgroundContext</code> that share the same properties as the <code>scenarioContext</code>, see details on scenarios for details.
 
 _Gherkin_
@@ -101,7 +101,7 @@ background("This will be executed before each test", () => {
 });
 ```
 
-# [Scenario](https://cucumber.io/docs/reference#scenario)
+# [Scenario](https://docs.cucumber.io/gherkin/reference#scenario)
 Each feature should contain at least one scenario, but can have as many as required. Scenarios, like features support descriptions. Scenarios support the following features:
 
 * [Steps](#steps)
@@ -131,7 +131,7 @@ To make it easier to access any data defined using the given step definition (se
 
 Using these properties its easy to access the given definition without having to store the <code>stepContext</code> in local variables.
 
-# [Steps](https://cucumber.io/docs/reference#steps)
+# [Steps](https://docs.cucumber.io/gherkin/reference#steps)
 Each scenario requires at least one step keyword. The Gherkin step keywords that are supported are:
 
 * __given:__ steps are used to describe the initial context of the system -- the _scene_ of the scenario. It is typically something that happened in the _past_.
@@ -179,7 +179,7 @@ and("the account balance should be '80' dollars", () => {
 Each step has a context which is defined by the global variable <code>stepContext</code>. This context object has the following properties:
 
 * __title:__ This is the first line of the step definition
-* __docString:__ Used to pass a larger piece of text to a step definition. See [Gherkin reference](https://cucumber.io/docs/reference#doc-strings) for more details.
+* __docString:__ Used to pass a larger piece of text to a step definition. See [Gherkin reference](https://docs.cucumber.io/gherkin/reference#doc-strings) for more details.
 * __table:__ an array of objects where the tables first row is used as a header row to define the property names.
 * __tableAsEntity:__ for tables that have 2 columns, this returns the table as a single entity where the property names are in the first column.
 * __tableAsList:__ returns the table as a multi-dimensional array.
@@ -189,7 +189,7 @@ Each step has a context which is defined by the global variable <code>stepContex
 
 The previous example demonstrates a number of important values within the title and descriptions including a table. Livedoc-mocha supports many ways of extracting data from your descriptions and titles. Each of the features below and the <code>values</code> property support [type coercion](#type-coercion-support) when returning values.
 
-## [Data Tables](https://cucumber.io/docs/reference#data-tables)
+## [Data Tables](https://docs.cucumber.io/gherkin/reference#data-tables)
 Data Tables are handy for passing a list of values to a step definition. Livedoc-mocha has full support for Data Tables and several helper methods to make working with them easier. Refer to the [context section](#context) for more details on the additional properties.
 
 For a table to be valid it must start with a pipe (|) on a new line and end with a pipe(|) on the same line. A table can contain as many columns as necessary. While its not a requirement to format the table, the table will be output without formatting, so making the columns align will aid in the tables readability.
@@ -244,7 +244,7 @@ _Methods_
 
 <code>stepContext.tableAsSingleList</code> returns the table as a simple list. This would be the recommended option to use for this style of table.
 
-## [DocStrings](https://cucumber.io/docs/reference#doc-strings)
+## [DocStrings](https://docs.cucumber.io/gherkin/reference#doc-strings)
 Doc Strings are useful for passing a larger piece of text to a step definition. A Doc String must start on a new line and start with three double-quote marks and be on their own. The subsequent lines should start under the first quote of the line above. When parsing the additional whitespace will be removed so each line begins where the first double-quote mark begins. To end a Doc String, another new line with three double-quotes is used.
 
 _Gherkin_
@@ -293,7 +293,7 @@ const docString = stepContext.docStringAsEntity;
 let name = docString.name;
 ```
 
-# [Scenario Outline](https://cucumber.io/docs/reference#scenario-outline)
+# [Scenario Outline](https://docs.cucumber.io/gherkin/reference#scenario-outline)
 There are occasions where you want to validate several values against the same scenario. Creating the individual scenarios would require a lot of duplicate code. A Scenario Outline provides the ability to create a single Scenario but have it run against many examples. A Scenario Outline supports the same features of a Scenario but with the addition of Examples:
 
 _Gherkin_
@@ -391,7 +391,7 @@ Each step within a Scenario Outline has a access to context which is defined by 
 
 * __example:__ the row from the example expressed as an entity object, that is currently being used by the scenario.
 
-# [Tags](https://cucumber.io/docs/reference#tags)
+# [Tags](https://docs.cucumber.io/gherkin/reference#tags)
 Tags are a way to group Scenarios. They are @-prefixed strings and you can place as many tags as you like within a Feature, Scenario or Scenario Outline. Using a space character is not allowed in tags and are instead used to separate them.
 
 Using the first example, you would add tags in the following way:
