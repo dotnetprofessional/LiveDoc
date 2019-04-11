@@ -220,8 +220,12 @@ feature(`Step statement
                 true.should.equal(entity.nullValue === null);
 
                 // Handle dates
-                const expectedDate = new Date("Jan 2, 2019").getTime();
+                let expectedDate = new Date("Jan 2, 2019").getTime();
                 entity.USDate.getTime().should.be.equal(expectedDate);
+
+                // Need to re parse the date as the formats timezone is different see: 
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/parse
+                expectedDate = new Date("2019-01-02").getTime();
                 entity.ISODate.getTime().should.be.equal(expectedDate);
 
                 (typeof entity.spaces).should.be.equal("string");

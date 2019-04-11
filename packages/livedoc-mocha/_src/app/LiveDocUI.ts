@@ -517,6 +517,9 @@ function createDescribeAlias(file, suites, context, mocha, common) {
                             if (livedocContext.parent.afterBackground) {
                                 // Add the afterBackground function to each scenario's afterAll function
                                 (suite as any).afterAll(() => {
+                                    const hookStep = liveDocGrammarParser.createStep("hook", "afterBackground", null);
+                                    livedocContext.scenario.addStep(hookStep);
+                                    livedocContext.step = hookStep;
                                     return livedocContext.parent.afterBackground();
                                 });
                             }

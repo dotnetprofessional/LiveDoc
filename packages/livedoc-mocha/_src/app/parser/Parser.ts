@@ -3,8 +3,6 @@ import * as model from "../model";
 import { RuleViolations } from "../model/RuleViolations";
 import { ParserException } from "../model";
 
-var moment = require("moment");
-
 export class LiveDocGrammarParser {
 
     private formatDisplayTitle(description: string, prefix: string, indentLevel: number) {
@@ -280,29 +278,20 @@ export class DescriptionParser {
         } catch (e) {
             // Ok so its a string, but it could still be a special one!
             // Try checking if its a date
-            const maybeDate = this.getMomentDate(valueString);
-            if (maybeDate.isValid()) {
-                return maybeDate.toDate();
-            }
-
-            return valueString;
+            return this.convertToDateIfPossible(valueString);
         }
     }
 
-    private getMomentDate(value: string) {
-        var formats = [
-            moment.ISO_8601,
-            "MM/DD/YYYY"
-        ];
-        return moment(value, formats, true);
+    private convertToDateIfPossible(value): string | Date {
+        // check if string is a date or not
+        if (/^(\d{4}|\d{2})[-\/]\d{2}[-\/](\d{4}|\d{2})/.test(value)) {
+            return new Date(value)
+        }
+        return value;
     }
 
     private jsonDateParser(key, value) {
-        const maybeDate = this.getMomentDate(value);
-        if (maybeDate.isValid()) {
-            return maybeDate.toDate();
-        }
-        return value;
+        return this.convertToDateIfPossible(value);
     }
 
     private isCommentedLine(line: string) {

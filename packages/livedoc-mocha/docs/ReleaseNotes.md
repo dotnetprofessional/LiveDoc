@@ -1,4 +1,10 @@
 # Release Notes
+## 0.4.0-beta-7
+* Bug: [#70](https://github.com/dotnetprofessional/LiveDoc/issues/70) Errors occurring in afterBackground not displaying. 
+
+### additional with no issue logged
+* removed moment dependency
+
 ## 0.4.0-beta-6
 * Feature: [#84](https://github.com/dotnetprofessional/LiveDoc/issues/84) Allow binding in steps
 

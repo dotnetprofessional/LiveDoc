@@ -155,7 +155,7 @@ Then the ATM should dispense 20 dollars
 ```
 
 _livedoc-mocha_
-```js
+```ts
 given(`the account holders account has the following:
 | account | 12345 |
 | balance |   100 |
@@ -175,6 +175,31 @@ then("the ATM should dispense '20' dollars", () => {
 and("the account balance should be '80' dollars", () => {
 });
 ```
+
+### Secondary Binding
+Sometimes its useful to be able to bind values from a variable. If the value is static this is fairly easy using javascripts [interpolated strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals). However, if the value is dynamic this technique won't work as the strings are computed before test execution. To solve this issue, you can use `secondary binding` which uses the same syntax as the [Scenario Outline binding](#Scenario-Outline). The object parameter used for binding is added to the end of the test function.
+
+_using custom function_
+```ts
+scenario(`Using secondary binding`, ()=>{
+    let persona = Personas.Administrator;
+
+    given(`the persona <name>`, () => {},
+        ()=>persona ? () => ({ name: persona.name }));
+})
+```
+
+_using object_
+```ts
+scenario(`Using secondary binding`, ()=>{
+    let persona = Personas.Administrator;
+
+    given(`the persona <name>`, () => {},
+        { name: persona.name });
+})
+```
+Its important to note that when using this technique that the object or function has a valid value at the time the test is executed. If not then an error will be produced.
+
 ## Context
 Each step has a context which is defined by the global variable <code>stepContext</code>. This context object has the following properties:
 

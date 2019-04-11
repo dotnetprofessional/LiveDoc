@@ -193,10 +193,18 @@ export abstract class LiveDocReporter extends Base {
 
         runner.on('fail', function (test: any) {
             try {
-                const step: model.LiveDocTest<any> = test.step;
+                let step: model.LiveDocTest<any> = test.step;
                 if (!step) {
-                    // For some reason we dont' have a step 
-                    return;
+                    if (test.type === "hook") {
+                        // hooks aren't steps so we need to add the failure to the parent as a step hook
+                        step = test.parent.livedoc.step;
+                        step.setStatus(SpecStatus.fail, 0);
+                        // unable to access the function code at this point
+                        step.code = "See stack track for details";
+                    } else {
+                        console.error(`Unknown step type:\n${JSON.stringify(test.err)}`);
+                        return;
+                    }
                 }
                 step.status = SpecStatus.fail;
                 test = test as any;
