@@ -4,6 +4,8 @@
 
 ### additional with no issue logged
 * removed moment dependency
+* upgraded from cli-table2 to cli-table3
+* added support for headers in livedoc-spec summary
 
 ## 0.4.0-beta-6
 * Feature: [#84](https://github.com/dotnetprofessional/LiveDoc/issues/84) Allow binding in steps

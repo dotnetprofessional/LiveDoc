@@ -1,6 +1,6 @@
 require('chai').should();
 import { LiveDoc } from "../../app/livedoc";
-import { ParserException, ExecutionResults } from "../../app/model";
+import { ExecutionResults } from "../../app/model";
 
 feature(`Background reports errors
 
@@ -8,7 +8,6 @@ feature(`Background reports errors
     should be reported the same as if it were within a scenario.
     `, () => {
 
-        let parseException: ParserException;
         let result: ExecutionResults;
 
         scenario(`Throw exception in a background step`, () => {
@@ -32,12 +31,7 @@ feature(`Background reports errors
                 });
 
             when(`executing feature`, async () => {
-                try {
-                    result = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
-                }
-                catch (e) {
-                    parseException = e;
-                }
+                result = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
             });
 
             then("an error should be recorded", () => {
@@ -69,12 +63,7 @@ feature(`Background reports errors
                 });
 
             when(`executing feature`, async () => {
-                try {
-                    result = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
-                }
-                catch (e) {
-                    parseException = e;
-                }
+                result = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
             });
 
             then("an error should be recorded", () => {

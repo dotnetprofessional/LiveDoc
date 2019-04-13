@@ -1,7 +1,7 @@
 import * as model from "../model"
 import { TextBlockReader } from "../parser/TextBlockReader";
 import * as diff from "diff";
-import * as cliTable from "cli-table2";
+import * as cliTable from "cli-table3";
 import { Chalk } from "chalk";
 
 import { SpecStatus } from "../model/SpecStatus";
@@ -325,11 +325,18 @@ export abstract class LiveDocReporter extends Base {
     }
 
     public static findRootPath(strs: string[]) {
+
         if (!strs || strs.length === 0)
             return "";
         if (strs.length === 1)
-            return strs[0];
+            return path.dirname(strs[0]);
 
+        // as we're dealing with root paths, need to ensure the strings
+        // are only paths
+        for (let i = 0; i < strs.length; i++) {
+            // ensure any \ are converted to / aswell
+            strs[i] = path.dirname(strs[i]);
+        }
         // find the longest string
         let shortestString = "";
         let shortestLength = Number.MAX_SAFE_INTEGER;
@@ -509,7 +516,7 @@ export abstract class LiveDocReporter extends Base {
             }
         }
 
-        const table = new cliTable({});
+        const table = new cliTable({}) as cliTable.HorizontalTable;
 
         for (let i = 0; i < dataTable.length; i++) {
             // make a copy so we don't corrupt the original
@@ -535,14 +542,19 @@ export abstract class LiveDocReporter extends Base {
                         }
                     } else {
                         let rowColor = this.colorTheme.dataTable;
-                        if (table[i][0].indexOf("Total") >= 0) {
+                        if (table[i][0].toString().indexOf("Total") >= 0) {
                             rowColor = rowColor.bold;
                         }
                         if (includeRowId) {
                             table[i][0] = rowColor((i + runningTotal).toString());
                         }
-                        for (let c = 0; c < dataTable[i].length; c++) {
-                            table[i][c + offset] = rowColor(wrap(dataTable[i][c]));
+                        if (table[0].length > 1 && table[i].length === 1) {
+                            // this is a header row used in the summary table
+                            table[i][0 + offset] = this.colorTheme.summaryHeader(wrap(dataTable[i][0]));
+                        } else {
+                            for (let c = 0; c < dataTable[i].length; c++) {
+                                table[i][c + offset] = rowColor(wrap(dataTable[i][c]));
+                            }
                         }
                     }
 

@@ -30,8 +30,9 @@ Write the output of the test run to a file, stripping any ANSI color codes.
 ### --reporter-options | -O
 Supported options are:
 * detailLevel: This controls the level of information reported.
-    * spec - displays the spec details and is the most verbose (default)
-    * summary - displays a table of the features with statistics (default)
+    * spec - displays the spec details and is the most verbose (__default__)
+    * summary - displays a table of the features with statistics (__default__)
+    * headers - adds the folder name(s) the test is in. The folder names are calculated from the test root folder. (__default__)
     * list - provides additional level to summary including scenarios
     * silent - produces no output
 

@@ -29,4 +29,6 @@ export class DefaultColorTheme implements ColorTheme {
     dataTableHeader: Chalk = chalk.green;
     docString: Chalk = chalk.whiteBright;
     valuePlaceholders: Chalk = chalk.cyan;
+
+    summaryHeader: Chalk = chalk.whiteBright;
 }

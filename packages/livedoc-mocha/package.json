@@ -28,7 +28,7 @@
   },
   "scripts": {
     "_comment_filtering_example": "--ld-include filter:include --ld-exclude \"sometag filter:exclude\" --showFilterConflicts",
-    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --reporter  build/app/livedoc-spec -O \"detailLevel=summary+list\" --recursive build/test/**/*.Spec.js",
+    "test": "mocha --colors --require build/app/index --ui livedoc-mocha --reporter  build/app/livedoc-spec -O \"detailLevel=summary+list+headers\" --recursive build/test/**/*.Spec.js",
     "test-mocha": "mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
     "test-spec": "mocha --colors --require build/app/index --ui livedoc-mocha --reporter  build/app/livedoc-spec --recursive build/test/**/*.Spec.js",
     "test-cc": "nyc mocha --colors --require build/app/index --ui livedoc-mocha --recursive build/test/**/*.Spec.js",
@@ -72,13 +72,13 @@
     "uglify-js": "^2.8.7"
   },
   "peerDependencies": {
-    "mocha": "3.x|4.x|5.x"
+    "mocha": ">=3.x"
   },
   "dependencies": {
     "@types/mocha": "^5.2.1",
     "callsites": "^2.0.0",
     "chalk": "^2.4.1",
-    "cli-table2": "^0.2.0",
+    "cli-table3": "0.5.1",
     "colors": "^1.3.0",
     "diff": "^3.5.0",
     "fs-extra": "^5.0.0",

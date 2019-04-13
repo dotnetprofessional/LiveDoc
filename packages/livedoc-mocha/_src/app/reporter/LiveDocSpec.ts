@@ -3,7 +3,7 @@ import * as strip from "strip-ansi";
 
 import * as model from "../model";
 import { Chalk } from "chalk";
-import * as cliTable from "cli-table2";
+import * as cliTable from "cli-table3";
 
 import { LiveDocReporter, HeaderType } from "./LiveDocReporter";
 const wrap = require("wordwrap")(140);
@@ -23,12 +23,14 @@ export class LiveDocReporterOptions {
     spec: boolean = false;
     summary: boolean = false;
     list: boolean = false;
+    headers: boolean = false;
     silent: boolean = false;
     output: string = "";
 
     public setDefaults(): void {
         this.spec = true;
         this.summary = true;
+        this.headers = true;
     }
 
     public enableSilent(): void {
@@ -267,7 +269,12 @@ export class LiveDocSpec extends LiveDocReporter {
         const statistics: DataTableRow[] = [];
         statistics.push(headerRow);
 
+        let currentPath = "";
         results.features.forEach(feature => {
+            if (this.options.headers && currentPath !== feature.path) {
+                currentPath = feature.path;
+                statistics.push([currentPath ? currentPath.toUpperCase().replace(/[_-]/g, " ") : "ROOT"]);
+            }
             // Add the stats for the feature
             const stats = feature.statistics;
             const statusBar = this.statusBar(stats.passPercent, stats.failedPercent, stats.pendingPercent);
@@ -588,7 +595,7 @@ export class LiveDocSpec extends LiveDocReporter {
                 , 'right-mid': color('┤')
                 , 'middle': color('│')
             }
-        });
+        }) as cliTable.HorizontalTable;
         table.push([{ colSpan: 2, content: color('Error: ' + LiveDocSpec.errorCount) }]);
         table.push(["Message", wrap(step.exception.message)]);
         if (step.exception.expected) {
