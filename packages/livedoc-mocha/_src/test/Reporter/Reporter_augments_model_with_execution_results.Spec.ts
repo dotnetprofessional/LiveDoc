@@ -9,7 +9,7 @@ feature(`Reporter returns model including execution results`, () => {
         let step: StepDefinition;
 
         given(`the following feature
-        """
+            """
             feature("Valid feature", ()=> {
                 scenario("Valid scenario", ()=> {
                     given(\`a valid step with values 'value1' '200'

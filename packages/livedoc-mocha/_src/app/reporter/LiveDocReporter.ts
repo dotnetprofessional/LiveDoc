@@ -469,7 +469,7 @@ export abstract class LiveDocReporter extends Base {
      * @memberof LiveDocReporter
      */
     protected bind(content, model, color: Chalk): string {
-        if (!model) return;
+        if (!model) return content;
 
         var regex = new RegExp("<[^>]+>", "g");
         return content.replace(regex, (item, pos, originalText) => {
