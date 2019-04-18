@@ -320,7 +320,11 @@ export abstract class LiveDocReporter extends Base {
             return "";
         } else {
             let dirPath = path.parse(stripPath).dir;
-            return dirPath.substr(1);
+            if (dirPath.startsWith(path.sep)) {
+                return dirPath.substr(1);
+            } else {
+                return dirPath;
+            }
         }
     }
 
@@ -334,7 +338,7 @@ export abstract class LiveDocReporter extends Base {
         // as we're dealing with root paths, need to ensure the strings
         // are only paths
         for (let i = 0; i < strs.length; i++) {
-            // ensure any \ are converted to / aswell
+            // ensure any \ are converted to / as well
             strs[i] = path.dirname(strs[i]);
         }
         // find the longest string
@@ -491,14 +495,14 @@ export abstract class LiveDocReporter extends Base {
     protected secondaryBind(content, model, color: Chalk): string {
         if (!model) return content;
 
-        var regex = new RegExp("{[^}]+}", "g");
+        var regex = new RegExp("{{[^}]+}}", "g");
         return content.replace(regex, (item, pos, originalText) => {
-            return color(this.applyBinding(item, model));
+            return color(this.applyBinding(item, model, 2));
         });
     }
 
-    private applyBinding(item, model) {
-        var key = this.sanitizeName(item.substr(1, item.length - 2));
+    private applyBinding(item, model, bindingSyntaxLength = 1) {
+        var key = this.sanitizeName(item.substr(bindingSyntaxLength, item.length - bindingSyntaxLength * 2));
         if (model.hasOwnProperty(key)) {
             return model[key];
         } else {

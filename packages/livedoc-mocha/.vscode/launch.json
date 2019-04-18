@@ -29,6 +29,8 @@
                 "-R",
                 "build/app/livedoc-spec",
                 "build/app/reporter/LiveDocEmoji",
+                "-O",
+                "removeHeaderText=xxx",
                 "--ld-include",
                 "dev"
             ],

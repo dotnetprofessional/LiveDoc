@@ -333,7 +333,7 @@ feature(`Step statement
                 myVariable.name = stepContext.values[0];
             });
 
-            when(`defining a step that binds the variable name {name}`, () => {
+            when(`defining a step that binds the variable name {{name}}`, () => {
                 stepText = stepContext.displayTitle;
             }, myVariable);
 
@@ -353,7 +353,7 @@ feature(`Step statement
                 myVariable.name = stepContext.values[0];
             });
 
-            when(`defining a step that binds the variable name {name}`, () => {
+            when(`defining a step that binds the variable name {{name}}`, () => {
                 stepText = stepContext.displayTitle;
             }, () => ({ name: myVariable.name }));
 
@@ -375,7 +375,7 @@ feature(`Step statement
 
             when(`defining a step that binds the variable name
                 """
-                    this value is bound {name}
+                    this value is bound {{name}}
                 """
                 `, () => {
                     docString = stepContext.docString;
@@ -402,9 +402,9 @@ feature(`Step statement
                     myVariable.name = stepContext.values[0];
                 });
 
-                when(`defining a step that binds the variable name {name} and <col1> example
+                when(`defining a step that binds the variable name {{name}} and <col1> example
                     """
-                        this value is bound <col1> {name}
+                        this value is bound <col1> {{name}}
                     """
                     `, () => {
                         docString = stepContext.docString;

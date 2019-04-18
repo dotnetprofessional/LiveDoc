@@ -27,6 +27,16 @@ export class LiveDocReporterOptions {
     silent: boolean = false;
     output: string = "";
 
+    /**
+     * used to remove text from the header during summary output in Spec Reporter
+     * this option is mostly used when testing across a mono-repo and want to remove
+     * mono-repo specifics
+     *
+     * @type {string}
+     * @memberof LiveDocOptions
+     */
+    public removeHeaderText: string;
+
     public setDefaults(): void {
         this.spec = true;
         this.summary = true;
@@ -58,6 +68,8 @@ export class LiveDocSpec extends LiveDocReporter {
                 this.options.enableSilent();
             }
         }
+
+        this.options.removeHeaderText = (options as any).removeHeaderText || "";
     }
 
     executionStart(): void {
@@ -271,8 +283,9 @@ export class LiveDocSpec extends LiveDocReporter {
 
         let currentPath = "";
         results.features.forEach(feature => {
-            if (this.options.headers && currentPath !== feature.path) {
-                currentPath = feature.path;
+            const headerPath = feature.path.replace(this.options.removeHeaderText, '');
+            if (this.options.headers && currentPath !== headerPath) {
+                currentPath = feature.path.replace(this.options.removeHeaderText, "");
                 statistics.push([currentPath ? currentPath.toUpperCase().replace(/[_-]/g, " ") : "ROOT"]);
             }
             // Add the stats for the feature
