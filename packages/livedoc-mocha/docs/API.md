@@ -177,14 +177,14 @@ and("the account balance should be '80' dollars", () => {
 ```
 
 ### Secondary Binding
-Sometimes its useful to be able to bind values from a variable. If the value is static this is fairly easy using javascripts [interpolated strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals). However, if the value is dynamic this technique won't work as the strings are computed before test execution. To solve this issue, you can use `secondary binding` which uses the `{..}` syntax  rather than the [Scenario Outline binding](#Scenario-Outline) syntax. The parameter used for binding is added to the end of the test function and can be an object instance or a function that will be evaluated just prior to executing the step.
+Sometimes its useful to be able to bind values from a variable. If the value is static this is fairly easy using javascripts [interpolated strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals). However, if the value is dynamic this technique won't work as the strings are computed before test execution. To solve this issue, you can use `secondary binding` which uses the `{{..}}` syntax  rather than the [Scenario Outline binding](#Scenario-Outline) syntax. The parameter used for binding is added to the end of the test function and can be an object instance or a function that will be evaluated just prior to executing the step.
 
 _using custom function_
 ```ts
 scenario(`Using display binding`, ()=>{
     let persona = Personas.Administrator;
 
-    given(`the persona {name}`, () => {},
+    given(`the persona {{name}}`, () => {},
         ()=>persona ? () => ({ name: persona.name }));
 })
 ```
@@ -194,7 +194,7 @@ _using object_
 scenario(`Using display binding`, ()=>{
     let persona = Personas.Administrator;
 
-    given(`the persona {name}`, () => {},
+    given(`the persona {{name}}`, () => {},
         { name: persona.name });
 })
 ```
