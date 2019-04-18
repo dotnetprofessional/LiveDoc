@@ -477,12 +477,32 @@ export abstract class LiveDocReporter extends Base {
         });
     }
 
+    /**
+     * Will return the string substituting placeholders defined with {..} with 
+     * the value from the passed paramter
+     *
+     * @protected
+     * @param {*} content
+     * @param {*} model
+     * @param {Chalk} color
+     * @returns {string}
+     * @memberof LiveDocReporter
+     */
+    protected secondaryBind(content, model, color: Chalk): string {
+        if (!model) return content;
+
+        var regex = new RegExp("{[^}]+}", "g");
+        return content.replace(regex, (item, pos, originalText) => {
+            return color(this.applyBinding(item, model));
+        });
+    }
+
     private applyBinding(item, model) {
         var key = this.sanitizeName(item.substr(1, item.length - 2));
         if (model.hasOwnProperty(key)) {
             return model[key];
         } else {
-            return item;
+            throw new Error(`Binding error: '${key}' does not exist in model. Verify the spelling and that the name still exists in the bound model.`);
         }
     }
 

@@ -177,28 +177,32 @@ and("the account balance should be '80' dollars", () => {
 ```
 
 ### Secondary Binding
-Sometimes its useful to be able to bind values from a variable. If the value is static this is fairly easy using javascripts [interpolated strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals). However, if the value is dynamic this technique won't work as the strings are computed before test execution. To solve this issue, you can use `secondary binding` which uses the same syntax as the [Scenario Outline binding](#Scenario-Outline). The object parameter used for binding is added to the end of the test function.
+Sometimes its useful to be able to bind values from a variable. If the value is static this is fairly easy using javascripts [interpolated strings](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals). However, if the value is dynamic this technique won't work as the strings are computed before test execution. To solve this issue, you can use `secondary binding` which uses the `{..}` syntax  rather than the [Scenario Outline binding](#Scenario-Outline) syntax. The parameter used for binding is added to the end of the test function and can be an object instance or a function that will be evaluated just prior to executing the step.
 
 _using custom function_
 ```ts
-scenario(`Using secondary binding`, ()=>{
+scenario(`Using display binding`, ()=>{
     let persona = Personas.Administrator;
 
-    given(`the persona <name>`, () => {},
+    given(`the persona {name}`, () => {},
         ()=>persona ? () => ({ name: persona.name }));
 })
 ```
 
 _using object_
 ```ts
-scenario(`Using secondary binding`, ()=>{
+scenario(`Using display binding`, ()=>{
     let persona = Personas.Administrator;
 
-    given(`the persona <name>`, () => {},
+    given(`the persona {name}`, () => {},
         { name: persona.name });
 })
 ```
 Its important to note that when using this technique that the object or function has a valid value at the time the test is executed. If not then an error will be produced.
+
+This binding can be useful when you want to include information that is determined at runtime as part of the narration or a docString.
+
+> Attempting to bind a name that doesn't exist on the passed parameter object will throw an exception.
 
 ## Context
 Each step has a context which is defined by the global variable <code>stepContext</code>. This context object has the following properties:
@@ -368,9 +372,12 @@ Each row of an example describes a single set of data that can be used during th
 
 Unlike Cucumber, examples are not defined at the end of the Scenario Outline, but are included as part of the Scenario Outline narrative. This tends to make it easier to reason about the examples as its not lost at the bottom of the scenario.
 
-To reference values from the example you can specify the name in angle brackets \<name\> which will be resolved when the scenario is run. Its recommended to reference at least one of these values in at least one of your steps so that each iteration can be distinguished from another.
+To reference values from the example you can specify the name in angle brackets `<name>` which will be resolved when the scenario is run. Its recommended to reference at least one of these values in at least one of your steps so that each iteration can be distinguished from another.
 
 >Its important to include the text __Examples:__ above your table. If you do not your table will not be recognized and your scenarios will not run.
+
+
+> Attempting to bind a name that doesn't exist in the example table will throw an exception.
 
 ### Multiple tables
 Gherkin and livedoc-mocha support the ability to add more than one table to your Scenario Outline. This can be useful to more clearly define your examples. However, when the scenarios are executed they will be merged into a single table. As such your tables much have the same structure. This is only useful for making your scenarios clearer.

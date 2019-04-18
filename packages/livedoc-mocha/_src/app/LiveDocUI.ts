@@ -307,6 +307,9 @@ function createStepAlias(file, suites, mocha, common) {
                                 break;
                         }
 
+                        // if the step has passed params then evaluate them now just prior to execution
+                        liveDocGrammarParser.applyPassedParams(stepDefinition);
+
                         // If the type is a background then bundle up the steps but don't execute them
                         // they will be executed prior to each scenario.
                         if (livedocContext.type == "Background") {

@@ -645,7 +645,7 @@ export class LiveDocSpec extends LiveDocReporter {
                     break;
             }
         }
-        let title: string = step.title;
+        let title: string = step.rawTitle;
         if ((step.parent as model.ScenarioExample).example) {
             if (useDefinition) {
                 // Apply any binding if necessary
@@ -658,8 +658,13 @@ export class LiveDocSpec extends LiveDocReporter {
 
         // Special formatting for passedParams
         if (step.passedParam) {
-            // Apply binding
-            title = this.bind(step.rawTitle, step.passedParam, this.colorTheme.valuePlaceholders);
+            if (useDefinition) {
+                // Apply any binding if necessary
+                title = this.highlight(title, new RegExp("{[^}]+}", "g"), this.colorTheme.valuePlaceholders);
+            } else {
+                // Apply any binding if necessary
+                title = this.secondaryBind(title, step.passedParam, this.colorTheme.valuePlaceholders);
+            }
         }
 
         // Now highlight any values within the title
@@ -674,11 +679,11 @@ export class LiveDocSpec extends LiveDocReporter {
                 if (useDefinition) {
                     // output the docString before binding
                     docString = this.highlight(step.docStringRaw, new RegExp("<[^>]+>", "g"), this.colorTheme.valuePlaceholders);
+                    docString = this.highlight(docString, new RegExp("{[^}]+}", "g"), this.colorTheme.valuePlaceholders);
                 } else {
-                    // bind using example if available
+                    // bind using example and passedParams if available
                     docString = this.bind(step.docStringRaw, (step.parent as model.ScenarioExample).example, this.colorTheme.valuePlaceholders);
-                    // bind using passedParam if available
-                    docString = this.bind(step.docString, step.passedParam, this.colorTheme.valuePlaceholders);
+                    docString = this.secondaryBind(docString, step.passedParam, this.colorTheme.valuePlaceholders);
                 }
             } else {
                 // non scenario outline based doc string

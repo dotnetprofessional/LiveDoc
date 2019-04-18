@@ -6,6 +6,7 @@
 * removed moment dependency
 * upgraded from cli-table2 to cli-table3
 * added support for headers in livedoc-spec summary
+* *** BREAKING CHANGE ** added validation for binding. An exception will now be thrown if binding fails. While this is a breaking change, it is only an issue if there are bugs with existing specs. Which should be fixed.
 
 ## 0.4.0-beta-6
 * Feature: [#84](https://github.com/dotnetprofessional/LiveDoc/issues/84) Allow binding in steps

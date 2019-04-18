@@ -4,7 +4,6 @@ import { RuleViolations } from "./RuleViolations";
 import { LiveDocTest } from "./LiveDocTest";
 import { jsonIgnore } from "../decorators";
 import { Scenario } from "./Scenario";
-import { DescriptionParser } from "../parser/Parser";
 
 export class StepDefinition extends LiveDocTest<Scenario> {
     @jsonIgnore
@@ -44,13 +43,7 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     public duration: number;
 
     public get displayTitle(): string {
-        // bind the step if paramsPass available
-        if (this.passedParam) {
-            const parser = new DescriptionParser();
-            return parser.bind(this._displayTitle, this.passedParam);
-        } else {
-            return this._displayTitle;
-        }
+        return this._displayTitle;
     };
 
     public set displayTitle(value: string) {
@@ -58,13 +51,7 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     }
 
     public get docString(): string {
-        // bind the step if paramsPass available
-        if (this.passedParam) {
-            const parser = new DescriptionParser();
-            return parser.bind(this._docString, this.passedParam);
-        } else {
-            return this._docString;
-        }
+        return this._docString;
     };
 
     public set docString(value: string) {

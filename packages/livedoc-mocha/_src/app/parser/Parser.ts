@@ -164,6 +164,13 @@ export class LiveDocGrammarParser {
 
         return step;
     }
+
+    public applyPassedParams(step: model.StepDefinition) {
+        const parser = new DescriptionParser();
+
+        step.displayTitle = parser.secondaryBind(step.displayTitle, step.passedParam);
+        step.docString = parser.secondaryBind(step.docString, step.passedParam);
+    }
 }
 
 export class DescriptionParser {
@@ -424,12 +431,21 @@ export class DescriptionParser {
         });
     }
 
+    public secondaryBind(content, model) {
+        if (!model) return content;
+
+        var regex = new RegExp("{[^}]+}", "g");
+        return content.replace(regex, (item, pos, originalText) => {
+            return this.applyBinding(item, model);
+        });
+    }
+
     private applyBinding(item, model) {
         var key = this.sanitizeName(item.substr(1, item.length - 2));
         if (model.hasOwnProperty(key)) {
             return model[key];
         } else {
-            return item;
+            throw new Error(`Binding error: '${key}' does not exist in model. Verify the spelling and that the name still exists in the bound model.`);
         }
     }
 

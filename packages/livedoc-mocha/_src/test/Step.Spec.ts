@@ -333,7 +333,7 @@ feature(`Step statement
                 myVariable.name = stepContext.values[0];
             });
 
-            when(`defining a step that binds the variable name <name>`, () => {
+            when(`defining a step that binds the variable name {name}`, () => {
                 stepText = stepContext.displayTitle;
             }, myVariable);
 
@@ -353,7 +353,7 @@ feature(`Step statement
                 myVariable.name = stepContext.values[0];
             });
 
-            when(`defining a step that binds the variable name <name>`, () => {
+            when(`defining a step that binds the variable name {name}`, () => {
                 stepText = stepContext.displayTitle;
             }, () => ({ name: myVariable.name }));
 
@@ -375,7 +375,7 @@ feature(`Step statement
 
             when(`defining a step that binds the variable name
                 """
-                    this value is bound <name>
+                    this value is bound {name}
                 """
                 `, () => {
                     docString = stepContext.docString;
@@ -385,6 +385,49 @@ feature(`Step statement
                 docString.should.contain(myVariable.name);
             });
         });
+
+        scenarioOutline(`Scenario Outline Step statement docString can be bound using custom object and example at time of execution
+            Examples:
+            | col1   | col2   |
+            | value1 | value2 |
+            `, () => {
+                let myVariable: { name: string } = { name: "" };
+                let docString = "";
+                let displayTitle = "";
+
+                given(`the variable myVariable has a name property`, () => {
+
+                });
+                and(`the name property is updated in this step to 'hello world'`, () => {
+                    myVariable.name = stepContext.values[0];
+                });
+
+                when(`defining a step that binds the variable name {name} and <col1> example
+                    """
+                        this value is bound <col1> {name}
+                    """
+                    `, () => {
+                        docString = stepContext.docString;
+                        displayTitle = stepContext.displayTitle;
+                    }, myVariable);
+
+                then(`the step display title includes the bound values`, () => {
+                    displayTitle.should.contain(myVariable.name);
+                });
+
+                and(`the step display title includes the bound example`, () => {
+                    displayTitle.should.contain(scenarioOutlineContext.example.col1);
+                });
+
+                and(`the step docString includes the bound values`, () => {
+                    docString.should.contain(myVariable.name);
+                });
+
+                and(`the step docString includes the bound example`, () => {
+                    docString.should.contain(scenarioOutlineContext.example.col1);
+                });
+
+            });
     });
 
 
