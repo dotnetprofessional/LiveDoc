@@ -1,8 +1,5 @@
 ![logo](https://github.com/dotnetprofessional/LiveDoc/raw/master/artwork/logo-small.png)
 
-> These docs reference livedoc 0.4.0 Beta X. This beta is nearing a release and should be promoted to stable shortly.
-> For docs on the current stable version [click here](https://github.com/dotnetprofessional/LiveDoc/tree/b8ddf23d23ed6b65e7f9f5bb2a9bf14b22809e08/packages/livedoc-mocha) 
-
 # LiveDoc-mocha
 LiveDoc-mocha is a library for adding behavior using a language called [Gherkin](https://docs.cucumber.io/gherkin/reference#gherkin) to the mocha testing library. The [Gherkin](https://docs.cucumber.io/gherkin/reference#gherkin) syntax uses a combination of keywords and natural language. The specifications are written in plain english and are meant to be read by anyone on your team and used to aid in improving collaboration, communication and trust within the team. These specifications also help to reduce ambiguity, confusion about what needs to be built, the rules and importantly why its being built. This is the first step to the concept of [Living Documentation](https://leanpub.com/livingdocumentation).
 
