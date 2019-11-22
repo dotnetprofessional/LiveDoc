@@ -13,7 +13,7 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 * [Tutorial](docs/Tutorial.md) 
 * [Command line options](docs/comandline-switches.md)
 * [Reporters](docs/Reporters.md)
-* [livedoc-spec reporter](docs/livedoc-spec-reporter.md)
+* [livedoc-spec reporter](docs/livedoc-spec-reporter.md) (important!)
 * [Why another library?](README.md#why-another-library)
 * [Release Notes](docs/ReleaseNotes.md)
 
@@ -21,77 +21,96 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 * [VSCode Plugin](https://marketplace.visualstudio.com/items?itemName=dotNetProfessional.livedoc-vscode)
 
 ## So what does this look like?
-If we take the following feature which describes an account holder withdrawing money from an ATM. The format is the same as you might use in Cucumber.js, Cucumber, SpecFlow etc.
+If we take the following feature which describes the moderately complex tax calculations for the Beautiful Tea company.  The format is the same as you might use in Cucumber.js, Cucumber, SpecFlow etc.
 
 ```Gherkin
-Feature: Account Holder withdraws cash
+Feature: Beautiful Tea Shipping Costs
 
-        Account Holders should be able to withdraw cash at any of the
-        companies ATMs.
+    * Australian customers pay GST
+    * Overseas customers don’t pay GST
+    * Australian customers get free shipping for orders $100 and above
+    * Overseas customers all pay the same shipping rate regardless of order size
 
-        Rules:
-        * Account Holders should have a valid keycard
-        * Have sufficient available funds
-        * The ATM has the necessary funds
+  Background:
+    Given my background test
 
-  Scenario: Account has sufficient funds
-    Given the account holders account has the following:
-        | account | 12345 |
-        | balance |   100 |
-        | status  | valid |
-      And the machine contains 1000 dollars
-    When the Account Holder requests 20 dollars
-    Then the ATM should dispense 20 dollars
-      And the account balance should be 80 dollars
+  Scenario Outline: Calculate GST status and shipping rate
+
+    Given the customer is from <Customer’s Country>
+    When the customer’s order totals <Order Total>
+    Then the customer pays <GST Amount> GST
+      And they are charged the <Shipping Rate> shipping rate
+
+    Examples:
+
+    | Customer’s Country | GST Amount | Order Total |     Shipping Rate      |
+    | Australia          |      9.999 |       99.99 | Standard Domestic      |
+    | Australia          |      10.00 |      100.00 | Free                   |
+    | New Zealand        |          0 |       99.99 | Standard International |
+    | New Zealand        |          0 |      100.00 | Standard International |
+    | Zimbabwe           |          0 |      100.00 | Standard International |
+
 ```
-When run with livedoc-mocha it will produce the following output:
+> The `Background` here is for illustration purposes, to demonstrate that `Backgrounds` are also supported.
 
-![Mocha Test Result](docs/images/Feature.PNG)
 
-Converting the original Gherkin to livedoc-mocha looks like this:
+When run with livedoc-mocha it will produce the following output, which looks very similar to the original Gherkin but with each of the examples being run:
+
+![Mocha Test Result](docs/images/livedoc-spec-default.PNG)
+\* using the livedoc-spec reporter
+
+Converting the original Gherkin to livedoc-mocha, is straightforward as all the Gherkin features are fully supported. The final code looks like this:
 
 ```ts
-feature(`Account Holder withdraws cash
+feature(`Beautiful Tea Shipping Costs
 
-        Account Holders should be able to withdraw cash at any of the
-        companies ATMs.
+    * Australian customers pay GST
+    * Overseas customers don’t pay GST
+    * Australian customers get free shipping for orders $100 and above
+    * Overseas customers all pay the same shipping rate regardless of order size`, () => {
 
-        Rules:
-        * Account Holders should have a valid keycard
-        * Have sufficient available funds
-        * The ATM has the necessary funds
-        `, () => {
+        background(``, () => {
+            given(`my background test`, () => {
 
-        scenario("Account has sufficient funds", () => {
-            let atm = new ATM();
-            let cashReceived: number;
-
-            given(`the account holders account has the following:
-            | account | 12345 |
-            | balance |   100 |
-            | status  | valid |
-        `, () => {
-                    const accountHolder = stepContext.tableAsEntity;
-                    atm.setStatus(accountHolder.account, accountHolder.status);
-                    atm.deposit(accountHolder.account, accountHolder.balance)
-                });
-
-            and("the machine contains '1000' dollars", () => {
-                atm.addCash(stepContext.values[0]);
-            });
-
-            when("the Account Holder requests '20' dollars", () => {
-                cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);
-            });
-
-            then("the ATM should dispense '20' dollars", () => {
-                cashReceived.should.be.equal(stepContext.values[0]);
-            });
-
-            and("the account balance should be '80' dollars", () => {
-                atm.getBalance(scenarioContext.given.tableAsEntity.account).should.be.equal(stepContext.values[0]);
             });
         });
+
+        scenarioOutline(`Calculate GST status and shipping rate
+
+            Examples:
+
+            | Customer’s Country | GST Amount | Order Total |     Shipping Rate      |
+            | Australia          |      9.999 |       99.99 | Standard Domestic      |
+            | Australia          |      10.00 |      100.00 | Free                   |
+            | New Zealand        |          0 |       99.99 | Standard International |
+            | New Zealand        |          0 |      100.00 | Standard International |
+            | Zimbabwe           |          0 |      100.00 | Standard International |
+        `, () => {
+                const cart = new ShoppingCart();
+
+                given("the customer is from <Customer’s Country>", () => {
+                    cart.country = scenarioOutlineContext.example.CustomersCountry;
+                });
+
+                when("the customer’s order totals <Order Total>", () => {
+                    const item = new CartItem();
+                    item.quantity = 1;
+                    item.price = scenarioOutlineContext.example.OrderTotal;
+                    item.product = "tea";
+                    cart.items.push(item);
+                    cart.calculateInvoice();
+
+                });
+
+                then("the customer pays <GST Amount> GST", () => {
+                    cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);
+                });
+
+                and("they are charged the <Shipping Rate> shipping rate", () => {
+                    const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(" ", "")];
+                    cart.shipping.should.be.equal(rate);
+                });
+            });
     });
 ```
 
@@ -99,7 +118,7 @@ As can be seen by this simple example the actual test code is small and concise 
 
 This is just a small example of what can be done with LiveDoc-mocha. To understand more of what it can do, check out the [API documentation](docs/API.md).
 
-The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Sample/Example.Spec.ts).
+The class used for this sample wasn't shown for brevity, however you can find the example [source code here](_src/test/Sample/Tutorial/Tutorial.Spec.ts). This Spec is also part of the [Tutorial](docs/Tutorial.md) documentation.
 
 ## Installing
 This library builds off the mocha.js library as a custom ui. To setup, follow these steps.

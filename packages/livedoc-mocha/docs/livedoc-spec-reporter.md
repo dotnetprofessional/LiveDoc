@@ -7,6 +7,7 @@ The livedoc reporter provides the following features:
 * Colorized (optional) output highlighting values and example data when output.
 * Better context for failing Specs, by providing the full scenario detail as part of the error output.
 * Better support for Scenario Outlines, by outputting the Scenario Outline first then the examples.
+* Add section headers to report output. This provides logical grouping based on the directory structure of your tests.
 * Support for 3 levels of detail
 * Output to a file
 
@@ -49,6 +50,36 @@ spec+summary
 The output when using list will list out the features as well as each scenario. Note scenario outlines are only listed once.
 
 ![livedoc-spec list](images/livedoc-spec-list.PNG)
+
+## Applying Headers
+When you have many scenarios it can be hard to track which scenarios belong to a particular category. Adding headers allows the option to display the folder the test belongs to as a group header. The path is only displayed from the root of the first test. This focuses the header to the important part of the path.
+
+```
+--reporter-options detailLevel=spec+summary+headers
+```
+
+![livedoc-spec list](images/headers.PNG)
+
+
+In some cases such as when your project uses a mono-repo structure, you may not have all your tests in a single root path. They maybe spread between different logical projects. When the headers are output you'll likely see additional path information that isn't helpful to understanding the tests. In these scenarios, its possible to remove a string from the output. As an example if your headers looked like the following.
+
+```
+PACKAGES\COMPONENTS\SRC\SPECS\UI\FOO
+PACKAGES\COMPONENTS\SRC\SPECS\SERVICES\FOOBAR
+```
+
+If would be desirable to remove the `technical` aspect of the header `SRC\SPECS`. This can be done by applying the `removeHeaderText` option.
+```
+--reporter-options detailLevel=spec+summary+headers,removeHeaderText=removeHeaderText=\\src\\specs\"
+```
+
+This then produces a more readable set of headers:
+
+```
+PACKAGES\COMPONENTS\UI\FOO
+PACKAGES\COMPONENTS\SERVICES\FOOBAR
+```
+> Note that the `removeHeaderText` option is case sensitive.
 
 ### Output result as JSON
 The test run can also be output as a JSON file. This for example can be used to generate custom reporting such as Living Documentation. The output includes a lot of detail about the test run and the results. This is similar to the detail available when writing a [post-reporter](Post-Reporters.md).
