@@ -55,7 +55,7 @@
     "vscode": "code --disable-gpu",
     "pack": "npm run release && cd release && npm pack && cpx *.tgz ../ && rimraf *.tgz && cd ..",
     "prepack": "",
-    "npm-publish": "npm publish livedoc-mocha-0.4.0.tgz",
+    "npm-publish": "npm publish livedoc-mocha-0.4.1.tgz",
     "npm-publish-beta": "npm publish livedoc-mocha-0.4.7.tgz --tag beta"
   },
   "devDependencies": {
