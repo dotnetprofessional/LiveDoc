@@ -1,4 +1,8 @@
 # Release Notes
+
+## 0.4.1
+* Fixing issue with publish excluding README and docs. This prevented npmjs.com from displaying the README file.
+
 ## 0.4.0
 * Public release
 
