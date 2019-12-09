@@ -11,6 +11,7 @@ LiveDoc-mocha is a library for adding behavior using a language called [Gherkin]
 * [Command line options](docs/comandline-switches.md)
 * [Reporters](docs/Reporters.md)
 * [livedoc-spec reporter](docs/livedoc-spec-reporter.md) (important!)
+* [Code Coverage](docs/code-coverage.md)
 * [Why another library?](README.md#why-another-library)
 * [Release Notes](docs/ReleaseNotes.md)
 

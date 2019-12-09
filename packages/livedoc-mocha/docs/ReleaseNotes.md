@@ -1,5 +1,8 @@
 # Release Notes
 
+# unreleased
+* Issue [#87](https://github.com/dotnetprofessional/LiveDoc/issues/87) add documentation for code coverage.
+
 ## 0.4.1
 * Fixing issue with publish excluding README and docs. This prevented npmjs.com from displaying the README file.
 

@@ -40,7 +40,7 @@ feature(`Reporter returns model including execution results`, () => {
             });
             """ 
             `, () => {
-            });
+        });
 
         when(`executing feature`, async () => {
             // Cant have # as part of the feature as it conflicts with reading this steps docString
@@ -92,28 +92,28 @@ feature(`Reporter returns model including execution results`, () => {
             }
             """
             `, () => {
-                const expected = stepContext.docStringAsEntity;
-                const actual = {
-                    "sequence": 1,
-                    "title": step.title,
-                    "status": step.status,
-                    "exception": step.exception,
-                    "docString": step.docString,
-                    "dataTable": step.dataTable,
-                    "values": step.values,
-                    "valuesRaw": step.valuesRaw,
-                    "ruleViolations": step.ruleViolations,
-                    "type": step.type
-                }
+            const expected = stepContext.docStringAsEntity;
+            const actual = {
+                "sequence": 1,
+                "title": step.title,
+                "status": step.status,
+                "exception": step.exception,
+                "docString": step.docString,
+                "dataTable": step.dataTable,
+                "values": step.values,
+                "valuesRaw": step.valuesRaw,
+                "ruleViolations": step.ruleViolations,
+                "type": step.type
+            }
 
-                actual.should.be.eql(expected);
-            });
+            actual.should.be.eql(expected);
+        });
 
         // Only captured for errors to save space
         and(`the code of the step is not captured as they are only captured for error steps
             `, () => {
-                should.equal(undefined, step.code);
-            });
+            should.equal(undefined, step.code);
+        });
 
         and(`the elapsed time is captured`, () => {
             step.duration.should.be.greaterThan(0);
@@ -135,7 +135,7 @@ feature(`Reporter returns model including execution results`, () => {
             });
             """ 
             `, () => {
-            });
+        });
 
         when(`executing feature`, async () => {
             results = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
@@ -153,19 +153,19 @@ feature(`Reporter returns model including execution results`, () => {
             }      
             """
         `, () => {
-                const expected = stepContext.docStringAsEntity;
-                const step = results.features[0].scenarios[0].steps[0];
-                const actual = {
-                    "status": step.status,
-                    "exception": step.exception,
-                }
+            const expected = stepContext.docStringAsEntity;
+            const step = results.features[0].scenarios[0].steps[0];
+            const actual = {
+                "status": step.status,
+                "exception": step.exception,
+            }
 
-                // As the stack trace is not predictable, validate specifically
-                actual.exception.stackTrace.should.contain(".feature"); // reference to the file
-                actual.exception.stackTrace = "";
-                expected.exception.stackTrace = "";
-                actual.should.be.eql(expected);
-            });
+            // As the stack trace is not predictable, validate specifically
+            actual.exception.stackTrace.should.contain(".feature"); // reference to the file
+            actual.exception.stackTrace = "";
+            expected.exception.stackTrace = "";
+            actual.should.be.eql(expected);
+        });
     });
 
     scenario(`Steps that Fail have the meta-data added to model`, () => {
@@ -185,7 +185,7 @@ feature(`Reporter returns model including execution results`, () => {
             });
             """ 
             `, () => {
-            });
+        });
 
         when(`executing feature`, async () => {
             results = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
@@ -198,27 +198,27 @@ feature(`Reporter returns model including execution results`, () => {
                 "exception": {
                     "actual": "You say Goodbye",
                     "expected": "I say Hello",
-                    "message": "Input A expected to strictly deep-equal input B:"
+                    "message": "Expected values to be strictly deep-equal:"
                 }
             }
             """
         `, () => {
-                const expected = stepContext.docStringAsEntity;
-                const step = results.features[0].scenarios[0].steps[0];
-                const actual = {
-                    "status": step.status,
-                    "exception": step.exception,
-                }
+            const expected = stepContext.docStringAsEntity;
+            const step = results.features[0].scenarios[0].steps[0];
+            const actual = {
+                "status": step.status,
+                "exception": step.exception,
+            }
 
-                // This output will vary depending on the version of node being used. This is being tested
-                // against node v10.7.0
-                actual.exception.message = actual.exception.message.split('\n')[0];
-                // As the stack trace is not predictable, validate specifically
-                actual.exception.stackTrace.should.contain(".feature"); // reference to the file
-                actual.exception.stackTrace = "";
-                expected.exception.stackTrace = "";
-                actual.should.be.eql(expected);
-            });
+            // This output will vary depending on the version of node being used. This is being tested
+            // against node v10.7.0
+            actual.exception.message = actual.exception.message.split('\n')[0];
+            // As the stack trace is not predictable, validate specifically
+            actual.exception.stackTrace.should.contain(".feature"); // reference to the file
+            actual.exception.stackTrace = "";
+            expected.exception.stackTrace = "";
+            actual.should.be.eql(expected);
+        });
     });
 
     scenario(`Describe it statements are updated with execution results`, () => {
@@ -240,7 +240,7 @@ feature(`Reporter returns model including execution results`, () => {
             });
         """ 
             `, () => {
-            });
+        });
 
         when(`executing describe`, async () => {
             results = await LiveDoc.executeDynamicTestAsync(scenarioContext.given.docString);
