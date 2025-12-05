@@ -1,3 +1,5 @@
+require('chai').should();
+import { feature, scenarioOutline, background, Given, When, Then, And } from "../../../app/livedoc";
 
 const shippingRates = {
     Free: 0,
@@ -44,12 +46,12 @@ class CartItem {
 feature(`Beautiful Tea Shipping Costs
 
     * Australian customers pay GST
-    * Overseas customers don’t pay GST
+    * Overseas customers don't pay GST
     * Australian customers get free shipping for orders $100 and above
-    * Overseas customers all pay the same shipping rate regardless of order size`, () => {
+    * Overseas customers all pay the same shipping rate regardless of order size`, (ctx) => {
 
         background(``, () => {
-            given(`my background test`, () => {
+            Given(`my background test`, () => {
 
             });
         });
@@ -58,35 +60,35 @@ feature(`Beautiful Tea Shipping Costs
 
             Examples:
 
-            | Customer’s Country | GST Amount | Order Total |     Shipping Rate      |
+            | Customer's Country | GST Amount | Order Total |     Shipping Rate      |
             | Australia          |      9.999 |       99.99 | Standard Domestic      |
             | Australia          |      10.00 |      100.00 | Free                   |
             | New Zealand        |          0 |       99.99 | Standard International |
-            | New Zealand        |         10 |      100.00 | Standard International |
+            | New Zealand        |          0 |      100.00 | Standard International |
             | Zimbabwe           |          0 |      100.00 | Standard International |
-        `, () => {
+        `, (ctx) => {
                 const cart = new ShoppingCart();
 
-                given("the customer is from <Customer’s Country>", () => {
-                    cart.country = scenarioOutlineContext.example.CustomersCountry;
+                Given("the customer is from <Customer's Country>", (ctx) => {
+                    cart.country = ctx.example.CustomersCountry;
                 });
 
-                when("the customer’s order totals <Order Total>", () => {
+                When("the customer's order totals <Order Total>", (ctx) => {
                     const item = new CartItem();
                     item.quantity = 1;
-                    item.price = scenarioOutlineContext.example.OrderTotal;
+                    item.price = ctx.example.OrderTotal;
                     item.product = "tea";
                     cart.items.push(item);
                     cart.calculateInvoice();
 
                 });
 
-                then("the customer pays <GST Amount> GST", () => {
-                    cart.gst.should.be.equal(scenarioOutlineContext.example.GSTAmount);
+                Then("the customer pays <GST Amount> GST", (ctx) => {
+                    cart.gst.should.be.equal(ctx.example.GSTAmount);
                 });
 
-                and("they are charged the <Shipping Rate> shipping rate", () => {
-                    const rate = shippingRates[scenarioOutlineContext.example.ShippingRate.replace(" ", "")];
+                And("they are charged the <Shipping Rate> shipping rate", (ctx) => {
+                    const rate = shippingRates[ctx.example.ShippingRate.replace(" ", "")];
                     cart.shipping.should.be.equal(rate);
                 });
             });

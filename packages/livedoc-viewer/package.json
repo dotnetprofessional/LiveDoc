@@ -1,0 +1,56 @@
+{
+  "name": "@livedoc/viewer",
+  "version": "1.0.0",
+  "description": "LiveDoc BDD Test Results Viewer - Real-time test visualization",
+  "type": "module",
+  "main": "dist/server/index.js",
+  "bin": {
+    "livedoc-viewer": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server/index.ts",
+    "dev:client": "vite",
+    "build": "npm run build:client && npm run build:server",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:client": "vite build",
+    "start": "node dist/server/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "commander": "^12.1.0",
+    "hono": "^4.6.0",
+    "open": "^10.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "ws": "^8.18.0",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.5.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "tailwindcss": "^4.1.17",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  },
+  "files": [
+    "dist",
+    "public"
+  ],
+  "keywords": [
+    "livedoc",
+    "bdd",
+    "testing",
+    "vitest",
+    "xunit",
+    "reporter",
+    "viewer"
+  ],
+  "author": "",
+  "license": "MIT"
+}

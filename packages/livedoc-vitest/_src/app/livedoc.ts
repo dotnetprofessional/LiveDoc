@@ -1,0 +1,1513 @@
+import { describe as vitestDescribe, it as vitestIt, beforeAll, afterAll } from "vitest";
+import { LiveDocGrammarParser } from "./parser/Parser";
+import * as model from "./model/index";
+import { LiveDocOptions } from "./LiveDocOptions";
+import { RuleViolations } from "./model/RuleViolations";
+import { LiveDocRuleOption } from "./LiveDocRuleOption";
+import { LiveDocRuleViolation } from "./model/LiveDocRuleViolation";
+import chalk from "chalk";
+import { featureRegistry, suiteRegistry } from "./LiveDocRegistry";
+import SilentReporter from "./reporter/SilentReporter";
+
+const parser = new LiveDocGrammarParser();
+
+/**
+ * Extract filename from Error stack trace, handling different formats
+ * @param skipFrames Number of stack frames to skip (caller's caller = 2)
+ */
+function getFilenameFromStack(skipFrames: number = 2): string {
+    const stack = new Error().stack || "";
+    const stackLines = stack.split("\n");
+    let filename = "unknown";
+    
+    // Try to find the caller's file (skip the specified frames)
+    for (let i = skipFrames; i < Math.min(stackLines.length, skipFrames + 5); i++) {
+        const line = stackLines[i];
+        // Pattern 1: (filename:line:col)
+        let match = line.match(/\((.+?):\d+:\d+\)/);
+        if (match && !match[1].includes("livedoc.ts") && !match[1].includes("node_modules")) {
+            filename = match[1];
+            break;
+        }
+        // Pattern 2: at filename:line:col (no parentheses)
+        match = line.match(/at\s+(.+?):\d+:\d+$/);
+        if (match && !match[1].includes("livedoc.ts") && !match[1].includes("node_modules")) {
+            filename = match[1];
+            break;
+        }
+        // Pattern 3: file:///path/to/file.ts:line:col
+        match = line.match(/file:\/\/\/(.+?):\d+:\d+/);
+        if (match && !match[1].includes("livedoc.ts") && !match[1].includes("node_modules")) {
+            filename = match[1];
+            break;
+        }
+    }
+    return filename;
+}
+
+// Global state for current execution context
+let currentFeature: model.Feature | null = null;
+let currentScenario: model.Scenario | null = null;
+let currentBackground: model.Background | null = null;
+let currentStep: model.StepDefinition | null = null;
+let scenarioCount = 0;
+let scenarioId = 0;
+let backgroundSteps: Array<{ func: Function; stepDefinition: model.StepDefinition }> = [];
+let afterBackgroundFn: Function | null = null;
+let backgroundStepsComplete = false;
+
+// Track whether the background's own it() tests actually executed
+// This is false when scenario.only is used (background tests get skipped)
+let backgroundItExecuted = false;
+
+// Track whether we're inside a pending (skipped) context
+let isPendingContext = false;
+
+// Track whether we're inside a filtered-out context (excluded via tags)
+// This is separate from isPendingContext because filtered scenarios should have
+// status 'unknown' (not executed) rather than 'pending' (explicitly skipped)
+let isFilteredContext = false;
+
+// Flag to indicate if we're in dynamic execution mode
+let isDynamicExecution = false;
+
+// Store any exception that should be re-thrown to the caller
+let capturedThrownException: { type: string; message: string; data?: any } | null = null;
+
+// Check if we're in dynamic execution mode (set by executeDynamicTestAsync)
+const dynamicResultsFile = process.env.LIVEDOC_DYNAMIC_RESULTS_FILE;
+if (dynamicResultsFile) {
+    isDynamicExecution = true;
+    // Register a global afterAll to write results when all tests complete
+    afterAll(() => {
+        try {
+            const fs = require('fs');
+            const results: any = {
+                features: featureRegistry.map(f => f.toJSON()),
+                suites: suiteRegistry.map(s => s.toJSON())
+            };
+            // Include any captured exception
+            if (capturedThrownException) {
+                results.thrownException = capturedThrownException;
+            }
+            fs.writeFileSync(dynamicResultsFile, JSON.stringify(results, null, 2));
+        } catch (e) {
+            console.error('Failed to write dynamic test results:', e);
+        }
+    });
+}
+
+// Global options
+export const livedoc = {
+    options: new LiveDocOptions(),
+};
+
+// Initialize with recommended rules
+livedoc.options.rules.singleGivenWhenThen = LiveDocRuleOption.enabled;
+livedoc.options.rules.backgroundMustOnlyIncludeGiven = LiveDocRuleOption.enabled;
+livedoc.options.rules.enforceTitle = LiveDocRuleOption.enabled;
+livedoc.options.rules.enforceUsingGivenOverBefore = LiveDocRuleOption.warning;
+livedoc.options.rules.mustIncludeGiven = LiveDocRuleOption.warning;
+livedoc.options.rules.mustIncludeWhen = LiveDocRuleOption.warning;
+livedoc.options.rules.mustIncludeThen = LiveDocRuleOption.warning;
+
+// Tracking displayed violations to avoid duplicates
+const displayedViolations: Record<string, boolean> = {};
+
+// Store scenario outline metadata indexed by title for the reporter
+const scenarioOutlineRegistry = new Map<string, {
+    rawTitle: string;
+    title: string;
+    description: string;
+    tables: any[];
+    tags: string[];
+}>();
+
+/**
+ * Check if any of the tags are in the exclude filter list
+ */
+function markedAsExcluded(tags: string[]): boolean {
+    if (tags.length === 0 || !livedoc.options.filters.exclude) {
+        return false;
+    }
+
+    for (const tag of tags) {
+        if (livedoc.options.filters.exclude.includes(tag)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Check if any of the tags are in the include filter list
+ */
+function markedAsIncluded(tags: string[]): boolean {
+    if (tags.length === 0 || !livedoc.options.filters.include || livedoc.options.filters.include.length === 0) {
+        return false;
+    }
+
+    for (const tag of tags) {
+        if (livedoc.options.filters.include.includes(tag)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Check if tags should mark test as pending (excluded)
+ * Returns true only if excluded AND NOT included (unless showFilterConflicts is true)
+ */
+function shouldMarkAsPending(tags: string[]): boolean {
+    return markedAsExcluded(tags) && (!markedAsIncluded(tags) || !!livedoc.options.filters.showFilterConflicts);
+}
+
+/**
+ * Check if tags should mark test as only to run (included)
+ * Returns true only if included AND NOT excluded (unless showFilterConflicts is true)
+ */
+function shouldInclude(tags: string[]): boolean {
+    if (tags.length === 0) {
+        return false;
+    }
+
+    return markedAsIncluded(tags) && (!markedAsExcluded(tags) || !!livedoc.options.filters.showFilterConflicts);
+}
+
+function displayRuleViolation(violation: LiveDocRuleViolation, filename: string) {
+    if (displayedViolations[violation.errorId]) {
+        return;
+    }
+
+    const option = (livedoc.options.rules as any)[RuleViolations[violation.rule]];
+    const outputMessage = `${violation.message} [title: ${violation.title}, file: ${filename}]`;
+
+    if (option === LiveDocRuleOption.warning) {
+        displayedViolations[violation.errorId] = true;
+        console.error(chalk.bgYellow.red(`WARNING[${violation.errorId}]: ${outputMessage}`));
+    } else if (option === LiveDocRuleOption.enabled) {
+        // Capture the exception for serialization before throwing
+        if (isDynamicExecution) {
+            capturedThrownException = {
+                type: 'LiveDocRuleViolation',
+                message: violation.message,
+                data: violation.toJSON()
+            };
+        }
+        throw violation;
+    }
+}
+
+function displayWarnings(filename: string) {
+    if (currentScenario) {
+        currentScenario.ruleViolations.forEach(v => displayRuleViolation(v, filename));
+    }
+    if (currentFeature) {
+        currentFeature.ruleViolations.forEach(v => displayRuleViolation(v, filename));
+    }
+    if (currentStep) {
+        currentStep.ruleViolations.forEach(v => displayRuleViolation(v, filename));
+    }
+}
+
+/**
+ * Internal feature implementation
+ */
+function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    const filename = getFilenameFromStack(3); // Extra stack frame due to wrapper
+
+    // Check if callback is async BEFORE calling vitest's describe
+    // This ensures the exception is thrown before vitest gets control
+    if (fn.constructor.name === 'AsyncFunction') {
+        throw new model.ParserException(`The async keyword is not supported for Feature`, title, filename);
+    }
+
+    // Create feature immediately during registration phase
+    const thisFeature = parser.createFeature(title, filename);
+    currentFeature = thisFeature;
+    scenarioCount = 0;
+    backgroundSteps = [];
+    backgroundItExecuted = false;
+    afterBackgroundFn = null;
+
+    // Generate feature ID (matching Mocha behavior)
+    (thisFeature as any).generateId(thisFeature);
+
+    // Register feature (note: not used by reporter, which reconstructs from Vitest task tree)
+    // Also validate uniqueness
+    (thisFeature as any).validateIdUniqueness(thisFeature.id, featureRegistry);
+    featureRegistry.push(thisFeature);
+
+    // Check if feature should be skipped based on tags or explicit skip
+    const shouldSkip = opts.pending || shouldMarkAsPending(thisFeature.tags);
+    const shouldOnlyRun = opts.isOnly || shouldInclude(thisFeature.tags);
+
+    const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
+
+    describeFunc(title, () => {
+        // Restore currentFeature for this describe's callback
+        // This ensures scenarios are added to the correct feature
+        currentFeature = thisFeature;
+        
+        // Track pending context for steps
+        const previousPendingContext = isPendingContext;
+        const previousFilteredContext = isFilteredContext;
+        
+        // When we skip, we need to track WHY we're skipping:
+        // - If skipping due to exclude filter (shouldMarkAsPending=true), steps should be 'pending'
+        // - If skipping due to parent being in a filter conflict state, steps should stay 'unknown'
+        // - If explicit .skip(), steps should be 'pending'
+        if (shouldSkip) {
+            isPendingContext = true;
+            // Inherit filter context from parent (already captured before describeFunc)
+        }
+        
+        const ctx = {
+            get feature() {
+                return thisFeature?.getFeatureContext();
+            },
+        };
+
+        fn(ctx);
+        
+        // Restore contexts
+        isPendingContext = previousPendingContext;
+        isFilteredContext = previousFilteredContext;
+    });
+}
+
+/**
+ * Feature keyword - creates a new Gherkin feature
+ */
+export const feature = Object.assign(
+    function feature(title: string, fn: (ctx: any) => void) {
+        featureImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn: (ctx: any) => void) {
+            featureImpl(title, fn, { pending: true });
+        },
+        only: function only(title: string, fn: (ctx: any) => void) {
+            featureImpl(title, fn, { isOnly: true });
+        }
+    }
+);
+
+/**
+ * Internal scenario implementation
+ */
+function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    if (!currentFeature) {
+        throw new model.ParserException("Scenario must be within a feature.", title, "");
+    }
+
+    const filename = getFilenameFromStack(3);
+    
+    // Check if callback is async BEFORE calling vitest's describe
+    if (fn.constructor.name === 'AsyncFunction') {
+        throw new model.ParserException(`The async keyword is not supported for Scenario`, title, filename);
+    }
+
+    const scenarioModel = parser.addScenario(currentFeature, title);
+    scenarioCount++;
+    const thisScenarioId = scenarioCount;
+
+    // Check if scenario should be skipped based on tags or explicit skip
+    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(scenarioModel.tags);
+    const shouldOnlyRun = opts.isOnly || shouldInclude(scenarioModel.tags);
+    
+    // Capture parent's filter context BEFORE describe callback is queued
+    // This is needed because parent will restore its context after this returns
+    const isInheritedFilter = isFilteredContext;
+
+    const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
+
+    describeFunc(scenarioModel.displayTitle, () => {
+        // Set current scenario during registration so steps can be added
+        const previousScenario = currentScenario;
+        currentScenario = scenarioModel;
+        
+        // Track pending context for steps
+        const previousPendingContext = isPendingContext;
+        const previousFilteredContext = isFilteredContext;
+        
+        // Set isPendingContext for skipped scenarios
+        // Only propagate isFilteredContext if inherited from parent (not if this scenario is excluded)
+        // When a scenario is excluded by filter, steps should be 'pending', not 'unknown'
+        if (shouldSkip) {
+            isPendingContext = true;
+            // Only inherit filter context from parent - don't set it just because we're excluded
+            if (isInheritedFilter) {
+                isFilteredContext = true;
+            }
+        }
+
+        beforeAll(async () => {
+            scenarioId = thisScenarioId;
+            backgroundStepsComplete = false;
+        });
+
+        afterAll(async () => {
+            if (afterBackgroundFn && currentFeature) {
+                const hookStep = parser.createStep("hook", "afterBackground", undefined);
+                // Use scenarioModel (captured at registration) not currentScenario (global that may have changed)
+                scenarioModel.addStep(hookStep);
+                currentStep = hookStep;
+                const startTime = Date.now();
+                try {
+                    await afterBackgroundFn();
+                    hookStep.setStatus(model.SpecStatus.pass, Date.now() - startTime);
+                } catch (error: any) {
+                    const duration = Date.now() - startTime;
+                    hookStep.setStatus(model.SpecStatus.fail, duration);
+                    const exception = new model.Exception();
+                    exception.message = error.message || String(error);
+                    exception.stackTrace = error.stack || '';
+                    hookStep.exception = exception;
+                    throw error;
+                }
+            }
+        });
+
+        const ctx = {
+            get feature() {
+                return currentFeature?.getFeatureContext();
+            },
+            get scenario() {
+                return scenarioModel.getScenarioContext();
+            },
+        };
+
+        fn(ctx);
+
+        // Restore contexts
+        isPendingContext = previousPendingContext;
+        isFilteredContext = previousFilteredContext;
+        
+        // Restore previous scenario after registration
+        currentScenario = previousScenario;
+    });
+}
+
+/**
+ * Scenario keyword - creates a new test scenario
+ */
+export const scenario = Object.assign(
+    function scenario(title: string, fn: (ctx: any) => void | Promise<void>) {
+        scenarioImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn: (ctx: any) => void | Promise<void>) {
+            scenarioImpl(title, fn, { pending: true });
+        },
+        only: function only(title: string, fn: (ctx: any) => void | Promise<void>) {
+            scenarioImpl(title, fn, { isOnly: true });
+        }
+    }
+);
+
+/**
+ * Internal background implementation
+ */
+function backgroundImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    if (!currentFeature) {
+        throw new model.ParserException("Background must be within a feature.", title, "");
+    }
+
+    const filename = getFilenameFromStack(3);
+    
+    // Check if callback is async BEFORE calling vitest's describe
+    if (fn.constructor.name === 'AsyncFunction') {
+        throw new model.ParserException(`The async keyword is not supported for Background`, title, filename);
+    }
+
+    const backgroundModel = parser.addBackground(currentFeature, title);
+
+    // Check if background should be skipped based on explicit skip
+    const describeFunc = opts.pending ? vitestDescribe.skip : opts.isOnly ? vitestDescribe.only : vitestDescribe;
+
+    describeFunc(backgroundModel.displayTitle, () => {
+        // Set current background during registration
+        const previousBackground = currentBackground;
+        currentBackground = backgroundModel;
+        backgroundSteps = [];
+        backgroundItExecuted = false;
+
+        const ctx = {
+            get feature() {
+                return currentFeature?.getFeatureContext();
+            },
+            get background() {
+                return currentFeature?.getBackgroundContext();
+            },
+            afterBackground(fn: Function) {
+                afterBackgroundFn = fn;
+            },
+        };
+
+        fn(ctx);
+
+        // Restore previous background
+        currentBackground = previousBackground;
+    });
+}
+
+/**
+ * Background keyword - defines steps to run before each scenario
+ */
+export const background = Object.assign(
+    function background(title: string, fn: (ctx: any) => void) {
+        backgroundImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn: (ctx: any) => void) {
+            backgroundImpl(title, fn, { pending: true });
+        },
+        only: function only(title: string, fn: (ctx: any) => void) {
+            backgroundImpl(title, fn, { isOnly: true });
+        }
+    }
+);
+
+/**
+ * afterBackground - called after background steps complete for each scenario
+ * Can be used both as a standalone function or via background context
+ */
+export function afterBackground(fn: Function): void {
+    afterBackgroundFn = fn;
+}
+
+/**
+ * Internal scenario outline implementation
+ */
+function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    if (!currentFeature) {
+        throw new model.ParserException("Scenario Outline must be within a feature.", title, "");
+    }
+
+    const filename = getFilenameFromStack(3);
+    
+    // Check if callback is async BEFORE calling vitest's describe
+    if (fn.constructor.name === 'AsyncFunction') {
+        throw new model.ParserException(`The async keyword is not supported for Scenario Outline`, title, filename);
+    }
+
+    const scenarioOutlineModel = parser.addScenarioOutline(currentFeature, title);
+
+    // Store the scenario outline metadata in registry for in-process access
+    scenarioOutlineRegistry.set(scenarioOutlineModel.title, {
+        rawTitle: title,
+        title: scenarioOutlineModel.title,
+        description: scenarioOutlineModel.description,
+        tables: scenarioOutlineModel.tables,
+        tags: scenarioOutlineModel.tags
+    });
+
+    // Check if scenario outline should be skipped based on tags or explicit skip
+    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(scenarioOutlineModel.tags);
+    const shouldOnlyRun = opts.isOnly || shouldInclude(scenarioOutlineModel.tags);
+    
+    // Capture parent's filter context BEFORE describe callback is queued
+    // This is needed because parent will restore its context after this returns
+    const isInheritedFilter = isFilteredContext;
+
+    // Create a scenario for each example
+    for (const example of scenarioOutlineModel.examples) {
+        scenarioCount++;
+        const thisScenarioId = scenarioCount;
+        const isFirstExample = example.sequence === 1;
+
+        const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
+
+        // For the first example, encode scenario outline metadata in the suite name
+        // This allows the reporter to reconstruct the outline structure
+        let suiteName = example.displayTitle;
+        if (isFirstExample) {
+            // Append metadata as JSON in a special format that can be parsed later
+            // Format: <<<LIVEDOC_META:{ json }>>>
+            const metadata = {
+                scenarioOutline: {
+                    rawTitle: title,
+                    title: scenarioOutlineModel.title,
+                    description: scenarioOutlineModel.description,
+                    tables: scenarioOutlineModel.tables,
+                    tags: scenarioOutlineModel.tags,
+                    steps: scenarioOutlineModel.steps
+                }
+            };
+            suiteName = `${example.displayTitle}\n<<<LIVEDOC_META:${JSON.stringify(metadata)}>>>`;
+        }
+
+        describeFunc(suiteName, () => {
+            // Set current scenario during registration so steps can be added
+            const previousScenario = currentScenario;
+            currentScenario = example as any;  // ScenarioExample is assignable to Scenario for our purposes
+            
+            // Track pending context for steps
+            const previousPendingContext = isPendingContext;
+            const previousFilteredContext = isFilteredContext;
+            
+            // Set isPendingContext for skipped scenarios
+            // Only propagate isFilteredContext if inherited from parent (not if this scenario is excluded)
+            // When a scenario is excluded by filter, steps should be 'pending', not 'unknown'
+            if (shouldSkip) {
+                isPendingContext = true;
+                // Only inherit filter context from parent - don't set it just because we're excluded
+                if (isInheritedFilter) {
+                    isFilteredContext = true;
+                }
+            }
+
+            beforeAll(() => {
+                scenarioId = thisScenarioId;
+                backgroundStepsComplete = false;
+            });
+
+            afterAll(async () => {
+                if (afterBackgroundFn && currentFeature) {
+                    const hookStep = parser.createStep("hook", "afterBackground", undefined);
+                    // Use example (captured at registration) not currentScenario (global that may have changed)
+                    example.addStep(hookStep);
+                    currentStep = hookStep;
+                    const startTime = Date.now();
+                    try {
+                        await afterBackgroundFn();
+                        hookStep.setStatus(model.SpecStatus.pass, Date.now() - startTime);
+                    } catch (error: any) {
+                        const duration = Date.now() - startTime;
+                        hookStep.setStatus(model.SpecStatus.fail, duration);
+                        const exception = new model.Exception();
+                        exception.message = error.message || String(error);
+                        exception.stackTrace = error.stack || '';
+                        hookStep.exception = exception;
+                        throw error;
+                    }
+                }
+            });
+
+            const ctx = {
+                get feature() {
+                    return currentFeature?.getFeatureContext();
+                },
+                get scenario() {
+                    return example.getScenarioContext();
+                },
+                get example() {
+                    return example.getScenarioContext();
+                },
+            };
+
+            fn(ctx);
+
+            // Restore contexts
+            isPendingContext = previousPendingContext;
+            isFilteredContext = previousFilteredContext;
+            
+            // Restore previous scenario after registration
+            currentScenario = previousScenario;
+        });
+    }
+}
+
+/**
+ * Scenario Outline keyword - creates data-driven scenarios
+ */
+export const scenarioOutline = Object.assign(
+    function scenarioOutline(title: string, fn: (ctx: any) => void) {
+        scenarioOutlineImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn: (ctx: any) => void) {
+            scenarioOutlineImpl(title, fn, { pending: true });
+        },
+        only: function only(title: string, fn: (ctx: any) => void) {
+            scenarioOutlineImpl(title, fn, { isOnly: true });
+        }
+    }
+);
+
+/**
+ * Helper to create step functions
+ */
+function createStepFunction(stepType: string) {
+    return function (title: string, fn?: (ctx: any) => void | Promise<void>, passedParam?: object | Function) {
+        const filename = getFilenameFromStack(2);
+
+        // If no feature, this step is at the top level - give helpful error
+        if (!currentFeature) {
+            throw new model.ParserException(
+                `Invalid Gherkin, ${stepType} can only appear within a Background, Scenario or Scenario Outline`,
+                title,
+                filename
+            );
+        }
+
+        const stepDefinition = parser.createStep(stepType, title, passedParam);
+        
+        // If this step is in a pending context (explicitly skipped with .skip), mark it as pending
+        // Note: filter-based exclusions (isFilteredContext) should keep steps as 'unknown'
+        if (isPendingContext && !isFilteredContext) {
+            stepDefinition.status = model.SpecStatus.pending;
+        }
+
+        // Capture context at registration time - these variables will be null at execution time
+        const isBackgroundStep = currentBackground !== null;
+        const capturedScenario = currentScenario;
+        const capturedFeature = currentFeature;
+
+        // Add step to appropriate parent
+        if (currentBackground) {
+            currentBackground.addStep(stepDefinition);
+        } else if (currentScenario) {
+            currentScenario.addStep(stepDefinition);
+            // For Scenario Outlines, add to outline on first example
+            if (currentScenario instanceof model.ScenarioExample && currentScenario.sequence === 1) {
+                currentScenario.scenarioOutline.steps.push(stepDefinition);
+            }
+        } else {
+            throw new model.ParserException(
+                `Invalid Gherkin, ${stepType} can only appear within a Background, Scenario or Scenario Outline`,
+                title,
+                filename
+            );
+        }
+
+        const testName = stepDefinition.displayTitle;
+
+        // For background steps: store the function during registration (not during execution)
+        // This ensures background steps are available even when using .only on scenarios
+        if (isBackgroundStep && fn) {
+            backgroundSteps.push({ func: fn, stepDefinition });
+        }
+
+        vitestIt(testName, async () => {
+            const startTime = Date.now();
+            currentStep = stepDefinition;
+            displayWarnings(filename);
+
+            // Apply passed params
+            parser.applyPassedParams(stepDefinition);
+
+            try {
+                // Handle step execution based on context (matching Mocha behavior)
+                if (isBackgroundStep) {
+                    // For background steps: execute during background's it() (first scenario only)
+                    // The function was already stored in backgroundSteps during registration
+                    // Mark that background's it() tests are executing
+                    backgroundItExecuted = true;
+                    if (fn) {
+                        currentStep = stepDefinition;
+                        const ctx = {
+                            get feature() {
+                                return capturedFeature?.getFeatureContext();
+                            },
+                            get background() {
+                                return capturedFeature?.getBackgroundContext();
+                            },
+                            get step() {
+                                return stepDefinition.getStepContext();
+                            },
+                        };
+                        const result = fn(ctx);
+                        if (result && typeof result.then === "function") {
+                            await result;
+                        }
+                    }
+                } else if (capturedScenario) {
+                    // For scenario steps: Re-execute stored background steps before first step
+                    // - For first scenario: Skip re-execution if background's it() already ran (backgroundItExecuted)
+                    // - For subsequent scenarios: Always re-execute
+                    // - For .only scenarios: Re-execute because background's it() didn't run (!backgroundItExecuted)
+                    const shouldReExecuteBackground = !backgroundItExecuted || scenarioId > 1;
+                    if (shouldReExecuteBackground && backgroundSteps.length > 0 && !backgroundStepsComplete) {
+                        backgroundStepsComplete = true;
+                        for (const stepDetail of backgroundSteps) {
+                            currentStep = stepDetail.stepDefinition;
+                            // Apply passed params to background step before execution
+                            parser.applyPassedParams(stepDetail.stepDefinition);
+                            const bgStartTime = Date.now();
+                            try {
+                                const result = stepDetail.func({
+                                    get feature() {
+                                        return capturedFeature?.getFeatureContext();
+                                    },
+                                    get background() {
+                                        return capturedFeature?.getBackgroundContext();
+                                    },
+                                    get step() {
+                                        return stepDetail.stepDefinition.getStepContext();
+                                    },
+                                });
+                                if (result && typeof result.then === "function") {
+                                    await result;
+                                }
+                                // Mark background step as passed
+                                stepDetail.stepDefinition.setStatus(model.SpecStatus.pass, Date.now() - bgStartTime);
+                            } catch (error: any) {
+                                // Mark background step as failed
+                                stepDetail.stepDefinition.setStatus(model.SpecStatus.fail, Date.now() - bgStartTime);
+                                const exception = new model.Exception();
+                                exception.message = error.message || String(error);
+                                exception.stackTrace = error.stack || '';
+                                stepDetail.stepDefinition.exception = exception;
+                                throw error;
+                            }
+                        }
+                    }
+
+                    // Execute the step function
+                    if (fn) {
+                        currentStep = stepDefinition;
+                        const ctx = {
+                            get feature() {
+                                return capturedFeature?.getFeatureContext();
+                            },
+                            get scenario() {
+                                return capturedScenario?.getScenarioContext();
+                            },
+                            get step() {
+                                return stepDefinition.getStepContext();
+                            },
+                            get example() {
+                                return capturedScenario instanceof model.ScenarioExample
+                                    ? capturedScenario.example
+                                    : undefined;
+                            },
+                            get background() {
+                                return capturedFeature?.getBackgroundContext();
+                            },
+                        };
+
+                        const result = fn(ctx);
+                        if (result && typeof result.then === "function") {
+                            await result;
+                        }
+                    }
+                }
+                
+                // Mark step as passed
+                const duration = Date.now() - startTime;
+                stepDefinition.setStatus(model.SpecStatus.pass, duration);
+            } catch (error: any) {
+                // Mark step as failed and capture exception details
+                const duration = Date.now() - startTime;
+                stepDefinition.setStatus(model.SpecStatus.fail, duration);
+                const exception = new model.Exception();
+                exception.message = error.message || String(error);
+                exception.stackTrace = error.stack || '';
+                exception.actual = error.actual || '';
+                exception.expected = error.expected || '';
+                stepDefinition.exception = exception;
+                // Re-throw so Vitest marks the test as failed
+                throw error;
+            }
+        });
+    };
+}
+
+/**
+ * Given keyword - preconditions
+ */
+export const Given = createStepFunction("Given");
+
+/**
+ * When keyword - actions
+ */
+export const When = createStepFunction("When");
+
+/**
+ * Then keyword - assertions
+ */
+export const Then = createStepFunction("Then");
+
+/**
+ * And keyword - continuation
+ */
+export const And = createStepFunction("and");
+
+/**
+ * But keyword - continuation with contrast
+ */
+export const But = createStepFunction("but");
+
+/**
+ * before - wrapper for Vitest's beforeAll that triggers rule violation when used inside LiveDoc context
+ * Users should use 'given' instead of 'before' for better readability
+ */
+export function before(fn: Function): void {
+    // Check if we're inside a LiveDoc scenario context
+    if (currentScenario && livedoc.options.rules.enforceUsingGivenOverBefore !== LiveDocRuleOption.disabled) {
+        const violation = new LiveDocRuleViolation(
+            RuleViolations.enforceUsingGivenOverBefore,
+            "Using before does not help with readability, consider using a given instead.",
+            "before"
+        );
+        currentScenario.ruleViolations.push(violation);
+    }
+    // Still call the actual beforeAll
+    beforeAll(fn as any);
+}
+
+// Note: No lowercase aliases are provided because 'then' conflicts with Promise.then()
+// Use capitalized versions: Given, When, Then, And, But
+
+/**
+ * BDD mixing detection - throws an error when 'it' is used inside a LiveDoc feature/scenario
+ * This helps users who accidentally mix BDD and Gherkin syntax
+ */
+function livedocItImpl(title: string, fn?: Function) {
+    const filename = getFilenameFromStack(3);
+
+    // Check if we're inside a Feature or Scenario context
+    if (currentFeature) {
+        if (currentScenario) {
+            throw new model.ParserException(
+                `This Scenario is using bdd syntax, did you mean to use given instead?`,
+                title,
+                filename
+            );
+        } else {
+            throw new model.ParserException(
+                `This Feature is using bdd syntax, did you mean to use given instead?`,
+                title,
+                filename
+            );
+        }
+    }
+    
+    // If not inside a LiveDoc context, delegate to vitest's it
+    return vitestIt(title, fn as any);
+}
+
+/**
+ * Exported 'it' function with .skip and .only support
+ */
+export const livedocIt = Object.assign(
+    function it(title: string, fn?: Function) {
+        return livedocItImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn?: Function) {
+            return vitestIt.skip(title, fn as any);
+        },
+        only: function only(title: string, fn?: Function) {
+            return vitestIt.only(title, fn as any);
+        }
+    }
+);
+
+/**
+ * BDD mixing detection - throws an error when 'describe' is used inside a LiveDoc feature/scenario
+ * This helps users who accidentally mix BDD and Gherkin syntax
+ */
+function livedocDescribeImpl(title: string, fn?: Function) {
+    const filename = getFilenameFromStack(3);
+
+    // Check if callback is async BEFORE calling vitest's describe
+    if (fn && fn.constructor.name === 'AsyncFunction') {
+        throw new model.ParserException(`The async keyword is not supported for describe`, title, filename);
+    }
+
+    // Check if we're inside a Feature or Scenario context
+    if (currentFeature) {
+        if (currentScenario) {
+            throw new model.ParserException(
+                `This Scenario is using bdd syntax, did you mean to use scenario instead?`,
+                title,
+                filename
+            );
+        } else {
+            throw new model.ParserException(
+                `This Feature is using bdd syntax, did you mean to use scenario instead?`,
+                title,
+                filename
+            );
+        }
+    }
+    
+    // If not inside a LiveDoc context, delegate to vitest's describe
+    return vitestDescribe(title, fn as any);
+}
+
+/**
+ * Exported 'describe' function with .skip and .only support
+ */
+export const livedocDescribe = Object.assign(
+    function describe(title: string, fn?: Function) {
+        return livedocDescribeImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn?: Function) {
+            return vitestDescribe.skip(title, fn as any);
+        },
+        only: function only(title: string, fn?: Function) {
+            return vitestDescribe.only(title, fn as any);
+        }
+    }
+);
+
+// Export as 'it', 'test', and 'describe' for user code that mixes BDD and Gherkin
+// 'test' is an alias for 'it' (matching Vitest behavior)
+export { livedocIt as it, livedocIt as test, livedocDescribe as describe };
+
+/**
+ * LiveDoc class for programmatic test execution
+ * Provides utilities for running tests dynamically
+ */
+export class LiveDoc {
+    constructor() {
+        this.recommendedRuleSettings();
+    }
+
+    public options: LiveDocOptions = new LiveDocOptions();
+
+    public shouldMarkAsPending(tags: string[]): boolean {
+        return this.markedAsExcluded(tags) && (!this.markedAsIncluded(tags) || (this.options.filters.showFilterConflicts ?? false));
+    }
+
+    public shouldInclude(tags: string[]): boolean {
+        if (tags.length === 0) {
+            return false;
+        }
+
+        return this.markedAsIncluded(tags) && (!this.markedAsExcluded(tags) || (this.options.filters.showFilterConflicts ?? false));
+    }
+
+    public markedAsExcluded(tags: string[]): boolean {
+        if (tags.length === 0 || !this.options.filters.exclude) {
+            return false;
+        }
+
+        for (let i = 0; i < this.options.filters.exclude.length; i++) {
+            if (tags.indexOf(this.options.filters.exclude[i]) > -1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public markedAsIncluded(tags: string[]): boolean {
+        if (tags.length === 0 || !this.options.filters.include) {
+            return false;
+        }
+
+        for (let i = 0; i < this.options.filters.include.length; i++) {
+            if (tags.indexOf(this.options.filters.include[i]) > -1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public recommendedRuleSettings() {
+        const warning = LiveDocRuleOption.warning;
+        const enabled = LiveDocRuleOption.enabled;
+
+        this.options.rules.singleGivenWhenThen = enabled;
+        this.options.rules.backgroundMustOnlyIncludeGiven = enabled;
+        this.options.rules.enforceTitle = enabled;
+        this.options.rules.enforceUsingGivenOverBefore = warning;
+        this.options.rules.mustIncludeGiven = warning;
+        this.options.rules.mustIncludeWhen = warning;
+        this.options.rules.mustIncludeThen = warning;
+    }
+
+    /**
+     * Execute tests from a feature string dynamically
+     * This is implemented using Vitest's programmatic API
+     * 
+     * @param feature Feature code as string (Gherkin-style test code)
+     * @param _livedocOptions LiveDoc configuration options (currently unused, for API compatibility)
+     * @returns Promise resolving to execution results
+     */
+    public static async executeDynamicTestAsync(feature: string, _livedocOptions?: LiveDocOptions): Promise<model.ExecutionResults> {
+        const fs = await import('fs');
+        const crypto = await import('crypto');
+        const path = await import('path');
+        const { startVitest } = await import('vitest/node');
+
+        let filename: string = '';
+        let errorFile: string = '';
+        let resultsFile: string = '';
+        const tempFolder = "_temp";
+
+        try {
+            if (feature.length === 0) {
+                throw new Error("feature is empty!");
+            }
+
+            // Clear and enable dynamic execution mode
+            featureRegistry.length = 0;
+            suiteRegistry.length = 0;
+            isDynamicExecution = true;
+
+            // Create temp directory
+            if (!fs.existsSync(tempFolder)) {
+                fs.mkdirSync(tempFolder);
+            }
+
+            // Generate unique filename with random value
+            const randomValue = crypto.randomBytes(4).readUInt32LE(0);
+            filename = path.join(tempFolder, `livedoc${randomValue}.Spec.ts`);
+            
+            // Use unique error/results files based on the random value to avoid conflicts
+            errorFile = path.join(tempFolder, `vitest-error-${randomValue}.json`);
+            resultsFile = path.join(tempFolder, `vitest-results-${randomValue}.json`);
+            
+            // Clear any previous error/results files (shouldn't exist with unique names, but just in case)
+            if (fs.existsSync(errorFile)) {
+                fs.unlinkSync(errorFile);
+            }
+            if (fs.existsSync(resultsFile)) {
+                fs.unlinkSync(resultsFile);
+            }
+
+            // Get the absolute path to livedoc module
+            const livedocPath = path.resolve(__dirname, 'livedoc').replace(/\\/g, '/');
+            const errorFilePath = path.resolve(errorFile).replace(/\\/g, '/');
+
+            // Strip import statements from the feature code since we provide our own imports
+            // The user's feature code may have imports like:
+            //   import { scenario } from './livedoc';
+            // We need to remove these and use our centralized imports
+            const strippedFeature = feature
+                .split('\n')
+                .filter((line: string) => !line.trim().startsWith('import '))
+                .join('\n');
+
+            // Serialize the options to pass to the subprocess
+            const serializedOptions = JSON.stringify({
+                rules: _livedocOptions?.rules,
+                filters: _livedocOptions?.filters
+            });
+
+            // Wrap the content with our imports and error capturing
+            // The results file writing is handled by the livedoc module itself
+            // when it detects the LIVEDOC_DYNAMIC_RESULTS_FILE env var
+            const wrappedContent = `
+import { feature, scenario, scenarioOutline, background, afterBackground, before, Given, When, Then, And, But, it, test, describe, livedoc } from "${livedocPath}";
+import { writeFileSync } from 'fs';
+import * as chai from 'chai';
+chai.should();
+
+// Apply passed-in options
+const _dynamicOptions = ${serializedOptions};
+if (_dynamicOptions.rules) {
+    Object.assign(livedoc.options.rules, _dynamicOptions.rules);
+}
+if (_dynamicOptions.filters) {
+    Object.assign(livedoc.options.filters, _dynamicOptions.filters);
+}
+
+// Provide lowercase aliases for compatibility with user test code
+const given = Given;
+const when = When;
+const then = Then;
+const and = And;
+const but = But;
+
+// Execute the user's feature code with error capturing
+(() => {
+    try {
+${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n')}
+    } catch (e: any) {
+        // Write error to file for parent process to read
+        const errorData = {
+            message: e.message || String(e),
+            description: e.description || '',
+            title: e.title || '',
+            name: e.name || 'Error'
+        };
+        writeFileSync('${errorFilePath}', JSON.stringify(errorData));
+        throw e;
+    }
+})();
+`;
+
+            fs.writeFileSync(filename, wrappedContent);
+
+            // Create a reporter instance to capture errors
+            const silentReporter = new SilentReporter();
+            
+            // Get absolute path for the temp file
+            const absoluteFilename = path.resolve(filename);
+            
+            // Set environment variable so livedoc.ts knows to write results
+            const absoluteResultsPath = path.resolve(resultsFile);
+            process.env.LIVEDOC_DYNAMIC_RESULTS_FILE = absoluteResultsPath;
+            
+            // Run the test file using Vitest's programmatic API
+            // Override include pattern to ensure our temp file is found
+            const vitest = await startVitest('test', [absoluteFilename], {
+                watch: false,
+                reporters: [silentReporter],
+                run: true,
+                include: [absoluteFilename.replace(/\\/g, '/')],  // Override include pattern
+            });
+
+            if (!vitest) {
+                // Clean up env var
+                delete process.env.LIVEDOC_DYNAMIC_RESULTS_FILE;
+                throw new Error('Failed to start Vitest');
+            }
+            
+            // Check for file-level errors (e.g., duplicate names)
+            const files = vitest.state?.getFiles?.() || [];
+            for (const file of files) {
+                if (file.result?.errors && file.result.errors.length > 0) {
+                    const firstError = file.result.errors[0] as Error;
+                    silentReporter.collectedErrors.push(firstError);
+                }
+            }
+            
+            await vitest.close();
+            
+            // Clean up env var
+            delete process.env.LIVEDOC_DYNAMIC_RESULTS_FILE;
+            
+            // Small delay to ensure file is written (subprocess may still be writing)
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Check if error file was created (error during module loading)
+            if (fs.existsSync(errorFile)) {
+                const errorData = JSON.parse(fs.readFileSync(errorFile, 'utf8'));
+                // Delete error file
+                fs.unlinkSync(errorFile);
+                // Throw as ParserException
+                throw new model.ParserException(
+                    errorData.description || errorData.message,
+                    errorData.title || '',
+                    filename
+                );
+            }
+            
+            // Check if reporter captured any errors
+            if (silentReporter.collectedErrors.length > 0) {
+                const error = silentReporter.collectedErrors[0] as any;
+                // Use description property if available (for ParserException), otherwise use message
+                const description = error.description || error.message || String(error);
+                const title = error.title || '';
+                throw new model.ParserException(description, title, filename);
+            }
+
+            // Read execution results from the file written by the subprocess
+            const results = new model.ExecutionResults();
+            
+            if (fs.existsSync(resultsFile)) {
+                const fileContent = fs.readFileSync(resultsFile, 'utf8');
+                const resultsData = JSON.parse(fileContent);
+                
+                // Reconstruct Feature objects from JSON
+                if (resultsData.features && Array.isArray(resultsData.features)) {
+                    for (const featureData of resultsData.features) {
+                        const feature = this.reconstructFeature(featureData);
+                        results.addFeature(feature);
+                    }
+                }
+                
+                // Reconstruct VitestSuite objects from JSON
+                if (resultsData.suites && Array.isArray(resultsData.suites)) {
+                    for (const suiteData of resultsData.suites) {
+                        const suite = this.reconstructSuite(suiteData);
+                        results.addSuite(suite);
+                    }
+                }
+                
+                // Clean up results file
+                fs.unlinkSync(resultsFile);
+                
+                // Check for any exception that was thrown and captured
+                if (resultsData.thrownException) {
+                    results.thrownException = resultsData.thrownException;
+                }
+            }
+
+            // Re-throw any captured exception from the subprocess
+            if (results.thrownException) {
+                if (results.thrownException.type === 'LiveDocRuleViolation' && results.thrownException.data) {
+                    throw this.reconstructRuleViolation(results.thrownException.data);
+                } else {
+                    throw new Error(results.thrownException.message);
+                }
+            }
+
+            return results;
+
+        } finally {
+            // Disable dynamic execution mode
+            isDynamicExecution = false;
+            
+            // Clean up temp file
+            if (filename && fs.existsSync(filename)) {
+                fs.unlinkSync(filename);
+            }
+        }
+    }
+    
+    /**
+     * Reconstruct a Feature object from JSON data
+     */
+    private static reconstructFeature(data: any): model.Feature {
+        const feature = new model.Feature();
+        feature.title = data.title || '';
+        feature.description = data.description || '';
+        feature.tags = data.tags || [];
+        feature.filename = data.filename || '';
+        feature.id = data.id || '';
+        feature.executionTime = data.executionTime || data.duration || 0;
+        
+        // Reconstruct background if present
+        if (data.background) {
+            feature.background = this.reconstructBackground(data.background, feature);
+        }
+        
+        // Reconstruct scenarios
+        if (data.scenarios && Array.isArray(data.scenarios)) {
+            for (const scenarioData of data.scenarios) {
+                const scenario = this.reconstructScenario(scenarioData, feature);
+                feature.scenarios.push(scenario);
+            }
+        }
+        
+        // Reconstruct ruleViolations if present
+        if (data.ruleViolations && Array.isArray(data.ruleViolations)) {
+            feature.ruleViolations = data.ruleViolations.map((v: any) => 
+                this.reconstructRuleViolation(v)
+            );
+        }
+        
+        // Copy statistics if present
+        if (data.statistics) {
+            Object.assign(feature.statistics, data.statistics);
+        }
+        
+        return feature;
+    }
+    
+    /**
+     * Reconstruct a Background object from JSON data
+     */
+    private static reconstructBackground(data: any, parent: model.Feature): model.Background {
+        const background = new model.Background(parent);
+        background.title = data.title || '';
+        background.description = data.description || '';
+        background.id = data.id || '';
+        
+        // Reconstruct steps (Background stores all steps as givens internally)
+        if (data.steps && Array.isArray(data.steps)) {
+            for (const stepData of data.steps) {
+                const step = this.reconstructStep(stepData, background);
+                background.steps.push(step);
+                if (step.type === 'Given' || step.type === 'And' || step.type === 'But') {
+                    background.givens.push(step);
+                }
+            }
+        }
+        
+        return background;
+    }
+    
+    /**
+     * Reconstruct a Scenario object from JSON data
+     * Handles both Scenario and ScenarioOutline types
+     */
+    private static reconstructScenario(data: any, parent: model.Feature): model.Scenario {
+        // Check if this is a ScenarioOutline
+        const isOutline = data.type === 'ScenarioOutline';
+        const scenario = isOutline 
+            ? new model.ScenarioOutline(parent) 
+            : new model.Scenario(parent);
+            
+        scenario.title = data.title || '';
+        scenario.description = data.description || '';
+        scenario.tags = data.tags || [];
+        scenario.id = data.id || '';
+        scenario.executionTime = data.executionTime || data.duration || 0;
+        scenario.type = data.type || 'Scenario';
+        
+        // Reconstruct steps
+        if (data.steps && Array.isArray(data.steps)) {
+            for (const stepData of data.steps) {
+                const step = this.reconstructStep(stepData, scenario);
+                scenario.steps.push(step);
+                
+                // Also add to the appropriate array
+                switch (step.type) {
+                    case 'Given':
+                        scenario.givens.push(step);
+                        break;
+                    case 'When':
+                        scenario.whens.push(step);
+                        break;
+                }
+            }
+        }
+        
+        // Reconstruct ruleViolations if present
+        if (data.ruleViolations && Array.isArray(data.ruleViolations)) {
+            scenario.ruleViolations = data.ruleViolations.map((v: any) => 
+                this.reconstructRuleViolation(v)
+            );
+        }
+        
+        // Copy statistics if present
+        if (data.statistics) {
+            Object.assign(scenario.statistics, data.statistics);
+        }
+        
+        // Handle ScenarioOutline-specific properties
+        if (isOutline && scenario instanceof model.ScenarioOutline) {
+            // Reconstruct tables
+            if (data.tables && Array.isArray(data.tables)) {
+                scenario.tables = data.tables.map((tableData: any) => {
+                    const table = new model.Table();
+                    table.name = tableData.name || '';
+                    table.description = tableData.description || '';
+                    table.dataTable = tableData.dataTable || [];
+                    return table;
+                });
+            }
+            
+            // Reconstruct examples
+            if (data.examples && Array.isArray(data.examples)) {
+                for (const exampleData of data.examples) {
+                    const example = new model.ScenarioExample(parent, scenario);
+                    example.title = exampleData.title || '';
+                    example.description = exampleData.description || '';
+                    example.example = exampleData.example || {};
+                    example.sequence = exampleData.sequence || 0;
+                    
+                    // Reconstruct steps for the example
+                    if (exampleData.steps && Array.isArray(exampleData.steps)) {
+                        for (const stepData of exampleData.steps) {
+                            const step = this.reconstructStep(stepData, example);
+                            example.steps.push(step);
+                        }
+                    }
+                    
+                    scenario.examples.push(example);
+                }
+            }
+        }
+        
+        return scenario;
+    }
+    
+    /**
+     * Reconstruct a LiveDocRuleViolation from JSON data
+     */
+    private static reconstructRuleViolation(data: any): model.LiveDocRuleViolation {
+        // Map the rule name back to the enum value
+        let ruleValue = RuleViolations.error; // default
+        if (typeof data.rule === 'string') {
+            // Try to find the enum value by name
+            const ruleName = data.rule as keyof typeof RuleViolations;
+            if (ruleName in RuleViolations) {
+                ruleValue = RuleViolations[ruleName];
+            }
+        } else if (typeof data.rule === 'number') {
+            ruleValue = data.rule;
+        }
+        
+        return new model.LiveDocRuleViolation(
+            ruleValue,
+            data.message || '',
+            data.title || ''
+        );
+    }
+    
+    /**
+     * Reconstruct a StepDefinition object from JSON data
+     */
+    private static reconstructStep(data: any, parent: model.Scenario): model.StepDefinition {
+        const step = new model.StepDefinition(parent, data.title || '');
+        step.rawTitle = data.rawTitle || data.title || '';
+        step.type = data.type || '';
+        step.description = data.description || '';
+        step.docString = data.docString || '';
+        step.dataTable = data.dataTable || [];
+        step.values = data.values || [];
+        step.valuesRaw = data.valuesRaw || [];
+        step.status = data.status;
+        step.duration = data.duration || 0;
+        step.id = data.id || '';
+        step.sequence = data.sequence || 0;
+        
+        // Reconstruct exception if present
+        if (data.exception && (data.exception.message || data.exception.stackTrace)) {
+            step.exception = new model.Exception();
+            step.exception.message = data.exception.message || '';
+            step.exception.stackTrace = data.exception.stackTrace || '';
+            step.exception.actual = data.exception.actual || '';
+            step.exception.expected = data.exception.expected || '';
+        }
+        
+        // Reconstruct rule violations
+        if (data.ruleViolations && Array.isArray(data.ruleViolations)) {
+            step.ruleViolations = data.ruleViolations.map((v: any) => 
+                this.reconstructRuleViolation(v)
+            );
+        }
+        
+        return step;
+    }
+    
+    /**
+     * Reconstruct a VitestSuite object from JSON data
+     */
+    private static reconstructSuite(data: any): model.VitestSuite {
+        const suite = new model.VitestSuite(null, data.title || '', data.type || 'suite');
+        suite.id = data.id || '';
+        suite.filename = data.filename || '';
+        
+        // Reconstruct tests
+        if (data.tests && Array.isArray(data.tests)) {
+            for (const testData of data.tests) {
+                const test = new model.LiveDocTest(suite, testData.title || '');
+                test.status = testData.status;
+                test.duration = testData.duration || 0;
+                test.id = testData.id || '';
+                suite.tests.push(test);
+            }
+        }
+        
+        return suite;
+    }
+
+    /**
+     * Get all features registered during test execution
+     * Used by reporters to access test results
+     */
+    public static getAllFeatures(): model.Feature[] {
+        return featureRegistry;
+    }
+
+    /**
+     * Get all suites registered during test execution
+     * Used by reporters to access test results
+     */
+    public static getAllSuites(): model.VitestSuite[] {
+        return suiteRegistry;
+    }
+    
+    /**
+     * Get scenario outline metadata registry
+     * Used by reporters to access full scenario outline data including Examples tables
+     */
+    public static getScenarioOutlineRegistry(): Map<string, any> {
+        return scenarioOutlineRegistry;
+    }
+
+    /**
+     * Clear all registries (useful for testing)
+     */
+    public static clearRegistries(): void {
+        featureRegistry.length = 0;
+        suiteRegistry.length = 0;
+    }
+}

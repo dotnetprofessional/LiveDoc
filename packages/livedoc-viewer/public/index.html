@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiveDoc</title>
+  <style>
+    :root {
+      /* Dark theme (default) */
+      --bg-base: #0d1117;
+      --bg-surface: #161b22;
+      --bg-elevated: #1c2128;
+      --bg-hover: #21262d;
+      --bg-active: #262c34;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --border: #30363d;
+      --border-muted: #21262d;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --success-bg: #238636;
+      --danger: #f85149;
+      --danger-bg: #da3633;
+      --warning: #d29922;
+      --warning-bg: #9e6a03;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Monaco, Consolas, monospace;
+    }
+
+    [data-theme="light"] {
+      --bg-base: #ffffff;
+      --bg-surface: #f6f8fa;
+      --bg-elevated: #ffffff;
+      --bg-hover: #f3f4f6;
+      --bg-active: #e5e7eb;
+      --text-primary: #1f2328;
+      --text-secondary: #656d76;
+      --text-muted: #8b949e;
+      --border: #d0d7de;
+      --border-muted: #d8dee4;
+      --accent: #0969da;
+      --success: #1a7f37;
+      --success-bg: #2da44e;
+      --danger: #cf222e;
+      --danger-bg: #fa4549;
+      --warning: #9a6700;
+      --warning-bg: #bf8700;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* Layout */
+    .app { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 240px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar-header h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .sidebar-header .logo { font-size: 20px; }
+
+    .theme-toggle {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .theme-toggle:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .connection-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--danger);
+    }
+
+    .connection-dot.connected { background: var(--success); }
+
+    .project-list {
+      list-style: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .project-item {
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 2px;
+      transition: background 0.1s;
+    }
+
+    .project-item:hover { background: var(--bg-hover); }
+    .project-item.active { background: var(--bg-active); }
+
+    .project-name {
+      font-weight: 500;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .project-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.passed, .status-dot.completed { background: var(--success); }
+    .status-dot.failed { background: var(--danger); }
+    .status-dot.running { background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
+    .status-dot.pending { background: var(--warning); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--bg-base);
+    }
+
+    .content {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 32px;
+    }
+
+    /* Breadcrumb */
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .breadcrumb a {
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .breadcrumb a:hover { text-decoration: underline; }
+    .breadcrumb .sep { color: var(--text-muted); }
+    .breadcrumb .current { color: var(--text-secondary); }
+
+    /* Page Header */
+    .page-header { margin-bottom: 20px; }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .page-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .badge.completed, .badge.passed { background: var(--success-bg); color: #fff; }
+    .badge.failed { background: var(--danger-bg); color: #fff; }
+    .badge.running { background: var(--accent); color: #fff; }
+    .badge.pending { background: var(--warning-bg); color: #fff; }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 14px 18px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .stat {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .stat.passed .stat-value { color: var(--success); }
+    .stat.failed .stat-value { color: var(--danger); }
+    .stat.pending .stat-value { color: var(--warning); }
+
+    /* Multi-segment progress bar */
+    .progress-bar {
+      flex: 1;
+      max-width: 280px;
+      height: 10px;
+      background: var(--bg-hover);
+      border-radius: 5px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .progress-segment {
+      height: 100%;
+      transition: width 0.3s;
+    }
+
+    .progress-segment.passed { background: var(--success); }
+    .progress-segment.failed { background: var(--danger); }
+    .progress-segment.pending { background: var(--warning); }
+
+    .stats-bar .duration {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Item List (Groups/Features/Scenarios) */
+    .item-list {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .item-row {
+      display: grid;
+      grid-template-columns: 10px 1fr 80px 140px 50px 50px 50px 70px;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .item-row:last-child { border-bottom: none; }
+    .item-row:hover { background: var(--bg-hover); }
+
+    .item-status {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .item-status.passed { background: var(--success); }
+    .item-status.failed { background: var(--danger); }
+    .item-status.pending { background: var(--warning); }
+
+    .item-name {
+      font-size: 13px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .item-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .item-progress {
+      height: 6px;
+      background: var(--bg-hover);
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .item-progress .seg {
+      height: 100%;
+    }
+
+    .item-progress .seg.passed { background: var(--success); }
+    .item-progress .seg.failed { background: var(--danger); }
+    .item-progress .seg.pending { background: var(--warning); }
+
+    .item-stat {
+      font-size: 12px;
+      text-align: center;
+      font-family: var(--font-mono);
+    }
+
+    .item-stat.passed { color: var(--success); }
+    .item-stat.failed { color: var(--danger); }
+    .item-stat.pending { color: var(--warning); }
+
+    .item-duration {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      text-align: right;
+    }
+
+    /* Table Header */
+    .item-header {
+      display: grid;
+      grid-template-columns: 10px 1fr 80px 140px 50px 50px 50px 70px;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .item-header span:nth-child(5),
+    .item-header span:nth-child(6),
+    .item-header span:nth-child(7),
+    .item-header span:nth-child(8) {
+      text-align: center;
+    }
+
+    .item-header span:last-child { text-align: right; }
+
+    /* Feature Detail Header */
+    .detail-header {
+      padding: 20px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .detail-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .detail-path {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .detail-description {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .detail-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Scenario Detail */
+    .scenario-detail {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .scenario-detail-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .scenario-detail-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .scenario-detail-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 16px;
+    }
+
+    .example-table {
+      margin: 16px 20px;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .example-table th,
+    .example-table td {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+    }
+
+    .example-table th {
+      background: var(--bg-elevated);
+      font-weight: 500;
+      text-align: left;
+    }
+
+    /* Steps */
+    .steps { padding: 16px 20px; }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .step:last-child { border-bottom: none; }
+
+    .step-icon {
+      font-size: 14px;
+      width: 18px;
+      text-align: center;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .step-icon.passed { color: var(--success); }
+    .step-icon.failed { color: var(--danger); }
+    .step-icon.pending { color: var(--text-muted); }
+
+    .step-body { flex: 1; }
+
+    .step-text {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .step-keyword {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .step-duration {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: 8px;
+    }
+
+    .step-error {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: rgba(248, 81, 73, 0.1);
+      border-left: 3px solid var(--danger);
+      border-radius: 0 4px 4px 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--danger);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ScenarioOutline consolidated view */
+    .outline-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .outline-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .outline-title {
+      font-size: 14px;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .outline-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .outline-badge.outline { background: var(--accent); color: #fff; }
+
+    .outline-background {
+      padding: 16px 20px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .outline-background-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .outline-background-header .keyword {
+      color: var(--accent);
+      font-weight: 600;
+      font-family: var(--font-mono);
+      font-size: 13px;
+    }
+
+    .outline-background-header .background-desc {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .background-steps {
+      padding: 8px 0 0 0 !important;
+      background: transparent !important;
+      border-bottom: none !important;
+    }
+
+    .outline-steps {
+      padding: 16px 20px;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .outline-step {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--text-secondary);
+    }
+
+    .outline-step .keyword {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .outline-step .placeholder {
+      color: var(--warning);
+      font-weight: 500;
+    }
+
+    .outline-examples {
+      padding: 0;
+    }
+
+    .outline-examples-header {
+      padding: 12px 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .examples-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .examples-table th,
+    .examples-table td {
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .examples-table th {
+      background: var(--bg-elevated);
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .examples-table th.status-col,
+    .examples-table td.status-col {
+      width: 50px;
+      text-align: center;
+    }
+
+    .examples-table th.row-col,
+    .examples-table td.row-col {
+      width: 40px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .examples-table tr:last-child td { border-bottom: none; }
+
+    .examples-table tr.failed { background: rgba(248, 81, 73, 0.05); }
+
+    .example-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 12px;
+    }
+
+    .example-status.passed { background: var(--success); color: #fff; }
+    .example-status.failed { background: var(--danger); color: #fff; }
+    .example-status.pending { background: var(--warning); color: #fff; }
+
+    /* Failed example detail */
+    .failed-example-detail {
+      background: var(--bg-base);
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+    }
+
+    .failed-example-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--danger);
+    }
+
+    .failed-step {
+      margin-bottom: 12px;
+    }
+
+    .failed-step-text {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .failed-step-text .keyword { color: var(--accent); font-weight: 600; }
+    .failed-step-text .status-icon { margin-right: 8px; }
+    .failed-step-text .status-icon.passed { color: var(--success); }
+    .failed-step-text .status-icon.failed { color: var(--danger); }
+
+    .error-box {
+      background: rgba(248, 81, 73, 0.1);
+      border: 1px solid var(--danger);
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-top: 8px;
+    }
+
+    .error-message {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--danger);
+      margin-bottom: 8px;
+    }
+
+    .error-diff {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .error-diff .expected { color: var(--success); }
+    .error-diff .actual { color: var(--danger); }
+
+    .error-stack {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .error-location {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* Empty State */
+    .empty {
+      text-align: center;
+      padding: 80px 40px;
+      color: var(--text-secondary);
+    }
+
+    .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-title { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+    .empty-text { font-size: 13px; color: var(--text-muted); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { 
+      background: var(--border); 
+      border-radius: 5px; 
+      border: 2px solid transparent; 
+      background-clip: padding-box; 
+    }
+    ::-webkit-scrollbar-thumb:hover { 
+      background: var(--text-muted); 
+      border: 2px solid transparent; 
+      background-clip: padding-box; 
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <span class="logo">🍵</span>
+          <h1>LiveDoc</h1>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+      </div>
+      <div class="connection">
+        <span class="connection-dot" id="connectionDot"></span>
+        <span id="connectionText">Connecting...</span>
+      </div>
+      <ul class="project-list" id="projectList"></ul>
+    </aside>
+    
+    <main class="main">
+      <div class="content" id="mainContent">
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">No test results</div>
+          <div class="empty-text">Run your tests with the LiveDoc reporter to see results here.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // State
+    let ws = null;
+    let currentRunId = null;
+    let currentView = { type: 'summary' }; // summary -> groups -> features -> scenarios
+    let runs = new Map();
+    let projects = [];
+
+    // Theme
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = saved || (prefersDark ? 'dark' : 'light');
+      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    }
+
+    // WebSocket
+    function connect() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+      ws.onopen = () => {
+        document.getElementById('connectionDot').classList.add('connected');
+        document.getElementById('connectionText').textContent = 'Live';
+        ws.send(JSON.stringify({ type: 'subscribe' }));
+        loadProjects();
+      };
+
+      ws.onclose = () => {
+        document.getElementById('connectionDot').classList.remove('connected');
+        document.getElementById('connectionText').textContent = 'Offline';
+        setTimeout(connect, 2000);
+      };
+
+      ws.onmessage = (e) => handleMessage(JSON.parse(e.data));
+    }
+
+    function handleMessage(event) {
+      const handlers = {
+        'run:started': handleRunStarted,
+        'feature:added': handleFeatureAdded,
+        'scenario:started': handleScenarioStarted,
+        'step:completed': handleStepCompleted,
+        'scenario:completed': handleScenarioCompleted,
+        'run:completed': handleRunCompleted
+      };
+      handlers[event.type]?.(event);
+    }
+
+    function handleRunStarted(e) {
+      runs.set(e.runId, {
+        runId: e.runId, project: e.project, environment: e.environment,
+        framework: e.framework, timestamp: e.timestamp, status: 'running',
+        features: [], summary: { total: 0, passed: 0, failed: 0, pending: 0, duration: 0 }
+      });
+      
+      const idx = projects.findIndex(p => p.project === e.project && p.environment === e.environment);
+      if (idx >= 0) {
+        projects[idx].latestRunId = e.runId;
+        projects[idx].status = 'running';
+      } else {
+        projects.push({ project: e.project, environment: e.environment, latestRunId: e.runId, status: 'running' });
+      }
+      
+      renderProjectList();
+      selectRun(e.runId);
+    }
+
+    function handleFeatureAdded(e) {
+      const run = runs.get(e.runId);
+      if (!run) return;
+      const idx = run.features.findIndex(f => f.id === e.feature.id);
+      idx >= 0 ? run.features[idx] = e.feature : run.features.push(e.feature);
+      if (currentRunId === e.runId) renderCurrentView();
+    }
+
+    function handleScenarioStarted(e) {
+      const run = runs.get(e.runId);
+      if (!run) return;
+      const feature = run.features.find(f => f.id === e.featureId);
+      if (!feature) return;
+      feature.scenarios = feature.scenarios || [];
+      const idx = feature.scenarios.findIndex(s => s.id === e.scenario.id);
+      idx >= 0 ? feature.scenarios[idx] = e.scenario : feature.scenarios.push(e.scenario);
+      if (currentRunId === e.runId) renderCurrentView();
+    }
+
+    function handleStepCompleted(e) {
+      const run = runs.get(e.runId);
+      if (!run) return;
+      for (const f of run.features) {
+        const s = f.scenarios?.find(s => s.id === e.scenarioId);
+        if (s) {
+          s.steps = s.steps || [];
+          const idx = s.steps.findIndex(st => st.id === e.step.id);
+          idx >= 0 ? s.steps[idx] = e.step : s.steps.push(e.step);
+          break;
+        }
+      }
+      if (currentRunId === e.runId) renderCurrentView();
+    }
+
+    function handleScenarioCompleted(e) {
+      const run = runs.get(e.runId);
+      if (!run) return;
+      for (const f of run.features) {
+        const s = f.scenarios?.find(s => s.id === e.scenarioId);
+        if (s) { s.status = e.status; s.duration = e.duration; break; }
+      }
+      if (currentRunId === e.runId) renderCurrentView();
+    }
+
+    function handleRunCompleted(e) {
+      const run = runs.get(e.runId);
+      if (!run) return;
+      run.status = e.status;
+      run.summary = e.summary;
+      run.duration = e.duration;
+      const p = projects.find(p => p.latestRunId === e.runId);
+      if (p) p.status = e.status;
+      renderProjectList();
+      if (currentRunId === e.runId) renderCurrentView();
+    }
+
+    // API
+    async function loadProjects() {
+      try {
+        const data = await (await fetch('/api/projects')).json();
+        projects = data.projects.map(p => ({
+          project: p.project, environment: p.environment,
+          latestRunId: p.latestRun?.runId, status: p.latestRun?.status || 'pending'
+        }));
+        renderProjectList();
+        if (projects.length && projects[0].latestRunId) selectRun(projects[0].latestRunId);
+      } catch (e) { console.error('Load projects failed:', e); }
+    }
+
+    async function selectRun(runId) {
+      currentRunId = runId;
+      currentView = { type: 'summary' };
+      document.querySelectorAll('.project-item').forEach(el => 
+        el.classList.toggle('active', el.dataset.runId === runId));
+      
+      if (!runs.has(runId)) {
+        try {
+          runs.set(runId, await (await fetch(`/api/runs/${runId}`)).json());
+        } catch (e) { console.error('Load run failed:', e); }
+      }
+      renderCurrentView();
+    }
+
+    // Navigation
+    function nav(type, groupName, featureId, scenarioId) {
+      currentView = { type, groupName, featureId, scenarioId };
+      renderCurrentView();
+    }
+
+    // Rendering
+    function renderProjectList() {
+      const list = document.getElementById('projectList');
+      if (!projects.length) {
+        list.innerHTML = '<li style="padding:16px;color:var(--text-muted);font-size:12px">No projects</li>';
+        return;
+      }
+      list.innerHTML = projects.map(p => `
+        <li class="project-item ${p.latestRunId === currentRunId ? 'active' : ''}" 
+            data-run-id="${p.latestRunId}" onclick="selectRun('${p.latestRunId}')">
+          <div class="project-name">${esc(p.project)}</div>
+          <div class="project-meta">
+            <span class="status-dot ${p.status}"></span>
+            <span>${esc(p.environment)}</span>
+          </div>
+        </li>
+      `).join('');
+    }
+
+    function renderCurrentView() {
+      const run = runs.get(currentRunId);
+      if (!run) return renderEmpty();
+      
+      switch (currentView.type) {
+        case 'summary': renderSummary(run); break;
+        case 'group': renderGroup(run, currentView.groupName); break;
+        case 'feature': renderFeature(run, currentView.featureId); break;
+        case 'scenario': renderScenario(run, currentView.featureId, currentView.scenarioId); break;
+      }
+    }
+
+    function renderEmpty() {
+      document.getElementById('mainContent').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">No test results</div>
+          <div class="empty-text">Run your tests with the LiveDoc reporter.</div>
+        </div>`;
+    }
+
+    function renderSummary(run) {
+      const groups = groupFeatures(run.features);
+      // Count scenarios, not steps - scenarios represent actual test coverage
+      const scenarioStats = run.features.reduce((acc, f) => {
+        const s = getFeatureStats(f);
+        acc.passed += s.passed;
+        acc.failed += s.failed;
+        acc.pending += s.pending;
+        return acc;
+      }, { passed: 0, failed: 0, pending: 0 });
+      const { passed, failed, pending } = scenarioStats;
+      const total = passed + failed + pending;
+      const duration = run.summary?.duration || run.duration || 0;
+      const pPct = total > 0 ? (passed / total * 100) : 0;
+      const fPct = total > 0 ? (failed / total * 100) : 0;
+      const pendPct = total > 0 ? (pending / total * 100) : 0;
+
+      document.getElementById('mainContent').innerHTML = `
+        <div class="page-header">
+          <h1 class="page-title">${esc(run.project)}</h1>
+          <div class="page-meta">
+            <span>${esc(run.environment)}</span>
+            <span>${run.framework}</span>
+            <span>${new Date(run.timestamp).toLocaleString()}</span>
+            <span class="badge ${run.status}">${run.status}</span>
+          </div>
+        </div>
+        
+        <div class="stats-bar">
+          <div class="stat passed"><span class="stat-value">${passed}</span><span class="stat-label">passed</span></div>
+          <div class="stat failed"><span class="stat-value">${failed}</span><span class="stat-label">failed</span></div>
+          <div class="stat pending"><span class="stat-value">${pending}</span><span class="stat-label">pending</span></div>
+          <div class="progress-bar">
+            <div class="progress-segment passed" style="width:${pPct}%"></div>
+            <div class="progress-segment failed" style="width:${fPct}%"></div>
+            <div class="progress-segment pending" style="width:${pendPct}%"></div>
+          </div>
+          <span class="duration">${total} scenarios · ${dur(duration)}</span>
+        </div>
+        
+        <div class="item-list">
+          <div class="item-header">
+            <span></span>
+            <span>Group</span>
+            <span style="text-align:center">Scenarios</span>
+            <span>Progress</span>
+            <span>Pass</span>
+            <span>Fail</span>
+            <span>Pend</span>
+            <span>Time</span>
+          </div>
+          ${Object.entries(groups).map(([name, features]) => renderGroupRow(name, features)).join('')}
+        </div>
+      `;
+    }
+
+    function groupFeatures(features) {
+      const groups = {};
+      const basePath = findCommonPath(features.map(f => f.filename || ''));
+      
+      for (const f of features) {
+        const path = (f.filename || '').replace(basePath, '');
+        const parts = path.split(/[/\\]/).filter(Boolean);
+        const groupName = parts.length > 1 ? parts.slice(0, -1).join('/') : '/';
+        groups[groupName] = groups[groupName] || [];
+        groups[groupName].push(f);
+      }
+      return groups;
+    }
+
+    function findCommonPath(paths) {
+      if (!paths.length) return '';
+      const parts = paths[0].split(/[/\\]/);
+      let common = [];
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (paths.every(p => p.split(/[/\\]/)[i] === parts[i])) {
+          common.push(parts[i]);
+        } else break;
+      }
+      return common.join('/') + (common.length ? '/' : '');
+    }
+
+    function renderGroupRow(name, features) {
+      const stats = features.reduce((acc, f) => {
+        const s = getFeatureStats(f);
+        acc.passed += s.passed;
+        acc.failed += s.failed;
+        acc.pending += s.pending;
+        acc.duration += f.duration || 0;
+        return acc;
+      }, { passed: 0, failed: 0, pending: 0, duration: 0 });
+      
+      const total = stats.passed + stats.failed + stats.pending;
+      const status = stats.failed > 0 ? 'failed' : stats.pending > 0 ? 'pending' : 'passed';
+      const displayName = name === '/' ? 'Root' : name.replace(/_/g, ' ');
+      
+      const pPct = total > 0 ? (stats.passed / total * 100) : 0;
+      const fPct = total > 0 ? (stats.failed / total * 100) : 0;
+      const pendPct = total > 0 ? (stats.pending / total * 100) : 0;
+
+      return `
+        <div class="item-row" onclick="nav('group','${esc(name)}')">
+          <span class="item-status ${status}"></span>
+          <span class="item-name">${esc(displayName)}</span>
+          <span class="item-count">${total}</span>
+          <span class="item-progress">
+            <span class="seg passed" style="width:${pPct}%"></span>
+            <span class="seg failed" style="width:${fPct}%"></span>
+            <span class="seg pending" style="width:${pendPct}%"></span>
+          </span>
+          <span class="item-stat passed">${stats.passed || '-'}</span>
+          <span class="item-stat failed">${stats.failed || '-'}</span>
+          <span class="item-stat pending">${stats.pending || '-'}</span>
+          <span class="item-duration">${dur(stats.duration)}</span>
+        </div>
+      `;
+    }
+
+    function renderGroup(run, groupName) {
+      const groups = groupFeatures(run.features);
+      const features = groups[groupName] || [];
+      const displayName = groupName === '/' ? 'Root' : groupName.replace(/_/g, ' ');
+
+      document.getElementById('mainContent').innerHTML = `
+        <div class="breadcrumb">
+          <a onclick="nav('summary')">Summary</a>
+          <span class="sep">›</span>
+          <span class="current">${esc(displayName)}</span>
+        </div>
+        
+        <div class="page-header">
+          <h1 class="page-title">${esc(displayName)}</h1>
+        </div>
+        
+        <div class="item-list">
+          <div class="item-header">
+            <span></span>
+            <span>Feature</span>
+            <span style="text-align:center">Scenarios</span>
+            <span>Progress</span>
+            <span>Pass</span>
+            <span>Fail</span>
+            <span>Pend</span>
+            <span>Time</span>
+          </div>
+          ${features.map(f => renderFeatureRow(f)).join('')}
+        </div>
+      `;
+    }
+
+    function renderFeatureRow(f) {
+      const stats = getFeatureStats(f);
+      const total = stats.passed + stats.failed + stats.pending;
+      const status = stats.failed > 0 ? 'failed' : stats.pending > 0 ? 'pending' : 'passed';
+      
+      const pPct = total > 0 ? (stats.passed / total * 100) : 0;
+      const fPct = total > 0 ? (stats.failed / total * 100) : 0;
+      const pendPct = total > 0 ? (stats.pending / total * 100) : 0;
+      
+      return `
+        <div class="item-row" onclick="nav('feature',null,'${f.id}')">
+          <span class="item-status ${status}"></span>
+          <span class="item-name">${esc(f.title)}</span>
+          <span class="item-count">${total}</span>
+          <span class="item-progress">
+            <span class="seg passed" style="width:${pPct}%"></span>
+            <span class="seg failed" style="width:${fPct}%"></span>
+            <span class="seg pending" style="width:${pendPct}%"></span>
+          </span>
+          <span class="item-stat passed">${stats.passed || '-'}</span>
+          <span class="item-stat failed">${stats.failed || '-'}</span>
+          <span class="item-stat pending">${stats.pending || '-'}</span>
+          <span class="item-duration">${dur(f.duration)}</span>
+        </div>
+      `;
+    }
+
+    function renderFeature(run, featureId) {
+      const f = run.features.find(f => f.id === featureId);
+      if (!f) return nav('summary');
+
+      const scenarios = f.scenarios || [];
+      const shortPath = getShortPath(f.filename);
+      const groups = groupFeatures(run.features);
+      const groupName = Object.keys(groups).find(g => groups[g].some(feat => feat.id === featureId)) || '/';
+      const displayGroup = groupName === '/' ? 'Root' : groupName.replace(/_/g, ' ');
+
+      // Group scenarios: outlines with their examples, background, and standalone scenarios
+      const { outlines, standaloneScenarios, background } = groupScenarios(scenarios);
+
+      document.getElementById('mainContent').innerHTML = `
+        <div class="breadcrumb">
+          <a onclick="nav('summary')">Summary</a>
+          <span class="sep">›</span>
+          <a onclick="nav('group','${esc(groupName)}')">${esc(displayGroup)}</a>
+          <span class="sep">›</span>
+          <span class="current">${esc(f.title)}</span>
+        </div>
+        
+        <div class="detail-header">
+          <div class="detail-title">
+            <span class="status-dot ${getFeatureStatus(f)}"></span>
+            ${esc(f.title)}
+          </div>
+          <div class="detail-path">${esc(shortPath)}</div>
+          ${f.tags?.length ? `<div class="detail-tags">${f.tags.map(t => `<span class="tag">@${esc(t)}</span>`).join('')}</div>` : ''}
+          ${f.description ? `<div class="detail-description">${esc(f.description)}</div>` : ''}
+        </div>
+        
+        ${outlines.map(o => renderOutlineCard(o, background)).join('')}
+        
+        ${standaloneScenarios.length > 0 ? `
+        <div class="item-list">
+          <div class="item-header">
+            <span></span>
+            <span>Scenario</span>
+            <span style="text-align:center">Steps</span>
+            <span>Progress</span>
+            <span>Pass</span>
+            <span>Fail</span>
+            <span>Pend</span>
+            <span>Time</span>
+          </div>
+          ${standaloneScenarios.map(s => renderScenarioRow(f.id, s)).join('')}
+        </div>
+        ` : ''}
+        
+        ${outlines.length === 0 && standaloneScenarios.length === 0 ? '<div style="padding:20px;color:var(--text-muted);text-align:center">No scenarios</div>' : ''}
+      `;
+    }
+
+    function groupScenarios(scenarios) {
+      const outlines = [];
+      const standaloneScenarios = [];
+      const outlineMap = new Map();
+      let background = null;
+
+      for (const s of scenarios) {
+        if (s.type === 'Background') {
+          // Background applies to all scenarios in the feature
+          background = s;
+        } else if (s.type === 'ScenarioOutline') {
+          // This is the outline definition
+          outlineMap.set(s.id, { outline: s, examples: [] });
+        } else if (s.outlineId) {
+          // This is an example belonging to an outline
+          const parent = outlineMap.get(s.outlineId);
+          if (parent) {
+            parent.examples.push(s);
+          }
+        } else {
+          // Regular standalone scenario
+          standaloneScenarios.push(s);
+        }
+      }
+
+      outlineMap.forEach(v => outlines.push(v));
+      return { outlines, standaloneScenarios, background };
+    }
+
+    function renderOutlineCard(outlineData, background) {
+      const { outline, examples } = outlineData;
+      const status = examples.some(e => e.status === 'failed') ? 'failed' 
+                   : examples.some(e => e.status === 'pending' || !e.status) ? 'pending' 
+                   : 'passed';
+      
+      // Get column headers from first example's exampleValues
+      const columns = examples.length > 0 && examples[0].exampleValues 
+        ? Object.keys(examples[0].exampleValues) 
+        : [];
+
+      // Find failed examples with their step details
+      const failedExamples = examples.filter(e => e.status === 'failed');
+
+      return `
+        <div class="outline-card">
+          <div class="outline-header">
+            <span class="item-status ${status}"></span>
+            <span class="outline-title">${esc(outline.title)}</span>
+            <span class="outline-badge outline">Scenario Outline</span>
+          </div>
+          
+          ${background ? renderBackground(background) : ''}
+          
+          ${outline.steps?.length ? `
+          <div class="outline-steps">
+            ${renderOutlineSteps(outline.steps)}
+          </div>
+          ` : ''}
+          
+          <div class="outline-examples">
+            <div class="outline-examples-header">Examples (${examples.length})</div>
+            <table class="examples-table">
+              <thead>
+                <tr>
+                  <th class="row-col">#</th>
+                  ${columns.map(c => `<th>${esc(c)}</th>`).join('')}
+                  <th class="status-col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${examples.map((ex, i) => renderExampleRow(ex, i + 1, columns)).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          ${failedExamples.map(ex => renderFailedExampleDetail(ex)).join('')}
+        </div>
+      `;
+    }
+
+    function renderBackground(bg) {
+      const steps = bg.steps || [];
+      return `
+        <div class="outline-background">
+          <div class="outline-background-header">
+            <span class="keyword">Background</span>
+            ${bg.description ? `<span class="background-desc">${esc(bg.description)}</span>` : ''}
+          </div>
+          ${steps.length > 0 ? `
+          <div class="outline-steps background-steps">
+            ${steps.map(st => `
+              <div class="outline-step">
+                <span class="keyword">${st.type}</span> ${esc(st.title)}
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function renderOutlineSteps(steps) {
+      if (!steps || !steps.length) return '';
+      return steps.map(st => {
+        // Highlight placeholders like <value>
+        const titleWithPlaceholders = esc(st.title).replace(/&lt;(\w+)&gt;/g, 
+          '<span class="placeholder">&lt;$1&gt;</span>');
+        return `<div class="outline-step"><span class="keyword">${st.type}</span> ${titleWithPlaceholders}</div>`;
+      }).join('');
+    }
+
+    function renderExampleRow(example, rowNum, columns) {
+      const status = example.status || 'pending';
+      const icon = status === 'passed' ? '✓' : status === 'failed' ? '✗' : '○';
+      const values = example.exampleValues || {};
+      
+      return `
+        <tr class="${status}">
+          <td class="row-col">${rowNum}</td>
+          ${columns.map(c => `<td>${esc(String(values[c] ?? ''))}</td>`).join('')}
+          <td class="status-col"><span class="example-status ${status}">${icon}</span></td>
+        </tr>
+      `;
+    }
+
+    function renderFailedExampleDetail(example) {
+      const steps = example.steps || [];
+      const failedStep = steps.find(st => st.status === 'failed');
+      const exampleNum = example.exampleIndex || example.title?.match(/Example (\d+)/)?.[1] || '?';
+      
+      return `
+        <div class="failed-example-detail">
+          <div class="failed-example-header">
+            <span>✗</span> Example ${exampleNum} Failed
+          </div>
+          
+          ${steps.map(st => renderFailedExampleStep(st)).join('')}
+          
+          ${failedStep?.error ? `
+          <div class="error-box">
+            <div class="error-message">${esc(failedStep.error.message || 'Unknown error')}</div>
+            ${failedStep.error.diff ? `
+            <div class="error-diff">
+              <div class="expected">+ expected: ${esc(failedStep.error.diff?.expected || '')}</div>
+              <div class="actual">- actual: ${esc(failedStep.error.diff?.actual || '')}</div>
+            </div>
+            ` : ''}
+            ${failedStep.error.stack ? `<div class="error-stack">${esc(failedStep.error.stack)}</div>` : ''}
+            ${failedStep.error.filename ? `<div class="error-location">File: ${esc(failedStep.error.filename)}</div>` : ''}
+          </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function renderFailedExampleStep(st) {
+      const icon = st.status === 'passed' ? '✓' : st.status === 'failed' ? '✗' : '○';
+      return `
+        <div class="failed-step">
+          <div class="failed-step-text">
+            <span class="status-icon ${st.status || 'pending'}">${icon}</span>
+            <span class="keyword">${st.type}</span> ${esc(st.title)}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderScenarioRow(fid, s) {
+      const stats = getScenarioStats(s);
+      const total = stats.passed + stats.failed + stats.pending;
+      const status = s.status || (stats.failed > 0 ? 'failed' : stats.pending > 0 ? 'pending' : 'passed');
+
+      const pPct = total > 0 ? (stats.passed / total * 100) : 0;
+      const fPct = total > 0 ? (stats.failed / total * 100) : 0;
+      const pendPct = total > 0 ? (stats.pending / total * 100) : 0;
+
+      return `
+        <div class="item-row" onclick="nav('scenario',null,'${fid}','${s.id}')">
+          <span class="item-status ${status}"></span>
+          <span class="item-name">${esc(s.title)}${s.type && s.type !== 'Scenario' ? ` <span style="color:var(--text-muted);font-weight:normal;font-size:11px">(${s.type})</span>` : ''}</span>
+          <span class="item-count">${total}</span>
+          <span class="item-progress">
+            <span class="seg passed" style="width:${pPct}%"></span>
+            <span class="seg failed" style="width:${fPct}%"></span>
+            <span class="seg pending" style="width:${pendPct}%"></span>
+          </span>
+          <span class="item-stat passed">${stats.passed || '-'}</span>
+          <span class="item-stat failed">${stats.failed || '-'}</span>
+          <span class="item-stat pending">${stats.pending || '-'}</span>
+          <span class="item-duration">${dur(s.duration)}</span>
+        </div>
+      `;
+    }
+
+    function renderScenario(run, featureId, scenarioId) {
+      const f = run.features.find(f => f.id === featureId);
+      if (!f) return nav('summary');
+      const s = f.scenarios?.find(s => s.id === scenarioId);
+      if (!s) return nav('feature', null, f.id);
+
+      const steps = s.steps || [];
+      const status = s.status || 'pending';
+      const icon = status === 'passed' ? '✓' : status === 'failed' ? '✗' : '○';
+      
+      const groups = groupFeatures(run.features);
+      const groupName = Object.keys(groups).find(g => groups[g].some(feat => feat.id === featureId)) || '/';
+      const displayGroup = groupName === '/' ? 'Root' : groupName.replace(/_/g, ' ');
+
+      document.getElementById('mainContent').innerHTML = `
+        <div class="breadcrumb">
+          <a onclick="nav('summary')">Summary</a>
+          <span class="sep">›</span>
+          <a onclick="nav('group','${esc(groupName)}')">${esc(displayGroup)}</a>
+          <span class="sep">›</span>
+          <a onclick="nav('feature',null,'${f.id}')">${esc(f.title)}</a>
+          <span class="sep">›</span>
+          <span class="current">${esc(s.title)}</span>
+        </div>
+        
+        <div class="scenario-detail">
+          <div class="scenario-detail-header">
+            <div class="scenario-detail-title">
+              <span class="item-status ${status}" style="width:12px;height:12px"></span>
+              ${s.type}: ${esc(s.title)}
+            </div>
+            <div class="scenario-detail-meta">
+              ${s.duration ? `<span>Duration: ${dur(s.duration)}</span>` : ''}
+              ${s.tags?.length ? `<span>Tags: ${s.tags.map(t => '@' + t).join(' ')}</span>` : ''}
+            </div>
+          </div>
+          
+          ${s.exampleValues ? renderExample(s.exampleValues) : ''}
+          
+          <div class="steps">
+            ${steps.map(renderStep).join('') || '<div style="color:var(--text-muted)">No steps</div>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderExample(vals) {
+      const keys = Object.keys(vals);
+      if (!keys.length) return '';
+      return `
+        <table class="example-table">
+          <tr>${keys.map(k => `<th>${esc(k)}</th>`).join('')}</tr>
+          <tr>${keys.map(k => `<td>${esc(String(vals[k]))}</td>`).join('')}</tr>
+        </table>
+      `;
+    }
+
+    function renderStep(st) {
+      const icon = st.status === 'passed' ? '✓' : st.status === 'failed' ? '✗' : '○';
+      return `
+        <div class="step">
+          <span class="step-icon ${st.status}">${icon}</span>
+          <div class="step-body">
+            <div class="step-text">
+              <span class="step-keyword">${st.type}</span> ${esc(st.title)}
+              ${st.duration ? `<span class="step-duration">${dur(st.duration)}</span>` : ''}
+            </div>
+            ${st.error ? `<div class="step-error">${esc(st.error.message)}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // Helpers
+    function getFeatureStats(f) {
+      let passed = 0, failed = 0, pending = 0;
+      const scenarios = f.scenarios || [];
+      
+      // Group scenarios to count ScenarioOutlines as single items
+      const { outlines, standaloneScenarios } = groupScenarios(scenarios);
+      
+      // Count each ScenarioOutline as 1 scenario
+      for (const { outline, examples } of outlines) {
+        const outlineStatus = examples.some(e => e.status === 'failed') ? 'failed'
+                            : examples.some(e => e.status === 'pending' || !e.status) ? 'pending'
+                            : 'passed';
+        outlineStatus === 'passed' ? passed++ : outlineStatus === 'failed' ? failed++ : pending++;
+      }
+      
+      // Count standalone scenarios
+      for (const s of standaloneScenarios) {
+        const st = s.status || getScenarioStatus(s);
+        st === 'passed' ? passed++ : st === 'failed' ? failed++ : pending++;
+      }
+      
+      return { passed, failed, pending };
+    }
+
+    function getScenarioStats(s) {
+      let passed = 0, failed = 0, pending = 0;
+      for (const st of s.steps || []) {
+        st.status === 'passed' ? passed++ : st.status === 'failed' ? failed++ : pending++;
+      }
+      return { passed, failed, pending };
+    }
+
+    function getScenarioStatus(s) {
+      const steps = s.steps || [];
+      if (steps.some(st => st.status === 'failed')) return 'failed';
+      if (steps.some(st => !st.status || st.status === 'pending')) return 'pending';
+      return steps.length ? 'passed' : 'pending';
+    }
+
+    function getFeatureStatus(f) {
+      const s = getFeatureStats(f);
+      return s.failed > 0 ? 'failed' : s.pending > 0 ? 'pending' : 'passed';
+    }
+
+    function getShortPath(path) {
+      if (!path) return '';
+      const parts = path.split(/[/\\]/);
+      return parts.slice(-3).join('/');
+    }
+
+    function dur(ms) {
+      if (!ms) return '-';
+      return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(2)}s`;
+    }
+
+    function esc(t) {
+      if (!t) return '';
+      const d = document.createElement('div');
+      d.textContent = t;
+      return d.innerHTML;
+    }
+
+    // Init
+    initTheme();
+    connect();
+  </script>
+</body>
+</html>

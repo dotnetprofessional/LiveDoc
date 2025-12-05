@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+/* Custom colors using Tailwind v4 @theme */
+@theme {
+  /* Custom background/surface colors - CSS variables for theme switching */
+  --color-bg: var(--theme-bg);
+  --color-surface: var(--theme-surface);
+  --color-surface-hover: var(--theme-surface-hover);
+  --color-border: var(--theme-border);
+  
+  /* Text colors */
+  --color-text: var(--theme-text);
+  --color-text-secondary: var(--theme-text-secondary);
+  --color-text-muted: var(--theme-text-muted);
+  
+  /* Accent color */
+  --color-accent: #58a6ff;
+  --color-accent-hover: #4f46e5;
+  
+  /* Status colors */
+  --color-pass: #3fb950;
+  --color-fail: #f85149;
+  --color-skip: #a371f7;
+  --color-pending: #d29922;
+  
+  /* Placeholder highlighting */
+  --color-placeholder: #fbbf24;
+  
+  /* Step type colors */
+  --color-given: #3b82f6;
+  --color-when: #f59e0b;
+  --color-then: #22c55e;
+  --color-and: #6b7280;
+  --color-but: #ec4899;
+}
+
+/* Dark theme (default) */
+:root {
+  --theme-bg: #0d1117;
+  --theme-surface: #161b22;
+  --theme-surface-hover: #21262d;
+  --theme-border: #30363d;
+  --theme-text: #e6edf3;
+  --theme-text-secondary: #8b949e;
+  --theme-text-muted: #6e7681;
+  color-scheme: dark;
+}
+
+/* Light theme */
+:root.light {
+  --theme-bg: #f6f8fa;
+  --theme-surface: #ffffff;
+  --theme-surface-hover: #f3f4f6;
+  --theme-border: #d0d7de;
+  --theme-text: #1f2328;
+  --theme-text-secondary: #656d76;
+  --theme-text-muted: #8c959f;
+  color-scheme: light;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}

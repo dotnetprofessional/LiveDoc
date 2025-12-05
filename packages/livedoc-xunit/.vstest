@@ -1,0 +1,2 @@
+# This file tells Visual Studio Test Explorer to ignore this project
+# The library itself is not a test project, only projects that reference it contain tests
