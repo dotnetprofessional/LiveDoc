@@ -1,8 +1,32 @@
 {
-    "vitest.rootConfig": "packages/livedoc-vitest/vitest.config.vscode.ts",
+    // === Vitest Extension ===
+    "vitest.rootConfig": "packages/vitest/vitest.config.ts",
     "vitest.debugExclude": [
         "<node_internals>/**",
         "**/node_modules/**"
     ],
-    "vitest.experimentalStaticAstCollect": false
+    "vitest.experimentalStaticAstCollect": false,
+
+    // === Fix for pnpm workspaces + VS Code symlink issues ===
+    // Prevents rg.exe from going into infinite loops following symlinks
+    "search.followSymlinks": false,
+    "files.watcherExclude": {
+        "**/node_modules/**": true,
+        "**/.pnpm/**": true,
+        "**/dist/**": true,
+        "**/build/**": true,
+        "**/_temp/**": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/.pnpm": true,
+        "**/pnpm-lock.yaml": true,
+        "**/dist": true,
+        "**/build": true,
+        "**/_temp": true,
+        "**/_archive": true
+    },
+    "files.exclude": {
+        "**/node_modules": true
+    }
 }

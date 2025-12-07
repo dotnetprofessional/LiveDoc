@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { feature, scenario, given, and, when, then, scenarioContext, stepContext } from "livedoc-vitest";
+import { feature, scenario, given, and, when, then, scenarioContext } from "@livedoc/vitest";
 
 class ATM {
     private machineCash = 0;

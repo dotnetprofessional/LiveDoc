@@ -1,5 +1,5 @@
 {
-    "name": "livedoc-vscode",
+    "name": "@livedoc/vscode",
     "displayName": "livedoc",
     "description": "Tools and snippets for working with LiveDoc BDD testing (Vitest)",
     "version": "0.0.1",
