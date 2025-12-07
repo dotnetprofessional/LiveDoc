@@ -1,10 +1,10 @@
-# LiveDoc-Vitest
+# @livedoc/vitest
 
 BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax.
 
 ## Overview
 
-LiveDoc-Vitest brings Behavior-Driven Development (BDD) to Vitest with full Gherkin syntax support including:
+@livedoc/vitest brings Behavior-Driven Development (BDD) to Vitest with full Gherkin syntax support including:
 - Feature / Scenario / Given / When / Then / And / But
 - Scenario Outlines with Examples
 - Background steps
@@ -17,7 +17,7 @@ This is a modern rewrite of livedoc-mocha leveraging Vitest's architecture and n
 ## Installation
 
 ```bash
-npm install --save-dev livedoc-vitest vitest
+npm install --save-dev @livedoc/vitest vitest
 ```
 
 ## Quick Start
@@ -26,7 +26,7 @@ npm install --save-dev livedoc-vitest vitest
 
 ```typescript
 // tests/calculator.Spec.ts
-import { feature, scenario, Given, When, Then } from 'livedoc-vitest';
+import { feature, scenario, Given, When, Then } from '@livedoc/vitest';
 
 feature("Calculator", (ctx) => {
   scenario("Adding two numbers", (ctx) => {
@@ -59,13 +59,14 @@ feature("Calculator", (ctx) => {
 ```typescript
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
     include: ['**/*.Spec.ts'],
-    reporters: ['default', './node_modules/livedoc-vitest/dist/app/reporter/LiveDocVitestReporter.js']
+    reporters: [new LiveDocSpecReporter()]
   }
 });
 ```
@@ -255,7 +256,7 @@ feature("API Tests @api @integration", (ctx) => {
 });
 
 // Configure filtering
-import { livedoc } from "livedoc-vitest";
+import { livedoc } from "@livedoc/vitest";
 
 livedoc.options.filters.include = ["@smoke"];
 livedoc.options.filters.exclude = ["@slow"];
@@ -306,8 +307,13 @@ Key changes:
 ## Documentation
 
 - [Migration Guide](./MIGRATION.md) - Migrating from livedoc-mocha
-- [Architecture](./architecture.md) - Internal architecture details
-- [API Changes](./api-changes.md) - Detailed API differences
+- [Architecture](./_docs/architecture.md) - Internal architecture details
+- [API Changes](./_docs/api-changes.md) - Detailed API differences
+
+## Related Packages
+
+- [@livedoc/vscode](../vscode/README.md) - VS Code extension with snippets and formatting
+- [@livedoc/viewer](../viewer/README.md) - Web-based test results viewer
 
 ## License
 
