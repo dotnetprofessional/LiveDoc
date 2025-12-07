@@ -18,20 +18,9 @@ import type {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Determine static file directories (built React app or fallback public folder)
+// Static file directory (built React app)
 function getStaticDir(): string {
-  // In production, serve from dist/client (built React app)
-  const distClient = path.resolve(__dirname, '../client');
-  // Fallback to public directory (legacy SPA)
-  const publicDir = path.resolve(__dirname, '../../public');
-  
-  // Check if dist/client exists (production build)
-  try {
-    require('fs').accessSync(distClient);
-    return distClient;
-  } catch {
-    return publicDir;
-  }
+  return path.resolve(__dirname, '../client');
 }
 
 // Generate unique IDs

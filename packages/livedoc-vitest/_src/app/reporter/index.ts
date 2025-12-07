@@ -4,7 +4,7 @@ export { ColorTheme, DefaultColorTheme } from "./ColorTheme";
 export * from "./IPostReporter";
 export { ReporterOptions } from "./ReporterOptions";
 export { JsonReporter } from "./JsonReporter";
-export { SilentReporter } from "./SilentReporter";
+export { default as SilentReporter } from "./SilentReporter";
 export { LiveDocViewerReporter, LiveDocViewerOptions } from "./LiveDocViewerReporter";
 export { LiveDocReporter, HeaderType } from "./LiveDocReporter";
 export { LiveDocSpec, LiveDocReporterOptions } from "./LiveDocSpec";

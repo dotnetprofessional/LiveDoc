@@ -9,7 +9,6 @@ export default defineConfig({
     tailwindcss(),
   ],
   root: 'src/client',
-  publicDir: '../../public',
   build: {
     outDir: '../../dist/client',
     emptyOutDir: true,

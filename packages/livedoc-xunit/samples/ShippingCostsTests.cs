@@ -104,7 +104,7 @@ public class ShippingCostsTests : LiveDocTest
     [Example("Australia", 99.99, 9.999, "Standard Domestic")]
     [Example("Australia", 100.00, 10.00, "Free")]
     [Example("New Zealand", 99.99, 0, "Standard International")]
-    [Example("New Zealand", 100.00, 10, "Standard International")]
+    [Example("New Zealand", 100.00, 0, "Standard International")]
     [Example("Zimbabwe", 100.00, 0, "Standard International")]
     public void Calculate_GST_and_shipping(
         string CustomerCountry,

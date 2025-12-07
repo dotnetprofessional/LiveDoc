@@ -1,0 +1,8 @@
+{
+    "vitest.rootConfig": "packages/livedoc-vitest/vitest.config.vscode.ts",
+    "vitest.debugExclude": [
+        "<node_internals>/**",
+        "**/node_modules/**"
+    ],
+    "vitest.experimentalStaticAstCollect": false
+}

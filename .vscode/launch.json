@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Vitest Tests",
+            "autoAttachChildProcesses": true,
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+            "program": "${workspaceFolder}/packages/livedoc-vitest/node_modules/vitest/vitest.mjs",
+            "args": ["run", "--config", "vitest.config.vscode.ts", "--no-coverage", "--reporter=verbose", "--no-file-parallelism"],
+            "cwd": "${workspaceFolder}/packages/livedoc-vitest",
+            "console": "integratedTerminal",
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ],
+            "runtimeArgs": ["--enable-source-maps"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug Current Test File",
+            "autoAttachChildProcesses": true,
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+            "program": "${workspaceFolder}/packages/livedoc-vitest/node_modules/vitest/vitest.mjs",
+            "args": ["run", "--config", "vitest.config.vscode.ts", "--no-coverage", "--reporter=verbose", "--no-file-parallelism", "${fileBasename}"],
+            "cwd": "${workspaceFolder}/packages/livedoc-vitest",
+            "console": "integratedTerminal",
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ],
+            "runtimeArgs": ["--enable-source-maps"]
+        }
+    ]
+}

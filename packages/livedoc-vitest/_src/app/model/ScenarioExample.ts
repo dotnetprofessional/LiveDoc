@@ -15,6 +15,7 @@ export interface ScenarioOutlineContext {
     given?: any;
     and: any[];
     tags: string[];
+    steps: any[];
 }
 
 export class ScenarioExample extends Scenario {

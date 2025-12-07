@@ -97,9 +97,7 @@ export default class LiveDocSpecReporter implements Reporter {
                 .join('\n');
         }
         
-        // Group scenarios by title to detect scenario outlines
-        // Also detect background
-        const scenarioGroups = new Map<string, any[]>();
+        // Process tasks - detect backgrounds, scenarios, and scenario outlines
         let backgroundSuite: any = null;
         
         for (const task of (suite.tasks || [])) {
@@ -110,11 +108,23 @@ export default class LiveDocSpecReporter implements Reporter {
                     continue;
                 }
                 
-                const cleanTitle = task.name.replace(/^Scenario:\s*/, '').split('\n')[0].trim();
-                if (!scenarioGroups.has(cleanTitle)) {
-                    scenarioGroups.set(cleanTitle, []);
+                // Check if this is a scenario (starts with "Scenario:")
+                if (task.name.startsWith('Scenario:')) {
+                    // Check if this scenario has child suites that are examples (Scenario Outline structure)
+                    const exampleSuites = (task.tasks || []).filter((t: any) => 
+                        t.type === 'suite' && t.name.startsWith('Example ')
+                    );
+                    
+                    if (exampleSuites.length > 0) {
+                        // This is a Scenario Outline with nested examples
+                        const scenarioOutline = this.buildScenarioOutlineFromNestedStructure(task, feature);
+                        feature.scenarios.push(scenarioOutline);
+                    } else {
+                        // This is a regular Scenario
+                        const scenario = this.buildScenarioFromSuite(task, feature);
+                        feature.scenarios.push(scenario);
+                    }
                 }
-                scenarioGroups.get(cleanTitle)!.push(task);
             }
         }
         
@@ -123,42 +133,38 @@ export default class LiveDocSpecReporter implements Reporter {
             feature.background = this.buildBackgroundFromSuite(backgroundSuite, feature);
         }
         
-        // Build scenarios or scenario outlines based on grouping
-        for (const [title, suites] of scenarioGroups) {
-            if (suites.length > 1) {
-                // Multiple scenarios with same title = Scenario Outline
-                // Check if any suite has scenario outline metadata embedded in its name
-                let outlineData = null;
-                for (const suite of suites) {
-                    // Check for metadata marker in suite name
-                    const metaMatch = suite.name.match(/<<<LIVEDOC_META:(.+?)>>>$/s);
-                    if (metaMatch) {
-                        try {
-                            const metadata = JSON.parse(metaMatch[1]);
-                            outlineData = metadata.scenarioOutline;
-                            break;
-                        } catch (e) {
-                            console.error('Failed to parse LiveDoc metadata from suite name:', e);
-                        }
-                    }
+        return feature;
+    }
+    
+    private buildScenarioOutlineFromNestedStructure(suite: any, feature: model.Feature): model.ScenarioOutline {
+        const scenarioOutline = new model.ScenarioOutline(feature);
+        const cleanName = suite.name.replace(/^Scenario:\s*/, '').split('\n')[0].trim();
+        scenarioOutline.title = cleanName;
+        
+        // Get example suites
+        const exampleSuites = (suite.tasks || []).filter((t: any) => 
+            t.type === 'suite' && t.name.startsWith('Example ')
+        );
+        
+        // Build template steps from the first example's step definitions
+        if (exampleSuites.length > 0 && exampleSuites[0].tasks) {
+            for (const task of exampleSuites[0].tasks) {
+                if (task.type === 'test') {
+                    const step = new model.StepDefinition(scenarioOutline, "");
+                    step.rawTitle = this.extractStepTemplate(task.name, scenarioOutline.tables);
+                    step.type = this.extractStepType(task.name);
+                    scenarioOutline.steps.push(step);
                 }
-                
-                if (outlineData) {
-                    const scenarioOutline = this.buildScenarioOutlineFromSuitesWithRegistry(title, suites, feature, outlineData);
-                    feature.scenarios.push(scenarioOutline);
-                } else {
-                    // Fallback to basic construction
-                    const scenarioOutline = this.buildBasicScenarioOutlineFromSuites(title, suites, feature);
-                    feature.scenarios.push(scenarioOutline);
-                }
-            } else {
-                // Single scenario
-                const scenario = this.buildScenarioFromSuite(suites[0], feature);
-                feature.scenarios.push(scenario);
             }
         }
         
-        return feature;
+        // Build scenario examples from each example suite
+        for (let i = 0; i < exampleSuites.length; i++) {
+            const example = this.buildScenarioExampleFromSuite(exampleSuites[i], scenarioOutline, i + 1);
+            scenarioOutline.examples.push(example);
+        }
+        
+        return scenarioOutline;
     }
     
     private buildBackgroundFromSuite(suite: any, feature: model.Feature): model.Background {
@@ -176,14 +182,9 @@ export default class LiveDocSpecReporter implements Reporter {
         return background;
     }
     
-    private stripLiveDocMetadata(suiteName: string): string {
-        // Remove the <<<LIVEDOC_META:...>>> marker if present
-        return suiteName.replace(/\n<<<LIVEDOC_META:.+?>>>$/s, '');
-    }
-    
     private buildScenarioFromSuite(suite: any, feature: model.Feature): model.Scenario {
         const scenario = new model.Scenario(feature);
-        const cleanName = this.stripLiveDocMetadata(suite.name);
+        const cleanName = suite.name;
         scenario.title = cleanName.replace(/^Scenario:\s*/, '').split('\n')[0].trim();
         
         // Parse description if available
@@ -205,48 +206,6 @@ export default class LiveDocSpecReporter implements Reporter {
         
         scenario.executionTime = suite.result?.duration || 0;
         return scenario;
-    }
-    
-    private buildScenarioOutlineFromSuitesWithRegistry(title: string, suites: any[], feature: model.Feature, outlineData: any): model.ScenarioOutline {
-        const scenarioOutline = new model.ScenarioOutline(feature);
-        scenarioOutline.title = title;
-        scenarioOutline.description = outlineData.description || '';
-        scenarioOutline.tags = outlineData.tags || [];
-        scenarioOutline.tables = outlineData.tables || [];
-        
-        // Build template steps from the scenario outline's step definitions
-        // These steps have placeholders like <Customer's Country>
-        if (suites.length > 0 && suites[0].tasks) {
-            for (const task of suites[0].tasks) {
-                if (task.type === 'test') {
-                    const step = new model.StepDefinition(scenarioOutline, "");
-                    step.rawTitle = this.extractStepTemplate(task.name, scenarioOutline.tables);
-                    step.type = this.extractStepType(task.name);
-                    scenarioOutline.steps.push(step);
-                }
-            }
-        }
-        
-        // Build scenario examples
-        for (let i = 0; i < suites.length; i++) {
-            const example = this.buildScenarioExampleFromSuite(suites[i], scenarioOutline, i + 1);
-            scenarioOutline.examples.push(example);
-        }
-        
-        return scenarioOutline;
-    }
-    
-    private buildBasicScenarioOutlineFromSuites(title: string, suites: any[], feature: model.Feature): model.ScenarioOutline {
-        const scenarioOutline = new model.ScenarioOutline(feature);
-        scenarioOutline.title = title;
-        
-        // Build scenario examples
-        for (let i = 0; i < suites.length; i++) {
-            const example = this.buildScenarioExampleFromSuite(suites[i], scenarioOutline, i + 1);
-            scenarioOutline.examples.push(example);
-        }
-        
-        return scenarioOutline;
     }
     
     private buildScenarioExampleFromSuite(suite: any, scenarioOutline: model.ScenarioOutline, sequence: number): model.ScenarioExample {

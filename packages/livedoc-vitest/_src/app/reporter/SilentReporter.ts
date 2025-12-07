@@ -1,4 +1,5 @@
-import type { Reporter, File, Vitest, Task } from 'vitest';
+import type { RunnerTestFile } from 'vitest';
+import type { Reporter } from 'vitest/reporters';
 
 /**
  * A silent reporter that produces no output but captures errors.
@@ -7,13 +8,13 @@ import type { Reporter, File, Vitest, Task } from 'vitest';
  */
 export default class SilentReporter implements Reporter {
     public collectedErrors: Error[] = [];
-    public collectedFiles: File[] = [];
+    public collectedFiles: RunnerTestFile[] = [];
     
-    onInit(_ctx: Vitest) {}
+    onInit() {}
     
     onPathsCollected() {}
     
-    onCollected(files?: File[]) {
+    onCollected(files?: RunnerTestFile[]) {
         if (files) {
             this.collectedFiles = files;
             // Check for errors in collected files
@@ -25,7 +26,7 @@ export default class SilentReporter implements Reporter {
         }
     }
     
-    onFinished(files?: File[], errors?: unknown[]) {
+    onFinished(files?: RunnerTestFile[], errors?: unknown[]) {
         if (files) {
             this.collectedFiles = files;
         }
@@ -34,7 +35,7 @@ export default class SilentReporter implements Reporter {
         }
     }
     
-    onTaskUpdate(_packs: [string, Task | undefined][]) {}
+    onTaskUpdate() {}
     onTestRemoved() {}
     onWatcherStart() {}
     onWatcherRerun() {}

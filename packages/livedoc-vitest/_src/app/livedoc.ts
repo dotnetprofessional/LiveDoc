@@ -74,24 +74,52 @@ let isDynamicExecution = false;
 // Store any exception that should be re-thrown to the caller
 let capturedThrownException: { type: string; message: string; data?: any } | null = null;
 
+// Track if we've already written the results file (to prevent double-writes)
+let resultsFileWritten = false;
+
+// ES Module __dirname equivalent (needed for livedocPath calculation)
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+const __filename_esm = fileURLToPath(import.meta.url);
+const __dirname_esm = dirname(__filename_esm);
+
 // Check if we're in dynamic execution mode (set by executeDynamicTestAsync)
 const dynamicResultsFile = process.env.LIVEDOC_DYNAMIC_RESULTS_FILE;
+
 if (dynamicResultsFile) {
     isDynamicExecution = true;
+    
     // Register a global afterAll to write results when all tests complete
     afterAll(() => {
+        // Skip if we've already written results (prevents second write from overwriting exception)
+        if (resultsFileWritten) {
+            return;
+        }
+        
         try {
             const fs = require('fs');
             const results: any = {
                 features: featureRegistry.map(f => f.toJSON()),
                 suites: suiteRegistry.map(s => s.toJSON())
             };
+            
             // Include any captured exception
             if (capturedThrownException) {
                 results.thrownException = capturedThrownException;
             }
-            fs.writeFileSync(dynamicResultsFile, JSON.stringify(results, null, 2));
-        } catch (e) {
+            
+            const jsonContent = JSON.stringify(results, null, 2);
+            
+            // Write with explicit sync to ensure data is flushed to disk
+            const fd = fs.openSync(dynamicResultsFile, 'w');
+            fs.writeSync(fd, jsonContent);
+            fs.fsyncSync(fd);  // Force flush to disk
+            fs.closeSync(fd);
+            
+            // Mark that we've written the file to prevent overwrites
+            resultsFileWritten = true;
+            
+        } catch (e: any) {
             console.error('Failed to write dynamic test results:', e);
         }
     });
@@ -182,7 +210,8 @@ function displayRuleViolation(violation: LiveDocRuleViolation, filename: string)
         return;
     }
 
-    const option = (livedoc.options.rules as any)[RuleViolations[violation.rule]];
+    const ruleName = RuleViolations[violation.rule];
+    const option = (livedoc.options.rules as any)[ruleName];
     const outputMessage = `${violation.message} [title: ${violation.title}, file: ${filename}]`;
 
     if (option === LiveDocRuleOption.warning) {
@@ -247,7 +276,7 @@ function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts
 
     const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
 
-    describeFunc(title, () => {
+    describeFunc(thisFeature.displayTitle, () => {
         // Restore currentFeature for this describe's callback
         // This ensures scenarios are added to the correct feature
         currentFeature = thisFeature;
@@ -514,102 +543,93 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
     // This is needed because parent will restore its context after this returns
     const isInheritedFilter = isFilteredContext;
 
-    // Create a scenario for each example
-    for (const example of scenarioOutlineModel.examples) {
-        scenarioCount++;
-        const thisScenarioId = scenarioCount;
-        const isFirstExample = example.sequence === 1;
+    // Determine the describe function for the parent outline suite
+    const outlineDescribeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
 
-        const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
+    // Create a parent describe for the Scenario Outline itself
+    // Use "Scenario:" prefix to match the display format (Scenario Outline shows as Scenario in output)
+    outlineDescribeFunc(`Scenario: ${scenarioOutlineModel.title}`, () => {
+        // Create a child describe for each example
+        for (const example of scenarioOutlineModel.examples) {
+            scenarioCount++;
+            const thisScenarioId = scenarioCount;
 
-        // For the first example, encode scenario outline metadata in the suite name
-        // This allows the reporter to reconstruct the outline structure
-        let suiteName = example.displayTitle;
-        if (isFirstExample) {
-            // Append metadata as JSON in a special format that can be parsed later
-            // Format: <<<LIVEDOC_META:{ json }>>>
-            const metadata = {
-                scenarioOutline: {
-                    rawTitle: title,
-                    title: scenarioOutlineModel.title,
-                    description: scenarioOutlineModel.description,
-                    tables: scenarioOutlineModel.tables,
-                    tags: scenarioOutlineModel.tags,
-                    steps: scenarioOutlineModel.steps
-                }
-            };
-            suiteName = `${example.displayTitle}\n<<<LIVEDOC_META:${JSON.stringify(metadata)}>>>`;
-        }
+            // Each example is a child describe with example values
+            // Use "Example N:" prefix to distinguish from regular scenarios
+            // Display the example values as a comma-separated list
+            const exampleValues = Object.values(example.example || {}).join(', ');
+            const exampleName = `Example ${example.sequence}: ${exampleValues}`;
 
-        describeFunc(suiteName, () => {
-            // Set current scenario during registration so steps can be added
-            const previousScenario = currentScenario;
-            currentScenario = example as any;  // ScenarioExample is assignable to Scenario for our purposes
-            
-            // Track pending context for steps
-            const previousPendingContext = isPendingContext;
-            const previousFilteredContext = isFilteredContext;
-            
-            // Set isPendingContext for skipped scenarios
-            // Only propagate isFilteredContext if inherited from parent (not if this scenario is excluded)
-            // When a scenario is excluded by filter, steps should be 'pending', not 'unknown'
-            if (shouldSkip) {
-                isPendingContext = true;
-                // Only inherit filter context from parent - don't set it just because we're excluded
-                if (isInheritedFilter) {
-                    isFilteredContext = true;
-                }
-            }
-
-            beforeAll(() => {
-                scenarioId = thisScenarioId;
-                backgroundStepsComplete = false;
-            });
-
-            afterAll(async () => {
-                if (afterBackgroundFn && currentFeature) {
-                    const hookStep = parser.createStep("hook", "afterBackground", undefined);
-                    // Use example (captured at registration) not currentScenario (global that may have changed)
-                    example.addStep(hookStep);
-                    currentStep = hookStep;
-                    const startTime = Date.now();
-                    try {
-                        await afterBackgroundFn();
-                        hookStep.setStatus(model.SpecStatus.pass, Date.now() - startTime);
-                    } catch (error: any) {
-                        const duration = Date.now() - startTime;
-                        hookStep.setStatus(model.SpecStatus.fail, duration);
-                        const exception = new model.Exception();
-                        exception.message = error.message || String(error);
-                        exception.stackTrace = error.stack || '';
-                        hookStep.exception = exception;
-                        throw error;
+            vitestDescribe(exampleName, () => {
+                // Set current scenario during registration so steps can be added
+                const previousScenario = currentScenario;
+                currentScenario = example as any;  // ScenarioExample is assignable to Scenario for our purposes
+                
+                // Track pending context for steps
+                const previousPendingContext = isPendingContext;
+                const previousFilteredContext = isFilteredContext;
+                
+                // Set isPendingContext for skipped scenarios
+                // Only propagate isFilteredContext if inherited from parent (not if this scenario is excluded)
+                // When a scenario is excluded by filter, steps should be 'pending', not 'unknown'
+                if (shouldSkip) {
+                    isPendingContext = true;
+                    // Only inherit filter context from parent - don't set it just because we're excluded
+                    if (isInheritedFilter) {
+                        isFilteredContext = true;
                     }
                 }
+
+                beforeAll(() => {
+                    scenarioId = thisScenarioId;
+                    backgroundStepsComplete = false;
+                });
+
+                afterAll(async () => {
+                    if (afterBackgroundFn && currentFeature) {
+                        const hookStep = parser.createStep("hook", "afterBackground", undefined);
+                        // Use example (captured at registration) not currentScenario (global that may have changed)
+                        example.addStep(hookStep);
+                        currentStep = hookStep;
+                        const startTime = Date.now();
+                        try {
+                            await afterBackgroundFn();
+                            hookStep.setStatus(model.SpecStatus.pass, Date.now() - startTime);
+                        } catch (error: any) {
+                            const duration = Date.now() - startTime;
+                            hookStep.setStatus(model.SpecStatus.fail, duration);
+                            const exception = new model.Exception();
+                            exception.message = error.message || String(error);
+                            exception.stackTrace = error.stack || '';
+                            hookStep.exception = exception;
+                            throw error;
+                        }
+                    }
+                });
+
+                const ctx = {
+                    get feature() {
+                        return currentFeature?.getFeatureContext();
+                    },
+                    get scenario() {
+                        return example.getScenarioContext();
+                    },
+                    get example() {
+                        return example.getScenarioContext();
+                    },
+                };
+
+                fn(ctx);
+
+                // Restore contexts
+                isPendingContext = previousPendingContext;
+                isFilteredContext = previousFilteredContext;
+                
+                // Restore previous scenario after registration
+                currentScenario = previousScenario;
             });
-
-            const ctx = {
-                get feature() {
-                    return currentFeature?.getFeatureContext();
-                },
-                get scenario() {
-                    return example.getScenarioContext();
-                },
-                get example() {
-                    return example.getScenarioContext();
-                },
-            };
-
-            fn(ctx);
-
-            // Restore contexts
-            isPendingContext = previousPendingContext;
-            isFilteredContext = previousFilteredContext;
-            
-            // Restore previous scenario after registration
-            currentScenario = previousScenario;
-        });
-    }
+        }
+    });
 }
 
 /**
@@ -1035,6 +1055,12 @@ export class LiveDoc {
         let errorFile: string = '';
         let resultsFile: string = '';
         const tempFolder = "_temp";
+        
+        // Trace helper for debugging - disabled in production
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const execTrace = (_loc: string, _data: any) => {
+            // Disabled - was used for debugging double module load issue
+        };
 
         try {
             if (feature.length === 0) {
@@ -1068,7 +1094,8 @@ export class LiveDoc {
             }
 
             // Get the absolute path to livedoc module
-            const livedocPath = path.resolve(__dirname, 'livedoc').replace(/\\/g, '/');
+            // Use __dirname_esm which is properly computed from import.meta.url for ES modules
+            const livedocPath = path.resolve(__dirname_esm, 'livedoc').replace(/\\/g, '/');
             const errorFilePath = path.resolve(errorFile).replace(/\\/g, '/');
 
             // Strip import statements from the feature code since we provide our own imports
@@ -1084,6 +1111,15 @@ export class LiveDoc {
             const serializedOptions = JSON.stringify({
                 rules: _livedocOptions?.rules,
                 filters: _livedocOptions?.filters
+            });
+            
+            // Debug: trace the options being serialized
+            execTrace('EXEC_DYNAMIC_SERIALIZING_OPTIONS', {
+                hasLivedocOptions: !!_livedocOptions,
+                hasRules: !!_livedocOptions?.rules,
+                rulesType: typeof _livedocOptions?.rules,
+                rulesValue: _livedocOptions?.rules ? JSON.stringify(_livedocOptions.rules) : 'undefined',
+                serializedOptions
             });
 
             // Wrap the content with our imports and error capturing
@@ -1139,15 +1175,33 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
             
             // Set environment variable so livedoc.ts knows to write results
             const absoluteResultsPath = path.resolve(resultsFile);
+            
+            execTrace('EXEC_DYNAMIC_BEFORE_ENV_SET', { 
+                absoluteResultsPath,
+                absoluteFilename,
+                currentEnvValue: process.env.LIVEDOC_DYNAMIC_RESULTS_FILE || 'NOT_SET'
+            });
+            
             process.env.LIVEDOC_DYNAMIC_RESULTS_FILE = absoluteResultsPath;
+            
+            execTrace('EXEC_DYNAMIC_ENV_SET', { 
+                newEnvValue: process.env.LIVEDOC_DYNAMIC_RESULTS_FILE 
+            });
             
             // Run the test file using Vitest's programmatic API
             // Override include pattern to ensure our temp file is found
+            // IMPORTANT: Disable setupFiles to prevent double module loading!
+            // The temp file already imports everything it needs from livedoc.
+            // If we also load setup.js (which imports from dist/app/livedoc.js),
+            // we'd have two separate module instances with separate state.
+            execTrace('EXEC_DYNAMIC_STARTING_VITEST', { absoluteFilename });
+            
             const vitest = await startVitest('test', [absoluteFilename], {
                 watch: false,
                 reporters: [silentReporter],
                 run: true,
                 include: [absoluteFilename.replace(/\\/g, '/')],  // Override include pattern
+                setupFiles: [],  // Disable setup files - temp file has its own imports
             });
 
             if (!vitest) {
@@ -1198,9 +1252,28 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
             // Read execution results from the file written by the subprocess
             const results = new model.ExecutionResults();
             
+            execTrace('EXEC_DYNAMIC_READ_RESULTS_START', { 
+                resultsFile,
+                fileExists: fs.existsSync(resultsFile)
+            });
+            
             if (fs.existsSync(resultsFile)) {
                 const fileContent = fs.readFileSync(resultsFile, 'utf8');
+                
+                execTrace('EXEC_DYNAMIC_FILE_READ', {
+                    bytes: fileContent.length,
+                    containsThrownException: fileContent.includes('thrownException'),
+                    last200chars: fileContent.slice(-200)
+                });
+                
                 const resultsData = JSON.parse(fileContent);
+                
+                execTrace('EXEC_DYNAMIC_PARSED', {
+                    hasThrownException: !!resultsData.thrownException,
+                    thrownExceptionType: resultsData.thrownException?.type,
+                    thrownExceptionMsg: resultsData.thrownException?.message?.substring(0, 50),
+                    featureCount: resultsData.features?.length || 0
+                });
                 
                 // Reconstruct Feature objects from JSON
                 if (resultsData.features && Array.isArray(resultsData.features)) {
@@ -1218,23 +1291,39 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                     }
                 }
                 
-                // Clean up results file
-                fs.unlinkSync(resultsFile);
-                
                 // Check for any exception that was thrown and captured
                 if (resultsData.thrownException) {
                     results.thrownException = resultsData.thrownException;
+                    execTrace('EXEC_DYNAMIC_EXCEPTION_LOADED', { 
+                        thrownException: resultsData.thrownException 
+                    });
                 }
+            } else {
+                execTrace('EXEC_DYNAMIC_NO_RESULTS_FILE', { resultsFile });
             }
 
             // Re-throw any captured exception from the subprocess
+            execTrace('EXEC_DYNAMIC_RETHROW_CHECK', {
+                hasThrownException: !!results.thrownException,
+                type: results.thrownException?.type
+            });
+            
             if (results.thrownException) {
+                execTrace('EXEC_DYNAMIC_RETHROWING', { 
+                    type: results.thrownException.type,
+                    message: results.thrownException.message
+                });
+                
                 if (results.thrownException.type === 'LiveDocRuleViolation' && results.thrownException.data) {
                     throw this.reconstructRuleViolation(results.thrownException.data);
                 } else {
                     throw new Error(results.thrownException.message);
                 }
             }
+            
+            execTrace('EXEC_DYNAMIC_RETURNING_RESULTS', { 
+                featureCount: results.features.length 
+            });
 
             return results;
 
@@ -1242,10 +1331,10 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
             // Disable dynamic execution mode
             isDynamicExecution = false;
             
-            // Clean up temp file
-            if (filename && fs.existsSync(filename)) {
-                fs.unlinkSync(filename);
-            }
+            // Clean up temp file - DISABLED FOR DEBUGGING
+            // if (filename && fs.existsSync(filename)) {
+            //     fs.unlinkSync(filename);
+            // }
         }
     }
     

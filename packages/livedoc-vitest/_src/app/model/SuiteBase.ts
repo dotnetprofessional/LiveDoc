@@ -1,7 +1,6 @@
 import { Statistics } from "./Statistics";
 import { LiveDocRuleViolation } from "./LiveDocRuleViolation";
 import { RuleViolations } from "./RuleViolations";
-import * as os from "os";
 
 /**
  * Base class for all test suites (Feature, Scenario, Background, etc.)

@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Temp files
+_temp/
+temp/
+
+# Debug/test output files
+*.log
+debug-output*.txt
+test-output*.txt
+enhanced-output.txt
+tutorial-output.txt
+results.txt
+results.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
