@@ -1,15 +1,41 @@
 {
     "version": "0.2.0",
     "configurations": [
+        // ==================== VS Code Extension ====================
         {
+            "name": "🧩 VS Code Extension: Launch",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": ["--extensionDevelopmentPath=${workspaceFolder}/packages/vscode"],
+            "outFiles": ["${workspaceFolder}/packages/vscode/out/**/*.js"],
+            "sourceMaps": true,
+            "preLaunchTask": "vscode: compile"
+        },
+        {
+            "name": "🧩 VS Code Extension: Tests",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode",
+                "--extensionTestsPath=${workspaceFolder}/packages/vscode/out/test"
+            ],
+            "outFiles": ["${workspaceFolder}/packages/vscode/out/**/*.js"],
+            "sourceMaps": true,
+            "preLaunchTask": "vscode: compile"
+        },
+
+        // ==================== @livedoc/vitest Tests ====================
+        {
+            "name": "🧪 Vitest: Run All Tests",
             "type": "node",
             "request": "launch",
-            "name": "Debug Vitest Tests",
             "autoAttachChildProcesses": true,
             "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
-            "program": "${workspaceFolder}/packages/livedoc-vitest/node_modules/vitest/vitest.mjs",
-            "args": ["run", "--config", "vitest.config.vscode.ts", "--no-coverage", "--reporter=verbose", "--no-file-parallelism"],
-            "cwd": "${workspaceFolder}/packages/livedoc-vitest",
+            "program": "${workspaceFolder}/packages/vitest/node_modules/vitest/vitest.mjs",
+            "args": ["run", "--no-coverage", "--reporter=verbose", "--no-file-parallelism"],
+            "cwd": "${workspaceFolder}/packages/vitest",
             "console": "integratedTerminal",
             "sourceMaps": true,
             "resolveSourceMapLocations": [
@@ -19,14 +45,14 @@
             "runtimeArgs": ["--enable-source-maps"]
         },
         {
+            "name": "🧪 Vitest: Debug Current File",
             "type": "node",
             "request": "launch",
-            "name": "Debug Current Test File",
             "autoAttachChildProcesses": true,
             "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
-            "program": "${workspaceFolder}/packages/livedoc-vitest/node_modules/vitest/vitest.mjs",
-            "args": ["run", "--config", "vitest.config.vscode.ts", "--no-coverage", "--reporter=verbose", "--no-file-parallelism", "${fileBasename}"],
-            "cwd": "${workspaceFolder}/packages/livedoc-vitest",
+            "program": "${workspaceFolder}/packages/vitest/node_modules/vitest/vitest.mjs",
+            "args": ["run", "--no-coverage", "--reporter=verbose", "--no-file-parallelism", "${fileBasename}"],
+            "cwd": "${workspaceFolder}/packages/vitest",
             "console": "integratedTerminal",
             "sourceMaps": true,
             "resolveSourceMapLocations": [
@@ -34,6 +60,48 @@
                 "!**/node_modules/**"
             ],
             "runtimeArgs": ["--enable-source-maps"]
+        },
+
+        // ==================== @livedoc/viewer ====================
+        {
+            "name": "🌐 Viewer: Dev Server",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}/packages/viewer",
+            "console": "integratedTerminal",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ==================== Examples ====================
+        {
+            "name": "📘 Example: Custom Reporter",
+            "type": "node",
+            "request": "launch",
+            "autoAttachChildProcesses": true,
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+            "program": "${workspaceFolder}/examples/custom-reporter/node_modules/vitest/vitest.mjs",
+            "args": ["run"],
+            "cwd": "${workspaceFolder}/examples/custom-reporter",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "📘 Example: Vitest Sample",
+            "type": "node",
+            "request": "launch",
+            "autoAttachChildProcesses": true,
+            "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+            "program": "${workspaceFolder}/examples/vitest-sample/node_modules/vitest/vitest.mjs",
+            "args": ["run"],
+            "cwd": "${workspaceFolder}/examples/vitest-sample",
+            "console": "integratedTerminal"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "🚀 Full Stack: Extension + Viewer",
+            "configurations": ["🧩 VS Code Extension: Launch", "🌐 Viewer: Dev Server"]
         }
     ]
 }

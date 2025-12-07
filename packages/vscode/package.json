@@ -75,28 +75,26 @@
         }
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "pnpm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "package": "vsce package",
-        "postinstall": "node ./node_modules/vscode/bin/install",
-        "test": "npm run compile && node ./node_modules/vscode/bin/test",
-        "link-livedoc": "node scripts/link-livedoc.js",
-        "parcel-watch": "parcel watch src/reporter/index.tsx --no-hmr --no-autoinstall --out-dir out/reporter"
+        "test": "pnpm run compile",
+        "link-livedoc": "node scripts/link-livedoc.js"
     },
     "devDependencies": {
-        "@types/mocha": "^2.2.42",
-        "@types/node": "^7.0.43",
-        "fs-extra": "^7.0.0",
-        "@types/react": "^16.4.6",
-        "@types/react-dom": "^16.0.6",
-        "parcel-bundler": "^1.9.7",
-        "typescript": "^2.5.3",
-        "vscode": "^1.1.5"
+        "@types/mocha": "^10.0.0",
+        "@types/node": "^20.0.0",
+        "@types/vscode": "^1.25.0",
+        "fs-extra": "^11.0.0",
+        "@types/react": "^18.0.0",
+        "@types/react-dom": "^18.0.0",
+        "typescript": "~5.5.0"
     },
     "dependencies": {
+        "@livedoc/vitest": "workspace:*",
         "aphrodite": "^2.2.2",
-        "react": "^16.4.1",
-        "react-dom": "^16.4.1"
+        "react": "^18.0.0",
+        "react-dom": "^18.0.0"
     }
 }

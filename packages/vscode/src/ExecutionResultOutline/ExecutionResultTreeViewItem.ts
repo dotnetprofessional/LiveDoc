@@ -1,10 +1,9 @@
-import * as livedoc from "livedoc-mocha/model";
+import * as livedoc from "@livedoc/vitest";
 import * as vscode from "vscode";
 import * as path from 'path';
 
 import { ScenarioStatus } from "./ScenarioStatus";
-import { FeatureGroup } from "./ExecutionResultOutlineProvider";
-import { TestSuite } from "../../node_modules/livedoc-mocha/model/config";
+import { FeatureGroup, TestSuite } from "./ExecutionResultOutlineProvider";
 
 
 export abstract class ExecutionResultTreeViewItem extends vscode.TreeItem {

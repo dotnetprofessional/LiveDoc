@@ -2,7 +2,7 @@ import * as path from "path";
 import * as fs from "fs"
 import { ExtensionContext, WebviewPanel } from "vscode";
 import * as vscode from "vscode";
-import * as model from "livedoc-mocha/model";
+import * as model from "@livedoc/vitest";
 
 class ReporterWebView {
     private _webviewPanel: WebviewPanel;

@@ -1,5 +1,4 @@
-import * as livedoc from "livedoc-mocha/model";
-import * as livedocConfig from "livedoc-mocha/model/config";
+import * as livedoc from "@livedoc/vitest";
 
 import * as vscode from "vscode";
 import * as fs from 'fs';
@@ -7,47 +6,64 @@ import * as path from 'path';
 
 import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem, BackgroundTreeViewItem } from "./ExecutionResultTreeViewItem";
 import { ScenarioStatus } from "./ScenarioStatus";
-import { TestSuite } from "livedoc-mocha/model/config";
 
 import { reporterWebview } from "../reporter/ReporterWebView";
 
-export interface IExecutionModel extends livedocConfig.TestSuite {
+/**
+ * Configuration for a test suite execution
+ */
+export interface TestSuite {
+    name: string;
+    path: string;
+}
+
+export interface IExecutionModel extends TestSuite {
     results: FeatureGroup[];
     executionResults: livedoc.ExecutionResults;
 }
+
+/**
+ * Local config to hold test suites
+ */
+interface LiveDocConfig {
+    testSuites: IExecutionModel[];
+}
+
 export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ExecutionResultTreeViewItem | undefined> = new vscode.EventEmitter<ExecutionResultTreeViewItem | undefined>();
     readonly onDidChangeTreeData: vscode.Event<ExecutionResultTreeViewItem | undefined> = this._onDidChangeTreeData.event;
     private static executionResults: livedoc.ExecutionResults;
-    private config: livedocConfig.LiveDocConfig;
+    private config: LiveDocConfig;
 
     constructor(private rootPath: string, private extensionPath: string) {
-        this.config = new livedocConfig.LiveDocConfig();
+        this.config = { testSuites: [] };
 
-        let localSuite = new livedocConfig.TestSuite() as IExecutionModel;
-        localSuite.name = "production";
-        localSuite.path = "http://build/bvt/**/*.Spec.js";
-        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-pa.json"))
-        this.buildFeatureGroup(localSuite as IExecutionModel);
+        let localSuite: IExecutionModel = {
+            name: "production",
+            path: "http://build/bvt/**/*.Spec.js",
+            results: [],
+            executionResults: this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-pa.json"))
+        };
+        this.buildFeatureGroup(localSuite);
         this.config.testSuites.push(localSuite);
 
-        localSuite = new livedocConfig.TestSuite() as IExecutionModel;
-        localSuite.name = "unit tests";
-        localSuite.path = "build/test/**/*.Spec.js";
-        localSuite.executionResults = this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"));
-        this.buildFeatureGroup(localSuite as IExecutionModel);
-
+        localSuite = {
+            name: "unit tests",
+            path: "build/test/**/*.Spec.js",
+            results: [],
+            executionResults: this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"))
+        };
+        this.buildFeatureGroup(localSuite);
         this.config.testSuites.push(localSuite);
-
     }
 
-    private loadModelFromFile(path: string): livedoc.ExecutionResults {
-        const executionResultsText = fs.readFileSync(path, 'utf8');
+    private loadModelFromFile(filePath: string): livedoc.ExecutionResults {
+        const executionResultsText = fs.readFileSync(filePath, 'utf8');
         return JSON.parse(executionResultsText);
     }
 
     public refresh(): void {
-        this._onDidChangeTreeData.fire();
+        this._onDidChangeTreeData.fire(undefined);
     }
     public getTreeItem(element: ExecutionResultTreeViewItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
         return element;
