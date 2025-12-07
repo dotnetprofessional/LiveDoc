@@ -1,9 +1,9 @@
-require('chai').should();
-import "livedoc-mocha";
+import { expect } from 'chai';
+import { feature, scenario, given, and, when, then, scenarioContext, stepContext } from "livedoc-vitest";
 
 class ATM {
     private machineCash = 0;
-    private accounts = {};
+    private accounts: Record<string, number> = {};
 
     deposit(account: string, amount: number) {
         this.machineCash += amount;
@@ -15,7 +15,6 @@ class ATM {
 
     withDraw(account: string, amount: number): number {
         const accountBalance = this.accounts[account];
-        accountBalance
         if (accountBalance >= amount && this.machineCash >= amount) {
             this.machineCash -= amount;
             this.accounts[account] -= amount;
@@ -23,11 +22,10 @@ class ATM {
         } else {
             throw TypeError("Insufficient funds");
         }
-
     }
 
-    setStatus(account: string, status: string) {
-
+    setStatus(_account: string, _status: string) {
+        // Status tracking would go here
     }
 
     addCash(amount: number) {
@@ -58,26 +56,26 @@ feature(`Account Holder withdraws cash
             | account | 12345 |
             | balance |   100 |
             | status  | valid |
-        `, () => {
-                    const accountHolder = stepContext.tableAsEntity;
+        `, (ctx) => {
+                    const accountHolder = ctx.tableAsEntity;
                     atm.setStatus(accountHolder.account, accountHolder.status);
-                    atm.deposit(accountHolder.account, accountHolder.balance)
+                    atm.deposit(accountHolder.account, Number(accountHolder.balance));
                 });
 
-            and("the machine contains '1000' dollars", () => {
-                atm.addCash(stepContext.values[0]);
+            and("the machine contains '1000' dollars", (ctx) => {
+                atm.addCash(ctx.values[0]);
             });
 
-            when("the Account Holder requests '20' dollars", () => {
-                cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, stepContext.values[0]);
+            when("the Account Holder requests '20' dollars", (ctx) => {
+                cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, ctx.values[0]);
             });
 
-            then("the ATM should dispense '20' dollars", () => {
-                cashReceived.should.be.equal(stepContext.values[0]);
+            then("the ATM should dispense '20' dollars", (ctx) => {
+                expect(cashReceived).to.equal(ctx.values[0]);
             });
 
-            and("the account balance should be '80' dollars", () => {
-                atm.getBalance(scenarioContext.given.tableAsEntity.account).should.be.equal(stepContext.values[0]);
+            and("the account balance should be '80' dollars", (ctx) => {
+                expect(atm.getBalance(scenarioContext.given.tableAsEntity.account)).to.equal(ctx.values[0]);
             });
         });
     });

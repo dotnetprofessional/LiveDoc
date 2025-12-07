@@ -1,10 +1,85 @@
-![logo](artwork/logo-small.png)
 # LiveDoc
 
-A Living Documentation platform for BDD projects using a javascript/typescript testing library. The project is made up of two parts:
+A Living Documentation platform for BDD projects using JavaScript/TypeScript testing frameworks.
 
-* __Part I:__ A Gherkin language extension for [mochajs](mochajs.org). The mocha extension can be found here: [livedoc-mocha](packages/livedoc-mocha#readme).
+## Overview
 
-![Mocha Test Result](packages/livedoc-mocha/docs/images/livedoc-spec-default.PNG)
+LiveDoc brings Gherkin-style BDD syntax to modern testing frameworks, enabling you to write expressive, executable specifications that serve as living documentation.
 
-* __Part II:__ provide a reporting tools for displaying the output of the specifications. This phase is where we take the test output in Gherkin and make it usable as Living Documentation. The idea is to make navigation and discovery of the specifications easy and insightful. Today [livedoc-mocha](packages/livedoc-mocha/docs/JSON-Reporter.md) provides the ability to export a rich `json` file to build custom reports.
+## Packages
+
+| Package | Description | Status |
+|---------|-------------|--------|
+| [@livedoc/vitest](packages/livedoc-vitest) | Gherkin BDD syntax for Vitest | ✅ Active |
+| [@livedoc/viewer](packages/livedoc-viewer) | Web UI for viewing test results | ✅ Active |
+| [@livedoc/vscode](packages/livedoc-vscode) | VS Code extension with snippets | ✅ Active |
+| [LiveDoc.xUnit](dotnet/xunit) | BDD syntax for xUnit (.NET) | ✅ Active |
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install livedoc-vitest vitest --save-dev
+```
+
+### Write Your First Feature
+
+```typescript
+import { feature, scenario, given, when, then } from 'livedoc-vitest';
+
+feature('Calculator', () => {
+    scenario('Adding two numbers', () => {
+        let result: number;
+
+        given('I have a calculator', () => {
+            // Setup
+        });
+
+        when("I add '2' and '3'", (ctx) => {
+            result = ctx.values[0] + ctx.values[1];
+        });
+
+        then("the result should be '5'", (ctx) => {
+            expect(result).toBe(ctx.values[0]);
+        });
+    });
+});
+```
+
+### Configure Vitest
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from 'livedoc-vitest/reporter';
+
+export default defineConfig({
+    test: {
+        reporters: [new LiveDocSpecReporter()],
+    },
+});
+```
+
+### Run Tests
+
+```bash
+npx vitest
+```
+
+## Features
+
+- ✨ **Gherkin Syntax** - Write tests using Given/When/Then
+- 📊 **Data Tables** - Inline tables for test data
+- 🔄 **Scenario Outlines** - Data-driven testing with examples
+- 📋 **Beautiful Output** - Formatted test results
+- 🎯 **Tag Filtering** - Include/exclude tests by tags
+- 📄 **JSON Export** - Export results for reporting tools
+
+## Documentation
+
+See the [livedoc-vitest README](packages/livedoc-vitest/README.md) for full documentation.
+
+## License
+
+MIT
