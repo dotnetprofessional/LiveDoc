@@ -52,13 +52,15 @@ let currentBackground: model.Background | null = null;
 let currentStep: model.StepDefinition | null = null;
 let scenarioCount = 0;
 let scenarioId = 0;
-let backgroundSteps: Array<{ func: Function; stepDefinition: model.StepDefinition }> = [];
-let afterBackgroundFn: Function | null = null;
-let backgroundStepsComplete = false;
 
-// Track whether the background's own it() tests actually executed
-// This is false when scenario.only is used (background tests get skipped)
-let backgroundItExecuted = false;
+// Per-feature maps to fix isolation between features in same file
+// These were previously global singletons which caused cross-feature contamination
+const afterBackgroundFnMap: Map<model.Feature, Function> = new Map();
+const backgroundStepsMap: Map<model.Feature, Array<{ func: Function; stepDefinition: model.StepDefinition }>> = new Map();
+const backgroundItExecutedMap: Map<model.Feature, boolean> = new Map();
+
+// These remain global since they're reset per-scenario
+let backgroundStepsComplete = false;
 
 // Track whether we're inside a pending (skipped) context
 let isPendingContext = false;
@@ -258,9 +260,10 @@ function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts
     const thisFeature = parser.createFeature(title, filename);
     currentFeature = thisFeature;
     scenarioCount = 0;
-    backgroundSteps = [];
-    backgroundItExecuted = false;
-    afterBackgroundFn = null;
+    // Initialize per-feature state in maps
+    backgroundStepsMap.set(thisFeature, []);
+    backgroundItExecutedMap.set(thisFeature, false);
+    // Note: afterBackgroundFnMap is per-feature, no need to reset here
 
     // Generate feature ID (matching Mocha behavior)
     (thisFeature as any).generateId(thisFeature);
@@ -380,7 +383,10 @@ function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opt
         });
 
         afterAll(async () => {
-            if (afterBackgroundFn && currentFeature) {
+            // Lookup afterBackground for THIS scenario's feature (captured at registration)
+            const featureForScenario = scenarioModel.parent as model.Feature;
+            const afterBackgroundFn = featureForScenario ? afterBackgroundFnMap.get(featureForScenario) : null;
+            if (afterBackgroundFn) {
                 const hookStep = parser.createStep("hook", "afterBackground", undefined);
                 // Use scenarioModel (captured at registration) not currentScenario (global that may have changed)
                 scenarioModel.addStep(hookStep);
@@ -462,8 +468,15 @@ function backgroundImpl(title: string, fn: (ctx: any) => void | Promise<void>, o
         // Set current background during registration
         const previousBackground = currentBackground;
         currentBackground = backgroundModel;
-        backgroundSteps = [];
-        backgroundItExecuted = false;
+        
+        // Capture the feature at registration time for proper isolation
+        const featureForBackground = currentFeature;
+        
+        // Initialize/reset per-feature background state
+        if (featureForBackground) {
+            backgroundStepsMap.set(featureForBackground, []);
+            backgroundItExecutedMap.set(featureForBackground, false);
+        }
 
         const ctx = {
             get feature() {
@@ -473,7 +486,10 @@ function backgroundImpl(title: string, fn: (ctx: any) => void | Promise<void>, o
                 return currentFeature?.getBackgroundContext();
             },
             afterBackground(fn: Function) {
-                afterBackgroundFn = fn;
+                // Store in map keyed by feature for proper isolation between features
+                if (featureForBackground) {
+                    afterBackgroundFnMap.set(featureForBackground, fn);
+                }
             },
         };
 
@@ -506,7 +522,10 @@ export const background = Object.assign(
  * Can be used both as a standalone function or via background context
  */
 export function afterBackground(fn: Function): void {
-    afterBackgroundFn = fn;
+    // Store in map keyed by current feature for proper isolation
+    if (currentFeature) {
+        afterBackgroundFnMap.set(currentFeature, fn);
+    }
 }
 
 /**
@@ -586,7 +605,11 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
                 });
 
                 afterAll(async () => {
-                    if (afterBackgroundFn && currentFeature) {
+                    // Lookup afterBackground for THIS example's feature
+                    // Note: ScenarioExample.parent is the Feature directly (not ScenarioOutline)
+                    const featureForExample = example.parent as model.Feature;
+                    const afterBackgroundFn = featureForExample ? afterBackgroundFnMap.get(featureForExample) : null;
+                    if (afterBackgroundFn) {
                         const hookStep = parser.createStep("hook", "afterBackground", undefined);
                         // Use example (captured at registration) not currentScenario (global that may have changed)
                         example.addStep(hookStep);
@@ -699,8 +722,10 @@ function createStepFunction(stepType: string) {
 
         // For background steps: store the function during registration (not during execution)
         // This ensures background steps are available even when using .only on scenarios
-        if (isBackgroundStep && fn) {
-            backgroundSteps.push({ func: fn, stepDefinition });
+        if (isBackgroundStep && fn && capturedFeature) {
+            const featureSteps = backgroundStepsMap.get(capturedFeature) || [];
+            featureSteps.push({ func: fn, stepDefinition });
+            backgroundStepsMap.set(capturedFeature, featureSteps);
         }
 
         vitestIt(testName, async () => {
@@ -717,7 +742,9 @@ function createStepFunction(stepType: string) {
                     // For background steps: execute during background's it() (first scenario only)
                     // The function was already stored in backgroundSteps during registration
                     // Mark that background's it() tests are executing
-                    backgroundItExecuted = true;
+                    if (capturedFeature) {
+                        backgroundItExecutedMap.set(capturedFeature, true);
+                    }
                     if (fn) {
                         currentStep = stepDefinition;
                         const ctx = {
@@ -741,6 +768,8 @@ function createStepFunction(stepType: string) {
                     // - For first scenario: Skip re-execution if background's it() already ran (backgroundItExecuted)
                     // - For subsequent scenarios: Always re-execute
                     // - For .only scenarios: Re-execute because background's it() didn't run (!backgroundItExecuted)
+                    const backgroundItExecuted = capturedFeature ? backgroundItExecutedMap.get(capturedFeature) ?? false : false;
+                    const backgroundSteps = capturedFeature ? backgroundStepsMap.get(capturedFeature) ?? [] : [];
                     const shouldReExecuteBackground = !backgroundItExecuted || scenarioId > 1;
                     if (shouldReExecuteBackground && backgroundSteps.length > 0 && !backgroundStepsComplete) {
                         backgroundStepsComplete = true;
