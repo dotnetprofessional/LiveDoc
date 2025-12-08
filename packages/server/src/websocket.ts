@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
-import type { WebSocketEvent, WebSocketClientMessage } from '../shared/schema';
+import type { WebSocketEvent, WebSocketClientMessage } from './schema.js';
 
 interface ClientSubscription {
   ws: WebSocket;
@@ -105,5 +105,16 @@ export class WebSocketManager {
    */
   getClientCount(): number {
     return this.clients.size;
+  }
+  
+  /**
+   * Close all connections
+   */
+  close(): void {
+    for (const ws of this.clients.keys()) {
+      ws.close();
+    }
+    this.clients.clear();
+    this.wss.close();
   }
 }

@@ -1,4 +1,4 @@
-import type { TestRun, Feature, Scenario, Step, Statistics, TestStatus } from '../shared/schema';
+import type { TestRun, Feature, Scenario, Step, Statistics, TestStatus } from './schema.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 

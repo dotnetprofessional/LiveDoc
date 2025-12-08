@@ -1,0 +1,386 @@
+import { feature, scenario, background, Given, When, Then, And } from "@livedoc/vitest";
+import { RunStore } from "../src/store.js";
+import type { Feature, Scenario, Step, Statistics } from "../src/schema.js";
+import { promises as fs } from "fs";
+import path from "path";
+import os from "os";
+
+feature(`RunStore Data Management
+    @unit @store
+    The RunStore manages test run data in memory and persists to disk.
+    It supports the full BDD hierarchy: Run → Feature → Scenario → Step.
+    `, () => {
+    let store: RunStore;
+    let testDataDir: string;
+
+    background("Fresh store for each scenario", (ctx) => {
+        Given("a new RunStore with temporary storage", async () => {
+            testDataDir = path.join(os.tmpdir(), `livedoc-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            store = new RunStore(50, testDataDir);
+            await store.initialize();
+        });
+
+        ctx.afterBackground(async () => {
+            try {
+                await fs.rm(testDataDir, { recursive: true, force: true });
+            } catch {
+                // Ignore cleanup errors
+            }
+        });
+    });
+
+    scenario("Creating a new test run", () => {
+        let run: ReturnType<typeof store.getRun>;
+
+        When("a run is created with project 'MyProject' environment 'local' framework 'vitest'", () => {
+            store.createRun("run-1", "MyProject", "local", "vitest", new Date().toISOString());
+            run = store.getRun("run-1");
+        });
+
+        Then("the run should exist with status 'running'", () => {
+            expect(run).toBeDefined();
+            expect(run?.status).toBe("running");
+        });
+
+        And("the run should have project 'MyProject'", () => {
+            expect(run?.project).toBe("MyProject");
+        });
+
+        And("the run should have environment 'local'", () => {
+            expect(run?.environment).toBe("local");
+        });
+
+        And("the run should have framework 'vitest'", () => {
+            expect(run?.framework).toBe("vitest");
+        });
+
+        And("the run should have empty features and suites", () => {
+            expect(run?.features).toEqual([]);
+            expect(run?.suites).toEqual([]);
+        });
+    });
+
+    scenario("Tracking multiple runs per project", () => {
+        let runs: ReturnType<typeof store.getRunsForProject>;
+
+        Given("a run exists for project 'Project1' environment 'dev'", () => {
+            store.createRun("run-1", "Project1", "dev", "vitest", new Date().toISOString());
+        });
+
+        When("another run is created for the same project and environment", () => {
+            store.createRun("run-2", "Project1", "dev", "vitest", new Date().toISOString());
+            runs = store.getRunsForProject("Project1", "dev");
+        });
+
+        Then("there should be '2' runs for that project", (ctx) => {
+            expect(runs).toHaveLength(ctx.step.values[0]);
+        });
+    });
+
+    scenario("Adding a feature to a run", () => {
+        let run: ReturnType<typeof store.getRun>;
+
+        Given("a run 'run-1' exists", () => {
+            store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+        });
+
+        When("a feature 'User Authentication' is added to the run", () => {
+            store.addFeature("run-1", {
+                id: "feature-1",
+                title: "User Authentication",
+                filename: "auth.feature.ts",
+                status: "pending",
+                duration: 0,
+                scenarios: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
+            });
+            run = store.getRun("run-1");
+        });
+
+        Then("the run should have '1' feature", (ctx) => {
+            expect(run?.features).toHaveLength(ctx.step.values[0]);
+        });
+
+        And("the feature title should be 'User Authentication'", (ctx) => {
+            expect(run?.features[0].title).toBe(ctx.step.values[0]);
+        });
+    });
+
+    scenario("Adding a scenario to a feature", () => {
+        let run: ReturnType<typeof store.getRun>;
+
+        Given("a run with feature 'feature-1' exists", () => {
+            store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+            store.addFeature("run-1", {
+                id: "feature-1",
+                title: "User Authentication",
+                filename: "auth.feature.ts",
+                status: "pending",
+                duration: 0,
+                scenarios: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
+            });
+        });
+
+        When("a scenario 'Valid login' is added to the feature", () => {
+            store.addScenario("run-1", "feature-1", {
+                id: "scenario-1",
+                type: "Scenario",
+                title: "Valid login",
+                status: "pending",
+                duration: 0,
+                steps: []
+            });
+            run = store.getRun("run-1");
+        });
+
+        Then("the feature should have '1' scenario", (ctx) => {
+            expect(run?.features[0].scenarios).toHaveLength(ctx.step.values[0]);
+        });
+
+        And("the scenario title should be 'Valid login'", (ctx) => {
+            expect(run?.features[0].scenarios[0].title).toBe(ctx.step.values[0]);
+        });
+    });
+
+    scenario("Adding a step to a scenario", () => {
+        let scenario: Scenario | undefined;
+
+        Given("a run with a scenario 'scenario-1' exists", () => {
+            store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+            store.addFeature("run-1", {
+                id: "feature-1",
+                title: "Feature",
+                filename: "test.ts",
+                status: "pending",
+                duration: 0,
+                scenarios: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
+            });
+            store.addScenario("run-1", "feature-1", {
+                id: "scenario-1",
+                type: "Scenario",
+                title: "Test scenario",
+                status: "pending",
+                duration: 0,
+                steps: []
+            });
+        });
+
+        When("a step 'a registered user' of type 'Given' with status 'passed' is added", () => {
+            store.addStep("run-1", "scenario-1", {
+                id: "step-1",
+                type: "Given",
+                title: "a registered user",
+                status: "passed",
+                duration: 10
+            });
+            const run = store.getRun("run-1");
+            scenario = run?.features[0].scenarios[0] as Scenario;
+        });
+
+        Then("the scenario should have '1' step", (ctx) => {
+            expect(scenario?.steps).toHaveLength(ctx.step.values[0]);
+        });
+
+        And("the step title should be 'a registered user'", (ctx) => {
+            expect(scenario?.steps[0].title).toBe(ctx.step.values[0]);
+        });
+
+        And("the step status should be 'passed'", (ctx) => {
+            expect(scenario?.steps[0].status).toBe(ctx.step.values[0]);
+        });
+    });
+
+    scenario("Completing a run with summary statistics", () => {
+        let run: ReturnType<typeof store.getRun>;
+
+        Given("a running test run exists", () => {
+            store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+        });
+
+        When("the run is completed with status 'passed' duration '1500' and summary totals '5' passed '4' failed '1'", (ctx) => {
+            store.completeRun("run-1", "passed", 1500, {
+                total: 5,
+                passed: 4,
+                failed: 1,
+                pending: 0,
+                skipped: 0,
+                duration: 1500
+            });
+            run = store.getRun("run-1");
+        });
+
+        Then("the run status should be 'passed'", (ctx) => {
+            expect(run?.status).toBe(ctx.step.values[0]);
+        });
+
+        And("the run duration should be '1500' milliseconds", (ctx) => {
+            expect(run?.duration).toBe(ctx.step.values[0]);
+        });
+
+        And("the summary should show '5' total and '4' passed and '1' failed", (ctx) => {
+            expect(run?.summary.total).toBe(ctx.step.values[0]);
+            expect(run?.summary.passed).toBe(ctx.step.values[1]);
+            expect(run?.summary.failed).toBe(ctx.step.values[2]);
+        });
+    });
+
+    scenario("Deleting a run", () => {
+        let deleted: boolean;
+
+        Given("a run 'run-1' exists", () => {
+            store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+        });
+
+        When("the run is deleted", async () => {
+            deleted = await store.deleteRun("run-1");
+        });
+
+        Then("the delete operation should return 'true'", (ctx) => {
+            expect(deleted).toBe(ctx.step.values[0]);
+        });
+
+        And("the run should no longer exist", () => {
+            expect(store.getRun("run-1")).toBeUndefined();
+        });
+    });
+
+    scenario("Deleting a non-existent run", () => {
+        let deleted: boolean;
+
+        When("attempting to delete a run that does not exist", async () => {
+            deleted = await store.deleteRun("non-existent");
+        });
+
+        Then("the delete operation should return 'false'", (ctx) => {
+            expect(deleted).toBe(ctx.step.values[0]);
+        });
+    });
+});
+
+feature(`RunStore Project Organization
+    @unit @store
+    The RunStore organizes runs by project and environment for easy querying.
+    `, () => {
+    let store: RunStore;
+    let testDataDir: string;
+
+    background("Fresh store", (ctx) => {
+        Given("a new RunStore instance", async () => {
+            testDataDir = path.join(os.tmpdir(), `livedoc-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            store = new RunStore(50, testDataDir);
+            await store.initialize();
+        });
+
+        ctx.afterBackground(async () => {
+            try {
+                await fs.rm(testDataDir, { recursive: true, force: true });
+            } catch {
+                // Ignore
+            }
+        });
+    });
+
+    scenario("Listing projects with environments", () => {
+        let projects: ReturnType<typeof store.getProjects>;
+
+        Given("runs exist for project 'Project1' in environments 'dev' and 'prod'", () => {
+            store.createRun("run-1", "Project1", "dev", "vitest", new Date().toISOString());
+            store.createRun("run-2", "Project1", "prod", "vitest", new Date().toISOString());
+        });
+
+        And("a run exists for project 'Project2' in environment 'dev'", () => {
+            store.createRun("run-3", "Project2", "dev", "vitest", new Date().toISOString());
+        });
+
+        When("listing all projects", () => {
+            projects = store.getProjects();
+        });
+
+        Then("there should be '3' project-environment combinations", (ctx) => {
+            expect(projects).toHaveLength(ctx.step.values[0]);
+        });
+    });
+
+    scenario("Getting project hierarchy", () => {
+        let hierarchy: ReturnType<typeof store.getProjectHierarchy>;
+
+        Given("runs exist for project 'HierarchyProject' in environments 'staging' and 'production'", () => {
+            store.createRun("run-h1", "HierarchyProject", "staging", "vitest", new Date().toISOString());
+            store.createRun("run-h2", "HierarchyProject", "production", "vitest", new Date().toISOString());
+        });
+
+        When("getting the project hierarchy", () => {
+            hierarchy = store.getProjectHierarchy();
+        });
+
+        Then("the hierarchy should include a project named 'HierarchyProject'", () => {
+            const project = hierarchy.find(p => p.name === "HierarchyProject");
+            expect(project).toBeDefined();
+        });
+
+        And("the project 'HierarchyProject' should have name 'HierarchyProject'", () => {
+            const project = hierarchy.find(p => p.name === "HierarchyProject");
+            expect(project!.name).toBe("HierarchyProject");
+        });
+
+        And("the project 'HierarchyProject' should have '2' environments", (ctx) => {
+            const project = hierarchy.find(p => p.name === "HierarchyProject");
+            expect(project!.environments).toHaveLength(ctx.step.values[1]);
+        });
+    });
+});
+
+feature(`RunStore Persistence
+    @integration @store
+    The RunStore persists completed runs to disk and reloads them on restart.
+    `, () => {
+    let store: RunStore;
+    let testDataDir: string;
+
+    background("Temporary storage directory", (ctx) => {
+        Given("a temporary data directory", () => {
+            testDataDir = path.join(os.tmpdir(), `livedoc-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        });
+
+        ctx.afterBackground(async () => {
+            try {
+                await fs.rm(testDataDir, { recursive: true, force: true });
+            } catch {
+                // Ignore
+            }
+        });
+    });
+
+    scenario("Persisting and reloading completed runs", () => {
+        let reloadedRun: ReturnType<typeof store.getRun>;
+
+        Given("a RunStore with a completed run", async () => {
+            store = new RunStore(50, testDataDir);
+            await store.initialize();
+            store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+            store.completeRun("run-1", "passed", 1000, {
+                total: 1, passed: 1, failed: 0, pending: 0, skipped: 0, duration: 1000
+            });
+        });
+
+        When("the store is flushed and a new store loads from the same directory", async () => {
+            // Wait for async save to complete
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await store.flush();
+
+            const store2 = new RunStore(50, testDataDir);
+            await store2.initialize();
+            reloadedRun = store2.getRun("run-1");
+        });
+
+        Then("the reloaded run should exist", () => {
+            expect(reloadedRun).toBeDefined();
+        });
+
+        And("the reloaded run should have status 'passed'", (ctx) => {
+            expect(reloadedRun?.status).toBe(ctx.step.values[0]);
+        });
+    });
+});

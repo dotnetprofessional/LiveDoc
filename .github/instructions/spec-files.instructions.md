@@ -2,316 +2,208 @@
 applyTo: "**/*.Spec.ts"
 ---
 
-# Writing LiveDoc Tests
+# LiveDoc Vitest API Reference
 
-This file provides instructions for writing BDD-style tests using the LiveDoc framework with Gherkin syntax. The goal is to create living documentation that is readable, maintainable, and provides clear specifications.
+BDD test framework using Gherkin syntax. Tests are living documentation.
 
-## Core Principles
+## Documentation Principle
 
-1. **Tests ARE Documentation** - Write tests that read like specifications a business person could understand
-2. **Balance Verbosity** - Include enough detail to be self-documenting, but not so much it obscures intent
-3. **Use Gherkin Naturally** - Feature → Scenario → Given/When/Then follows the natural flow of specifications
+**Embed all inputs and expected outputs in step titles.** This makes features self-documenting—readers see what was tested without reading code. Use the built-in data extraction apis to extract and use them in step implementations.
 
-## Import Pattern
+```typescript
+// ✓ Good: Values visible in documentation
+Given("a user with balance '500' dollars", ...);
+When("they withdraw '200' dollars", ...);
+Then("the balance should be '300' dollars", ...);
 
-Always use this import pattern:
+// ✗ Bad: Values hidden in code
+Given("a user with some balance", (ctx) => { balance = 500; });
+Then("the balance is correct", (ctx) => { expect(balance).toBe(300); });
+```
+
+## Import
 
 ```typescript
 import { feature, scenario, scenarioOutline, background, Given, When, Then, And, But } from "@livedoc/vitest";
 ```
 
-## Structure Guidelines
+## Structure
 
-### Feature Block
-
-Features define the high-level capability being tested. Include:
-- A clear, concise title
-- Optional tags for filtering (prefixed with @ or not)
-- A brief description explaining the business value or rules
-
-```typescript
-feature(`User Authentication
-    @security @critical
-
-    Users must be able to securely authenticate to access protected resources.
-    
-    Rules:
-    * Valid credentials grant access
-    * Invalid credentials are rejected
-    * Accounts lock after 3 failed attempts
-    `, (ctx) => {
-    // scenarios go here
-});
+```
+feature → scenario|scenarioOutline|background → Given|When|Then|And|But
 ```
 
-### Scenario Block
+All blocks receive `ctx` parameter with framework metadata.
 
-Scenarios describe specific test cases. Keep titles action-oriented and descriptive:
+## Keywords
+
+### feature(title, fn)
 
 ```typescript
-scenario("User logs in with valid credentials", (ctx) => {
-    // steps go here
-});
-
-scenario(`User account locks after failed attempts
-    @slow
-    This tests the security lockout feature
-    `, (ctx) => {
-    // steps go here
-});
+feature(`Feature Title
+    @tag1 @tag2
+    Optional description text
+    `, (ctx) => { /* scenarios */ });
 ```
 
-### Step Blocks (Given/When/Then/And/But)
+- First line = title
+- Lines starting with `@` = tags
+- Remaining lines = description
+- Supports `.skip()` and `.only()` modifiers
 
-Steps define the test implementation. Use the context parameter (`ctx`) to access metadata.
+### scenario(title, fn)
 
 ```typescript
-Given("a registered user with email 'john@example.com'", (ctx) => {
-    const email = ctx.step.values[0];
-    user = createUser(email);
-});
-
-When("they enter password 'secret123'", (ctx) => {
-    const password = ctx.step.values[0];
-    result = authService.login(user.email, password);
-});
-
-Then("they should be granted access", (ctx) => {
-    expect(result.success).toBe(true);
-});
-
-And("a session token should be created", (ctx) => {
-    expect(result.token).toBeDefined();
-});
+scenario(`Scenario Title
+    @optional-tags
+    Optional description
+    `, (ctx) => { /* steps */ });
 ```
 
-## Extracting Values
+- Supports `.skip()` and `.only()` modifiers
+- `async` NOT supported on scenario callback (use async in steps instead)
 
-### Quoted Values (Preferred for Simple Values)
+### scenarioOutline(title, fn)
 
-Use single or double quotes to embed values in step titles. They are automatically extracted and type-converted:
-
-```typescript
-Given("the user has a balance of '100' dollars", (ctx) => {
-    // ctx.step.values[0] === 100 (number, not string!)
-    balance = ctx.step.values[0];
-});
-```
-
-**Supported types in quoted values:**
-- Numbers: `'1234'` → `1234`
-- Booleans: `'true'` or `'false'` → `true` or `false`
-- Arrays: `'[1, 2, 3]'` → `[1, 2, 3]`
-- Dates: `'2024-01-15'` → `Date` object
-
-### Data Tables (For Structured Data)
-
-Use tables for multiple properties or lists of items:
+Data-driven tests. Examples table in title, access via `ctx.example`.
 
 ```typescript
-// Multi-column table - becomes array of objects
-Given(`the following products are available:
-    |  name  | price | stock |
-    | Widget |  9.99 |   100 |
-    | Gadget | 19.99 |    50 |
-    `, (ctx) => {
-    products = ctx.step.table;
-    // products[0] === { name: "Widget", price: 9.99, stock: 100 }
-});
-
-// Two-column table - becomes single entity object
-Given(`the user has the following profile:
-    | name  | Alice             |
-    | email | alice@example.com |
-    | role  | admin             |
-    `, (ctx) => {
-    profile = ctx.step.tableAsEntity;
-    // profile === { name: "Alice", email: "alice@example.com", role: "admin" }
-});
-
-// Single-column table - becomes array
-Given(`the valid status codes:
-    | 200 |
-    | 201 |
-    | 204 |
-    `, (ctx) => {
-    validCodes = ctx.step.tableAsSingleList;
-    // validCodes === [200, 201, 204]
-});
-```
-
-### Doc Strings (For Large Text or JSON)
-
-Use triple quotes for multi-line content:
-
-```typescript
-Given(`the API returns the following response:
-    """
-    {
-        "status": "success",
-        "data": { "id": 123 }
-    }
-    """
-    `, (ctx) => {
-    expectedResponse = ctx.step.docStringAsEntity;
-});
-
-Given(`the email template is:
-    """
-    Dear {name},
-    Thank you for your order.
-    """
-    `, (ctx) => {
-    template = ctx.step.docString;
-});
-```
-
-## Scenario Outlines (Data-Driven Tests)
-
-Use scenario outlines to run the same test with multiple data sets:
-
-```typescript
-scenarioOutline(`Validate password strength
-
+scenarioOutline(`Validate inputs
     Examples:
-    | password  | strength | valid |
-    | abc       | weak     | false |
-    | Abc12345! | strong   | true  |
+    | input | expected |
+    | foo   | true     |
+    | bar   | false    |
     `, (ctx) => {
-
-    let result: PasswordValidation;
-
-    Given("a password validator", (ctx) => {
-        validator = new PasswordValidator();
+    When("checking <input>", (ctx) => {
+        result = validate(ctx.example.input);
     });
-
-    When("validating password <password>", (ctx) => {
-        result = validator.validate(ctx.example.password);
-    });
-
-    Then("the strength should be <strength>", (ctx) => {
-        expect(result.strength).toBe(ctx.example.strength);
-    });
-
-    And("valid should be <valid>", (ctx) => {
-        expect(result.isValid).toBe(ctx.example.valid);
+    Then("result is <expected>", (ctx) => {
+        expect(result).toBe(ctx.example.expected);
     });
 });
 ```
 
-## Background (Shared Setup)
+- `<placeholder>` in step titles for display only
+- Access values via `ctx.example.columnName`
+- Cannot be `async`
 
-Use background for setup that applies to all scenarios in a feature:
+### background(title, fn)
+
+Runs before each scenario in the feature.
 
 ```typescript
-feature("Shopping Cart Operations", (ctx) => {
-    let cart: ShoppingCart;
-
-    background("User has an active cart", (ctx) => {
-        Given("a logged-in user", (ctx) => {
-            user = createTestUser();
-        });
-
-        And("an empty shopping cart", (ctx) => {
-            cart = new ShoppingCart(user);
-        });
-
-        ctx.afterBackground(() => {
-            cart.clear();
-        });
-    });
-
-    scenario("Add item to cart", (ctx) => {
-        When("they add a product", (ctx) => {
-            cart.add(testProduct);
-        });
-
-        Then("the cart contains one item", (ctx) => {
-            expect(cart.itemCount).toBe(1);
-        });
-    });
+background("Setup", (ctx) => {
+    Given("precondition", (ctx) => { /* setup */ });
+    
+    ctx.afterBackground(() => { /* cleanup after each scenario */ });
 });
 ```
 
-## Context Properties Reference
-
-|        Property         |   Available In   |                      Description                      |
-| ----------------------- | ---------------- | ----------------------------------------------------- |
-| `ctx.feature`           | All blocks       | Feature metadata (title, description, tags, filename) |
-| `ctx.scenario`          | Scenario/Steps   | Scenario metadata (title, description, tags)          |
-| `ctx.step`              | Steps only       | Current step (title, values, table, docString)        |
-| `ctx.example`           | Scenario Outline | Current example row data                              |
-| `ctx.background`        | Background       | Background metadata                                   |
-| `ctx.afterBackground()` | Background       | Register cleanup function                             |
-
-## Best Practices
-
-### DO ✓
-
-1. **Write titles that tell a story:**
-   ```typescript
-   Given("a customer with premium membership", ...)
-   When("they place an order over $50", ...)
-   Then("free express shipping is applied", ...)
-   ```
-
-2. **Use descriptive variable names:**
-   ```typescript
-   let orderTotal: number;
-   let appliedDiscount: Discount;
-   ```
-
-3. **Keep step implementations focused** - one action per step
-
-4. **Use tables for complex test data**
-
-### DON'T ✗
-
-1. **Avoid implementation details in titles:**
-   ```typescript
-   // Bad
-   Given("calling userService.create() with {name: 'test'}", ...)
-   // Good
-   Given("a new user named 'test'", ...)
-   ```
-
-2. **Don't repeat the step keyword in the title:**
-   ```typescript
-   // Bad
-   Given("Given the user is logged in", ...)
-   // Good
-   Given("the user is logged in", ...)
-   ```
-
-3. **Avoid overly technical assertions in Then titles:**
-   ```typescript
-   // Bad
-   Then("expect(result.status).toBe(200)", ...)
-   // Good
-   Then("the request succeeds", ...)
-   ```
-
-4. **Don't put too much logic in a single step** - break into logical steps
-
-## Async Operations
-
-Steps can be async when testing asynchronous code:
+### Steps: Given/When/Then/And/But
 
 ```typescript
-scenario("Fetch user data from API", (ctx) => {
-    let userData: User;
+Given("step title with 'value'", (ctx) => { /* implementation */ });
+When("action", async (ctx) => { /* async supported */ });
+Then("assertion", (ctx) => { expect(x).toBe(y); });
+```
 
-    When("requesting user profile", async (ctx) => {
-        userData = await userService.getProfile(userId);
-    });
+- **Only steps support `async`** - feature, scenario, scenarioOutline, background do NOT
 
-    Then("the user data is returned", (ctx) => {
-        expect(userData).toBeDefined();
-    });
+## Data Extraction
+
+### Quoted Values (`ctx.step.values`)
+
+Auto-extracted and type-coerced from step title:
+
+```typescript
+Given("user has '100' items and active is 'true'", (ctx) => {
+    ctx.step.values[0] // 100 (number)
+    ctx.step.values[1] // true (boolean)
 });
 ```
 
-## File Naming Convention
+Coerces: numbers, booleans, arrays (`'[1,2]'`), dates (`'2024-01-15'`)
 
-- Test files should use `.Spec.ts` extension
-- Name files after the feature being tested: `UserAuthentication.Spec.ts`, `ShoppingCart.Spec.ts`
+### Data Tables
+
+Multi-column → array of objects:
+```typescript
+Given(`data:
+    | name  | age |
+    | Alice |  30 |
+    `, (ctx) => {
+    ctx.step.table // [{name: "Alice", age: 30}]
+});
+```
+
+Two-column → entity object:
+```typescript
+Given(`config:
+    | key   | value |
+    | debug | true  |
+    `, (ctx) => {
+    ctx.step.tableAsEntity // {key: "value", debug: true} — WRONG
+    // Actually: {debug: true} — first col = key, second = value
+});
+```
+
+Single-column → flat array:
+```typescript
+Given(`codes:
+    | 200 |
+    | 404 |
+    `, (ctx) => {
+    ctx.step.tableAsSingleList // [200, 404]
+});
+```
+
+### Doc Strings
+
+```typescript
+Given(`JSON input:
+    """
+    {"key": "value"}
+    """
+    `, (ctx) => {
+    ctx.step.docString        // raw string
+    ctx.step.docStringAsEntity // parsed JSON object
+});
+```
+
+## Context Reference
+
+|         Property          |        Type         |                   Description                   |
+| ----------                | ------              | -------------                                   |
+| `ctx.feature`             | `FeatureContext`    | `{filename, title, description, tags}`          |
+| `ctx.scenario`            | `ScenarioContext`   | `{title, description, tags, given?, steps}`     |
+| `ctx.step`                | `StepContext`       | `{title, type, values, docString, table, ...}`  |
+| `ctx.example`             | `object`            | Current example row data (scenarioOutline only) |
+| `ctx.background`          | `BackgroundContext` | Background metadata                             |
+| `ctx.afterBackground(fn)` | function            | Register cleanup (background only)              |
+
+### StepContext Properties
+
+| Property            | Returns                               |
+| ----------          | ---------                             |
+| `values`            | Coerced quoted values array           |
+| `valuesRaw`         | Raw string values                     |
+| `docString`         | Raw doc string content                |
+| `docStringAsEntity` | Parsed JSON or undefined              |
+| `table`             | Headers as keys, array of row objects |
+| `tableAsEntity`     | 2-col table as single object          |
+| `tableAsSingleList` | First column as flat array            |
+| `dataTable`         | Raw 2D array                          |
+
+## Modifiers
+
+```typescript
+feature.skip("...", fn)    // Skip feature
+feature.only("...", fn)    // Run only this feature
+scenario.skip("...", fn)   // Skip scenario  
+scenario.only("...", fn)   // Run only this scenario
+scenarioOutline.skip/only  // Same pattern
+```
+
+## File Naming
+
+Use `.Spec.ts` extension: `UserAuth.Spec.ts`, `ShoppingCart.Spec.ts`

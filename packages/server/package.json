@@ -1,0 +1,57 @@
+{
+  "name": "@livedoc/server",
+  "version": "1.0.0",
+  "description": "LiveDoc Server - Shared server infrastructure for LiveDoc ecosystem",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js"
+    }
+  },
+  "bin": {
+    "livedoc-server": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "commander": "^12.1.0",
+    "hono": "^4.6.0",
+    "open": "^10.1.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@livedoc/vitest": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "rimraf": "^6.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.4"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "livedoc",
+    "bdd",
+    "testing",
+    "server",
+    "websocket"
+  ],
+  "author": "",
+  "license": "MIT"
+}

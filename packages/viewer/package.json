@@ -18,13 +18,11 @@
     "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.0",
+    "@livedoc/server": "workspace:*",
     "commander": "^12.1.0",
-    "hono": "^4.6.0",
     "open": "^10.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "ws": "^8.18.0",
     "zustand": "^5.0.9"
   },
   "devDependencies": {

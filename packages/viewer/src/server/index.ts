@@ -1,20 +1,13 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { createServer, IncomingMessage, ServerResponse } from 'http';
-import { WebSocketManager } from './websocket';
-import { runStore } from './store';
+/**
+ * LiveDoc Viewer Server
+ * 
+ * This wraps @livedoc/server and adds static file serving for the React app.
+ */
+
+import { createServer, type LiveDocServer } from '@livedoc/server';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promises as fs } from 'fs';
-import type {
-  StartRunRequest,
-  StartRunResponse,
-  TestRun,
-  Feature,
-  Scenario,
-  Step,
-  WebSocketEvent
-} from '../shared/schema';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,365 +16,35 @@ function getStaticDir(): string {
   return path.resolve(__dirname, '../client');
 }
 
-// Generate unique IDs
-function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-export interface ServerOptions {
+export interface ViewerServerOptions {
   port?: number;
   host?: string;
+  dataDir?: string;
+  historyLimit?: number;
   open?: boolean;
 }
 
-export async function startServer(options: ServerOptions = {}) {
+/**
+ * Start the LiveDoc Viewer server with static file serving
+ */
+export async function startViewerServer(options: ViewerServerOptions = {}) {
   const port = options.port || 3000;
   const host = options.host || 'localhost';
-  
-  // Initialize persistent store (load existing data from disk)
-  await runStore.initialize();
-  
   const staticDir = getStaticDir();
   
-  // Create HTTP server first
-  const httpServer = createServer();
+  // Create base server from @livedoc/server
+  const server = createServer({
+    port,
+    host,
+    dataDir: options.dataDir,
+    historyLimit: options.historyLimit
+  });
   
-  // Initialize WebSocket manager
-  const wsManager = new WebSocketManager(httpServer);
-  
-  // Create Hono app
-  const app = new Hono();
-  
-  // Enable CORS
-  app.use('*', cors({
-    origin: '*',
-    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'X-LiveDoc-Token']
-  }));
+  const app = server.getApp();
+  const store = server.getRunStore();
   
   // =========================================================================
-  // API Routes
-  // =========================================================================
-  
-  // List projects
-  app.get('/api/projects', (c) => {
-    const projects = runStore.getProjects();
-    return c.json({
-      projects: projects.map(p => ({
-        project: p.project,
-        environment: p.environment,
-        historyCount: p.historyCount,
-        latestRun: p.latestRun ? {
-          runId: p.latestRun.runId,
-          status: p.latestRun.status,
-          timestamp: p.latestRun.timestamp,
-          summary: p.latestRun.summary
-        } : null
-      }))
-    });
-  });
-  
-  // Get project hierarchy for navigation
-  app.get('/api/hierarchy', (c) => {
-    const hierarchy = runStore.getProjectHierarchy();
-    return c.json({ projects: hierarchy });
-  });
-  
-  // List all runs
-  app.get('/api/runs', (c) => {
-    const runs = runStore.getAllRuns();
-    return c.json(runs.map(r => ({
-      id: r.runId,
-      runId: r.runId,
-      project: r.project,
-      environment: r.environment,
-      framework: r.framework,
-      status: r.status,
-      timestamp: r.timestamp
-    })));
-  });
-
-  // Get run by ID
-  app.get('/api/runs/:runId', (c) => {
-    const runId = c.req.param('runId');
-    const run = runStore.getRun(runId);
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-    return c.json(run);
-  });
-  
-  // Delete a run
-  app.delete('/api/runs/:runId', async (c) => {
-    const runId = c.req.param('runId');
-    const run = runStore.getRun(runId);
-    
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-    
-    const deleted = await runStore.deleteRun(runId);
-    
-    if (deleted) {
-      // Broadcast deletion
-      const event: WebSocketEvent = { 
-        type: 'run:deleted', 
-        runId 
-      };
-      wsManager.broadcast(event, runId, run.project, run.environment);
-      
-      return c.json({ success: true });
-    }
-    
-    return c.json({ error: 'Failed to delete run' }, 500);
-  });
-  
-  // Get runs for project
-  app.get('/api/projects/:project/:environment/runs', (c) => {
-    const project = c.req.param('project');
-    const environment = c.req.param('environment');
-    const runs = runStore.getRunsForProject(project, environment);
-    return c.json({
-      runs: runs.map(r => ({
-        runId: r.runId,
-        status: r.status,
-        timestamp: r.timestamp,
-        duration: r.duration,
-        summary: r.summary
-      }))
-    });
-  });
-  
-  // Get latest run for project
-  app.get('/api/projects/:project/:environment/latest', (c) => {
-    const project = c.req.param('project');
-    const environment = c.req.param('environment');
-    const run = runStore.getLatestRun(project, environment);
-    if (!run) {
-      return c.json({ error: 'No runs found' }, 404);
-    }
-    return c.json(run);
-  });
-  
-  // Start a new run
-  app.post('/api/runs/start', async (c) => {
-    const body = await c.req.json<StartRunRequest>();
-    const runId = generateId();
-    const timestamp = body.timestamp || new Date().toISOString();
-    
-    runStore.createRun(runId, body.project, body.environment, body.framework, timestamp);
-    
-    // Broadcast
-    const event: WebSocketEvent = {
-      type: 'run:started',
-      runId,
-      project: body.project,
-      environment: body.environment,
-      framework: body.framework,
-      timestamp
-    };
-    wsManager.broadcast(event, runId, body.project, body.environment);
-    
-    const response: StartRunResponse = {
-      runId,
-      websocketUrl: `/ws`
-    };
-    
-    return c.json(response, 201);
-  });
-  
-  // Add feature
-  app.post('/api/runs/:runId/features', async (c) => {
-    const runId = c.req.param('runId');
-    const body = await c.req.json();
-    
-    const run = runStore.getRun(runId);
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-    
-    // Pass through ALL fields from the reporter - don't filter data
-    const feature: Feature = {
-      id: body.id,
-      title: body.title,
-      displayTitle: body.displayTitle,
-      description: body.description,
-      rawDescription: body.rawDescription,
-      filename: body.filename,
-      tags: body.tags,
-      status: body.status,
-      duration: 0,
-      sequence: body.sequence,
-      scenarios: [],
-      ruleViolations: body.ruleViolations,
-      statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
-    };
-    
-    runStore.addFeature(runId, feature);
-    
-    const event: WebSocketEvent = { type: 'feature:added', runId, feature };
-    wsManager.broadcast(event, runId, run.project, run.environment);
-    
-    return c.json({ success: true });
-  });
-  
-  // Add scenario
-  app.post('/api/runs/:runId/scenarios', async (c) => {
-    const runId = c.req.param('runId');
-    const body = await c.req.json();
-    
-    const run = runStore.getRun(runId);
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-    
-    // Pass through ALL fields from the reporter - don't filter data
-    const scenario: Scenario = {
-      id: body.id,
-      type: body.type,
-      title: body.title,
-      displayTitle: body.displayTitle,
-      description: body.description,
-      rawDescription: body.rawDescription,
-      tags: body.tags,
-      status: body.status,
-      duration: 0,
-      sequence: body.sequence,
-      steps: body.steps || [],  // Include template steps for ScenarioOutline
-      ruleViolations: body.ruleViolations,
-      exampleIndex: body.exampleIndex,
-      exampleValues: body.exampleValues,
-      exampleValuesRaw: body.exampleValuesRaw,
-      outlineId: body.outlineId  // Link examples to their parent outline
-    };
-    
-    runStore.addScenario(runId, body.featureId, scenario);
-    
-    const event: WebSocketEvent = { 
-      type: 'scenario:started', 
-      runId, 
-      featureId: body.featureId, 
-      scenario 
-    };
-    wsManager.broadcast(event, runId, run.project, run.environment);
-    
-    return c.json({ success: true });
-  });
-  
-  // Add step
-  app.post('/api/runs/:runId/steps', async (c) => {
-    const runId = c.req.param('runId');
-    const body = await c.req.json();
-    
-    const run = runStore.getRun(runId);
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-    
-    // Pass through ALL fields from the reporter - don't filter data
-    const step: Step = {
-      id: body.id,
-      type: body.type,
-      title: body.title,
-      displayTitle: body.displayTitle,
-      rawTitle: body.rawTitle,
-      status: body.status,
-      duration: body.duration,
-      sequence: body.sequence,
-      error: body.error,
-      docString: body.docString,
-      docStringRaw: body.docStringRaw,
-      dataTable: body.dataTable,
-      values: body.values,
-      valuesRaw: body.valuesRaw,
-      ruleViolations: body.ruleViolations,
-      code: body.code
-    };
-    
-    runStore.addStep(runId, body.scenarioId, step);
-    
-    const event: WebSocketEvent = { 
-      type: 'step:completed', 
-      runId, 
-      scenarioId: body.scenarioId, 
-      step 
-    };
-    wsManager.broadcast(event, runId, run.project, run.environment);
-    
-    return c.json({ success: true });
-  });
-  
-  // Complete scenario
-  app.post('/api/runs/:runId/scenarios/:scenarioId/complete', async (c) => {
-    const runId = c.req.param('runId');
-    const scenarioId = c.req.param('scenarioId');
-    const body = await c.req.json();
-    
-    const run = runStore.getRun(runId);
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-    
-    runStore.updateScenarioStatus(runId, scenarioId, body.status, body.duration);
-    
-    const event: WebSocketEvent = { 
-      type: 'scenario:completed', 
-      runId, 
-      scenarioId, 
-      status: body.status, 
-      duration: body.duration 
-    };
-    wsManager.broadcast(event, runId, run.project, run.environment);
-    
-    return c.json({ success: true });
-  });
-  
-  // Complete run
-  app.post('/api/runs/:runId/complete', async (c) => {
-    const runId = c.req.param('runId');
-    const body = await c.req.json();
-    
-    const run = runStore.getRun(runId);
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-    
-    runStore.completeRun(runId, body.status, body.duration, body.summary);
-    
-    const event: WebSocketEvent = { 
-      type: 'run:completed', 
-      runId, 
-      status: body.status, 
-      summary: body.summary, 
-      duration: body.duration 
-    };
-    wsManager.broadcast(event, runId, run.project, run.environment);
-    
-    return c.json({ success: true });
-  });
-  
-  // Post complete run (batch mode)
-  app.post('/api/runs', async (c) => {
-    const body = await c.req.json<Omit<TestRun, 'runId'>>();
-    const runId = generateId();
-    
-    const run: TestRun = { ...body, runId };
-    runStore.storeCompleteRun(run);
-    
-    const event: WebSocketEvent = { 
-      type: 'run:completed', 
-      runId, 
-      status: run.status, 
-      summary: run.summary, 
-      duration: run.duration 
-    };
-    wsManager.broadcast(event, runId, run.project, run.environment);
-    
-    return c.json({ runId }, 201);
-  });
-  
-  // =========================================================================
-  // Static Files (SPA)
+  // Static Files (SPA) - Add these routes to the existing Hono app
   // =========================================================================
   
   // Serve static assets from the built React app
@@ -410,7 +73,13 @@ export async function startServer(options: ServerOptions = {}) {
     }
   });
   
+  // SPA fallback - serve index.html for all other routes
   app.get('*', async (c) => {
+    // Skip API routes
+    if (c.req.path.startsWith('/api')) {
+      return c.notFound();
+    }
+    
     try {
       const indexPath = path.join(staticDir, 'index.html');
       const html = await fs.readFile(indexPath, 'utf-8');
@@ -421,64 +90,22 @@ export async function startServer(options: ServerOptions = {}) {
   });
   
   // =========================================================================
-  // HTTP Request Handler
-  // =========================================================================
-  
-  httpServer.on('request', async (req: IncomingMessage, res: ServerResponse) => {
-    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-    
-    const headers = new Headers();
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (value) {
-        headers.set(key, Array.isArray(value) ? value.join(', ') : value);
-      }
-    }
-    
-    let body: string | undefined;
-    if (req.method === 'POST' || req.method === 'PUT') {
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(chunk);
-      }
-      body = Buffer.concat(chunks).toString();
-    }
-    
-    const request = new Request(url.toString(), {
-      method: req.method,
-      headers,
-      body,
-    });
-    
-    try {
-      const response = await app.fetch(request);
-      res.statusCode = response.status;
-      response.headers.forEach((value, key) => {
-        res.setHeader(key, value);
-      });
-      const responseBody = await response.text();
-      res.end(responseBody);
-    } catch (error) {
-      console.error('Request error:', error);
-      res.statusCode = 500;
-      res.end('Internal Server Error');
-    }
-  });
-  
-  // =========================================================================
   // Start Server
   // =========================================================================
   
-  httpServer.listen(port, host, () => {
-    console.log(`
+  const actualPort = await server.listen(port);
+  
+  console.log(`
 🍵 LiveDoc Viewer
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Server:    http://${host}:${port}
-  WebSocket: ws://${host}:${port}/ws
-  API:       http://${host}:${port}/api
-  Data:      ${runStore.getDataDir()}
+  Server:    http://${host}:${actualPort}
+  WebSocket: ws://${host}:${actualPort}/ws
+  API:       http://${host}:${actualPort}/api
+  Data:      ${store.getDataDir()}
 
   Endpoints:
+    GET    /api/health                Health check
     GET    /api/projects              List all projects
     GET    /api/hierarchy             Get project/env tree
     GET    /api/runs/:runId           Get run details
@@ -492,17 +119,16 @@ export async function startServer(options: ServerOptions = {}) {
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);
-  });
   
   if (options.open) {
     const open = await import('open');
-    await open.default(`http://${host}:${port}`);
+    await open.default(`http://${host}:${actualPort}`);
   }
   
   // Graceful shutdown handler
   const shutdown = async (signal: string) => {
     console.log(`\n${signal} received, shutting down gracefully...`);
-    await runStore.flush();
+    await server.stop();
     console.log('Data saved. Goodbye! 👋');
     process.exit(0);
   };
@@ -510,11 +136,14 @@ export async function startServer(options: ServerOptions = {}) {
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   
-  return httpServer;
+  return server;
 }
+
+// Re-export for backward compatibility
+export { startViewerServer as startServer };
 
 // Run if executed directly
 const isMainModule = process.argv[1]?.includes('index');
 if (isMainModule) {
-  startServer({ port: 3000, open: false });
+  startViewerServer({ port: 3000, open: false });
 }
