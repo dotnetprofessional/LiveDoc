@@ -136,6 +136,13 @@ export class LiveDocSpec extends LiveDocReporter {
                 }
             });
         }
+
+        // Output detailed specification output if requested
+        if (this.options.spec && results.specifications.length > 0) {
+            results.specifications.forEach(spec => {
+                this.outputSpecificationDetails(spec);
+            });
+        }
         
         // Output detailed suite output if requested
         if (this.options.spec && results.suites.length > 0) {
@@ -147,6 +154,9 @@ export class LiveDocSpec extends LiveDocReporter {
         // Output summary tables
         if (results.features.length > 0)
             this.outputFeatureExecutionSummary(results);
+
+        if (results.specifications.length > 0)
+            this.outputSpecificationExecutionSummary(results);
 
         if (results.suites.length > 0)
             this.outputSuiteExecutionSummary(results);
@@ -171,6 +181,53 @@ export class LiveDocSpec extends LiveDocReporter {
             this.outputSuiteDetails(child);
         });
         this.suiteEnd(suite);
+    }
+
+    private outputSpecificationDetails(spec: model.Specification): void {
+        // Output specification header
+        this.writeLine(this.formatKeywordTitle("Specification", spec.title, this.colorTheme.keyword, this.colorTheme.featureTitle, 2));
+        if (spec.description) {
+            this.writeLine(this.formatDescription(spec.description, 4, this.colorTheme.featureDescription));
+        }
+        this.writeLine(" ");
+
+        // Output each rule
+        for (const rule of spec.rules) {
+            if (rule instanceof model.RuleOutline) {
+                // Output Rule Outline with status indicator (like regular rules)
+                const status = this.getStatusIndicator(rule.status);
+                this.writeLine(`    ${status} ${this.colorTheme.keyword("Rule Outline:")} ${this.colorTheme.scenarioTitle(rule.title)}`);
+                if (rule.description) {
+                    this.writeLine(this.formatDescription(rule.description, 6, this.colorTheme.scenarioDescription));
+                }
+                
+                // Output each example
+                for (const example of rule.examples) {
+                    const exampleStatus = this.getStatusIndicator(example.status);
+                    const exampleTitle = `Example ${example.sequence}`;
+                    this.writeLine(`      ${exampleStatus} ${this.colorTheme.stepTitle(exampleTitle)}`);
+                }
+                this.writeLine(" ");
+            } else {
+                // Output simple Rule
+                const status = this.getStatusIndicator(rule.status);
+                this.writeLine(`    ${status} ${this.colorTheme.keyword("Rule:")} ${this.colorTheme.stepTitle(rule.title)}`);
+            }
+        }
+        this.writeLine(" ");
+    }
+
+    private getStatusIndicator(status: model.SpecStatus): string {
+        switch (status) {
+            case model.SpecStatus.pass:
+                return this.colorTheme.statusPass("✓");
+            case model.SpecStatus.fail:
+                return this.colorTheme.statusFail("✗");
+            case model.SpecStatus.pending:
+                return this.colorTheme.statusPending("○");
+            default:
+                return this.colorTheme.statusPending("?");
+        }
     }
 
     featureStart(feature: model.Feature): void {
@@ -437,6 +494,144 @@ export class LiveDocSpec extends LiveDocReporter {
         } else {
             return text;
         }
+    }
+
+    private outputSpecificationExecutionSummary(results: model.ExecutionResults) {
+        const headerRow = [
+            "Specification",
+            "Rules",
+            "status",
+            "Pass",
+            "Fail",
+            "Pending",
+            "Elapsed"
+        ];
+
+        if (!this.options.summary && !this.options.list) {
+            return;
+        }
+        const statistics: DataTableRow[] = [];
+        statistics.push(headerRow);
+
+        results.specifications.forEach(spec => {
+            // Calculate statistics for the specification
+            const rules = spec.rules;
+            let passCount = 0;
+            let failCount = 0;
+            let pendingCount = 0;
+            let totalDuration = spec.executionTime || 0;
+
+            rules.forEach(rule => {
+                if (rule instanceof model.RuleOutline) {
+                    // Count examples
+                    rule.examples.forEach(example => {
+                        if (example.status === model.SpecStatus.pass) passCount++;
+                        else if (example.status === model.SpecStatus.fail) failCount++;
+                        else pendingCount++;
+                        totalDuration += example.executionTime || 0;
+                    });
+                } else {
+                    if (rule.status === model.SpecStatus.pass) passCount++;
+                    else if (rule.status === model.SpecStatus.fail) failCount++;
+                    else pendingCount++;
+                    totalDuration += rule.executionTime || 0;
+                }
+            });
+
+            const totalRules = passCount + failCount + pendingCount;
+            const passPercent = totalRules > 0 ? passCount / totalRules : 0;
+            const failPercent = totalRules > 0 ? failCount / totalRules : 0;
+            const pendingPercent = totalRules > 0 ? pendingCount / totalRules : 0;
+            const statusBar = this.statusBar(passPercent, failPercent, pendingPercent);
+
+            statistics.push([
+                this.formatLine(spec.title),
+                rules.length,
+                statusBar,
+                passCount,
+                failCount,
+                pendingCount,
+                totalDuration
+            ]);
+
+            if (!this.options.list) {
+                return;
+            }
+            // Output the specific rules for the specification
+            rules.forEach(rule => {
+                let rulePass = 0, ruleFail = 0, rulePending = 0, ruleDuration = 0;
+                
+                if (rule instanceof model.RuleOutline) {
+                    rule.examples.forEach(ex => {
+                        if (ex.status === model.SpecStatus.pass) rulePass++;
+                        else if (ex.status === model.SpecStatus.fail) ruleFail++;
+                        else rulePending++;
+                        ruleDuration += ex.executionTime || 0;
+                    });
+                } else {
+                    if (rule.status === model.SpecStatus.pass) rulePass = 1;
+                    else if (rule.status === model.SpecStatus.fail) ruleFail = 1;
+                    else rulePending = 1;
+                    ruleDuration = rule.executionTime || 0;
+                }
+
+                const ruleTotal = rulePass + ruleFail + rulePending;
+                const ruleStatusBar = this.statusBar(
+                    ruleTotal > 0 ? rulePass / ruleTotal : 0,
+                    ruleTotal > 0 ? ruleFail / ruleTotal : 0,
+                    ruleTotal > 0 ? rulePending / ruleTotal : 0
+                );
+
+                statistics.push([
+                    this.formatLine("  " + rule.title),
+                    " ",
+                    ruleStatusBar,
+                    rulePass,
+                    ruleFail,
+                    rulePending,
+                    ruleDuration
+                ]);
+            });
+        });
+
+        // Now add a totals row
+        let totalPass = 0, totalFail = 0, totalPending = 0, totalDuration = 0, totalRulesCount = 0;
+        results.specifications.forEach(spec => {
+            spec.rules.forEach(rule => {
+                if (rule instanceof model.RuleOutline) {
+                    rule.examples.forEach(ex => {
+                        if (ex.status === model.SpecStatus.pass) totalPass++;
+                        else if (ex.status === model.SpecStatus.fail) totalFail++;
+                        else totalPending++;
+                        totalDuration += ex.executionTime || 0;
+                    });
+                    totalRulesCount++;
+                } else {
+                    if (rule.status === model.SpecStatus.pass) totalPass++;
+                    else if (rule.status === model.SpecStatus.fail) totalFail++;
+                    else totalPending++;
+                    totalDuration += rule.executionTime || 0;
+                    totalRulesCount++;
+                }
+            });
+        });
+
+        const grandTotal = totalPass + totalFail + totalPending;
+        statistics.push([
+            "Totals (" + results.specifications.length + ")",
+            totalRulesCount,
+            this.statusBar(
+                grandTotal > 0 ? totalPass / grandTotal : 0,
+                grandTotal > 0 ? totalFail / grandTotal : 0,
+                grandTotal > 0 ? totalPending / grandTotal : 0
+            ),
+            totalPass,
+            totalFail,
+            totalPending,
+            totalDuration
+        ]);
+
+        this.writeLine(this.applyBlockIndent(this.formatTable(statistics as any[][], HeaderType.Top), 2));
     }
 
     private outputSuiteExecutionSummary(results: model.ExecutionResults) {

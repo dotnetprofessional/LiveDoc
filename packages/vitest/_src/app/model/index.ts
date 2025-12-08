@@ -22,5 +22,14 @@ export { BackgroundContext } from "./BackgroundContext";
 export { StepContext } from "./StepContext";
 export { RuleViolations } from "./RuleViolations";
 
+// Specification pattern exports
+export { Specification } from "./Specification";
+export { Rule } from "./Rule";
+export { RuleOutline } from "./RuleOutline";
+export { RuleExample } from "./RuleExample";
+export { SpecificationContext } from "./SpecificationContext";
+export { RuleContext } from "./RuleContext";
+
 // Type exports
 export type { ScenarioOutlineContext } from "./ScenarioExample";
+export type { RuleOutlineContext } from "./RuleExample";

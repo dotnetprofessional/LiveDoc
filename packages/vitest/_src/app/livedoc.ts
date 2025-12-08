@@ -53,6 +53,13 @@ let currentStep: model.StepDefinition | null = null;
 let scenarioCount = 0;
 let scenarioId = 0;
 
+// Specification pattern state
+let currentSpecification: model.Specification | null = null;
+let ruleCount = 0;
+
+// Registry for specifications (parallels featureRegistry)
+const specificationRegistry: model.Specification[] = [];
+
 // Per-feature maps to fix isolation between features in same file
 // These were previously global singletons which caused cross-feature contamination
 const afterBackgroundFnMap: Map<model.Feature, Function> = new Map();
@@ -672,6 +679,215 @@ export const scenarioOutline = Object.assign(
     }
 );
 
+// ============================================
+// Specification Pattern Functions
+// ============================================
+
+/**
+ * Internal specification implementation
+ */
+function specificationImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    const filename = getFilenameFromStack(3);
+
+    // Create specification immediately during registration phase
+    const thisSpecification = parser.createSpecification(title, filename);
+    currentSpecification = thisSpecification;
+    ruleCount = 0;
+
+    // Generate specification ID
+    (thisSpecification as any).generateId(thisSpecification);
+
+    // Register specification and validate uniqueness
+    (thisSpecification as any).validateIdUniqueness(thisSpecification.id, specificationRegistry);
+    specificationRegistry.push(thisSpecification);
+
+    // Check if specification should be skipped based on tags or explicit skip
+    const shouldSkip = opts.pending || shouldMarkAsPending(thisSpecification.tags);
+    const shouldOnlyRun = opts.isOnly || shouldInclude(thisSpecification.tags);
+
+    const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
+
+    describeFunc(thisSpecification.displayTitle, () => {
+        // Restore currentSpecification for this describe's callback
+        currentSpecification = thisSpecification;
+        
+        // Track pending context for rules
+        const previousPendingContext = isPendingContext;
+        const previousFilteredContext = isFilteredContext;
+        
+        if (shouldSkip) {
+            isPendingContext = true;
+        }
+        
+        const ctx = {
+            get specification() {
+                return thisSpecification?.getSpecificationContext();
+            },
+        };
+
+        fn(ctx);
+        
+        // Restore contexts
+        isPendingContext = previousPendingContext;
+        isFilteredContext = previousFilteredContext;
+    });
+}
+
+/**
+ * Specification keyword - creates a new specification container
+ */
+export const specification = Object.assign(
+    function specification(title: string, fn: (ctx: any) => void) {
+        specificationImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn: (ctx: any) => void) {
+            specificationImpl(title, fn, { pending: true });
+        },
+        only: function only(title: string, fn: (ctx: any) => void) {
+            specificationImpl(title, fn, { isOnly: true });
+        }
+    }
+);
+
+/**
+ * Internal rule implementation
+ */
+function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    if (!currentSpecification) {
+        throw new model.ParserException("Rule must be within a specification.", title, "");
+    }
+
+    const ruleModel = parser.addRule(currentSpecification, title);
+    ruleCount++;
+
+    // Capture the specification at registration time (not execution time)
+    const specificationModel = currentSpecification;
+
+    // Check if rule should be skipped based on tags or explicit skip
+    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(ruleModel.tags);
+    const shouldOnlyRun = opts.isOnly || shouldInclude(ruleModel.tags);
+
+    const itFunc = shouldSkip ? vitestIt.skip : shouldOnlyRun ? vitestIt.only : vitestIt;
+
+    // Rules use 'it' directly (no step functions)
+    itFunc(ruleModel.displayTitle, async () => {
+        const ctx = {
+            get specification() {
+                return specificationModel?.getSpecificationContext();
+            },
+            get rule() {
+                return ruleModel.getRuleContext();
+            },
+        };
+
+        const startTime = Date.now();
+        try {
+            await fn(ctx);
+            ruleModel.status = model.SpecStatus.pass;
+            ruleModel.executionTime = Date.now() - startTime;
+        } catch (error: any) {
+            ruleModel.status = model.SpecStatus.fail;
+            ruleModel.executionTime = Date.now() - startTime;
+            ruleModel.error = error;
+            throw error;
+        }
+    });
+}
+
+/**
+ * Rule keyword - creates a simple specification rule
+ */
+export const rule = Object.assign(
+    function rule(title: string, fn: (ctx: any) => void | Promise<void>) {
+        ruleImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn: (ctx: any) => void | Promise<void>) {
+            ruleImpl(title, fn, { pending: true });
+        },
+        only: function only(title: string, fn: (ctx: any) => void | Promise<void>) {
+            ruleImpl(title, fn, { isOnly: true });
+        }
+    }
+);
+
+/**
+ * Internal rule outline implementation
+ */
+function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    if (!currentSpecification) {
+        throw new model.ParserException("Rule Outline must be within a specification.", title, "");
+    }
+
+    const ruleOutlineModel = parser.addRuleOutline(currentSpecification, title);
+
+    // Check if rule outline should be skipped based on tags or explicit skip
+    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(ruleOutlineModel.tags);
+    const shouldOnlyRun = opts.isOnly || shouldInclude(ruleOutlineModel.tags);
+
+    // Determine the describe function for the parent outline suite
+    const outlineDescribeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
+
+    // Create a parent describe for the Rule Outline itself
+    // Capture the specification at registration time (not execution time)
+    const specificationModel = currentSpecification;
+
+    outlineDescribeFunc(`Rule: ${ruleOutlineModel.title}`, () => {
+        // Create a test for each example
+        for (const example of ruleOutlineModel.examples) {
+            ruleCount++;
+
+            // Display the example values as a comma-separated list
+            const exampleValues = Object.values(example.example || {}).join(', ');
+            const exampleName = `Example ${example.sequence}: ${exampleValues}`;
+
+            vitestIt(exampleName, async () => {
+                const ctx = {
+                    get specification() {
+                        return specificationModel?.getSpecificationContext();
+                    },
+                    get rule() {
+                        return example.getRuleContext();
+                    },
+                    get example() {
+                        return example.example;
+                    },
+                };
+
+                const startTime = Date.now();
+                try {
+                    await fn(ctx);
+                    example.status = model.SpecStatus.pass;
+                    example.executionTime = Date.now() - startTime;
+                } catch (error: any) {
+                    example.status = model.SpecStatus.fail;
+                    example.executionTime = Date.now() - startTime;
+                    example.error = error;
+                    throw error;
+                }
+            });
+        }
+    });
+}
+
+/**
+ * Rule Outline keyword - creates data-driven rules
+ */
+export const ruleOutline = Object.assign(
+    function ruleOutline(title: string, fn: (ctx: any) => void | Promise<void>) {
+        ruleOutlineImpl(title, fn);
+    },
+    {
+        skip: function skip(title: string, fn: (ctx: any) => void | Promise<void>) {
+            ruleOutlineImpl(title, fn, { pending: true });
+        },
+        only: function only(title: string, fn: (ctx: any) => void | Promise<void>) {
+            ruleOutlineImpl(title, fn, { isOnly: true });
+        }
+    }
+);
+
 /**
  * Helper to create step functions
  */
@@ -1242,9 +1458,11 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                 throw new Error('Failed to start Vitest');
             }
             
+            // Get files from vitest state before closing - this has the complete task tree
+            const vitestFiles = vitest.state?.getFiles?.() || [];
+            
             // Check for file-level errors (e.g., duplicate names)
-            const files = vitest.state?.getFiles?.() || [];
-            for (const file of files) {
+            for (const file of vitestFiles) {
                 if (file.result?.errors && file.result.errors.length > 0) {
                     const firstError = file.result.errors[0] as Error;
                     silentReporter.collectedErrors.push(firstError);
@@ -1332,6 +1550,40 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                 }
             } else {
                 execTrace('EXEC_DYNAMIC_NO_RESULTS_FILE', { resultsFile });
+            }
+
+            // Build VitestSuites from the task tree for native describe/it blocks
+            // These are not tracked in suiteRegistry, so we need to extract them from the vitest task tree
+            for (const file of vitestFiles) {
+                // Check if there are any root-level tests (not wrapped in describe blocks)
+                const rootTests: any[] = [];
+                
+                for (const task of (file.tasks || [])) {
+                    if (task.type === 'suite') {
+                        // Skip BDD suites (Feature:, Specification:) - they're already in featureRegistry
+                        if (!task.name.startsWith('Feature:') && !task.name.startsWith('Specification:')) {
+                            const suite = this.buildSuiteFromTask(task, file.filepath);
+                            results.addSuite(suite);
+                        }
+                    } else if (task.type === 'test') {
+                        // Root-level test - will be added to a root suite below
+                        rootTests.push(task);
+                    }
+                }
+                
+                // If there are root-level tests, create a root suite to contain them
+                if (rootTests.length > 0) {
+                    const rootSuite = new model.VitestSuite(null, '', 'suite');
+                    rootSuite.filename = file.filepath;
+                    
+                    for (const testTask of rootTests) {
+                        const test = this.buildTestFromTask(testTask, rootSuite);
+                        rootSuite.tests.push(test);
+                        rootSuite.statistics.updateStats(test.status, test.duration);
+                    }
+                    
+                    results.addSuite(rootSuite);
+                }
             }
 
             // Re-throw any captured exception from the subprocess
@@ -1630,5 +1882,73 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
     public static clearRegistries(): void {
         featureRegistry.length = 0;
         suiteRegistry.length = 0;
+    }
+
+    /**
+     * Build a VitestSuite from a task tree node (used for native describe/it blocks in dynamic tests)
+     */
+    private static buildSuiteFromTask(task: any, filepath: string, parent: model.VitestSuite | null = null): model.VitestSuite {
+        const suite = new model.VitestSuite(parent, task.name, 'suite');
+        suite.filename = filepath;
+        
+        // Process child tasks
+        for (const childTask of (task.tasks || [])) {
+            if (childTask.type === 'suite') {
+                const childSuite = LiveDoc.buildSuiteFromTask(childTask, filepath, suite);
+                suite.children.push(childSuite);
+            } else if (childTask.type === 'test') {
+                const test = LiveDoc.buildTestFromTask(childTask, suite);
+                suite.tests.push(test);
+                // Update suite statistics
+                suite.statistics.updateStats(test.status, test.duration);
+            }
+        }
+        
+        return suite;
+    }
+
+    /**
+     * Build a LiveDocTest from a task tree node (used for native describe/it blocks in dynamic tests)
+     */
+    private static buildTestFromTask(task: any, parent: model.VitestSuite): model.LiveDocTest<model.VitestSuite> {
+        const test = new model.LiveDocTest<model.VitestSuite>(parent, task.name);
+        
+        // Set status based on task result or mode
+        // Skipped tests may not have a result but have mode: 'skip'
+        let taskState = task.result?.state || 'unknown';
+        if (taskState === 'unknown' && task.mode === 'skip') {
+            taskState = 'skipped';
+        }
+        test.status = LiveDoc.mapTaskStateToSpecStatus(taskState);
+        test.duration = task.result?.duration || 0;
+        
+        if (task.result?.errors && task.result.errors.length > 0) {
+            const exception = new model.Exception();
+            exception.message = task.result.errors[0].message || '';
+            exception.stackTrace = task.result.errors[0].stack || '';
+            test.exception = exception;
+        }
+        
+        return test;
+    }
+
+    /**
+     * Map Vitest task state to LiveDoc SpecStatus
+     */
+    private static mapTaskStateToSpecStatus(state: string): model.SpecStatus {
+        switch (state) {
+            case 'pass':
+            case 'passed':
+                return model.SpecStatus.pass;
+            case 'fail':
+            case 'failed':
+                return model.SpecStatus.fail;
+            case 'skip':
+            case 'skipped':
+            case 'pending':
+                return model.SpecStatus.pending;
+            default:
+                return model.SpecStatus.unknown;
+        }
     }
 }

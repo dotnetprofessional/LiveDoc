@@ -8,7 +8,7 @@ export * from "./model/index";
 // Re-export for convenience
 export type { DataTableRow } from "./types";
 
-// Export DSL functions
+// Export DSL functions - Feature/Scenario pattern
 export {
     feature,
     scenario,
@@ -22,6 +22,13 @@ export {
     it,
     describe,
     livedoc,
+} from "./livedoc";
+
+// Export DSL functions - Specification pattern
+export {
+    specification,
+    rule,
+    ruleOutline,
 } from "./livedoc";
 
 // Export options and rules

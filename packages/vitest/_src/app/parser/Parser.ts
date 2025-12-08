@@ -180,6 +180,119 @@ export class LiveDocGrammarParser {
         step.displayTitle = parser.secondaryBind(step.displayTitle, step.passedParam);
         step.docString = parser.secondaryBind(step.docString, step.passedParam);
     }
+
+    // ============================================
+    // Specification Pattern Methods
+    // ============================================
+
+    public createSpecification(description: string, filename: string): model.Specification {
+        const parser = new DescriptionParser();
+        const specification = new model.Specification();
+        const type = "Specification";
+
+        parser.parseDescription(description);
+
+        specification.title = parser.title;
+        specification.displayTitle = this.formatDisplayTitle(description, type, 4);
+        specification.description = parser.description;
+        specification.tags = parser.tags;
+        specification.filename = filename;
+
+        // Validate we have a description
+        if (!parser.title) {
+            specification.addViolation(
+                RuleViolations.enforceTitle,
+                `${type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`,
+                parser.title
+            );
+        }
+        return specification;
+    }
+
+    public addRule(specification: model.Specification, description: string): model.Rule {
+        const type = "Rule";
+        const rule = new model.Rule(specification);
+        const parser = new DescriptionParser();
+        parser.parseDescription(description);
+
+        rule.title = parser.title;
+        rule.description = parser.description;
+        rule.displayTitle = this.formatDisplayTitle(description, type, 6);
+        rule.tags = parser.tags;
+        specification.addRule(rule);
+
+        return rule;
+    }
+
+    public addRuleOutline(specification: model.Specification, description: string): model.RuleOutline {
+        const type = "Rule Outline";
+        const ruleOutline = new model.RuleOutline(specification);
+        const parser = new DescriptionParser();
+        parser.parseDescription(description);
+
+        ruleOutline.title = parser.title;
+        ruleOutline.description = parser.description;
+        ruleOutline.displayTitle = this.formatDisplayTitle(description, type, 6);
+        ruleOutline.tags = parser.tags;
+        ruleOutline.tables = parser.tables;
+
+        this.addRuleExamples(ruleOutline, parser);
+
+        specification.rules.push(ruleOutline);
+
+        // Validate we have a description
+        if (!parser.title) {
+            ruleOutline.addViolation(
+                RuleViolations.enforceTitle,
+                `${type} seems to be missing a title. Titles are important to convey the meaning of the Spec.`,
+                parser.title
+            );
+        }
+
+        return ruleOutline;
+    }
+
+    private addRuleExamples(ruleOutline: model.RuleOutline, parser: DescriptionParser): void {
+        // Merge all example tables into a single array for processing
+        parser.tables.forEach(table => {
+            this.addRuleExample(ruleOutline, table, parser);
+        });
+
+        if (ruleOutline.examples.length === 0) {
+            throw new model.LiveDocRuleViolation(
+                RuleViolations.error,
+                "A ruleOutline was defined but does not contain any Examples. Did you mean to use a rule or forget the Examples keyword?",
+                ruleOutline.title
+            );
+        }
+    }
+
+    private addRuleExample(
+        ruleOutline: model.RuleOutline,
+        table: model.Table,
+        parser: DescriptionParser
+    ): void {
+        if (!table.dataTable || table.dataTable.length <= 1) {
+            throw TypeError("Data tables must have at least a header row plus a data row.");
+        }
+
+        const headerRow: string[] = [];
+        (table.dataTable[0] as any[]).forEach((item: any) => {
+            // Copy the header names removing spaces and apostrophes
+            headerRow.push(parser.sanitizeName(item));
+        });
+
+        for (let i = 1; i < table.dataTable.length; i++) {
+            const dataRow = table.dataTable[i];
+            const ruleExample = new model.RuleExample(ruleOutline.parent, ruleOutline);
+            ruleExample.displayTitle = this.formatDisplayTitle(ruleOutline.title, "Rule", 6);
+            ruleExample.example = parser.getTableRowAsEntity(headerRow, dataRow);
+            ruleExample.exampleRaw = parser.getTableRowAsEntity(headerRow, dataRow, false);
+            ruleExample.title = ruleOutline.title;
+            ruleOutline.examples.push(ruleExample);
+            ruleExample.sequence = ruleOutline.examples.length;
+        }
+    }
 }
 
 export class DescriptionParser {

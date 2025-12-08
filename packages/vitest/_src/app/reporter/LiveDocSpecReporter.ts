@@ -50,17 +50,32 @@ export default class LiveDocSpecReporter implements Reporter {
     }
 
     async onTestRunEnd(testModules: readonly any[]): Promise<void> {
-        // Build features from the test module task tree
+        // Build features and specifications from the test module task tree
         const features: model.Feature[] = [];
+        const specifications: model.Specification[] = [];
+        const suites: model.VitestSuite[] = [];
         
         for (const testModule of testModules) {
             const file = testModule.task;
             
-            // Each top-level suite should be a feature
+            // Each top-level suite should be a feature, specification, or regular suite
             for (const suite of (file.tasks || [])) {
                 if (suite.type === 'suite') {
-                    const feature = this.buildFeatureFromSuite(suite, file.filepath);
-                    features.push(feature);
+                    // Check if this is a Specification
+                    if (suite.name.startsWith('Specification:')) {
+                        const specification = this.buildSpecificationFromSuite(suite, file.filepath);
+                        specifications.push(specification);
+                    } 
+                    // Check if this is a Feature
+                    else if (suite.name.startsWith('Feature:')) {
+                        const feature = this.buildFeatureFromSuite(suite, file.filepath);
+                        features.push(feature);
+                    }
+                    // Otherwise treat as a regular suite (describe block)
+                    else {
+                        const vitestSuite = this.buildVitestSuiteFromTask(suite, file.filepath);
+                        suites.push(vitestSuite);
+                    }
                 }
             }
         }
@@ -68,13 +83,22 @@ export default class LiveDocSpecReporter implements Reporter {
         // Build execution results
         const results = new model.ExecutionResults();
         results.features = features;
-        results.suites = []; // Non-BDD suites TBD
+        results.specifications = specifications;
+        results.suites = suites;
 
         // Calculate paths for features
         if (results.features.length > 0) {
             const featureRoot = LiveDocReporter.findRootPath(results.features.map(f => f.filename));
             results.features.forEach(feature => {
                 feature.path = this.createPathFromFile(feature.filename, featureRoot);
+            });
+        }
+
+        // Calculate paths for specifications
+        if (results.specifications.length > 0) {
+            const specRoot = LiveDocReporter.findRootPath(results.specifications.map(s => s.filename));
+            results.specifications.forEach(spec => {
+                spec.path = this.createPathFromFile(spec.filename, specRoot);
             });
         }
 
@@ -459,6 +483,217 @@ export default class LiveDocSpecReporter implements Reporter {
     private createPathFromFile(filename: string, rootPath: string): string {
         // Access protected method through inheritance chain
         return (this.liveDocSpec as any).createPathFromFile(filename, rootPath);
+    }
+
+    // ============================================
+    // Specification Pattern Methods
+    // ============================================
+
+    private buildSpecificationFromSuite(suite: any, filepath: string): model.Specification {
+        const specification = new model.Specification();
+        
+        // Extract specification title and description from suite name
+        const fullName = suite.name.replace(/^Specification:\s*/, '');
+        const lines = fullName.split('\n');
+        specification.title = lines[0].trim();
+        specification.filename = filepath;
+        
+        if (lines.length > 1) {
+            specification.description = lines.slice(1)
+                .map((l: string) => l.trim())
+                .filter((l: string) => l.length > 0)
+                .join('\n');
+        }
+        
+        // Process tasks - detect rules and rule outlines
+        for (const task of (suite.tasks || [])) {
+            if (task.type === 'suite') {
+                // Check if this is a Rule Outline (has Example children)
+                if (task.name.startsWith('Rule:')) {
+                    const exampleTests = (task.tasks || []).filter((t: any) => 
+                        t.type === 'test' && t.name.startsWith('Example ')
+                    );
+                    
+                    if (exampleTests.length > 0) {
+                        // This is a Rule Outline with nested examples
+                        const ruleOutline = this.buildRuleOutlineFromSuite(task, specification);
+                        specification.rules.push(ruleOutline);
+                    }
+                }
+            } else if (task.type === 'test') {
+                // Check if this is a simple Rule (test starting with "Rule:")
+                if (task.name.startsWith('Rule:')) {
+                    const rule = this.buildRuleFromTest(task, specification);
+                    specification.rules.push(rule);
+                }
+            }
+        }
+        
+        specification.executionTime = suite.result?.duration || 0;
+        return specification;
+    }
+    
+    private buildRuleFromTest(task: any, specification: model.Specification): model.Rule {
+        const rule = new model.Rule(specification);
+        const fullName = task.name.replace(/^Rule:\s*/, '');
+        const lines = fullName.split('\n');
+        rule.title = lines[0].trim();
+        
+        if (lines.length > 1) {
+            rule.description = lines.slice(1)
+                .map((l: string) => l.trim())
+                .filter((l: string) => l.length > 0)
+                .join('\n');
+        }
+        
+        // Set status based on task result
+        const taskState = task.result?.state || 'unknown';
+        rule.status = this.mapTaskStateToSpecStatus(taskState);
+        rule.executionTime = task.result?.duration || 0;
+        
+        if (task.result?.errors && task.result.errors.length > 0) {
+            rule.error = task.result.errors[0];
+        }
+        
+        return rule;
+    }
+    
+    private buildRuleOutlineFromSuite(suite: any, specification: model.Specification): model.RuleOutline {
+        const ruleOutline = new model.RuleOutline(specification);
+        const fullName = suite.name.replace(/^Rule:\s*/, '');
+        const lines = fullName.split('\n');
+        ruleOutline.title = lines[0].trim();
+        
+        if (lines.length > 1) {
+            ruleOutline.description = lines.slice(1)
+                .map((l: string) => l.trim())
+                .filter((l: string) => l.length > 0)
+                .join('\n');
+        }
+        
+        // Build rule examples from each example test
+        const exampleTests = (suite.tasks || []).filter((t: any) => 
+            t.type === 'test' && t.name.startsWith('Example ')
+        );
+        
+        for (let i = 0; i < exampleTests.length; i++) {
+            const example = this.buildRuleExampleFromTest(exampleTests[i], ruleOutline, i + 1);
+            ruleOutline.examples.push(example);
+        }
+        
+        // Compute RuleOutline status from examples
+        // If any example fails, the outline fails
+        // If all examples pass, the outline passes
+        // If all examples are pending/skipped, the outline is pending
+        if (ruleOutline.examples.length > 0) {
+            const hasFailed = ruleOutline.examples.some(e => e.status === model.SpecStatus.fail);
+            const allPassed = ruleOutline.examples.every(e => e.status === model.SpecStatus.pass);
+            const allPending = ruleOutline.examples.every(e => e.status === model.SpecStatus.pending);
+            
+            if (hasFailed) {
+                ruleOutline.status = model.SpecStatus.fail;
+            } else if (allPassed) {
+                ruleOutline.status = model.SpecStatus.pass;
+            } else if (allPending) {
+                ruleOutline.status = model.SpecStatus.pending;
+            } else {
+                // Mix of pass and pending
+                ruleOutline.status = model.SpecStatus.pass;
+            }
+        }
+        
+        ruleOutline.executionTime = suite.result?.duration || 0;
+        return ruleOutline;
+    }
+    
+    private buildRuleExampleFromTest(task: any, ruleOutline: model.RuleOutline, sequence: number): model.RuleExample {
+        const example = new model.RuleExample(ruleOutline.parent, ruleOutline);
+        example.title = `Example ${sequence}`;
+        example.sequence = sequence;
+        example.displayTitle = task.name;
+        
+        // Extract example data from the task name if available
+        // Format is "Example N: value1, value2, ..."
+        const match = task.name.match(/^Example \d+:\s*(.*)$/);
+        if (match) {
+            // Values are comma-separated, but we don't have column names
+            // Store as a simple key-value with index-based keys
+            const values = match[1].split(',').map((v: string) => v.trim());
+            example.example = {};
+            values.forEach((v: string, idx: number) => {
+                (example.example as any)[`value${idx}`] = v;
+            });
+            example.exampleRaw = example.example;
+        }
+        
+        // Set status based on task result
+        const taskState = task.result?.state || 'unknown';
+        example.status = this.mapTaskStateToSpecStatus(taskState);
+        example.executionTime = task.result?.duration || 0;
+        
+        if (task.result?.errors && task.result.errors.length > 0) {
+            example.error = task.result.errors[0];
+        }
+        
+        return example;
+    }
+    
+    private mapTaskStateToSpecStatus(taskState: string): model.SpecStatus {
+        switch (taskState) {
+            case 'passed':
+            case 'pass':
+                return model.SpecStatus.pass;
+            case 'failed':
+            case 'fail':
+                return model.SpecStatus.fail;
+            case 'skipped':
+            case 'pending':
+                return model.SpecStatus.pending;
+            default:
+                return model.SpecStatus.unknown;
+        }
+    }
+
+    // ============================================
+    // Regular Suite (describe) Methods
+    // ============================================
+
+    private buildVitestSuiteFromTask(task: any, filepath: string, parent: model.VitestSuite | null = null): model.VitestSuite {
+        const suite = new model.VitestSuite(parent, task.name, 'suite');
+        suite.filename = filepath;
+        
+        // Process child tasks
+        for (const childTask of (task.tasks || [])) {
+            if (childTask.type === 'suite') {
+                const childSuite = this.buildVitestSuiteFromTask(childTask, filepath, suite);
+                suite.children.push(childSuite);
+            } else if (childTask.type === 'test') {
+                const test = this.buildVitestTestFromTask(childTask, suite);
+                suite.tests.push(test);
+                // Update suite statistics
+                suite.statistics.updateStats(test.status, test.duration);
+            }
+        }
+        
+        return suite;
+    }
+
+    private buildVitestTestFromTask(task: any, parent: model.VitestSuite): model.LiveDocTest<model.VitestSuite> {
+        const test = new model.LiveDocTest<model.VitestSuite>(parent, task.name);
+        
+        // Set status based on task result
+        const taskState = task.result?.state || 'unknown';
+        test.status = this.mapTaskStateToSpecStatus(taskState);
+        test.duration = task.result?.duration || 0;
+        
+        if (task.result?.errors && task.result.errors.length > 0) {
+            const exception = new model.Exception();
+            exception.message = task.result.errors[0].message || '';
+            exception.stackTrace = task.result.errors[0].stack || '';
+            test.exception = exception;
+        }
+        
+        return test;
     }
     
 }

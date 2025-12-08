@@ -1,4 +1,4 @@
-import type { FeatureContext, ScenarioContext, StepContext, BackgroundContext } from "./model";
+import type { FeatureContext, ScenarioContext, StepContext, BackgroundContext, SpecificationContext, RuleContext } from "./model";
 
 /**
  * The context object passed to all LiveDoc test functions.
@@ -15,6 +15,18 @@ export interface LiveDocTestContext {
     example?: ScenarioContext;
     /** Framework metadata about the background */
     background?: BackgroundContext;
+}
+
+/**
+ * The context object passed to Specification pattern test functions.
+ */
+export interface SpecificationTestContext {
+    /** Framework metadata about the current specification */
+    specification?: SpecificationContext;
+    /** Framework metadata about the current rule */
+    rule?: RuleContext;
+    /** Example data for rule outlines */
+    example?: Record<string, any>;
 }
 
 declare global {
@@ -66,6 +78,26 @@ declare global {
      * Define a but step (continuation with contrast)
      */
     function but(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
+
+    // ============================================
+    // Specification Pattern Globals
+    // ============================================
+
+    /**
+     * Define a specification (container for rules)
+     */
+    function specification(title: string, fn: (ctx: SpecificationTestContext) => void): void;
+
+    /**
+     * Define a rule within a specification
+     */
+    function rule(title: string, fn: (ctx: SpecificationTestContext) => void | Promise<void>): void;
+
+    /**
+     * Define a rule outline (data-driven rules)
+     * Examples are extracted from the title string by the parser
+     */
+    function ruleOutline(title: string, fn: (ctx: SpecificationTestContext) => void | Promise<void>): void;
 }
 
 export {};
