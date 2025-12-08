@@ -1,4 +1,4 @@
-import { feature, scenario, scenarioOutline, Given, When, Then, And, LiveDoc } from "../app/livedoc";
+import { feature, scenario, scenarioOutline, given, when, Then as then, and, LiveDoc } from "../app/livedoc";
 import { ExecutionResults } from "../app/model/ExecutionResults";
 import { SpecStatus } from "../app/model/SpecStatus";
 import * as Utils from './Utils';
@@ -14,22 +14,22 @@ feature(`Step statement
         but   - used by given/when/then to provide an exclusion context`
     , (ctx) => {
 
-    scenario("Given step statement is just a title", (ctx) => {
+    scenario("given step statement is just a title", (ctx) => {
         let givenTitle = "";
-        Given(`a simple title`, (ctx) => {
+        given(`a simple title`, (ctx) => {
             givenTitle = ctx.step!.title;
         });
 
-        When("using the stepContext", (ctx) => { });
+        when("using the stepContext", (ctx) => { });
 
-        Then("the title should match stepContext.title", (ctx) => {
+        then("the title should match stepContext.title", (ctx) => {
             givenTitle.should.be.equal("a simple title");
         });
     });
 
     scenario("Step statement has a docString that includes significant spaces", (ctx) => {
         let docString = "";
-        Given(`a simple title
+        given(`a simple title
                 """
                     This string is indented
                     so they should be honoured
@@ -37,21 +37,21 @@ feature(`Step statement
             docString = ctx.step!.docString;
         });
 
-        When("using the stepContext", (ctx) => { });
+        when("using the stepContext", (ctx) => { });
 
-        Then("the docString should match stepContext.docString including the significant spaces", (ctx) => {
+        then("the docString should match stepContext.docString including the significant spaces", (ctx) => {
             chai.expect(docString).to.equal("    This string is indented\n    so they should be honoured");
         });
     });
 
-    scenario("When step statement is just a title", (ctx) => {
+    scenario("when step statement is just a title", (ctx) => {
         let whenTitle = "";
-        Given(`a simple title`, (ctx) => {
+        given(`a simple title`, (ctx) => {
             whenTitle = ctx.step!.title;
         });
-        When("accessing the value from the stepContext", (ctx) => { });
+        when("accessing the value from the stepContext", (ctx) => { });
 
-        Then("the title should match stepContext.title", (ctx) => {
+        then("the title should match stepContext.title", (ctx) => {
             chai.expect(whenTitle).to.equal("a simple title");
         });
     });
@@ -59,7 +59,7 @@ feature(`Step statement
     scenario("Step statement has a title and a docString", (ctx) => {
         let givenTitle = "";
         let docString = "";
-        Given(`a simple title
+        given(`a simple title
                 """
                 With this docString that
                 has multiple lines
@@ -72,13 +72,13 @@ feature(`Step statement
             docString = ctx.step!.docString;
         });
 
-        When("accessing the value from the stepContext", (ctx) => { });
+        when("accessing the value from the stepContext", (ctx) => { });
 
-        Then("the title should match stepContext.title", (ctx) => {
+        then("the title should match stepContext.title", (ctx) => {
             givenTitle.should.be.equal("a simple title");
         });
 
-        And("the docString should match stepContext.docString", (ctx) => {
+        and("the docString should match stepContext.docString", (ctx) => {
             docString.should.be.equal("With this docString that\nhas multiple lines\n1\n2\n3\n4");
         });
     });
@@ -87,7 +87,7 @@ feature(`Step statement
         let givenTitle = "";
         let givenStep: any;
 
-        Given(`a simple title
+        given(`a simple title
                 """
                 {
                     "name":"John",
@@ -98,13 +98,13 @@ feature(`Step statement
             givenStep = ctx.step;
         });
 
-        When("accessing the value from the stepContext", (ctx) => { });
+        when("accessing the value from the stepContext", (ctx) => { });
 
-        Then("the title should match stepContext.title", (ctx) => {
+        then("the title should match stepContext.title", (ctx) => {
             givenTitle.should.be.equal("a simple title");
         });
 
-        And("the docStringAsEntity should return an object with the correct properties", (ctx) => {
+        and("the docStringAsEntity should return an object with the correct properties", (ctx) => {
             const docString = givenStep.docStringAsEntity;
             docString.name.should.be.equal("John");
             docString.address.should.be.equal("123 Street");
@@ -114,7 +114,7 @@ feature(`Step statement
     scenario("Step statement has a title and a table", (ctx) => {
         let givenStep: any;
 
-        Given(`a simple title has a table
+        given(`a simple title has a table
 
                 |  name  |       email        |     twitter     |
                 | Aslak  | aslak@cucumber.io  | @aslak_hellesoy |
@@ -126,13 +126,13 @@ feature(`Step statement
             givenStep = ctx.step;
         });
 
-        When("using the stepContext", (ctx) => { });
+        when("using the stepContext", (ctx) => { });
 
-        Then("the title should match stepContext.title", (ctx) => {
+        then("the title should match stepContext.title", (ctx) => {
             givenStep.title.should.be.equal("a simple title has a table");
         });
 
-        And("the table should match stepContext.table", (ctx) => {
+        and("the table should match stepContext.table", (ctx) => {
             const table = givenStep.table;
             table.length.should.be.equal(3);
             table[0].name.should.be.equal("Aslak");
@@ -146,7 +146,7 @@ feature(`Step statement
 
     scenario("Step statement has a two column table with names in first column", (ctx) => {
         let entity: any;
-        When(`a simple title has a table
+        when(`a simple title has a table
 
                 | name    | Aslak             |
                 | email   | aslak@cucumber.io |
@@ -158,7 +158,7 @@ feature(`Step statement
             entity = ctx.step!.tableAsEntity;
         });
 
-        Then("the table should be convertible to an entity using stepContext.tableToEntity", (ctx) => {
+        then("the table should be convertible to an entity using stepContext.tableToEntity", (ctx) => {
             entity.name.should.be.equal("Aslak");
             entity.email.should.be.equal("aslak@cucumber.io");
             entity.twitter.should.be.equal("@aslak_hellesoy");
@@ -168,7 +168,7 @@ feature(`Step statement
 
     scenario("Step statement has a single column of values as a table", (ctx) => {
         let givenStep: any;
-        Given(`a simple title has a table of values
+        given(`a simple title has a table of values
 
                 |    17|
                 |   42 |
@@ -179,9 +179,9 @@ feature(`Step statement
             givenStep = ctx.step;
         });
 
-        When("using the stepContext", (ctx) => { });
+        when("using the stepContext", (ctx) => { });
 
-        Then("the table should be convertible to a list using stepContext.tableToList", (ctx) => {
+        then("the table should be convertible to a list using stepContext.tableToList", (ctx) => {
             // Add the numbers up
             let total = 0;
             const list = givenStep.tableAsSingleList;
@@ -195,7 +195,7 @@ feature(`Step statement
 
     scenario("Step statement has a column of values of different intrinsic types as a table", (ctx) => {
         let givenStep: any;
-        Given(`a simple title has a table of values
+        given(`a simple title has a table of values
 
                 | string       | test                 |
                 | number       |                 1234 |
@@ -214,9 +214,9 @@ feature(`Step statement
             givenStep = ctx.step;
         });
 
-        When("using the stepContext", (ctx) => { });
+        when("using the stepContext", (ctx) => { });
 
-        Then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", (ctx) => {
+        then("the table should be convertible to a list using stepContext.tableToList and have each type be its intrinsic type not just string", (ctx) => {
             // Add the numbers up
             const entity = givenStep.tableAsEntity;
 
@@ -251,15 +251,15 @@ feature(`Step statement
 
     scenario("Step statement uses quoted \" values to define values ", (ctx) => {
         let stepValues: string[];
-        When(`a title has "this value" and "that value"`, (ctx) => {
+        when(`a title has "this value" and "that value"`, (ctx) => {
             stepValues = ctx.step!.values;
         });
 
-        Then("contextStep.values should have '2' items", (ctx) => {
+        then("contextStep.values should have '2' items", (ctx) => {
             stepValues.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And("the two values should be available via contextStep.values", (ctx) => {
+        and("the two values should be available via contextStep.values", (ctx) => {
             stepValues[0].should.be.equal("this value");
             stepValues[1].should.be.equal("that value");
         });
@@ -267,28 +267,28 @@ feature(`Step statement
 
     scenario("Step statement uses quoted ' values to define values ", (ctx) => {
         let stepValues: any[];
-        When(`a title has 'this value2' and 'that value2'`, (ctx) => {
+        when(`a title has 'this value2' and 'that value2'`, (ctx) => {
             stepValues = ctx.step!.values;
         });
 
-        Then("contextStep.values should have '2' items", (ctx) => {
+        then("contextStep.values should have '2' items", (ctx) => {
             stepValues.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And("the two values should be available via contextStep.values", (ctx) => {
+        and("the two values should be available via contextStep.values", (ctx) => {
             stepValues[0].should.be.equal("this value2");
             stepValues[1].should.be.equal("that value2");
         });
 
-        And("quoted values should support multiple types: number: '1234'", (ctx) => {
+        and("quoted values should support multiple types: number: '1234'", (ctx) => {
             (typeof ctx.step!.values[0]).should.be.equal("number");
         });
 
-        And("quoted values should support multiple types: boolean: 'true' or 'false'", (ctx) => {
+        and("quoted values should support multiple types: boolean: 'true' or 'false'", (ctx) => {
             (typeof ctx.step!.values[0]).should.be.equal("boolean");
         });
 
-        And("quoted values should support multiple types: array: '[1, 3, 4, 5]'", (ctx) => {
+        and("quoted values should support multiple types: array: '[1, 3, 4, 5]'", (ctx) => {
             (typeof ctx.step!.values[0]).should.be.equal("object");
             ctx.step!.values[0][0].should.be.equal(1);
         });
@@ -296,13 +296,13 @@ feature(`Step statement
 
     scenario("Step statements should support async operations", (ctx) => {
         let value = 0;
-        When(`a step is testing code that is async`, async (ctx) => {
+        when(`a step is testing code that is async`, async (ctx) => {
             value = 10;
             await Utils.sleep(10);
             value = 20;
         });
 
-        Then("the test should continue after the async operation", (ctx) => {
+        then("the test should continue after the async operation", (ctx) => {
             value.should.be.equal(20);
         });
     });
@@ -312,7 +312,7 @@ feature(`Step statement
         `, (ctx) => {
         let outlineGiven: any;
         let executionResults: ExecutionResults;
-        Given(`a step that will fail
+        given(`a step that will fail
             """
             feature("A feature with a failing step", ()=> {
                 scenario(\`A scenario with a failing step\`, () => {
@@ -326,11 +326,11 @@ feature(`Step statement
                 outlineGiven = ctx.step!;
             });
 
-        When(`executing feature`, async (ctx) => {
+        when(`executing feature`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString);
         });
 
-        Then("the step is marked as failed", (ctx) => {
+        then("the step is marked as failed", (ctx) => {
             const step = executionResults.features[0].scenarios[0].steps[0];
             chai.expect(step.status).to.equal(SpecStatus.fail);
         });
@@ -340,18 +340,18 @@ feature(`Step statement
         let myVariable: { name: string } = { name: "" };
         let stepText = "";
 
-        Given(`the variable myVariable has a name property`, (ctx) => {
+        given(`the variable myVariable has a name property`, (ctx) => {
 
         });
-        And(`the name property is updated in this step to 'hello world'`, (ctx) => {
+        and(`the name property is updated in this step to 'hello world'`, (ctx) => {
             myVariable.name = ctx.step!.values[0];
         });
 
-        When(`defining a step that binds the variable name {{name}}`, (ctx) => {
+        when(`defining a step that binds the variable name {{name}}`, (ctx) => {
             stepText = ctx.step!.displayTitle;
         }, myVariable);
 
-        Then("the step display title includes the bound values", (ctx) => {
+        then("the step display title includes the bound values", (ctx) => {
             chai.expect(stepText).to.contain(myVariable.name);
         });
     });
@@ -360,18 +360,18 @@ feature(`Step statement
         let myVariable: { name: string } = { name: "" };
         let stepText = "";
 
-        Given(`the variable myVariable has a name property`, (ctx) => {
+        given(`the variable myVariable has a name property`, (ctx) => {
 
         });
-        And(`the name property is updated in this step to 'hello world'`, (ctx) => {
+        and(`the name property is updated in this step to 'hello world'`, (ctx) => {
             myVariable.name = ctx.step!.values[0];
         });
 
-        When(`defining a step that binds the variable name {{name}}`, (ctx) => {
+        when(`defining a step that binds the variable name {{name}}`, (ctx) => {
             stepText = ctx.step!.displayTitle;
         }, () => ({ name: myVariable.name }));
 
-        Then(`the step display title includes the bound values`, (ctx) => {
+        then(`the step display title includes the bound values`, (ctx) => {
             chai.expect(stepText).to.contain(myVariable.name);
         });
     });

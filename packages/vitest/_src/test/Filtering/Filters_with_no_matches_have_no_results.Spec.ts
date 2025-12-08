@@ -1,7 +1,7 @@
 import { ExecutionResults } from "../../app/model";
 import { LiveDocOptions } from "../../app/LiveDocOptions";
 import { LiveDoc } from "../../app/livedoc";
-import { feature, scenario, Given, When, Then, And } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 import * as chai from 'chai';
 
 chai.should();
@@ -17,7 +17,7 @@ feature.skip(`Filters with no matches have no results
     let featureText: string;
 
     scenario("ld-include has no matches", (ctx) => {
-        Given(`the filter is
+        given(`the filter is
             """
             {
                 "include": ["filter:non-existent"]
@@ -27,7 +27,7 @@ feature.skip(`Filters with no matches have no results
             liveDocOptions.filters = ctx.step!.docStringAsEntity;
         });
 
-        And(`the following features
+        and(`the following features
             """
             feature(\`A sample feature 1\`, () => {
                 scenarioOutline(\`a scenarioOutline within a tagged feature
@@ -82,17 +82,17 @@ feature.skip(`Filters with no matches have no results
             featureText = ctx.step!.docString;
         });
 
-        When("the feature is executed", async (ctx) => {
+        when("the feature is executed", async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);
         });
 
-        Then("'0' features are processed", (ctx) => {
+        then("'0' features are processed", (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step!.values[0]);
         });
     });
 
     scenario("ld-exclude has no matches", (ctx) => {
-        Given(`the filter is
+        given(`the filter is
             """
             {
                 "exclude": ["filter:non-existent"]
@@ -102,7 +102,7 @@ feature.skip(`Filters with no matches have no results
             liveDocOptions.filters = ctx.step!.docStringAsEntity;
         });
 
-        And(`the following features
+        and(`the following features
             """
             feature(\`A sample feature 1\`, () => {
                 scenarioOutline(\`a scenarioOutline within a tagged feature
@@ -158,11 +158,11 @@ feature.skip(`Filters with no matches have no results
             featureText = ctx.step!.docString;
         });
 
-        When("the feature is executed", async (ctx) => {
+        when("the feature is executed", async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);
         });
 
-        Then("'0' features are processed", (ctx) => {
+        then("'0' features are processed", (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step!.values[0]);
         });
     });

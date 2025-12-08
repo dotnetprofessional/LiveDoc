@@ -1,7 +1,7 @@
 require('chai').should();
 import { LiveDoc } from "../../app/livedoc";
 import { SpecStatus, ExecutionResults } from "../../app/model/index";
-import { feature, scenario, Given, When, Then, And } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 
 // TODO: Native describe/it tracking is not yet implemented in Vitest version
 // This requires intercepting Vitest's describe/it functions to track VitestSuite objects
@@ -14,7 +14,7 @@ feature.skip(`Describe still functions the same as native Vitest
 
     scenario("Various suite features work as expected", (ctx) => {
 
-        Given(`the following vitest file
+        given(`the following vitest file
         
         """
         import { describe, it, test } from 'vitest';
@@ -45,30 +45,30 @@ feature.skip(`Describe still functions the same as native Vitest
                 givenCtx = ctx.step;
             });
 
-        When(`the test is executed`, async (ctx) => {
+        when(`the test is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`'2' top level suites are processed`, (ctx) => {
+        then(`'2' top level suites are processed`, (ctx) => {
             executionResults.suites.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the it for the first describe is marked as fail`, (ctx) => {
+        and(`the it for the first describe is marked as fail`, (ctx) => {
             const keyword = executionResults.suites[1].tests[0];
             keyword.status.should.be.eq(SpecStatus.fail);
         });
 
-        And(`the first it for the second level describe is marked as pass`, (ctx) => {
+        and(`the first it for the second level describe is marked as pass`, (ctx) => {
             const keyword = executionResults.suites[1].children[0].tests[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the second it for the second level describe is marked as pending`, (ctx) => {
+        and(`the second it for the second level describe is marked as pending`, (ctx) => {
             const keyword = executionResults.suites[1].children[0].tests[1];
             keyword.status.should.be.eq(SpecStatus.pending);
         });
 
-        And(`the first test for the third level describe is marked as pass`, (ctx) => {
+        and(`the first test for the third level describe is marked as pass`, (ctx) => {
             const keyword = executionResults.suites[1].children[0].children[0].tests[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
@@ -76,7 +76,7 @@ feature.skip(`Describe still functions the same as native Vitest
 
     scenario("bdd features work at the root level suite", (ctx) => {
 
-        Given(`the following vitest file
+        given(`the following vitest file
         
         """
         import { it } from 'vitest';
@@ -89,15 +89,15 @@ feature.skip(`Describe still functions the same as native Vitest
                 givenCtx = ctx.step;
             });
 
-        When(`the test is executed`, async (ctx) => {
+        when(`the test is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`'1' top level suite exists which is the root suite`, (ctx) => {
+        then(`'1' top level suite exists which is the root suite`, (ctx) => {
             executionResults.suites.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the it for the first suite is marked as pass`, (ctx) => {
+        and(`the it for the first suite is marked as pass`, (ctx) => {
             const keyword = executionResults.suites[0].tests[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });

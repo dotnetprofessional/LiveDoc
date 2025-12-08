@@ -1,11 +1,11 @@
 require('chai').should();
 import { LiveDocReporter } from "../../app/reporter/index";
-import { feature, scenario, Given, When, Then } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then } from "../../app/livedoc";
 
 feature(`Remove the root path from filenames to define a path`, (ctx) => {
     scenario(`Multiple Features are executed with various paths`, (ctx) => {
         let rootPath = "";
-        Given(`the following Feature filenames
+        given(`the following Feature filenames
         """
         [
             "D:/dev/git.public/LiveDoc/packages/livedoc-vitest/_src/test/Reporter/Feature1.Spec.js",
@@ -20,12 +20,12 @@ feature(`Remove the root path from filenames to define a path`, (ctx) => {
             `, (ctx) => {
             });
 
-        When(`extracting the path root`, async (ctx) => {
-            const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+        when(`extracting the path root`, async (ctx) => {
+            const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
             rootPath = LiveDocReporter.findRootPath(givenStep!.docStringAsEntity!);
         });
 
-        Then(`the root path is 'D:/dev/git.public/LiveDoc/packages/livedoc-vitest/_src/'`, (ctx) => {
+        then(`the root path is 'D:/dev/git.public/LiveDoc/packages/livedoc-vitest/_src/'`, (ctx) => {
             rootPath.should.be.eq(ctx.step.values[0]);
         });
     });

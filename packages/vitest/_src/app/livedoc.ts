@@ -677,6 +677,12 @@ export const scenarioOutline = Object.assign(
  */
 function createStepFunction(stepType: string) {
     return function (title: string, fn?: (ctx: any) => void | Promise<void>, passedParam?: object | Function) {
+        // DEBUG: trace where weird calls come from
+        if (typeof title === 'function') {
+            console.error(`[DEBUG] ${stepType} called with function as title:`, (title as any).toString().substring(0, 50));
+            console.error('[DEBUG] Stack:', new Error().stack);
+        }
+        
         const filename = getFilenameFromStack(2);
 
         // If no feature, this step is at the top level - give helpful error
@@ -858,29 +864,33 @@ function createStepFunction(stepType: string) {
 }
 
 /**
- * Given keyword - preconditions
+ * given keyword - preconditions
  */
-export const Given = createStepFunction("Given");
+export const given = createStepFunction("given");
 
 /**
- * When keyword - actions
+ * when keyword - actions
  */
-export const When = createStepFunction("When");
+export const when = createStepFunction("when");
 
 /**
  * Then keyword - assertions
+ * NOTE: Uppercase 'Then' is required due to ESM thenable detection.
+ * If a module exports 'then', Node.js treats it as a Promise-like object.
+ * Users who prefer lowercase can use: import { Then as then } from '@livedoc/vitest'
+ * Or use globals mode where lowercase 'then' is available.
  */
-export const Then = createStepFunction("Then");
+export const Then = createStepFunction("then");
 
 /**
- * And keyword - continuation
+ * and keyword - continuation
  */
-export const And = createStepFunction("and");
+export const and = createStepFunction("and");
 
 /**
- * But keyword - continuation with contrast
+ * but keyword - continuation with contrast
  */
-export const But = createStepFunction("but");
+export const but = createStepFunction("but");
 
 /**
  * before - wrapper for Vitest's beforeAll that triggers rule violation when used inside LiveDoc context
@@ -900,8 +910,8 @@ export function before(fn: Function): void {
     beforeAll(fn as any);
 }
 
-// Note: No lowercase aliases are provided because 'then' conflicts with Promise.then()
-// Use capitalized versions: Given, When, Then, And, But
+// Lowercase step keywords are used for idiomatic JavaScript
+// With ESM imports, there's no conflict with Promise.then()
 
 /**
  * BDD mixing detection - throws an error when 'it' is used inside a LiveDoc feature/scenario
@@ -1155,7 +1165,7 @@ export class LiveDoc {
             // The results file writing is handled by the livedoc module itself
             // when it detects the LIVEDOC_DYNAMIC_RESULTS_FILE env var
             const wrappedContent = `
-import { feature, scenario, scenarioOutline, background, afterBackground, before, Given, When, Then, And, But, it, test, describe, livedoc } from "${livedocPath}";
+import { feature, scenario, scenarioOutline, background, afterBackground, before, given, when, Then as then, and, but, it, test, describe, livedoc } from "${livedocPath}";
 import { writeFileSync } from 'fs';
 import * as chai from 'chai';
 chai.should();
@@ -1168,13 +1178,6 @@ if (_dynamicOptions.rules) {
 if (_dynamicOptions.filters) {
     Object.assign(livedoc.options.filters, _dynamicOptions.filters);
 }
-
-// Provide lowercase aliases for compatibility with user test code
-const given = Given;
-const when = When;
-const then = Then;
-const and = And;
-const but = But;
 
 // Execute the user's feature code with error capturing
 (() => {
@@ -1421,7 +1424,7 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
             for (const stepData of data.steps) {
                 const step = this.reconstructStep(stepData, background);
                 background.steps.push(step);
-                if (step.type === 'Given' || step.type === 'And' || step.type === 'But') {
+                if (step.type === 'given' || step.type === 'and' || step.type === 'but') {
                     background.givens.push(step);
                 }
             }
@@ -1456,10 +1459,10 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                 
                 // Also add to the appropriate array
                 switch (step.type) {
-                    case 'Given':
+                    case 'given':
                         scenario.givens.push(step);
                         break;
-                    case 'When':
+                    case 'when':
                         scenario.whens.push(step);
                         break;
                 }

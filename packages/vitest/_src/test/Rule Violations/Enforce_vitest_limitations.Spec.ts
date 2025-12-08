@@ -1,5 +1,5 @@
 require('chai').should();
-import { LiveDoc, feature, scenario, scenarioOutline, Given, When, Then } from "../../app/livedoc";
+import { LiveDoc, feature, scenario, scenarioOutline, given, when, Then as then } from "../../app/livedoc";
 import { ParserException, StepContext, ScenarioContext } from "../../app/model/index";
 
 feature(`Enforce vitest limitations
@@ -17,7 +17,7 @@ feature(`Enforce vitest limitations
             | feature  | Feature      |
             | describe | describe     |
         `, (ctx) => {
-                Given(`the following feature
+                given(`the following feature
             """
             import { <alias> } from './livedoc';
             
@@ -27,7 +27,7 @@ feature(`Enforce vitest limitations
                         outlineGiven = ctx.step;
                     });
 
-                When(`executing feature`, async (ctx) => {
+                when(`executing feature`, async (ctx) => {
                     try {
                         await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!);
                     }
@@ -36,7 +36,7 @@ feature(`Enforce vitest limitations
                     }
                 });
 
-                Then(`a parse exception with the following description is thrown 
+                then(`a parse exception with the following description is thrown 
             """
             The async keyword is not supported for <display name>
             """`, (ctx) => {
@@ -46,7 +46,7 @@ feature(`Enforce vitest limitations
             });
 
         scenario(`Use of async on scenarioOutline describe alias'`, (ctx) => {
-            Given(`the following feature
+            given(`the following feature
             """
             import { feature, scenarioOutline } from './livedoc';
             
@@ -62,7 +62,7 @@ feature(`Enforce vitest limitations
                     outlineGiven = ctx.step;
                 });
 
-            When(`executing feature`, async (ctx) => {
+            when(`executing feature`, async (ctx) => {
                 try {
                     await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!);
                 }
@@ -71,7 +71,7 @@ feature(`Enforce vitest limitations
                 }
             });
 
-            Then(`a parse exception with the following description is thrown 
+            then(`a parse exception with the following description is thrown 
             """
             The async keyword is not supported for Scenario Outline
             """`, (ctx) => {
@@ -87,7 +87,7 @@ feature(`Enforce vitest limitations
             | scenario   | Scenario     |
             | background | Background   |
         `, (ctx) => {
-                Given(`the following feature
+                given(`the following feature
             """
             import { feature, <alias> } from './livedoc';
             
@@ -99,7 +99,7 @@ feature(`Enforce vitest limitations
                         outlineGiven = ctx.step;
                     });
 
-                When(`executing feature`, async (ctx) => {
+                when(`executing feature`, async (ctx) => {
                     try {
                         await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!);
                     }
@@ -108,7 +108,7 @@ feature(`Enforce vitest limitations
                     }
                 });
 
-                Then(`a parse exception with the following description is thrown 
+                then(`a parse exception with the following description is thrown 
             """
             The async keyword is not supported for <display name>
             """`, (ctx) => {

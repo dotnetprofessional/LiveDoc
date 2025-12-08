@@ -1,5 +1,5 @@
 require('chai').should();
-import { LiveDoc, feature, scenario, scenarioOutline, Given, When, Then, And } from "../../app/livedoc";
+import { LiveDoc, feature, scenario, scenarioOutline, given, when, Then as then, and } from "../../app/livedoc";
 import { LiveDocRuleViolation, ExecutionResults, StepContext, ScenarioContext } from "../../app/model/index";
 import { LiveDocRuleOption } from "../../app/LiveDocRuleOption";
 import { LiveDocOptions } from "../../app/LiveDocOptions";
@@ -19,11 +19,11 @@ feature(`Validate step rules
         scenarioOutline(`Setting the LiveDocOptions to enabled for rules
             Examples:
             | step  | display name |
-            | given | Given        |
-            | when  | When         |
-            | then  | Then         |
+            | given | given        |
+            | when  | when         |
+            | then  | then         |
             `, (ctx) => {
-                Given(`the livedoc rules are
+                given(`the livedoc rules are
                 """
                 {
                     "singleGivenWhenThen": "${LiveDocRuleOption.enabled}"
@@ -33,7 +33,7 @@ feature(`Validate step rules
                         ruleOptions.rules = ctx.step.docStringAsEntity!;
                     });
 
-                And(`the following feature
+                and(`the following feature
                 """
                 import { feature, scenario, <step> } from './livedoc';
                 
@@ -48,7 +48,7 @@ feature(`Validate step rules
                         outlineGiven = ctx.step;
                     });
 
-                When(`executing feature`, async (ctx) => {
+                when(`executing feature`, async (ctx) => {
                     try {
                         await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!, ruleOptions);
                     }
@@ -57,7 +57,7 @@ feature(`Validate step rules
                     }
                 });
 
-                Then(`a rule violation with the following description is thrown 
+                then(`a rule violation with the following description is thrown 
                 """
                 there should be only one <display name> in a Scenario, Scenario Outline or Background. Try using and or but instead.
                 """`, (ctx) => {
@@ -70,11 +70,11 @@ feature(`Validate step rules
         scenarioOutline(`Using the same top level step multiple times
             Examples:
             | step  | display name |
-            | given | Given        |
-            | when  | When         |
-            | then  | Then         |
+            | given | given        |
+            | when  | when         |
+            | then  | then         |
             `, (ctx) => {
-                Given(`the livedoc rules are
+                given(`the livedoc rules are
                 """
                 {
                     "singleGivenWhenThen": "${LiveDocRuleOption.warning}"
@@ -84,9 +84,9 @@ feature(`Validate step rules
                         ruleOptions.rules = ctx.step.docStringAsEntity!;
                     });
 
-                And(`the following feature
+                and(`the following feature
                 """
-                import { feature, scenario, given, when, then, <step> } from './livedoc';
+                import { feature, scenario, given, when, Then as then, <step> } from './livedoc';
                 
                 feature("Validate the use of multiple steps", ()=> {
                     scenario("Multiple <step>s are used in a scenario", ()=>{
@@ -101,11 +101,11 @@ feature(`Validate step rules
                         outlineGiven = ctx.step;
                     });
 
-                When(`executing feature`, async (ctx) => {
+                when(`executing feature`, async (ctx) => {
                     executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!, ruleOptions);
                 });
 
-                Then(`a rule violation with the following description is added to the rule violations collection of the step
+                then(`a rule violation with the following description is added to the rule violations collection of the step
                 """
                 there should be only one <display name> in a Scenario, Scenario Outline or Background. Try using and or but instead.
                 """`, (ctx) => {
@@ -126,7 +126,7 @@ feature(`Validate step rules
             | and  |
             | but  |
             `, (ctx) => {
-                Given(`the livedoc rules are
+                given(`the livedoc rules are
                 """
                 {
                     "andButMustHaveGivenWhenThen": "${LiveDocRuleOption.warning}"
@@ -136,7 +136,7 @@ feature(`Validate step rules
                         ruleOptions.rules = ctx.step.docStringAsEntity!;
                     });
 
-                And(`the following feature
+                and(`the following feature
                 """
                 import { feature, scenario, <step> } from './livedoc';
                 
@@ -149,13 +149,13 @@ feature(`Validate step rules
             `, (ctx) => {
                         outlineGiven = ctx.step;
                     });
-                When(`executing feature`, async (ctx) => {
+                when(`executing feature`, async (ctx) => {
                     executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!, ruleOptions);
                 });
 
-                Then(`a rule violation with the following description is thrown 
+                then(`a rule violation with the following description is thrown 
                 """
-                <step> step definition must be preceded by a Given, When or Then.
+                <step> step definition must be preceded by a given, when or then.
                 """`, (ctx) => {
                         // locate the second step that has the violation
                         const step = executionResults.features[0].scenarios[0].steps[0];
@@ -164,7 +164,7 @@ feature(`Validate step rules
             });
 
         scenario(`Ensure keywords have titles`, (ctx) => {
-            Given(`the livedoc rules are
+            given(`the livedoc rules are
                 """
                 {
                     "enforceTitle": "${LiveDocRuleOption.warning}"
@@ -174,9 +174,9 @@ feature(`Validate step rules
                     ruleOptions.rules = ctx.step.docStringAsEntity!;
                 });
 
-            And(`the following feature
+            and(`the following feature
                 """
-                import { feature, scenario, scenarioOutline, given, when, then, and, but } from './livedoc';
+                import { feature, scenario, scenarioOutline, given, when, Then as then, and, but } from './livedoc';
                 
                 feature("", ()=> {
                     scenario("", ()=>{
@@ -199,11 +199,11 @@ feature(`Validate step rules
                     outlineGiven = ctx.step;
                 });
 
-            When(`executing feature`, async (ctx) => {
+            when(`executing feature`, async (ctx) => {
                 executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!, ruleOptions);
             });
 
-            Then(`the feature has following rule violation added 
+            then(`the feature has following rule violation added 
                 """
                 Feature seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
@@ -212,7 +212,7 @@ feature(`Validate step rules
                     keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
                 });
 
-            And(`the scenarioOutline has following rule violation added 
+            and(`the scenarioOutline has following rule violation added 
                 """
                 Scenario Outline seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
@@ -221,7 +221,7 @@ feature(`Validate step rules
                     keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
                 });
 
-            And(`the scenario has following rule violation added 
+            and(`the scenario has following rule violation added 
                 """
                 Scenario seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
@@ -230,34 +230,34 @@ feature(`Validate step rules
                     keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
                 });
 
-            And(`the Given has following rule violation added 
+            and(`the given has following rule violation added 
                 """
-                Given seems to be missing a title. Titles are important to convey the meaning of the Spec.
+                given seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
                     // locate the second step that has the violation
                     const keyword = executionResults.features[0].scenarios[0].steps[0];
                     keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
                 });
 
-            And(`the When has following rule violation added 
+            and(`the when has following rule violation added 
                 """
-                When seems to be missing a title. Titles are important to convey the meaning of the Spec.
+                when seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
                     // locate the second step that has the violation
                     const keyword = executionResults.features[0].scenarios[0].steps[1];
                     keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
                 });
 
-            And(`the Then has following rule violation added 
+            and(`the then has following rule violation added 
                 """
-                Then seems to be missing a title. Titles are important to convey the meaning of the Spec.
+                then seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
                     // locate the second step that has the violation
                     const keyword = executionResults.features[0].scenarios[0].steps[2];
                     keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
                 });
 
-            And(`the and has following rule violation added 
+            and(`the and has following rule violation added 
                 """
                 and seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
@@ -266,7 +266,7 @@ feature(`Validate step rules
                     keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
                 });
 
-            And(`the but has following rule violation added 
+            and(`the but has following rule violation added 
                 """
                 but seems to be missing a title. Titles are important to convey the meaning of the Spec.
                 """`, (ctx) => {
@@ -277,7 +277,7 @@ feature(`Validate step rules
         });
 
         scenario(`Using before instead of given in scenario`, (ctx) => {
-            Given(`the livedoc rules are
+            given(`the livedoc rules are
             """
             {
                 "enforceUsingGivenOverBefore": "${LiveDocRuleOption.warning}"
@@ -287,7 +287,7 @@ feature(`Validate step rules
                     ruleOptions.rules = ctx.step.docStringAsEntity!;
                 });
 
-            And(`the following feature
+            and(`the following feature
             """
             import { feature, scenario, when, before } from './livedoc';
             
@@ -302,11 +302,11 @@ feature(`Validate step rules
                     outlineGiven = ctx.step;
                 });
 
-            When(`executing feature`, async (ctx) => {
+            when(`executing feature`, async (ctx) => {
                 executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!, ruleOptions);
             });
 
-            Then(`a rule violation with the following description is thrown 
+            then(`a rule violation with the following description is thrown 
                 """
                 Using before does not help with readability, consider using a given instead.
                 """`, (ctx) => {
@@ -325,7 +325,7 @@ feature(`Validate step rules
             | then | when         |
 
            `, (ctx) => {
-                Given(`the livedoc rules are
+                given(`the livedoc rules are
                     """
                     {
                         "givenWhenThenMustBeWithinScenario": "${LiveDocRuleOption.warning}"
@@ -335,12 +335,12 @@ feature(`Validate step rules
                         ruleOptions.rules = ctx.step.docStringAsEntity!;
                     });
 
-                And(`the following feature
+                and(`the following feature
                     """
                     import { feature, scenario, <step> } from './livedoc';
                     
-                    feature(\`Ensure a Given, When and Then exists
-                    as nothing comes after a Then definition it is not possible for the
+                    feature(\`Ensure a given, when and then exists
+                    as nothing comes after a then definition it is not possible for the
                     model to validate that one exists as the model is built up a step at a time.
                 
                     \`, () => {
@@ -353,11 +353,11 @@ feature(`Validate step rules
                         outlineGiven = ctx.step;
                     });
 
-                When(`executing feature`, async (ctx) => {
+                when(`executing feature`, async (ctx) => {
                     executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!, ruleOptions);
                 });
 
-                Then(`a rule violation with the following description is thrown 
+                then(`a rule violation with the following description is thrown 
                 """
                 Using before does not help with readability, consider using a given instead.
                 """`, (ctx) => {

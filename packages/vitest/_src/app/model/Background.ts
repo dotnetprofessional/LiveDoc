@@ -11,8 +11,8 @@ export class Background extends Scenario {
     public addStep(step: StepDefinition): void {
         super.addStep(step);
 
-        // Backgrounds only accept the Given keyword, all other top level keywords are invalid
-        if (step.type === "Then" || step.type === "When") {
+        // Backgrounds only accept the given keyword, all other top level keywords are invalid
+        if (step.type === "then" || step.type === "when") {
             throw new ParserException(
                 `Backgrounds only support using the given step definition. Consider moving the ${step.type} to a scenario.`,
                 step.title,

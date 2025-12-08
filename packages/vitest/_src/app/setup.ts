@@ -2,6 +2,9 @@
  * Setup file for LiveDoc Vitest integration.
  * This file registers the global LiveDoc keywords (feature, scenario, given, when, then, etc.)
  * 
+ * When using globals mode, all step keywords are available in lowercase including 'then'.
+ * This avoids the ESM thenable issue that affects direct imports.
+ * 
  * To use, add this to your vitest.config.ts:
  * 
  * ```typescript
@@ -9,7 +12,8 @@
  * 
  * export default defineConfig({
  *   test: {
- *     setupFiles: ['livedoc-vitest/setup'],
+ *     globals: true,
+ *     setupFiles: ['@livedoc/vitest/setup'],
  *   },
  * });
  * ```
@@ -20,20 +24,22 @@ import {
     scenario,
     scenarioOutline,
     background,
-    Given,
-    When,
+    given,
+    when,
     Then,
-    And,
-    But,
+    and,
+    but,
 } from "./livedoc";
 
 // Register global functions for use in tests without explicit imports
-globalThis.feature = feature;
-globalThis.scenario = scenario;
-globalThis.scenarioOutline = scenarioOutline;
-globalThis.background = background;
-globalThis.Given = Given;
-globalThis.When = When;
-globalThis.Then = Then;
-globalThis.And = And;
-globalThis.But = But;
+// NOTE: 'then' is registered as lowercase here because globalThis is not
+// subject to ESM thenable detection (only module namespace objects are).
+(globalThis as any).feature = feature;
+(globalThis as any).scenario = scenario;
+(globalThis as any).scenarioOutline = scenarioOutline;
+(globalThis as any).background = background;
+(globalThis as any).given = given;
+(globalThis as any).when = when;
+(globalThis as any).then = Then;  // Lowercase global, avoids ESM issue
+(globalThis as any).and = and;
+(globalThis as any).but = but;

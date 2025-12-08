@@ -1,11 +1,11 @@
 require('chai').should();
-import { feature, scenarioOutline, background, Given, When, Then } from "../../app/livedoc";
+import { feature, scenarioOutline, background, given, when, Then as then } from "../../app/livedoc";
 
 feature(`Background works with Scenario Outlines`, (ctx) => {
     let afterBackgroundCheck = 0;
     background(`Validate afterBackground         
         `, (ctx) => {
-            Given("afterBackgroundCheck has 10 added to it", (ctx) => {
+            given("afterBackgroundCheck has 10 added to it", (ctx) => {
                 afterBackgroundCheck += 10;
             });
 
@@ -13,7 +13,7 @@ feature(`Background works with Scenario Outlines`, (ctx) => {
                 afterBackgroundCheck = 0;
             });
         })
-    scenarioOutline(`Given the following items
+    scenarioOutline(`given the following items
         @filter:background-test
         Examples:
         | col1 |
@@ -23,12 +23,12 @@ feature(`Background works with Scenario Outlines`, (ctx) => {
         | row4 |
     `, (ctx) => {
 
-            Given("this is <col1>", (ctx) => {
+            given("this is <col1>", (ctx) => {
             });
 
-            When("the background executes", (ctx) => { });
+            when("the background executes", (ctx) => { });
 
-            Then("afterBackgroundCheck should be '10'", (ctx) => {
+            then("afterBackgroundCheck should be '10'", (ctx) => {
                 afterBackgroundCheck.should.be.equal(ctx.step.values[0]);
             });
         });

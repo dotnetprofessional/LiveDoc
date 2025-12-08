@@ -1,5 +1,5 @@
 require('chai').should();
-import { feature, scenario, Given, When, Then, And } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 
 class ATM {
     private machineCash = 0;
@@ -55,7 +55,7 @@ feature(`Account Holder withdraws cash
             let cashReceived: number;
             let givenCtx: any;
 
-            Given(`the account holders account has the following:
+            given(`the account holders account has the following:
             | account | 12345 |
             | balance |   100 |
             | status  | valid |
@@ -66,19 +66,19 @@ feature(`Account Holder withdraws cash
                     givenCtx = ctx.step;
                 });
 
-            And("the machine contains '1000' dollars", (ctx) => {
+            and("the machine contains '1000' dollars", (ctx) => {
                 atm.addCash(ctx.step.values[0]);
             });
 
-            When("the Account Holder requests '20' dollars", (ctx) => {
+            when("the Account Holder requests '20' dollars", (ctx) => {
                 cashReceived = atm.withDraw(givenCtx.tableAsEntity.account, ctx.step.values[0]);
             });
 
-            Then("the ATM should dispense '20' dollars", (ctx) => {
+            then("the ATM should dispense '20' dollars", (ctx) => {
                 cashReceived.should.be.equal(ctx.step.values[0]);
             });
 
-            And("the account balance should be '80' dollars", (ctx) => {
+            and("the account balance should be '80' dollars", (ctx) => {
                 atm.getBalance(givenCtx.tableAsEntity.account).should.be.equal(ctx.step.values[0]);
             });
         });

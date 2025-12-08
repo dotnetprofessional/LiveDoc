@@ -12,25 +12,28 @@ BDD test framework using Gherkin syntax. Tests are living documentation.
 
 ```typescript
 // ✓ Good: Values visible in documentation
-Given("a user with balance '500' dollars", ...);
-When("they withdraw '200' dollars", ...);
-Then("the balance should be '300' dollars", ...);
+given("a user with balance '500' dollars", ...);
+when("they withdraw '200' dollars", ...);
+then("the balance should be '300' dollars", ...);
 
 // ✗ Bad: Values hidden in code
-Given("a user with some balance", (ctx) => { balance = 500; });
-Then("the balance is correct", (ctx) => { expect(balance).toBe(300); });
+given("a user with some balance", (ctx) => { balance = 500; });
+then("the balance is correct", (ctx) => { expect(balance).toBe(300); });
 ```
 
 ## Import
 
 ```typescript
-import { feature, scenario, scenarioOutline, background, Given, When, Then, And, But } from "@livedoc/vitest";
+// Note: 'Then' must be uppercase due to ESM thenable detection, alias it for lowercase usage
+import { feature, scenario, scenarioOutline, background, given, when, Then as then, and, but } from "@livedoc/vitest";
+
+// Or use globals mode (vitest.config.ts: globals: true) for all lowercase without imports
 ```
 
 ## Structure
 
 ```
-feature → scenario|scenarioOutline|background → Given|When|Then|And|But
+feature → scenario|scenarioOutline|background → given|when|then|and|but
 ```
 
 All blocks receive `ctx` parameter with framework metadata.
@@ -93,18 +96,18 @@ Runs before each scenario in the feature.
 
 ```typescript
 background("Setup", (ctx) => {
-    Given("precondition", (ctx) => { /* setup */ });
+    given("precondition", (ctx) => { /* setup */ });
     
     ctx.afterBackground(() => { /* cleanup after each scenario */ });
 });
 ```
 
-### Steps: Given/When/Then/And/But
+### Steps: given/when/then/and/but
 
 ```typescript
-Given("step title with 'value'", (ctx) => { /* implementation */ });
-When("action", async (ctx) => { /* async supported */ });
-Then("assertion", (ctx) => { expect(x).toBe(y); });
+given("step title with 'value'", (ctx) => { /* implementation */ });
+when("action", async (ctx) => { /* async supported */ });
+then("assertion", (ctx) => { expect(x).toBe(y); });
 ```
 
 - **Only steps support `async`** - feature, scenario, scenarioOutline, background do NOT
@@ -116,7 +119,7 @@ Then("assertion", (ctx) => { expect(x).toBe(y); });
 Auto-extracted and type-coerced from step title:
 
 ```typescript
-Given("user has '100' items and active is 'true'", (ctx) => {
+given("user has '100' items and active is 'true'", (ctx) => {
     ctx.step.values[0] // 100 (number)
     ctx.step.values[1] // true (boolean)
 });
@@ -128,7 +131,7 @@ Coerces: numbers, booleans, arrays (`'[1,2]'`), dates (`'2024-01-15'`)
 
 Multi-column → array of objects:
 ```typescript
-Given(`data:
+given(`data:
     | name  | age |
     | Alice |  30 |
     `, (ctx) => {
@@ -138,7 +141,7 @@ Given(`data:
 
 Two-column → entity object:
 ```typescript
-Given(`config:
+given(`config:
     | key   | value |
     | debug | true  |
     `, (ctx) => {
@@ -149,7 +152,7 @@ Given(`config:
 
 Single-column → flat array:
 ```typescript
-Given(`codes:
+given(`codes:
     | 200 |
     | 404 |
     `, (ctx) => {
@@ -160,7 +163,7 @@ Given(`codes:
 ### Doc Strings
 
 ```typescript
-Given(`JSON input:
+given(`JSON input:
     """
     {"key": "value"}
     """

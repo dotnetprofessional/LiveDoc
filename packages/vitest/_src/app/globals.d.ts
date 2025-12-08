@@ -42,29 +42,30 @@ declare global {
     }) => void): void;
 
     /**
-     * Define a Given step (precondition)
+     * Define a given step (precondition)
      */
-    function Given(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
+    function given(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
 
     /**
-     * Define a When step (action)
+     * Define a when step (action)
      */
-    function When(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
+    function when(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
 
     /**
-     * Define a Then step (assertion)
+     * Define a then step (assertion)
+     * Available as lowercase global when using globals mode.
      */
-    function Then(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
+    function then(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
 
     /**
-     * Define an And step (continuation)
+     * Define an and step (continuation)
      */
-    function And(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
+    function and(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
 
     /**
-     * Define a But step (continuation with contrast)
+     * Define a but step (continuation with contrast)
      */
-    function But(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
+    function but(title: string, fn?: (ctx: LiveDocTestContext) => void | Promise<void>, passedParam?: object | Function): void;
 }
 
 export {};

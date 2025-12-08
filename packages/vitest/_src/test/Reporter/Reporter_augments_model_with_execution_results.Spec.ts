@@ -1,6 +1,6 @@
 require('chai').should();
 import { ExecutionResults, SpecStatus, StepDefinition, VitestSuite } from "../../app/model/index";
-import { LiveDoc, feature, scenario, Given, When, Then, And } from "../../app/livedoc";
+import { LiveDoc, feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 import * as chai from "chai";
 let should = chai.should();
 
@@ -11,7 +11,7 @@ feature(`Reporter returns model including execution results
         let results: ExecutionResults;
         let step: StepDefinition;
 
-        Given(`the following feature
+        given(`the following feature
             """
             import { feature, scenario, given } from './livedoc';
             
@@ -47,15 +47,15 @@ feature(`Reporter returns model including execution results
             `, () => {
         });
 
-        When(`executing feature`, async (ctx) => {
+        when(`executing feature`, async (ctx) => {
             // Cant have # as part of the feature as it conflicts with reading this steps docString
             // using a substitute to avoid conflicts
-            const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+            const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
             results = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!.replace(/\$/g, '"'));
             step = results.features[0].scenarios[0].steps[0]
         });
 
-        Then(`the execution results for the step are:
+        then(`the execution results for the step are:
             """
             {
                 "sequence": 1,
@@ -94,7 +94,7 @@ feature(`Reporter returns model including execution results
                     "200"
                 ],
                 "ruleViolations": [],
-                "type": "Given"
+                "type": "given"
             }
             """
             `, (ctx) => {
@@ -117,7 +117,7 @@ feature(`Reporter returns model including execution results
         });
 
         // Only captured for errors to save space
-        And(`the code of the step is not captured as they are only captured for error steps
+        and(`the code of the step is not captured as they are only captured for error steps
             `, () => {
             // step.code should be empty (undefined or empty string) when not captured
             // This is consistent with Mocha - code is only set for error steps
@@ -125,7 +125,7 @@ feature(`Reporter returns model including execution results
             codeIsEmpty.should.be.true;
         });
 
-        And(`the elapsed time is captured`, () => {
+        and(`the elapsed time is captured`, () => {
             step.duration.should.be.greaterThan(0);
         });
     });
@@ -133,7 +133,7 @@ feature(`Reporter returns model including execution results
     scenario(`Steps that throw an exception have the meta-data added to model`, (ctx) => {
         let results: ExecutionResults;
 
-        Given(`the following feature
+        given(`the following feature
 
         """
             import { feature, scenario, given } from './livedoc';
@@ -149,12 +149,12 @@ feature(`Reporter returns model including execution results
             `, () => {
         });
 
-        When(`executing feature`, async (ctx) => {
-            const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+        when(`executing feature`, async (ctx) => {
+            const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
             results = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!);
         });
 
-        Then(`the execution results include the error details:
+        then(`the execution results include the error details:
             """
             {
                 "status": "fail",
@@ -185,7 +185,7 @@ feature(`Reporter returns model including execution results
     scenario(`Steps that Fail have the meta-data added to model`, (ctx) => {
         let results: ExecutionResults;
 
-        Given(`the following feature
+        given(`the following feature
 
         """
             import { feature, scenario, given } from './livedoc';
@@ -202,12 +202,12 @@ feature(`Reporter returns model including execution results
             `, () => {
         });
 
-        When(`executing feature`, async (ctx) => {
-            const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+        when(`executing feature`, async (ctx) => {
+            const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
             results = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!);
         });
 
-        Then(`the execution results include the error details:
+        then(`the execution results include the error details:
             """
             {
                 "status": "fail",
@@ -244,7 +244,7 @@ feature(`Reporter returns model including execution results
         let results: ExecutionResults;
         let vitestSuite: VitestSuite;
 
-        Given(`the following feature
+        given(`the following feature
 
         """
             import { describe, it } from 'vitest';
@@ -263,26 +263,26 @@ feature(`Reporter returns model including execution results
             `, () => {
         });
 
-        When(`executing describe`, async (ctx) => {
-            const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+        when(`executing describe`, async (ctx) => {
+            const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
             results = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!);
             vitestSuite = results.suites[1];
         });
 
-        Then(`the execution results are returned for the '3' it statements`, (ctx) => {
+        then(`the execution results are returned for the '3' it statements`, (ctx) => {
             results.suites.length.should.be.eq(2);
             vitestSuite.tests.length.should.be.eq(ctx.step.values[0]);
         });
 
-        And(`the first it is marked as 'pass'`, (ctx) => {
+        and(`the first it is marked as 'pass'`, (ctx) => {
             vitestSuite.tests[0].status.should.be.equal(SpecStatus[ctx.step.values[0]]);
         });
 
-        And(`the second it is marked as 'fail'`, (ctx) => {
+        and(`the second it is marked as 'fail'`, (ctx) => {
             vitestSuite.tests[1].status.should.be.equal(SpecStatus[ctx.step.values[0]]);
         });
 
-        And(`the third it is marked as 'pending'`, (ctx) => {
+        and(`the third it is marked as 'pending'`, (ctx) => {
             vitestSuite.tests[2].status.should.be.equal(SpecStatus[ctx.step.values[0]]);
         });
 

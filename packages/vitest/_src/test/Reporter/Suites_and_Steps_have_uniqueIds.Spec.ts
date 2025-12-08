@@ -1,5 +1,5 @@
 require('chai').should();
-import { LiveDoc, feature, scenario, Given, When, Then } from "../../app/livedoc";
+import { LiveDoc, feature, scenario, given, when, Then as then } from "../../app/livedoc";
 import { ExecutionResults } from "../../app/model/index";
 
 feature(`Suites and Steps have uniqueIds
@@ -9,17 +9,17 @@ feature(`Suites and Steps have uniqueIds
     let exception: Error;
 
     scenario(`Features have Ids for suites and steps added to the model`, (ctx) => {
-        Given(`the following feature
+        given(`the following feature
         
         """
-            import { feature, background, scenario, given, when, then, and, but } from './livedoc';
+            import { feature, background, scenario, given, when, Then as then, and, but } from './livedoc';
             
             feature("Sample Feature", ()=> {
                 background("", ()=> {});
                 scenario("Sample Scenario", ()=> {
-                    given("Sample Given", ()=> {});
-                    when("Sample When", ()=> {});
-                    then("Sample Then", ()=> {});
+                    given("Sample given", ()=> {});
+                    when("Sample when", ()=> {});
+                    then("Sample then", ()=> {});
                     and("Sample and", ()=> {});
                     but("Sample but", ()=> {});
                 });
@@ -27,22 +27,22 @@ feature(`Suites and Steps have uniqueIds
         """
         `, () => { });
 
-        When(`feature is executed`, async (ctx) => {
+        when(`feature is executed`, async (ctx) => {
             try {
-                const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+                const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
                 executionResults = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!);
             } catch (e) {
                 exception = e;
             }
         });
 
-        Then(`the model has the following Ids for each of the feature parts
+        then(`the model has the following Ids for each of the feature parts
             | Feature    | jwuz5s               |
             | Background | jwuz5s-0             |
             | Scenario   | jwuz5s-dymhqe        |
-            | Given      | jwuz5s-dymhqe-k972pl |
-            | When       | jwuz5s-dymhqe-t53j00 |
-            | Then       | jwuz5s-dymhqe-t51m1f |
+            | given      | jwuz5s-dymhqe-jrlnq1 |
+            | when       | jwuz5s-dymhqe-t5nykw |
+            | then       | jwuz5s-dymhqe-t5m1mb |
             | and        | jwuz5s-dymhqe-zb5rpd |
             | but        | jwuz5s-dymhqe-zb5smj |
         
@@ -52,9 +52,9 @@ feature(`Suites and Steps have uniqueIds
                     Feature: feature.id,
                     Background: feature.background!.id,
                     Scenario: feature.scenarios[0].id,
-                    Given: (feature.scenarios[0].steps[0] as any).id,
-                    When: (feature.scenarios[0].steps[1] as any).id,
-                    Then: (feature.scenarios[0].steps[2] as any).id,
+                    given: (feature.scenarios[0].steps[0] as any).id,
+                    when: (feature.scenarios[0].steps[1] as any).id,
+                    then: (feature.scenarios[0].steps[2] as any).id,
                     and: (feature.scenarios[0].steps[3] as any).id,
                     but: (feature.scenarios[0].steps[4] as any).id
                 };
@@ -66,36 +66,36 @@ feature(`Suites and Steps have uniqueIds
     });
 
     scenario(`Features with duplicate titles`, (ctx) => {
-        Given(`the following feature
+        given(`the following feature
         
         """
             import { feature, scenario, given } from './livedoc';
             
             feature("Sample Feature", ()=> {
                 scenario("Sample Scenario", ()=> {
-                    given("Sample Given", ()=> {});
+                    given("Sample given", ()=> {});
                 });
             });
 
             feature("Sample Feature", ()=> {
                 scenario("Sample Scenario", ()=> {
-                    given("Sample Given", ()=> {});
+                    given("Sample given", ()=> {});
                 });
             });
 
         """
         `, () => { });
 
-        When(`feature is executed`, async (ctx) => {
+        when(`feature is executed`, async (ctx) => {
             try {
-                const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+                const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
                 executionResults = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!);
             } catch (e) {
                 exception = e;
             }
         });
 
-        Then(`the following exception is thrown
+        then(`the following exception is thrown
         """
         Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
           Title: Sample Feature
@@ -109,33 +109,33 @@ feature(`Suites and Steps have uniqueIds
     });
 
     scenario(`Scenarios with duplicate titles within a Feature`, (ctx) => {
-        Given(`the following feature
+        given(`the following feature
         
         """
             import { feature, scenario, given } from './livedoc';
             
             feature("Sample Feature", ()=> {
                 scenario("Sample Scenario", ()=> {
-                    given("Sample Given", ()=> {});
+                    given("Sample given", ()=> {});
                 });
 
                 scenario("Sample Scenario", ()=> {
-                    given("Sample Given", ()=> {});
+                    given("Sample given", ()=> {});
                 });
             });
         """
         `, () => { });
 
-        When(`feature is executed`, async (ctx) => {
+        when(`feature is executed`, async (ctx) => {
             try {
-                const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+                const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
                 executionResults = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!);
             } catch (e) {
                 exception = e;
             }
         });
 
-        Then(`the following exception is thrown
+        then(`the following exception is thrown
         """
         Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
           Title: Sample Scenario
@@ -148,39 +148,39 @@ feature(`Suites and Steps have uniqueIds
     });
 
     scenario(`Steps with duplicate titles within a Scenario`, (ctx) => {
-        Given(`the following feature
+        given(`the following feature
         
         """
             import { feature, scenario, given } from './livedoc';
             
             feature("Sample Feature", ()=> {
                 scenario("Sample Scenario", ()=> {
-                    given("Sample Given", ()=> {});
-                    given("Sample Given", ()=> {});
+                    given("Sample given", ()=> {});
+                    given("Sample given", ()=> {});
                 });
 
             });
         """
         `, () => { });
 
-        When(`feature is executed`, async (ctx) => {
+        when(`feature is executed`, async (ctx) => {
             try {
-                const givenStep = ctx.scenario.steps.find(s => s.type === 'Given');
+                const givenStep = ctx.scenario.steps.find(s => s.type === 'given');
                 executionResults = await LiveDoc.executeDynamicTestAsync(givenStep!.docString!);
             } catch (e) {
                 exception = e;
             }
         });
 
-        Then(`the following exception is thrown
+        then(`the following exception is thrown
         """
         Feature titles must be unique. Scenarios must have unique titles within a Feature and Step Title must be unique within a Scenario.
-          Title: Sample Given
+          Title: Sample given
         """
         `, (ctx) => {
                 // Check that the exception message contains the expected text
                 exception.message.should.contain("Feature titles must be unique");
-                exception.message.should.contain("Title: Sample Given");
+                exception.message.should.contain("Title: Sample given");
             });
     });
 });

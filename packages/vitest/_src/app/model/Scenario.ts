@@ -44,7 +44,7 @@ export class Scenario extends LiveDocSuite {
         this.steps.push(step);
 
         switch (step.type) {
-            case "Given":
+            case "given":
                 if (this.hasGiven) {
                     this.addGivenWhenThenViolation(step);
                 }
@@ -53,12 +53,12 @@ export class Scenario extends LiveDocSuite {
                 this.givens.push(step);
                 break;
             
-            case "When":
+            case "when":
                 // Validate that we have a given here or from a Background
                 if (!this.hasGiven && (!this.parent.background || !this.parent.background.hasGiven)) {
                     step.addViolation(
                         RuleViolations.mustIncludeGiven,
-                        `scenario does not have a Given or a Background with a given.`,
+                        `scenario does not have a given or a background with a given.`,
                         this.title
                     );
                 }
@@ -70,11 +70,11 @@ export class Scenario extends LiveDocSuite {
                 this.whens.push(step);
                 break;
             
-            case "Then":
+            case "then":
                 if (!this.hasWhen) {
                     step.addViolation(
                         RuleViolations.mustIncludeWhen,
-                        `scenario does not have a When, use When to describe the test action.`,
+                        `scenario does not have a when, use when to describe the test action.`,
                         this.title
                     );
                 }
@@ -89,19 +89,19 @@ export class Scenario extends LiveDocSuite {
             case "but":
                 // Add the continuation of the main step to their collections
                 switch (this.processingStepType) {
-                    case "Given":
+                    case "given":
                         this.givens.push(step);
                         break;
-                    case "When":
+                    case "when":
                         this.whens.push(step);
                         break;
-                    case "Then":
+                    case "then":
                         break;
                     default:
                         // Seems we're not processing a GTW!?
                         step.addViolation(
                             RuleViolations.andButMustHaveGivenWhenThen,
-                            `${step.type} step definition must be preceded by a Given, When or Then.`,
+                            `${step.type} step definition must be preceded by a given, when or then.`,
                             this.title
                         );
                 }

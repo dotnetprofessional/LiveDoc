@@ -1,5 +1,5 @@
 require('chai').should();
-import { feature, scenarioOutline, background, Given, When, Then, And } from "../../../app/livedoc";
+import { feature, scenarioOutline, background, given, when, Then as then, and } from "../../../app/livedoc";
 
 const shippingRates = {
     Free: 0,
@@ -51,7 +51,7 @@ feature(`Beautiful Tea Shipping Costs
     * Overseas customers all pay the same shipping rate regardless of order size`, (ctx) => {
 
         background(``, () => {
-            Given(`my background test`, () => {
+            given(`my background test`, () => {
 
             });
         });
@@ -69,11 +69,11 @@ feature(`Beautiful Tea Shipping Costs
         `, (ctx) => {
                 const cart = new ShoppingCart();
 
-                Given("the customer is from <Customer's Country>", (ctx) => {
+                given("the customer is from <Customer's Country>", (ctx) => {
                     cart.country = ctx.example.CustomersCountry;
                 });
 
-                When("the customer's order totals <Order Total>", (ctx) => {
+                when("the customer's order totals <Order Total>", (ctx) => {
                     const item = new CartItem();
                     item.quantity = 1;
                     item.price = ctx.example.OrderTotal;
@@ -83,11 +83,11 @@ feature(`Beautiful Tea Shipping Costs
 
                 });
 
-                Then("the customer pays <GST Amount> GST", (ctx) => {
+                then("the customer pays <GST Amount> GST", (ctx) => {
                     cart.gst.should.be.equal(ctx.example.GSTAmount);
                 });
 
-                And("they are charged the <Shipping Rate> shipping rate", (ctx) => {
+                and("they are charged the <Shipping Rate> shipping rate", (ctx) => {
                     const rate = shippingRates[ctx.example.ShippingRate.replace(" ", "")];
                     cart.shipping.should.be.equal(rate);
                 });

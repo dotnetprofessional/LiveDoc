@@ -1,4 +1,4 @@
-import { feature, scenario, Given, livedoc } from "../app/livedoc";
+import { feature, scenario, given, livedoc } from "../app/livedoc";
 
 // Note: These tests demonstrate the filtering system
 // In real usage, filters would be set via configuration or command line
@@ -12,7 +12,7 @@ feature("Filtering demonstration - all scenarios execute (no filters)", () => {
     let executionCount = 0;
 
     scenario("Scenario without tags", (ctx) => {
-        Given("no tags are present", (ctx) => {
+        given("no tags are present", (ctx) => {
             executionCount++;
         });
     });
@@ -20,7 +20,7 @@ feature("Filtering demonstration - all scenarios execute (no filters)", () => {
     scenario(`Scenario with one tag
         @smoke
         `, (ctx) => {
-        Given("a smoke tag is present", (ctx) => {
+        given("a smoke tag is present", (ctx) => {
             executionCount++;
         });
     });
@@ -28,7 +28,7 @@ feature("Filtering demonstration - all scenarios execute (no filters)", () => {
     scenario(`Scenario with multiple tags
         @smoke @critical @fast
         `, (ctx) => {
-        Given("multiple tags are present", (ctx) => {
+        given("multiple tags are present", (ctx) => {
             executionCount++;
             // Verify all 3 tests executed
             if (executionCount !== 3) {
@@ -47,7 +47,7 @@ feature(`Feature with tag also affects its scenarios
     livedoc.options.filters.exclude = [];
 
     scenario("Scenario inherits feature tag", (ctx) => {
-        Given("the scenario is in a tagged feature", (ctx) => {
+        given("the scenario is in a tagged feature", (ctx) => {
             // Verify feature-level tag is accessible
             if (ctx.feature) {
                 const featureTags = ctx.feature.tags;
@@ -61,7 +61,7 @@ feature(`Feature with tag also affects its scenarios
     scenario(`Scenario can have its own tags too
         @scenario-level-tag
         `, (ctx) => {
-        Given("the scenario has its own tag", (ctx) => {
+        given("the scenario has its own tag", (ctx) => {
             if (ctx.scenario) {
                 const scenarioTags = ctx.scenario.tags;
                 if (!scenarioTags || !scenarioTags.includes("scenario-level-tag")) {

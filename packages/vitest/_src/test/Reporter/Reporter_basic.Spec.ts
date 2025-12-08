@@ -1,7 +1,7 @@
 require('chai').should();
 import { LiveDoc } from "../../app/livedoc";
 import { ExecutionResults, SpecStatus } from "../../app/model/index";
-import { feature, scenario, Given, When, Then, And } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 
 feature(`Reporter returns model including execution results
     @dynamic
@@ -10,7 +10,7 @@ feature(`Reporter returns model including execution results
         let results: ExecutionResults;
         let givenCtx: any;
 
-        Given(`the following feature
+        given(`the following feature
             """
             feature("Valid feature", ()=> {
                 scenario("Valid scenario", ()=> {
@@ -25,23 +25,23 @@ feature(`Reporter returns model including execution results
                 givenCtx = ctx.step;
         });
 
-        When(`executing feature`, async (ctx) => {
+        when(`executing feature`, async (ctx) => {
             results = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`'1' feature is processed`, (ctx) => {
+        then(`'1' feature is processed`, (ctx) => {
             results.features.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the feature has '1' scenario`, (ctx) => {
+        and(`the feature has '1' scenario`, (ctx) => {
             results.features[0].scenarios.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the scenario has '1' step`, (ctx) => {
+        and(`the scenario has '1' step`, (ctx) => {
             results.features[0].scenarios[0].steps.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the step is marked as 'pass'`, (ctx) => {
+        and(`the step is marked as 'pass'`, (ctx) => {
             const step = results.features[0].scenarios[0].steps[0];
             step.status.should.be.equal(SpecStatus[ctx.step!.values[0] as keyof typeof SpecStatus]);
         });
@@ -51,7 +51,7 @@ feature(`Reporter returns model including execution results
         let results: ExecutionResults;
         let givenCtx: any;
 
-        Given(`the following feature
+        given(`the following feature
         """
             feature("Valid feature", ()=> {
                 scenario("Valid scenario", ()=> {
@@ -65,16 +65,16 @@ feature(`Reporter returns model including execution results
                 givenCtx = ctx.step;
         });
 
-        When(`executing feature`, async (ctx) => {
+        when(`executing feature`, async (ctx) => {
             results = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`the step status is 'fail'`, (ctx) => {
+        then(`the step status is 'fail'`, (ctx) => {
             const step = results.features[0].scenarios[0].steps[0];
             step.status.should.be.equal(SpecStatus[ctx.step!.values[0] as keyof typeof SpecStatus]);
         });
 
-        And(`the error message is captured`, (ctx) => {
+        and(`the error message is captured`, (ctx) => {
             const step = results.features[0].scenarios[0].steps[0];
             step.exception.message.should.contain("I am an error!");
         });

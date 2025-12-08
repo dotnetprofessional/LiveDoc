@@ -2,7 +2,7 @@ require('chai').should();
 import { LiveDoc } from "../../app/livedoc";
 import { SpecStatus, ExecutionResults, ScenarioOutline } from "../../app/model/index";
 import { LiveDocOptions } from "../../app/LiveDocOptions";
-import { feature, scenario, Given, When, Then, And } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 
 feature(`Filter include restricts spec to matching tags
     @dynamic
@@ -15,7 +15,7 @@ feature(`Filter include restricts spec to matching tags
         let givenCtx: any;
         let andCtx: any;
 
-        Given(`the filter is
+        given(`the filter is
         """
         {
             "include": ["filter:include"]
@@ -26,7 +26,7 @@ feature(`Filter include restricts spec to matching tags
                 givenCtx = ctx.step;
             });
 
-        And(`the following features
+        and(`the following features
         
         """
         feature(\`This feature is executed as it matches the tag
@@ -52,21 +52,21 @@ feature(`Filter include restricts spec to matching tags
                 andCtx = ctx.step;
             });
 
-        When(`the feature is executed`, async (ctx) => {
+        when(`the feature is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);
         });
 
-        Then(`'2' features are processed`, (ctx) => {
+        then(`'2' features are processed`, (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step.values[0]);
         });
 
-        And(`the steps for the first feature are executed`, (ctx) => {
+        and(`the steps for the first feature are executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[0].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the steps for the second feature are NOT executed`, (ctx) => {
+        and(`the steps for the second feature are NOT executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[1].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.unknown);
@@ -77,7 +77,7 @@ feature(`Filter include restricts spec to matching tags
         let givenCtx: any;
         let andCtx: any;
 
-        Given(`the filter is
+        given(`the filter is
         """
         {
             "include": ["filter:include"]
@@ -88,7 +88,7 @@ feature(`Filter include restricts spec to matching tags
                 givenCtx = ctx.step;
             });
 
-        And(`the following features
+        and(`the following features
         
         """
         feature(\`This features Scenarios are executed they match the tag\`, () => {
@@ -126,33 +126,33 @@ feature(`Filter include restricts spec to matching tags
                 andCtx = ctx.step;
             });
 
-        When(`the feature is executed`, async (ctx) => {
+        when(`the feature is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);
         });
 
-        Then(`'2' features are processed`, (ctx) => {
+        then(`'2' features are processed`, (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step.values[0]);
         });
 
-        And(`the first scenarios steps are executed`, (ctx) => {
+        and(`the first scenarios steps are executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[0].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the second scenarios steps are NOT executed`, (ctx) => {
+        and(`the second scenarios steps are NOT executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[0].scenarios[1].steps[0];
             keyword.status.should.be.eq(SpecStatus.unknown);
         });
 
-        And(`the third scenarios steps are executed`, (ctx) => {
+        and(`the third scenarios steps are executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[0].scenarios[2].steps[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the steps for the second feature are NOT executed`, (ctx) => {
+        and(`the steps for the second feature are NOT executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[1].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.unknown);
@@ -163,7 +163,7 @@ feature(`Filter include restricts spec to matching tags
         let givenCtx: any;
         let andCtx: any;
 
-        Given(`the filter is
+        given(`the filter is
         """
         {
             "include": ["filter:include"]
@@ -174,7 +174,7 @@ feature(`Filter include restricts spec to matching tags
                 givenCtx = ctx.step;
             });
 
-        And(`the following features
+        and(`the following features
         
         """
         feature(\`This features Scenarios are executed they match the tag\`, () => {
@@ -230,36 +230,36 @@ feature(`Filter include restricts spec to matching tags
                 andCtx = ctx.step;
             });
 
-        When(`the feature is executed`, async (ctx) => {
+        when(`the feature is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(featureText, liveDocOptions);
         });
 
-        Then(`'2' features are processed`, (ctx) => {
+        then(`'2' features are processed`, (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step.values[0]);
         });
 
-        And(`the first scenarios steps are executed`, (ctx) => {
+        and(`the first scenarios steps are executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[0].scenarios[0] as ScenarioOutline;
 
             keyword.examples[0].steps[0].status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the second scenarios steps are NOT executed`, (ctx) => {
+        and(`the second scenarios steps are NOT executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[0].scenarios[1] as ScenarioOutline;
 
             keyword.examples[0].steps[0].status.should.be.eq(SpecStatus.unknown);
         });
 
-        And(`the third scenarios steps are executed`, (ctx) => {
+        and(`the third scenarios steps are executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[0].scenarios[2] as ScenarioOutline;
 
             keyword.examples[0].steps[0].status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the steps for the second feature are NOT executed`, (ctx) => {
+        and(`the steps for the second feature are NOT executed`, (ctx) => {
             // locate the second step that has the violation
             const keyword = executionResults.features[1].scenarios[0] as ScenarioOutline;
 

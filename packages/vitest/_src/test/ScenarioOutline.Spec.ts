@@ -1,4 +1,4 @@
-import { feature, scenarioOutline, scenario, Given, When, Then, And } from "../app/livedoc";
+import { feature, scenarioOutline, scenario, given, when, Then as then, and } from "../app/livedoc";
 import { LiveDoc } from "../app/livedoc";
 import { ExecutionResults, ScenarioOutline as ScenarioOutlineModel } from "../app/model";
 import * as chai from 'chai';
@@ -11,7 +11,7 @@ feature("Scenario Outline keyword", () => {
     scenario(`Meta-data for Scenario Outline added to model
         @dynamic
         `, (ctx) => {
-        Given(`the following feature
+        given(`the following feature
         
         """
         feature("Scenario Outline meta data", ()=>{
@@ -31,11 +31,11 @@ feature("Scenario Outline keyword", () => {
         """
         `, (ctx) => { });
 
-        When("executing feature", async (ctx) => {
+        when("executing feature", async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(ctx.scenario.given!.docString);
         });
 
-        Then(`the execution results for the step are:
+        then(`the execution results for the step are:
             """
             {
                 "title": "Sample",
@@ -96,15 +96,15 @@ feature("Scenario Outline statement", () => {
             |    600 |  37000 |     305 |
         `, (ctx) => {
 
-        Given("the cow weighs <weight> kg", (ctx) => {
+        given("the cow weighs <weight> kg", (ctx) => {
             weightTotal += ctx.example?.weight;
         });
 
-        When("we calculate the feeding requirements", (ctx) => {
-            // Calculation happens in the Given
+        when("we calculate the feeding requirements", (ctx) => {
+            // Calculation happens in the given
         });
 
-        Then("the energy should be <energy> MJ", (ctx) => {
+        then("the energy should be <energy> MJ", (ctx) => {
             // Just verify the value is available
             if (ctx.example) {
                 const expectedEnergy = ctx.example.energy;
@@ -114,7 +114,7 @@ feature("Scenario Outline statement", () => {
             }
         });
 
-        And("the protein should be <protein> kg", (ctx) => {
+        and("the protein should be <protein> kg", (ctx) => {
             // Just verify the value is available
             if (ctx.example) {
                 const expectedProtein = ctx.example.protein;
@@ -124,7 +124,7 @@ feature("Scenario Outline statement", () => {
             }
         });
 
-        And("the title should have the examples bound <weight>", (ctx) => {
+        and("the title should have the examples bound <weight>", (ctx) => {
             if (ctx.step?.title.includes("<weight>")) {
                 throw new Error("Title should have weight bound but still contains placeholder");
             }
@@ -153,23 +153,23 @@ feature("Scenario Outline statement", () => {
                 |   1600 |  67000 |    1305 |
                 `, (ctx) => {
 
-        Given("the cow weighs <weight> kg", (ctx) => {
+        given("the cow weighs <weight> kg", (ctx) => {
             weightTotalMultiTable += ctx.example?.weight;
         });
 
-        When("we calculate the feeding requirements", (ctx) => {
-            // Calculation happens in the Given
+        when("we calculate the feeding requirements", (ctx) => {
+            // Calculation happens in the given
         });
 
-        Then("the energy should be <energy> MJ", (ctx) => {
+        then("the energy should be <energy> MJ", (ctx) => {
             // Just verify the value is available
         });
 
-        And("the protein should be <protein> kg", (ctx) => {
+        and("the protein should be <protein> kg", (ctx) => {
             // Just verify the value is available
         });
 
-        And("the title should have the examples bound <weight>", (ctx) => {
+        and("the title should have the examples bound <weight>", (ctx) => {
             if (ctx.step?.title.includes("<weight>")) {
                 throw new Error("Title should have weight bound but still contains placeholder");
             }
@@ -177,9 +177,9 @@ feature("Scenario Outline statement", () => {
     });
 
     scenario("validate outline provided the correct values to steps", (ctx) => {
-        Given("the previous scenario was a Scenario Outline", (ctx) => { });
-        When("the scenario has completed", (ctx) => { });
-        Then("the total of the weight column provided to the given is 2125", (ctx) => {
+        given("the previous scenario was a Scenario Outline", (ctx) => { });
+        when("the scenario has completed", (ctx) => { });
+        then("the total of the weight column provided to the given is 2125", (ctx) => {
             if (weightTotal !== 2125) {
                 throw new Error(`Expected weightTotal to be 2125 but got ${weightTotal}`);
             }
@@ -187,9 +187,9 @@ feature("Scenario Outline statement", () => {
     });
 
     scenario("validate multi-table outline provided the correct values to steps", (ctx) => {
-        Given("the previous scenario was a Scenario Outline", (ctx) => { });
-        When("the scenario has completed", (ctx) => { });
-        Then("the total of the weight column provided to the given is 8250", (ctx) => {
+        given("the previous scenario was a Scenario Outline", (ctx) => { });
+        when("the scenario has completed", (ctx) => { });
+        then("the total of the weight column provided to the given is 8250", (ctx) => {
             if (weightTotalMultiTable !== 8250) {
                 throw new Error(`Expected weightTotalMultiTable to be 8250 but got ${weightTotalMultiTable}`);
             }

@@ -1,4 +1,4 @@
-import { feature, scenarioOutline, Given, When, Then } from "../app/livedoc";
+import { feature, scenarioOutline, given, when, Then as then } from "../app/livedoc";
 
 feature("Scenario Outline data binding verification", () => {
     const results: Array<{ weight: number; energy: number; protein: number }> = [];
@@ -12,7 +12,7 @@ feature("Scenario Outline data binding verification", () => {
             |    300 |  15000 |     150 |
         `, (ctx) => {
 
-        Given("the weight is <weight>", (ctx) => {
+        given("the weight is <weight>", (ctx) => {
             const weight = ctx.example?.weight;
             if (!weight) {
                 throw new Error("Weight not found in example context");
@@ -24,11 +24,11 @@ feature("Scenario Outline data binding verification", () => {
             });
         });
 
-        When("we process the data", (ctx) => {
+        when("we process the data", (ctx) => {
             // Processing step
         });
 
-        Then("all values should be numbers", (ctx) => {
+        then("all values should be numbers", (ctx) => {
             const lastResult = results[results.length - 1];
             if (typeof lastResult.weight !== 'number') {
                 throw new Error(`Weight should be number but got ${typeof lastResult.weight}`);
@@ -50,7 +50,7 @@ feature("Scenario Outline data binding verification", () => {
             | Bob   |  30 |
         `, (ctx) => {
 
-        Given("the person <name> is <age> years old", (ctx) => {
+        given("the person <name> is <age> years old", (ctx) => {
             // Verify title has values replaced
             if (ctx.step?.title.includes("<name>") || ctx.step?.title.includes("<age>")) {
                 throw new Error(`Step title should not contain placeholders: ${ctx.step?.title}`);
@@ -69,12 +69,12 @@ feature("Scenario Outline data binding verification", () => {
             }
         });
 
-        When("we check the title", (ctx) => {
-            // Title checking happens in Given
+        when("we check the title", (ctx) => {
+            // Title checking happens in given
         });
 
-        Then("the title should be valid", (ctx) => {
-            // All validation done in Given
+        then("the title should be valid", (ctx) => {
+            // All validation done in given
         });
     });
 });

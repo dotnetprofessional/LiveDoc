@@ -317,15 +317,15 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private extractStepType(stepName: string): string {
         // Handle multiline step names by only matching the first line
-        const match = stepName.match(/^(Given|When|Then|And|But)\s+/i);
+        const match = stepName.match(/^(given|when|then|and|but)\s+/i);
         if (match) {
-            return match[1];
+            return match[1].toLowerCase();
         }
         const indentedMatch = stepName.match(/^\s+(and|but)\s+/i);
         if (indentedMatch) {
-            return indentedMatch[1];
+            return indentedMatch[1].toLowerCase();
         }
-        return 'Given';
+        return 'given';
     }
     
     private extractStepTitle(stepName: string): string {

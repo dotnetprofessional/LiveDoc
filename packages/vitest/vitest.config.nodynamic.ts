@@ -19,7 +19,7 @@ export default defineConfig({
       '_src/test/Background_Keyword/Background_reports_errors.Spec.ts',
       '_src/test/Background_Keyword/Background_support_only.Spec.ts',
     ],
-    setupFiles: ['./dist/app/setup.js'],
+    setupFiles: ['./_src/app/setup.ts'],
     reporters: [
       ['./dist/app/reporter/LiveDocSpecReporter.js', { detailLevel: 'spec+summary+headers' }]
     ],

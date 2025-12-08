@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
-    setupFiles: ['./dist/app/setup.js'],
+    setupFiles: ['./_src/app/setup.ts'],
     // No custom reporter - use Vitest defaults for VS Code compatibility
     fileParallelism: false,
     // Use forks pool for debugging (vmForks has ESM issues)

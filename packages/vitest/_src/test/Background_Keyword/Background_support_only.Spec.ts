@@ -1,7 +1,7 @@
 require('chai').should();
 import { LiveDoc } from "../../app/livedoc";
 import { ExecutionResults } from "../../app/model/index";
-import { feature, scenario, Given, When, Then } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then } from "../../app/livedoc";
 
 feature(`Marking a scenario with .only or a tagged filter which has a background
     @dynamic
@@ -11,7 +11,7 @@ feature(`Marking a scenario with .only or a tagged filter which has a background
     scenario(`Scenario marked as .only`, (ctx) => {
         let givenCtx: any;
 
-        Given(`the following spec
+        given(`the following spec
             """
             feature("Validate background execute", () => {
                 let wasExecuted = false;
@@ -45,11 +45,11 @@ feature(`Marking a scenario with .only or a tagged filter which has a background
             givenCtx = ctx.step;
         });
 
-        When(`executing feature`, async (ctx) => {
+        when(`executing feature`, async (ctx) => {
             results = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`only one scenario was executed`, (ctx) => {
+        then(`only one scenario was executed`, (ctx) => {
             // includes the background steps
             results.features[0].statistics.passCount.should.eq(2, "passCount");
             results.features[0].statistics.failedCount.should.eq(0, "failedCount");
@@ -59,7 +59,7 @@ feature(`Marking a scenario with .only or a tagged filter which has a background
     scenario(`Scenario marked with a tag`, (ctx) => {
         let givenCtx: any;
 
-        Given(`the following spec
+        given(`the following spec
             """
             feature("Validate background execute", () => {
                 let wasExecuted = false;
@@ -92,11 +92,11 @@ feature(`Marking a scenario with .only or a tagged filter which has a background
             givenCtx = ctx.step;
         });
 
-        When(`executing feature`, async (ctx) => {
+        when(`executing feature`, async (ctx) => {
             results = await LiveDoc.executeDynamicTestAsync(givenCtx.docString, { filters: { include: ["only"] } });
         });
 
-        Then(`only one scenario was executed`, (ctx) => {
+        then(`only one scenario was executed`, (ctx) => {
             // includes the background steps
             results.features[0].statistics.passCount.should.eq(2, "passCount");
             results.features[0].statistics.failedCount.should.eq(0, "failedCount");

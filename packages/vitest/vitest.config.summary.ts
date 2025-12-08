@@ -5,7 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
-    setupFiles: ['./dist/app/setup.js'],
+    setupFiles: ['./_src/app/setup.ts'],
     reporters: [
       ['./dist/app/reporter/LiveDocSpecReporter.js', { detailLevel: 'summary' }]
     ]

@@ -18,7 +18,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
-    setupFiles: ['./dist/app/setup.js'],
+    setupFiles: ['./_src/app/setup.ts'],
     reporters: [
       // Console output with BDD format
       ['./dist/app/reporter/LiveDocSpecReporter.js', { 

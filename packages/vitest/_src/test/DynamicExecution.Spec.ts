@@ -5,7 +5,7 @@ test("Test executeDynamicTestAsync basic functionality", async () => {
     const featureText = `
         feature("Test Feature", () => {
             scenario("Test Scenario", () => {
-                Given("a test step", () => {
+                given("a test step", () => {
                     // Simple test
                 });
             });

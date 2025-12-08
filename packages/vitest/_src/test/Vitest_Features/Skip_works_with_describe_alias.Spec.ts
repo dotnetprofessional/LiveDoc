@@ -1,7 +1,7 @@
 require('chai').should();
 import { LiveDoc } from "../../app/livedoc";
 import { SpecStatus, ExecutionResults, ScenarioOutline } from "../../app/model/index";
-import { feature, scenario, Given, When, Then, And } from "../../app/livedoc";
+import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 
 feature(`Skip works with describe alias'
     @dynamic
@@ -11,7 +11,7 @@ feature(`Skip works with describe alias'
 
     scenario("Using skip to specify Features to execute", (ctx) => {
 
-        Given(`the following features
+        given(`the following features
         
         """
         import { feature, scenario, given } from './livedoc';
@@ -36,27 +36,27 @@ feature(`Skip works with describe alias'
                 givenCtx = ctx.step;
             });
 
-        When(`the feature is executed`, async (ctx) => {
+        when(`the feature is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`'2' features are processed`, (ctx) => {
+        then(`'2' features are processed`, (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the steps for the first feature are NOT executed`, (ctx) => {
+        and(`the steps for the first feature are NOT executed`, (ctx) => {
             const keyword = executionResults.features[0].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.pending);
         });
 
-        And(`the steps for the second feature are executed`, (ctx) => {
+        and(`the steps for the second feature are executed`, (ctx) => {
             const keyword = executionResults.features[1].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
     });
 
     scenario("Using skip to specify Scenarios to execute", (ctx) => {
-        Given(`the following features
+        given(`the following features
         
         """
         import { feature, scenario, given } from './livedoc';
@@ -91,37 +91,37 @@ feature(`Skip works with describe alias'
                 givenCtx = ctx.step;
             });
 
-        When(`the feature is executed`, async (ctx) => {
+        when(`the feature is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`'2' features are processed`, (ctx) => {
+        then(`'2' features are processed`, (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the first scenarios steps are executed`, (ctx) => {
+        and(`the first scenarios steps are executed`, (ctx) => {
             const keyword = executionResults.features[0].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the second scenarios steps are marked as pending`, (ctx) => {
+        and(`the second scenarios steps are marked as pending`, (ctx) => {
             const keyword = executionResults.features[0].scenarios[1].steps[0];
             keyword.status.should.be.eq(SpecStatus.pending);
         });
 
-        And(`the third scenarios steps are executed`, (ctx) => {
+        and(`the third scenarios steps are executed`, (ctx) => {
             const keyword = executionResults.features[0].scenarios[2].steps[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the steps for the second feature are executed`, (ctx) => {
+        and(`the steps for the second feature are executed`, (ctx) => {
             const keyword = executionResults.features[1].scenarios[0].steps[0];
             keyword.status.should.be.eq(SpecStatus.pass);
         });
     });
 
     scenario("Using skip to specify ScenarioOutline to execute", (ctx) => {
-        Given(`the following features
+        given(`the following features
         
         """
         import { feature, scenarioOutline, given } from './livedoc';
@@ -172,30 +172,30 @@ feature(`Skip works with describe alias'
                 givenCtx = ctx.step;
             });
 
-        When(`the feature is executed`, async (ctx) => {
+        when(`the feature is executed`, async (ctx) => {
             executionResults = await LiveDoc.executeDynamicTestAsync(givenCtx.docString);
         });
 
-        Then(`'2' features are processed`, (ctx) => {
+        then(`'2' features are processed`, (ctx) => {
             executionResults.features.length.should.be.equal(ctx.step!.values[0]);
         });
 
-        And(`the first scenarios steps are executed`, (ctx) => {
+        and(`the first scenarios steps are executed`, (ctx) => {
             const keyword = executionResults.features[0].scenarios[0] as ScenarioOutline;
             keyword.examples[0].steps[0].status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the second scenarios steps are marked as pending`, (ctx) => {
+        and(`the second scenarios steps are marked as pending`, (ctx) => {
             const keyword = executionResults.features[0].scenarios[1] as ScenarioOutline;
             keyword.examples[0].steps[0].status.should.be.eq(SpecStatus.pending);
         });
 
-        And(`the third scenarios steps are executed`, (ctx) => {
+        and(`the third scenarios steps are executed`, (ctx) => {
             const keyword = executionResults.features[0].scenarios[2] as ScenarioOutline;
             keyword.examples[0].steps[0].status.should.be.eq(SpecStatus.pass);
         });
 
-        And(`the steps for the second feature are executed`, (ctx) => {
+        and(`the steps for the second feature are executed`, (ctx) => {
             const keyword = executionResults.features[1].scenarios[0] as ScenarioOutline;
             keyword.examples[0].steps[0].status.should.be.eq(SpecStatus.pass);
         });

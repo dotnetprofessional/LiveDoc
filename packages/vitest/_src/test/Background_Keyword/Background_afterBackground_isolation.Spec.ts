@@ -1,4 +1,4 @@
-import { feature, scenario, background, Given, When, Then, And } from "../../app/livedoc";
+import { feature, scenario, background, given, when, Then as then, and } from "../../app/livedoc";
 const chai = require('chai');
 chai.should();
 
@@ -22,7 +22,7 @@ feature(`Feature A with afterBackground
     `, () => {
     
     background("Feature A setup", (ctx) => {
-        Given("Feature A sets up a value", () => {
+        given("Feature A sets up a value", () => {
             featureAValue = 100;
         });
 
@@ -34,15 +34,15 @@ feature(`Feature A with afterBackground
     });
 
     scenario("Feature A scenario verifies its own cleanup", () => {
-        When("the scenario runs", () => {
+        when("the scenario runs", () => {
             // Action step
         });
 
-        Then("featureAValue equals 100", () => {
+        then("featureAValue equals 100", () => {
             featureAValue.should.be.equal(100);
         });
 
-        And("the cleanup has not run yet during scenario execution", () => {
+        and("the cleanup has not run yet during scenario execution", () => {
             // At this point, cleanup hasn't run yet (it runs after the scenario)
             featureAValue.should.be.equal(100);
         });
@@ -58,7 +58,7 @@ feature(`Feature B with afterBackground
     `, () => {
     
     background("Feature B setup", (ctx) => {
-        Given("Feature B sets up a different value", () => {
+        given("Feature B sets up a different value", () => {
             featureBValue = 200;
         });
 
@@ -70,15 +70,15 @@ feature(`Feature B with afterBackground
     });
 
     scenario("Feature B scenario verifies its own cleanup", () => {
-        When("the scenario runs", () => {
+        when("the scenario runs", () => {
             // Action step
         });
 
-        Then("featureBValue equals 200", () => {
+        then("featureBValue equals 200", () => {
             featureBValue.should.be.equal(200);
         });
 
-        And("featureACleanupCalled should be true since Feature A's scenario already completed", () => {
+        and("featureACleanupCalled should be true since Feature A's scenario already completed", () => {
             // Feature A's scenario ran before Feature B's scenario, so Feature A's cleanup already ran
             // This is expected behavior - each feature's afterBackground runs after its scenarios
             featureACleanupCalled.should.be.equal(true);
@@ -92,23 +92,23 @@ feature(`Feature C verifies afterBackground isolation
     `, () => {
 
     scenario("Both features should have run their own cleanup", () => {
-        When("checking cleanup results", () => {
+        when("checking cleanup results", () => {
             // Action step
         });
 
-        Then("featureACleanupCalled should be true", () => {
+        then("featureACleanupCalled should be true", () => {
             featureACleanupCalled.should.be.equal(true);
         });
 
-        And("featureBCleanupCalled should be true", () => {
+        and("featureBCleanupCalled should be true", () => {
             featureBCleanupCalled.should.be.equal(true);
         });
 
-        And("featureAValue should equal 0 after cleanup", () => {
+        and("featureAValue should equal 0 after cleanup", () => {
             featureAValue.should.be.equal(0);
         });
 
-        And("featureBValue should equal 0 after cleanup", () => {
+        and("featureBValue should equal 0 after cleanup", () => {
             featureBValue.should.be.equal(0);
         });
     });

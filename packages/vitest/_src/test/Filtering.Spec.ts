@@ -1,4 +1,4 @@
-import { feature, scenario, Given, When, Then } from "../app/livedoc";
+import { feature, scenario, given, when, Then as then } from "../app/livedoc";
 import { livedoc } from "../app/livedoc";
 
 feature("Tag-based filtering with include", () => {
@@ -10,15 +10,15 @@ feature("Tag-based filtering with include", () => {
     scenario(`This scenario should execute
         @important
         `, (ctx) => {
-        Given("this is an important scenario", (ctx) => {
+        given("this is an important scenario", (ctx) => {
             executedScenarios.push("important");
         });
 
-        When("it is executed", (ctx) => {
+        when("it is executed", (ctx) => {
             // Execution happens
         });
 
-        Then("it should be recorded", (ctx) => {
+        then("it should be recorded", (ctx) => {
             if (!executedScenarios.includes("important")) {
                 throw new Error("Important scenario should have executed");
             }
@@ -37,15 +37,15 @@ feature("Tag-based filtering with exclude", () => {
     livedoc.options.filters.exclude = ["slow"];
 
     scenario("This scenario should execute (no slow tag)", (ctx) => {
-        Given("this is a fast scenario", (ctx) => {
+        given("this is a fast scenario", (ctx) => {
             executedScenarios.push("fast");
         });
 
-        When("it is executed", (ctx) => {
+        when("it is executed", (ctx) => {
             // Execution happens
         });
 
-        Then("it should be recorded", (ctx) => {
+        then("it should be recorded", (ctx) => {
             if (!executedScenarios.includes("fast")) {
                 throw new Error("Fast scenario should have executed");
             }
@@ -65,7 +65,7 @@ feature("Multiple tags on scenarios", () => {
     scenario(`Multiple tags are supported
         @tag1 tag2 @tag3
         `, (ctx) => {
-        Given("a scenario has multiple tags", (ctx) => {
+        given("a scenario has multiple tags", (ctx) => {
             // Verify tags are accessible
             if (ctx.scenario) {
                 const tags = ctx.scenario.tags;
@@ -80,11 +80,11 @@ feature("Multiple tags on scenarios", () => {
             taggedExecutions.push("multi-tag");
         });
 
-        When("the scenario executes", (ctx) => {
+        when("the scenario executes", (ctx) => {
             // Execution
         });
 
-        Then("all tags should be available", (ctx) => {
+        then("all tags should be available", (ctx) => {
             if (!taggedExecutions.includes("multi-tag")) {
                 throw new Error("Multi-tag scenario should have executed");
             }
