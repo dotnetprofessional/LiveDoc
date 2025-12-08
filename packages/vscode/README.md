@@ -18,21 +18,21 @@ VS Code extension providing tools and snippets for working with LiveDoc BDD test
 
 ### Code Snippets
 
-| Snippet | Purpose |
-|---------|---------|
-| `ld-feature` | Adds a basic feature definition |
-| `ld-background` | Adds a basic background definition |
-| `ld-scenario` | Adds a basic scenario definition |
-| `ld-scenario-outline` | Adds a basic scenario outline definition |
-| `ld-given` | Adds a basic given step definition |
-| `ld-when` | Adds a basic when step definition |
-| `ld-then` | Adds a basic then step definition |
-| `ld-and` | Adds a basic and step definition |
-| `ld-but` | Adds a basic but step definition |
-| `ld-step` | Adds a step definition where you can choose the type |
-| `ld-step-datatable` | Adds a step with a 2x1 data table |
-| `ld-step-datatable-4x` | Adds a step with a 4x1 data table |
-| `ld-step-docString` | Adds a step with a docString |
+| Snippet                | Purpose                                              |
+| ---------              | ---------                                            |
+| `ld-feature`           | Adds a basic feature definition                      |
+| `ld-background`        | Adds a basic background definition                   |
+| `ld-scenario`          | Adds a basic scenario definition                     |
+| `ld-scenario-outline`  | Adds a basic scenario outline definition             |
+| `ld-given`             | Adds a basic given step definition                   |
+| `ld-when`              | Adds a basic when step definition                    |
+| `ld-then`              | Adds a basic then step definition                    |
+| `ld-and`               | Adds a basic and step definition                     |
+| `ld-but`               | Adds a basic but step definition                     |
+| `ld-step`              | Adds a step definition where you can choose the type |
+| `ld-step-datatable`    | Adds a step with a 2x1 data table                    |
+| `ld-step-datatable-4x` | Adds a step with a 4x1 data table                    |
+| `ld-step-docString`    | Adds a step with a docString                         |
 
 ### Commands
 
