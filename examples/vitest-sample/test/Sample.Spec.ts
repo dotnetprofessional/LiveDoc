@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { feature, scenario, given, and, when, Then as Then as then, scenarioContext } from "@livedoc/vitest";
+import { feature, scenario, given, and, when, Then as then } from "@livedoc/vitest";
 
 class ATM {
     private machineCash = 0;
@@ -51,31 +51,33 @@ feature(`Account Holder withdraws cash
         scenario("Account has sufficient funds", () => {
             let atm = new ATM();
             let cashReceived: number;
+            let accountNumber: string;
 
             given(`the account holders account has the following:
             | account | 12345 |
             | balance |   100 |
             | status  | valid |
         `, (ctx) => {
-                    const accountHolder = ctx.tableAsEntity;
+                    const accountHolder = ctx.step.tableAsEntity;
+                    accountNumber = accountHolder.account;
                     atm.setStatus(accountHolder.account, accountHolder.status);
                     atm.deposit(accountHolder.account, Number(accountHolder.balance));
                 });
 
             and("the machine contains '1000' dollars", (ctx) => {
-                atm.addCash(ctx.values[0]);
+                atm.addCash(ctx.step.values[0]);
             });
 
             when("the Account Holder requests '20' dollars", (ctx) => {
-                cashReceived = atm.withDraw(scenarioContext.given.tableAsEntity.account, ctx.values[0]);
+                cashReceived = atm.withDraw(accountNumber, ctx.step.values[0]);
             });
 
             then("the ATM should dispense '20' dollars", (ctx) => {
-                expect(cashReceived).to.equal(ctx.values[0]);
+                expect(cashReceived).to.equal(ctx.step.values[0]);
             });
 
             and("the account balance should be '80' dollars", (ctx) => {
-                expect(atm.getBalance(scenarioContext.given.tableAsEntity.account)).to.equal(ctx.values[0]);
+                expect(atm.getBalance(accountNumber)).to.equal(ctx.step.values[0]);
             });
         });
     });

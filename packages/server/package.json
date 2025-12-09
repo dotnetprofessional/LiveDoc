@@ -27,19 +27,19 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.0",
+    "@hono/node-server": "^1.19.7",
     "commander": "^12.1.0",
-    "hono": "^4.6.0",
-    "open": "^10.1.0",
-    "ws": "^8.18.0"
+    "hono": "^4.10.7",
+    "open": "^10.2.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@livedoc/vitest": "workspace:*",
-    "@types/node": "^22.0.0",
-    "@types/ws": "^8.5.0",
-    "rimraf": "^6.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.6.0",
+    "@types/node": "^22.19.2",
+    "@types/ws": "^8.18.1",
+    "rimraf": "^6.1.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   },
   "files": [

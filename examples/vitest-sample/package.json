@@ -10,10 +10,10 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
     "@livedoc/vitest": "workspace:*",
-    "chai": "^5.2.0",
-    "typescript": "^5.3.3",
-    "vitest": "^4.0.14"
+    "@types/node": "^20.19.26",
+    "chai": "^5.3.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
   }
 }

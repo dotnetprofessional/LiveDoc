@@ -9,8 +9,8 @@
   },
   "devDependencies": {
     "@livedoc/vitest": "workspace:*",
-    "@types/node": "^22.10.2",
-    "typescript": "^5.7.2",
-    "vitest": "^3.0.4"
+    "@types/node": "^22.19.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }

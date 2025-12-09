@@ -1,0 +1,19 @@
+{
+  "name": "livedoc-vitest-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@livedoc/vitest": "file:..\\..\\packages\\vitest\\livedoc-vitest-1.0.0.tgz"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.2",
+    "chai": "^5.3.3",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.9.3",
+    "vitest": "4.0.15"
+  }
+}

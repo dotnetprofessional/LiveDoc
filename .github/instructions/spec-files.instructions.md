@@ -27,16 +27,53 @@ then("the balance is correct", (ctx) => { expect(balance).toBe(300); });
 // Note: 'Then' must be uppercase due to ESM thenable detection, alias it for lowercase usage
 import { feature, scenario, scenarioOutline, background, given, when, Then as then, and, but } from "@livedoc/vitest";
 
+// Specification pattern imports
+import { specification, rule, ruleOutline } from "@livedoc/vitest";
+
 // Or use globals mode (vitest.config.ts: globals: true) for all lowercase without imports
 ```
 
-## Structure
+## Structures
 
+### BDD/Gherkin Pattern
 ```
 feature → scenario|scenarioOutline|background → given|when|then|and|but
 ```
 
+### Specification Pattern (MSpec-style)
+```
+specification → rule|ruleOutline
+```
+
 All blocks receive `ctx` parameter with framework metadata.
+
+## Choosing a Pattern
+
+### Use BDD/Gherkin (`feature`/`scenario`) when:
+- **Stakeholder collaboration** — Requirements come from business discussions; non-technical people need to read tests
+- **End-to-end/acceptance testing** — Testing user journeys through the system
+- **Domain behavior** — Capturing business rules in ubiquitous language
+- **Living documentation** — Tests serve as executable specifications for the team
+- **Discovery sessions** — Using examples to explore and agree on requirements
+
+### Use Specification (`specification`/`rule`) when:
+- **Technical components** — Testing APIs, utilities, algorithms, or infrastructure
+- **Many variations** — Data-driven tests with numerous input combinations
+- **Direct assertions** — No need for Given/When/Then ceremony
+- **Developer-focused** — Tests written by and for developers
+- **Compact tests** — Single-assertion rules that are self-documenting
+
+### Quick Decision Guide
+
+|         Aspect          |         BDD/Gherkin          |      Specification       |
+| ----------------------- | ---------------------------- | -----------------------  |
+| Audience                | Business + Technical         | Technical                |
+| Verbosity               | Higher (structured steps)    | Lower (direct code)      |
+| Best for                | Workflows, user stories      | Units, edge cases        |
+| Data-driven             | `scenarioOutline` + Examples | `ruleOutline` + Examples |
+| Collaboration           | Discovery workshops          | Code reviews             |
+
+**Tip:** You can mix patterns in the same project. Use `feature` for acceptance tests and `specification` for unit/component tests.
 
 ## Keywords
 
@@ -112,6 +149,88 @@ then("assertion", (ctx) => { expect(x).toBe(y); });
 
 - **Only steps support `async`** - feature, scenario, scenarioOutline, background do NOT
 
+## Specification Pattern (MSpec-style)
+
+A simpler alternative to Gherkin BDD. No step functions—assertions live directly in rules.
+
+### specification(title, fn)
+
+Container for related rules. Similar to `feature` but without scenarios.
+
+```typescript
+specification(`Calculator Rules
+    @math @validation
+    Rules for calculator operations
+    `, (ctx) => { /* rules */ });
+```
+
+- First line = title
+- Lines starting with `@` = tags  
+- Remaining lines = description
+- Supports `.skip()` and `.only()` modifiers
+
+### rule(title, fn)
+
+Simple assertion block. No given/when/then—just direct test code.
+
+```typescript
+specification("Math Operations", () => {
+    rule("Adding positive numbers increases the value", (ctx) => {
+        const result = 5 + 3;
+        expect(result).toBe(8);
+    });
+
+    rule("Multiplying by zero returns zero", async (ctx) => {
+        // Async is supported in rules
+        const result = await calculate(5, 0);
+        expect(result).toBe(0);
+    });
+});
+```
+
+- Supports `.skip()` and `.only()` modifiers
+- Supports `async` callbacks
+
+### ruleOutline(title, fn)
+
+Data-driven rules with Examples table. Access data via `ctx.example`.
+
+```typescript
+specification("Email Validation", () => {
+    ruleOutline(`Valid emails are accepted
+        Examples:
+        | email           | valid |
+        | test@test.com   | true  |
+        | invalid         | false |
+        | user@domain.org | true  |
+        `, (ctx) => {
+        const result = isValidEmail(ctx.example.email);
+        expect(result).toBe(ctx.example.valid);
+    });
+});
+```
+
+- Examples table parsed from title (same format as scenarioOutline)
+- Access values via `ctx.example.columnName`
+- Supports `.skip()` and `.only()` modifiers
+
+### Specification Context
+
+```typescript
+specification("My Spec @tag1", (ctx) => {
+    rule("Access context", (ctx) => {
+        ctx.specification.title       // "My Spec"
+        ctx.specification.tags        // ["tag1"]
+        ctx.specification.description // description text
+    });
+    
+    rule("Rule context", (ctx) => {
+        ctx.rule.title       // "Rule context"
+        ctx.rule.description // rule description
+    });
+});
+```
+
 ## Data Extraction
 
 ### Quoted Values (`ctx.step.values`)
@@ -175,14 +294,24 @@ given(`JSON input:
 
 ## Context Reference
 
+### BDD/Gherkin Context
+
 |         Property          |        Type         |                   Description                   |
-| ----------                | ------              | -------------                                   |
+| ------------------------- | ------------------- | ----------------------------------------------- |
 | `ctx.feature`             | `FeatureContext`    | `{filename, title, description, tags}`          |
 | `ctx.scenario`            | `ScenarioContext`   | `{title, description, tags, given?, steps}`     |
 | `ctx.step`                | `StepContext`       | `{title, type, values, docString, table, ...}`  |
 | `ctx.example`             | `object`            | Current example row data (scenarioOutline only) |
 | `ctx.background`          | `BackgroundContext` | Background metadata                             |
 | `ctx.afterBackground(fn)` | function            | Register cleanup (background only)              |
+
+### Specification Context
+
+|       Property       |          Type          |                      Description                       |
+| -------------------- | ---------------------- | ------------------------------------------------------ |
+| `ctx.specification`  | `SpecificationContext` | `{title, description, tags}`                           |
+| `ctx.rule`           | `RuleContext`          | `{title, description, tags, specification}`            |
+| `ctx.example`        | `object`               | Current example row data (ruleOutline only)            |
 
 ### StepContext Properties
 
@@ -200,11 +329,19 @@ given(`JSON input:
 ## Modifiers
 
 ```typescript
-feature.skip("...", fn)    // Skip feature
-feature.only("...", fn)    // Run only this feature
-scenario.skip("...", fn)   // Skip scenario  
-scenario.only("...", fn)   // Run only this scenario
-scenarioOutline.skip/only  // Same pattern
+// BDD/Gherkin
+feature.skip("...", fn)       // Skip feature
+feature.only("...", fn)       // Run only this feature
+scenario.skip("...", fn)      // Skip scenario  
+scenario.only("...", fn)      // Run only this scenario
+scenarioOutline.skip/only     // Same pattern
+
+// Specification pattern
+specification.skip("...", fn) // Skip specification
+specification.only("...", fn) // Run only this specification
+rule.skip("...", fn)          // Skip rule
+rule.only("...", fn)          // Run only this rule
+ruleOutline.skip/only         // Same pattern
 ```
 
 ## File Naming
