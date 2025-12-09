@@ -331,6 +331,10 @@ export default class LiveDocSpecReporter implements Reporter {
                 const error = task.result.errors[0];
                 step.exception.message = error.message || '';
                 step.exception.stackTrace = error.stack || '';
+                // Retrieve code from error if available (attached in livedoc.ts)
+                if ((error as any).code) {
+                    step.code = (error as any).code;
+                }
             }
         } else if (task.mode === 'skip' || task.mode === 'todo') {
             step.setStatus(model.SpecStatus.pending, duration);

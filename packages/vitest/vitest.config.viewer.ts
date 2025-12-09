@@ -21,12 +21,12 @@ export default defineConfig({
     setupFiles: ['./_src/app/setup.ts'],
     reporters: [
       // Console output with BDD format
-      ['./dist/app/reporter/LiveDocSpecReporter.js', { 
+      ['./_src/app/reporter/LiveDocSpecReporter.ts', { 
         detailLevel: 'spec+summary+headers',
         // Configure viewer reporter as post-reporter
         postReporters: [{
           execute: async (results: any, options: any) => {
-            const { LiveDocViewerReporter } = await import('./dist/app/reporter/LiveDocViewerReporter.js');
+            const { LiveDocViewerReporter } = await import('./_src/app/reporter/LiveDocViewerReporter.ts');
             const reporter = new LiveDocViewerReporter({
               server: viewerServer,
               project: viewerProject,

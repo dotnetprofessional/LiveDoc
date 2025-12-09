@@ -7,7 +7,7 @@ export default defineConfig({
     include: ['_src/test/**/*.Spec.ts'],
     setupFiles: ['./_src/app/setup.ts'],
     reporters: [
-      ['./dist/app/reporter/LiveDocSpecReporter.js', { detailLevel: 'list' }]
+      ['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'list' }]
     ]
   }
 });

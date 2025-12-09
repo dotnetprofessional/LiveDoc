@@ -11,12 +11,12 @@ export default defineConfig({
     include: ['_src/test/**/*.Spec.ts'],
     setupFiles: ['./_src/app/setup.ts'],
     reporters: [
-      ['./dist/app/reporter/LiveDocSpecReporter.js', { 
+      ['_src/app/reporter/LiveDocSpecReporter.ts', { 
         detailLevel: 'summary',
         output: 'results.txt',
         postReporters: [{
           execute: async (results: any, options: any) => {
-            const { LiveDocViewerReporter } = await import('./dist/app/reporter/LiveDocViewerReporter.js');
+            const { LiveDocViewerReporter } = await import('./_src/app/reporter/LiveDocViewerReporter.ts');
             const reporter = new LiveDocViewerReporter({
               server: viewerServer,
               project: viewerProject,

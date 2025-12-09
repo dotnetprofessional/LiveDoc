@@ -1,6 +1,6 @@
 {
   "name": "@livedoc/vitest",
-  "version": "1.0.0",
+  "version": "0.1.1",
   "author": "Garry McGlennon",
   "license": "MIT",
   "description": "BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax and MSpec-style specifications.",

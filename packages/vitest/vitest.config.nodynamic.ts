@@ -21,7 +21,7 @@ export default defineConfig({
     ],
     setupFiles: ['./_src/app/setup.ts'],
     reporters: [
-      ['./dist/app/reporter/LiveDocSpecReporter.js', { detailLevel: 'spec+summary+headers' }]
+      ['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'spec+summary+headers' }]
     ],
     coverage: {
       provider: 'v8',

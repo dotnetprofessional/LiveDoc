@@ -1024,6 +1024,9 @@ function createStepFunction(stepType: string) {
                                 exception.message = error.message || String(error);
                                 exception.stackTrace = error.stack || '';
                                 stepDetail.stepDefinition.exception = exception;
+                                if (stepDetail.func) {
+                                    stepDetail.stepDefinition.code = stepDetail.func.toString();
+                                }
                                 throw error;
                             }
                         }
@@ -1072,6 +1075,13 @@ function createStepFunction(stepType: string) {
                 exception.actual = error.actual || '';
                 exception.expected = error.expected || '';
                 stepDefinition.exception = exception;
+                if (fn) {
+                    stepDefinition.code = fn.toString();
+                    // Attach code to error so it can be retrieved by the reporter
+                    if (typeof error === 'object' && error !== null) {
+                        (error as any).code = stepDefinition.code;
+                    }
+                }
                 // Re-throw so Vitest marks the test as failed
                 throw error;
             }
@@ -1810,6 +1820,7 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
         step.duration = data.duration || 0;
         step.id = data.id || '';
         step.sequence = data.sequence || 0;
+        step.code = data.code || '';
         
         // Reconstruct exception if present
         if (data.exception && (data.exception.message || data.exception.stackTrace)) {

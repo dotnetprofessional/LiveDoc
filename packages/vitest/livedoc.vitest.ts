@@ -21,12 +21,12 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
-    setupFiles: ['./dist/app/setup.js'],
+    setupFiles: ['./_src/app/setup.ts'],
     // Use default reporter when running under VS Code extension to avoid conflicts
     // The custom reporter can cause "no test suite found" errors in debug mode
     reporters: isVSCodeVitest 
       ? undefined  // Let Vitest use its default
-      : [['./dist/app/reporter/LiveDocSpecReporter.js', { detailLevel: 'spec+summary+headers' }]],
+      : [['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'spec+summary+headers' }]],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
