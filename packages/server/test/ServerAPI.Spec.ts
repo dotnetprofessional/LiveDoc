@@ -1,4 +1,5 @@
-import { feature, scenario, background, Given, When, Then, And } from "@livedoc/vitest";
+import { feature, scenario, background, given, when, Then, and } from "@livedoc/vitest";
+import { expect } from "vitest";
 import { createServer, type LiveDocServer } from "../src/index.js";
 import os from "os";
 import path from "path";
@@ -13,7 +14,7 @@ feature(`Server API - Health and Discovery
     let baseUrl: string;
 
     background("Running server", (ctx) => {
-        Given("a LiveDoc server is running", async () => {
+        given("a LiveDoc server is running", async () => {
             testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({
                 port: 0,
@@ -40,7 +41,7 @@ feature(`Server API - Health and Discovery
         let response: Response;
         let data: any;
 
-        When("requesting the health endpoint", async () => {
+        when("requesting the health endpoint", async () => {
             response = await fetch(`${baseUrl}/api/health`);
             data = await response.json();
         });
@@ -49,11 +50,11 @@ feature(`Server API - Health and Discovery
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("the status should be 'ok'", (ctx) => {
+        and("the status should be 'ok'", (ctx) => {
             expect(data.status).toBe(ctx.step.values[0]);
         });
 
-        And("the version should be '1.0'", () => {
+        and("the version should be '1.0'", () => {
             expect(data.version).toBe("1.0");
         });
     });
@@ -62,7 +63,7 @@ feature(`Server API - Health and Discovery
         let response: Response;
         let data: any;
 
-        Given("runs exist for projects 'Project1' and 'Project2'", async () => {
+        given("runs exist for projects 'Project1' and 'Project2'", async () => {
             await fetch(`${baseUrl}/api/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -75,7 +76,7 @@ feature(`Server API - Health and Discovery
             });
         });
 
-        When("requesting the projects endpoint", async () => {
+        when("requesting the projects endpoint", async () => {
             response = await fetch(`${baseUrl}/api/projects`);
             data = await response.json();
         });
@@ -89,7 +90,7 @@ feature(`Server API - Health and Discovery
         let response: Response;
         let data: any;
 
-        Given("runs exist for 'HierarchyProject' in environments 'staging' and 'production'", async () => {
+        given("runs exist for 'HierarchyProject' in environments 'staging' and 'production'", async () => {
             await fetch(`${baseUrl}/api/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -102,7 +103,7 @@ feature(`Server API - Health and Discovery
             });
         });
 
-        When("requesting the hierarchy endpoint", async () => {
+        when("requesting the hierarchy endpoint", async () => {
             response = await fetch(`${baseUrl}/api/hierarchy`);
             data = await response.json();
         });
@@ -124,7 +125,7 @@ feature(`Server API - Run Management
     let baseUrl: string;
 
     background("Running server", (ctx) => {
-        Given("a LiveDoc server is running", async () => {
+        given("a LiveDoc server is running", async () => {
             testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({
                 port: 0,
@@ -151,7 +152,7 @@ feature(`Server API - Run Management
         let response: Response;
         let data: any;
 
-        When("starting a run for project 'TestProject' environment 'local' framework 'vitest'", async () => {
+        when("starting a run for project 'TestProject' environment 'local' framework 'vitest'", async () => {
             response = await fetch(`${baseUrl}/api/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -168,11 +169,11 @@ feature(`Server API - Run Management
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("a runId should be returned", () => {
+        and("a runId should be returned", () => {
             expect(data.runId).toBeDefined();
         });
 
-        And("the websocketUrl should be '/ws'", (ctx) => {
+        and("the websocketUrl should be '/ws'", (ctx) => {
             expect(data.websocketUrl).toBe(ctx.step.values[0]);
         });
     });
@@ -182,7 +183,7 @@ feature(`Server API - Run Management
         let response: Response;
         let data: any;
 
-        Given("a run exists for project 'TestProject'", async () => {
+        given("a run exists for project 'TestProject'", async () => {
             const startResponse = await fetch(`${baseUrl}/api/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -192,7 +193,7 @@ feature(`Server API - Run Management
             runId = result.runId;
         });
 
-        When("requesting the run details", async () => {
+        when("requesting the run details", async () => {
             response = await fetch(`${baseUrl}/api/runs/${runId}`);
             data = await response.json();
         });
@@ -201,11 +202,11 @@ feature(`Server API - Run Management
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("the project should be 'TestProject'", (ctx) => {
+        and("the project should be 'TestProject'", (ctx) => {
             expect(data.project).toBe(ctx.step.values[0]);
         });
 
-        And("the status should be 'running'", (ctx) => {
+        and("the status should be 'running'", (ctx) => {
             expect(data.status).toBe(ctx.step.values[0]);
         });
     });
@@ -213,7 +214,7 @@ feature(`Server API - Run Management
     scenario("Getting a non-existent run returns 404", () => {
         let response: Response;
 
-        When("requesting a run that does not exist", async () => {
+        when("requesting a run that does not exist", async () => {
             response = await fetch(`${baseUrl}/api/runs/non-existent`);
         });
 
@@ -227,7 +228,7 @@ feature(`Server API - Run Management
         let deleteResponse: Response;
         let getResponse: Response;
 
-        Given("a run exists", async () => {
+        given("a run exists", async () => {
             const startResponse = await fetch(`${baseUrl}/api/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -237,7 +238,7 @@ feature(`Server API - Run Management
             runId = result.runId;
         });
 
-        When("deleting the run", async () => {
+        when("deleting the run", async () => {
             deleteResponse = await fetch(`${baseUrl}/api/runs/${runId}`, { method: "DELETE" });
         });
 
@@ -245,7 +246,7 @@ feature(`Server API - Run Management
             expect(deleteResponse.status).toBe(ctx.step.values[0]);
         });
 
-        And("the run should no longer be accessible", async () => {
+        and("the run should no longer be accessible", async () => {
             getResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             expect(getResponse.status).toBe(404);
         });
@@ -262,7 +263,7 @@ feature(`Server API - BDD Data Streaming
     let runId: string;
 
     background("Running server with active run", (ctx) => {
-        Given("a LiveDoc server is running with an active run", async () => {
+        given("a LiveDoc server is running with an active run", async () => {
             testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({
                 port: 0,
@@ -297,7 +298,7 @@ feature(`Server API - BDD Data Streaming
         let response: Response;
         let run: any;
 
-        When("adding a feature 'User Login' to the run", async () => {
+        when("adding a feature 'User Login' to the run", async () => {
             response = await fetch(`${baseUrl}/api/runs/${runId}/features`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -314,7 +315,7 @@ feature(`Server API - BDD Data Streaming
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("the run should contain the feature 'User Login'", async () => {
+        and("the run should contain the feature 'User Login'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             run = await runResponse.json();
             expect(run.features).toHaveLength(1);
@@ -326,7 +327,7 @@ feature(`Server API - BDD Data Streaming
         let response: Response;
         let run: any;
 
-        Given("a feature 'feature-1' exists in the run", async () => {
+        given("a feature 'feature-1' exists in the run", async () => {
             await fetch(`${baseUrl}/api/runs/${runId}/features`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -339,7 +340,7 @@ feature(`Server API - BDD Data Streaming
             });
         });
 
-        When("adding a scenario 'Valid credentials' to the feature", async () => {
+        when("adding a scenario 'Valid credentials' to the feature", async () => {
             response = await fetch(`${baseUrl}/api/runs/${runId}/scenarios`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -357,7 +358,7 @@ feature(`Server API - BDD Data Streaming
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("the feature should contain the scenario 'Valid credentials'", async () => {
+        and("the feature should contain the scenario 'Valid credentials'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             run = await runResponse.json();
             expect(run.features[0].scenarios).toHaveLength(1);
@@ -369,7 +370,7 @@ feature(`Server API - BDD Data Streaming
         let response: Response;
         let run: any;
 
-        Given("a scenario 'scenario-1' exists in the run", async () => {
+        given("a scenario 'scenario-1' exists in the run", async () => {
             await fetch(`${baseUrl}/api/runs/${runId}/features`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -393,7 +394,7 @@ feature(`Server API - BDD Data Streaming
             });
         });
 
-        When("adding a step 'a registered user' with status 'passed' and duration '15'", async () => {
+        when("adding a step 'a registered user' with status 'passed' and duration '15'", async () => {
             response = await fetch(`${baseUrl}/api/runs/${runId}/steps`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -412,7 +413,7 @@ feature(`Server API - BDD Data Streaming
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("the scenario should contain the step 'a registered user'", async () => {
+        and("the scenario should contain the step 'a registered user'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             run = await runResponse.json();
             expect(run.features[0].scenarios[0].steps).toHaveLength(1);
@@ -424,7 +425,7 @@ feature(`Server API - BDD Data Streaming
         let response: Response;
         let run: any;
 
-        When("completing the run with status 'passed' duration '2500' and '10' total '9' passed '1' failed", async () => {
+        when("completing the run with status 'passed' duration '2500' and '10' total '9' passed '1' failed", async () => {
             response = await fetch(`${baseUrl}/api/runs/${runId}/complete`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -447,13 +448,13 @@ feature(`Server API - BDD Data Streaming
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("the run status should be 'passed'", async () => {
+        and("the run status should be 'passed'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             run = await runResponse.json();
             expect(run.status).toBe("passed");
         });
 
-        And("the run summary should show '10' total tests", () => {
+        and("the run summary should show '10' total tests", () => {
             expect(run.summary.total).toBe(10);
         });
     });
@@ -468,7 +469,7 @@ feature(`Server API - Batch Mode
     let baseUrl: string;
 
     background("Running server", (ctx) => {
-        Given("a LiveDoc server is running", async () => {
+        given("a LiveDoc server is running", async () => {
             testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({
                 port: 0,
@@ -496,7 +497,7 @@ feature(`Server API - Batch Mode
         let data: any;
         let run: any;
 
-        When("posting a complete run for project 'BatchProject' with '1' feature", async () => {
+        when("posting a complete run for project 'BatchProject' with '1' feature", async () => {
             response = await fetch(`${baseUrl}/api/runs`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -537,17 +538,17 @@ feature(`Server API - Batch Mode
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        And("a runId should be returned", () => {
+        and("a runId should be returned", () => {
             expect(data.runId).toBeDefined();
         });
 
-        And("the run should be retrievable with project 'BatchProject'", async () => {
+        and("the run should be retrievable with project 'BatchProject'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${data.runId}`);
             run = await runResponse.json();
             expect(run.project).toBe("BatchProject");
         });
 
-        And("the run should have '1' feature", () => {
+        and("the run should have '1' feature", () => {
             expect(run.features).toHaveLength(1);
         });
     });

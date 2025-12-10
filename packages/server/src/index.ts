@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { createServer as createHttpServer, IncomingMessage, ServerResponse, Server as HttpServer } from 'http';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+import { EventEmitter } from 'events';
 import { WebSocketManager } from './websocket.js';
 import { RunStore, runStore } from './store.js';
 import type {
@@ -23,6 +27,11 @@ export { RunStore, runStore } from './store.js';
 // Re-export WebSocketManager
 export { WebSocketManager } from './websocket.js';
 
+function getPortFilePath(): string {
+  const tempDir = os.tmpdir();
+  return path.join(tempDir, 'livedoc-server.json');
+}
+
 // Generate unique IDs
 function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
@@ -34,6 +43,7 @@ export interface ServerOptions {
   dataDir?: string;
   historyLimit?: number;
   open?: boolean;
+  logger?: (message: string) => void;
 }
 
 export interface LiveDocServer {
@@ -51,6 +61,38 @@ export interface LiveDocServer {
   getRunStore(): RunStore;
   /** Check if server is running */
   isRunning(): boolean;
+  /** Subscribe to server events */
+  on(event: string, listener: (...args: any[]) => void): void;
+}
+
+/**
+ * Discover a running LiveDoc server.
+ * Checks the port file and verifies the server is responsive.
+ */
+export async function discoverServer(): Promise<{ url: string; port: number } | null> {
+  const portFile = getPortFilePath();
+  if (!fs.existsSync(portFile)) return null;
+  
+  try {
+    const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
+    
+    // Verify server is actually running
+    const response = await fetch(`http://localhost:${info.port}/api/health`);
+    if (response.ok) {
+      return {
+        url: `http://localhost:${info.port}`,
+        port: info.port
+      };
+    }
+  } catch {
+    // Server not responding or file invalid
+    try {
+      // Optional: clean up stale file if we're sure it's stale
+      // fs.unlinkSync(portFile);
+    } catch {}
+  }
+  
+  return null;
 }
 
 /**
@@ -76,6 +118,16 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // Create Hono app
   const app = new Hono();
   
+  // Logging middleware
+  if (options.logger) {
+    app.use('*', async (c, next) => {
+      const start = Date.now();
+      await next();
+      const ms = Date.now() - start;
+      options.logger?.(`[${c.req.method}] ${c.req.path} - ${c.res.status} (${ms}ms)`);
+    });
+  }
+
   // Enable CORS
   app.use('*', cors({
     origin: '*',
@@ -207,6 +259,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     store.createRun(runId, body.project, body.environment, body.framework, timestamp);
     
+    eventEmitter.emit('run:started', runId);
+
     // Broadcast
     if (wsManager) {
       const event: WebSocketEvent = {
@@ -257,6 +311,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     store.addFeature(runId, feature);
     
+    eventEmitter.emit('run:updated', runId);
+
     if (wsManager) {
       const event: WebSocketEvent = { type: 'feature:added', runId, feature };
       wsManager.broadcast(event, runId, run.project, run.environment);
@@ -297,6 +353,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     store.addScenario(runId, body.featureId, scenario);
     
+    eventEmitter.emit('run:updated', runId);
+
     if (wsManager) {
       const event: WebSocketEvent = { 
         type: 'scenario:started', 
@@ -342,6 +400,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     store.addStep(runId, body.scenarioId, step);
     
+    eventEmitter.emit('run:updated', runId);
+
     if (wsManager) {
       const event: WebSocketEvent = { 
         type: 'step:completed', 
@@ -368,6 +428,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     store.updateScenarioStatus(runId, scenarioId, body.status, body.duration);
     
+    eventEmitter.emit('run:updated', runId);
+
     if (wsManager) {
       const event: WebSocketEvent = { 
         type: 'scenario:completed', 
@@ -394,6 +456,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     store.completeRun(runId, body.status, body.duration, body.summary);
     
+    eventEmitter.emit('run:updated', runId);
+
     if (wsManager) {
       const event: WebSocketEvent = { 
         type: 'run:completed', 
@@ -476,8 +540,12 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   
   let actualPort = port;
   let running = false;
+  const eventEmitter = new EventEmitter();
   
   const server: LiveDocServer = {
+    on(event: string, listener: (...args: any[]) => void): void {
+      eventEmitter.on(event, listener);
+    },
     async listen(listenPort?: number): Promise<number> {
       // Use listenPort if explicitly provided (including 0 for ephemeral port), otherwise use default port
       const targetPort = listenPort !== undefined ? listenPort : port;
@@ -498,6 +566,20 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
             actualPort = targetPort;
           }
           running = true;
+
+          // Write port file for discovery
+          try {
+            const portFile = getPortFilePath();
+            const info = {
+              port: actualPort,
+              pid: process.pid,
+              started: new Date().toISOString()
+            };
+            fs.writeFileSync(portFile, JSON.stringify(info, null, 2));
+          } catch (err) {
+            console.error('Failed to write port file:', err);
+          }
+
           console.log(`🍵 LiveDoc Server running on http://${host}:${actualPort}`);
           resolve(actualPort);
         });
@@ -510,6 +592,20 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     async stop(): Promise<void> {
       running = false;
+      
+      // Delete port file
+      try {
+        const portFile = getPortFilePath();
+        if (fs.existsSync(portFile)) {
+          // Only delete if it's our file (check PID)
+          const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
+          if (info.pid === process.pid) {
+            fs.unlinkSync(portFile);
+          }
+        }
+      } catch (err) {
+        // Ignore errors during cleanup
+      }
       
       // Flush pending saves
       await store.flush();

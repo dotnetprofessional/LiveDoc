@@ -3,7 +3,7 @@ import * as ReactDOM from "react-dom";
 import { StyleSheet, css } from "aphrodite/no-important";
 
 import { CollapsableWithTitle } from "./Collapsable";
-import * as model from "livedoc-mocha/model";
+import type * as model from "@livedoc/vitest";
 
 export class Filter extends React.PureComponent<
     {

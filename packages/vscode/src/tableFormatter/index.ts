@@ -63,9 +63,14 @@ export function activateTableFormatter(context: ExtensionContext) {
         rangeBehavior: DecorationRangeBehavior.ClosedClosed
     });
 
-    var disposable = commands.registerCommand('extension.formatDataTables', () => {
-        formatDataTablesInCurrentDocument();
-    });
+    try {
+        var disposable = commands.registerCommand('extension.formatDataTables', () => {
+            formatDataTablesInCurrentDocument();
+        });
+        context.subscriptions.push(disposable);
+    } catch (e) {
+        console.warn("Command 'extension.formatDataTables' already registered.");
+    }
 
     const disposeOnWillSaveTextDocument = workspace.onWillSaveTextDocument(onWillSaveTextDocument);
     const disposeOnActiveEditorChanged = window.onDidChangeActiveTextEditor(onDidChangeActiveTextEditor);
@@ -76,7 +81,7 @@ export function activateTableFormatter(context: ExtensionContext) {
     });
 
     // Add to a list of disposables which are disposed when this extension is deactivated.
-    context.subscriptions.push(disposable);
+    // context.subscriptions.push(disposable); // Moved inside try-catch
     context.subscriptions.push(disposeOnWillSaveTextDocument);
     context.subscriptions.push(disposeOnActiveEditorChanged);
     context.subscriptions.push(disposeOnDidCloseTextDocument);

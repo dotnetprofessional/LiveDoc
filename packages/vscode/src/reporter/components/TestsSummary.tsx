@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { StyleSheet, css } from "aphrodite/no-important";
-import * as model from "livedoc-mocha/model";
+import type * as model from "@livedoc/vitest";
 
 export class TestsSummary extends React.PureComponent<
     {

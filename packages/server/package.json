@@ -3,24 +3,27 @@
   "version": "1.0.0",
   "description": "LiveDoc Server - Shared server infrastructure for LiveDoc ecosystem",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./schema": {
       "types": "./dist/schema.d.ts",
-      "import": "./dist/schema.js"
+      "import": "./dist/schema.js",
+      "require": "./dist/schema.cjs"
     }
   },
   "bin": {
     "livedoc-server": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "dev": "tsx watch src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
@@ -38,6 +41,7 @@
     "@types/node": "^22.19.2",
     "@types/ws": "^8.18.1",
     "rimraf": "^6.1.2",
+    "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

@@ -7,7 +7,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@livedoc/vitest": "file:..\\..\\packages\\vitest\\livedoc-vitest-1.0.0.tgz"
+    "@livedoc/vitest": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.2",

@@ -89,6 +89,7 @@
     "vitest": ">=1.0.0"
   },
   "dependencies": {
+    "@livedoc/server": "workspace:^",
     "@types/diff": "^7.0.2",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",

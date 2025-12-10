@@ -8,3 +8,4 @@ export { default as SilentReporter } from "./SilentReporter";
 export { LiveDocViewerReporter, LiveDocViewerOptions } from "./LiveDocViewerReporter";
 export { LiveDocReporter, HeaderType } from "./LiveDocReporter";
 export { LiveDocSpec, LiveDocReporterOptions } from "./LiveDocSpec";
+export { default as LiveDocServerReporter } from "./LiveDocServerReporter";

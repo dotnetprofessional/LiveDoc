@@ -4,7 +4,7 @@ import { StyleSheet, css } from "aphrodite/no-important";
 import { Filter } from "./Filter";
 import { SummaryFilter } from "./SummaryFilter";
 import { TestsSummary } from "./TestsSummary";
-import * as model from "livedoc-mocha/model";
+import type * as model from "@livedoc/vitest";
 import { Scenario } from "./Scenario";
 
 interface IReporterState {

@@ -1,8 +1,6 @@
 import * as livedoc from "@livedoc/vitest";
 
 import * as vscode from "vscode";
-import * as fs from 'fs';
-import * as path from 'path';
 
 import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem, BackgroundTreeViewItem } from "./ExecutionResultTreeViewItem";
 import { ScenarioStatus } from "./ScenarioStatus";
@@ -35,34 +33,53 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     private static executionResults: livedoc.ExecutionResults;
     private config: LiveDocConfig;
 
-    constructor(private rootPath: string, private extensionPath: string) {
+    constructor(private rootPath: string, private extensionPath: string, private serverPort: number) {
         this.config = { testSuites: [] };
-
-        let localSuite: IExecutionModel = {
-            name: "production",
-            path: "http://build/bvt/**/*.Spec.js",
-            results: [],
-            executionResults: this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-pa.json"))
-        };
-        this.buildFeatureGroup(localSuite);
-        this.config.testSuites.push(localSuite);
-
-        localSuite = {
-            name: "unit tests",
-            path: "build/test/**/*.Spec.js",
-            results: [],
-            executionResults: this.loadModelFromFile(path.join(this.extensionPath, "src/resources/results-fail.json"))
-        };
-        this.buildFeatureGroup(localSuite);
-        this.config.testSuites.push(localSuite);
+        this.refresh();
     }
 
-    private loadModelFromFile(filePath: string): livedoc.ExecutionResults {
-        const executionResultsText = fs.readFileSync(filePath, 'utf8');
-        return JSON.parse(executionResultsText);
+    private async fetchData() {
+        this.config.testSuites = [];
+        try {
+            const projectName = vscode.workspace.name || "LiveDoc Project";
+            let url = `http://localhost:${this.serverPort}/api/projects/${encodeURIComponent(projectName)}/local/latest`;
+            
+            console.log(`LiveDoc: Fetching data from ${url}`);
+            let response = await fetch(url);
+            console.log(`LiveDoc: Response status: ${response.status}`);
+            
+            // Fallback to "LiveDoc Project" if the workspace name didn't work
+            if (!response.ok && projectName !== "LiveDoc Project") {
+                console.log(`LiveDoc: Fetch failed, trying fallback to LiveDoc Project`);
+                url = `http://localhost:${this.serverPort}/api/projects/LiveDoc%20Project/local/latest`;
+                response = await fetch(url);
+                console.log(`LiveDoc: Fallback response status: ${response.status}`);
+            }
+
+            if (response.ok) {
+                const run = await response.json() as any;
+                console.log(`LiveDoc: Data received, features: ${run.features?.length}`);
+                
+                const suite: IExecutionModel = {
+                    name: projectName,
+                    path: "local",
+                    results: [],
+                    executionResults: {
+                        features: run.features || [],
+                        suites: run.suites || [],
+                        specifications: []
+                    } as any
+                };
+                this.buildFeatureGroup(suite);
+                this.config.testSuites.push(suite);
+            }
+        } catch (e) {
+            console.error("Failed to fetch results", e);
+        }
     }
 
-    public refresh(): void {
+    public async refresh(): Promise<void> {
+        await this.fetchData();
         this._onDidChangeTreeData.fire(undefined);
     }
     public getTreeItem(element: ExecutionResultTreeViewItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -74,6 +91,13 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         let results: vscode.TreeItem[] = [];
         if (!element) {
             results = [];
+            if (this.config.testSuites.length === 0) {
+                const item = new vscode.TreeItem("Waiting for results...");
+                item.description = "Run your tests to see them here";
+                item.iconPath = new vscode.ThemeIcon("loading~spin");
+                results.push(item);
+            }
+
             this.config.testSuites.forEach(suite => {
                 const prefix = suite.path.toLocaleLowerCase().startsWith("http") ? "REMOTE" : "LOCAL";
                 results.push(new ExecutionConfigTreeViewItem(`${prefix}:${suite.name.toLocaleUpperCase()}`, suite.name, vscode.TreeItemCollapsibleState.Collapsed, {
@@ -159,9 +183,20 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
         suite.executionResults.features.forEach(feature => {
             let activeGroup = rootFeatureGroup;
-            const parts = feature.path.split("/");
+            // Use path or filename, and ensure we have a string
+            const featurePath = (feature.path || feature.filename || "").replace(/\\/g, "/");
+            const parts = featurePath.split("/");
+            
+            // Remove the filename from the path parts if it exists
+            // This ensures we group by folder, and the feature itself is the leaf
+            if (parts.length > 0 && (parts[parts.length - 1].endsWith('.ts') || parts[parts.length - 1].endsWith('.js'))) {
+                parts.pop();
+            }
+
             for (let i = 0; i < parts.length; i++) {
                 const part = parts[i];
+                if (!part) continue; // Skip empty parts
+                
                 const foundGroup = activeGroup.children.filter(f => f.title === part);
                 if (foundGroup.length !== 0) { // ie found a group
                     activeGroup = foundGroup[0];
@@ -175,8 +210,37 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
             activeGroup.addFeature(feature);
         });
 
+        // Flatten the tree: remove single-child folders
+        this.flattenTree(rootFeatureGroup);
+
         // transfer the children of the root to the top level as results
         suite.results = rootFeatureGroup.children.map(feature => feature);
+    }
+
+    private flattenTree(group: FeatureGroup) {
+        // Process children first
+        group.children.forEach(child => this.flattenTree(child));
+
+        // Check if we can flatten any children into this group
+        // We can't easily merge up, but we can merge down?
+        // Actually, the standard way is: if a child has only 1 child and no features, merge it up.
+        
+        // Let's try a different approach:
+        // For each child of the current group:
+        // If that child has 1 child group and 0 features, merge them.
+        
+        for (let i = 0; i < group.children.length; i++) {
+            let child = group.children[i];
+            while (child.children.length === 1 && child.features.length === 0) {
+                const grandChild = child.children[0];
+                child.title = `${child.title}/${grandChild.title}`;
+                child.children = grandChild.children;
+                child.features = grandChild.features;
+                // Update parent references if needed (FeatureGroup has a parent prop)
+                child.children.forEach(c => c.parent = child);
+                // Continue loop to check if we can flatten further
+            }
+        }
     }
 
     // Commands

@@ -6,6 +6,6 @@ import { Reporter } from "./components";
 document.addEventListener("DOMContentLoaded", Bootstrap);
 
 function Bootstrap() {
-    const reactRoot = document.querySelector("div");
+    const reactRoot = document.getElementById("root") || document.querySelector("div");
     ReactDOM.render(<Reporter />, reactRoot);
 }

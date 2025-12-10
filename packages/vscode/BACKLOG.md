@@ -30,6 +30,20 @@ A unified server that:
 | **QA**        | Either              | Identify gaps, track flaky tests, regression analysis |
 | **CI/CD**     | Reporter + Server   | Aggregate results across builds, track trends         |
 
+### Development Standards
+
+**UI Development (Viewer & Webviews):**
+- **Framework**: React 19
+- **Styling**: Tailwind CSS 4
+- **Components**: shadcn/ui (do not reinvent primitives)
+- **State**: Zustand
+- **Design**: Professional, polished, and delightful
+
+**Testing:**
+- **Pattern**: BDD (Gherkin) or Specification
+- **Rule**: **Self-Documenting Steps** (embed inputs/outputs in titles)
+- **Reference**: `.github/instructions/spec-files.instructions.md`
+
 ---
 
 ## Architecture Overview
@@ -174,23 +188,23 @@ The goal is to **extract** this server into a shared `@livedoc/server` package t
 Move the existing server code from `packages/viewer/src/server/` and `packages/viewer/src/shared/` to a new `packages/server/` package. The Viewer will then depend on `@livedoc/server`.
 
 **Acceptance Criteria:**
-- [ ] New package `packages/server/` with name `@livedoc/server`
-- [ ] Move files:
+- [x] New package `packages/server/` with name `@livedoc/server`
+- [x] Move files:
   - `viewer/src/server/index.ts` → `server/src/index.ts`
   - `viewer/src/server/store.ts` → `server/src/store.ts`
   - `viewer/src/server/websocket.ts` → `server/src/websocket.ts`
   - `viewer/src/shared/schema.ts` → `server/src/schema.ts`
-- [ ] Export public API:
+- [x] Export public API:
   ```typescript
   export { startServer, ServerOptions } from './index';
   export { RunStore } from './store';
   export { WebSocketManager } from './websocket';
   export * from './schema';  // All types
   ```
-- [ ] Dependencies: `hono`, `ws`, `@hono/node-server`
-- [ ] Viewer updated to import from `@livedoc/server`
-- [ ] All existing Viewer functionality still works
-- [ ] `pnpm test` passes in viewer package
+- [x] Dependencies: `hono`, `ws`, `@hono/node-server`
+- [x] Viewer updated to import from `@livedoc/server`
+- [x] All existing Viewer functionality still works
+- [x] `pnpm test` passes in viewer package
 
 **Package Structure:**
 ```
@@ -220,16 +234,16 @@ packages/server/
 Currently the server starts with `startServer()` which binds to a port. We need an option to create the server without immediately listening, so the extension can control the lifecycle.
 
 **Acceptance Criteria:**
-- [ ] New function: `createServer(options)` returns server instance without listening
-- [ ] Server instance has methods:
+- [x] New function: `createServer(options)` returns server instance without listening
+- [x] Server instance has methods:
   - `listen(port?)` - Start listening
   - `close()` - Stop listening
   - `getPort()` - Get actual port (after listen)
   - `getStore()` - Access the RunStore directly
   - `getWebSocketManager()` - Access WebSocket manager
-- [ ] Can pass custom logger (for VS Code output channel)
-- [ ] Existing `startServer()` still works (calls createServer + listen)
-- [ ] Works in Node.js and VS Code extension host
+- [x] Can pass custom logger (for VS Code output channel)
+- [x] Existing `startServer()` still works (calls createServer + listen)
+- [x] Works in Node.js and VS Code extension host
 
 **Implementation Notes:**
 ```typescript
@@ -261,16 +275,16 @@ export async function startServer(options?: ServerOptions): Promise<LiveDocServe
 After extracting the server, update the Viewer package to import from `@livedoc/server` instead of its local files. This validates the extraction worked correctly.
 
 **Acceptance Criteria:**
-- [ ] Viewer's `package.json` depends on `@livedoc/server: workspace:*`
-- [ ] All imports updated:
+- [x] Viewer's `package.json` depends on `@livedoc/server: workspace:*`
+- [x] All imports updated:
   - `from '../shared/schema'` → `from '@livedoc/server'`
   - `from './store'` → `from '@livedoc/server'`
   - etc.
-- [ ] Viewer's `src/server/` directory removed (or just contains thin wrapper)
-- [ ] `npm run dev` works in viewer
-- [ ] `npm run build` works in viewer
-- [ ] Can still post test results and see them in UI
-- [ ] WebSocket real-time updates still work
+- [x] Viewer's `src/server/` directory removed (or just contains thin wrapper)
+- [x] `npm run dev` works in viewer
+- [x] `npm run build` works in viewer
+- [x] Can still post test results and see them in UI
+- [x] WebSocket real-time updates still work
 
 **Effort:** Small (1 day)
 
@@ -286,14 +300,14 @@ After extracting the server, update the Viewer package to import from `@livedoc/
 When the reporter starts, it needs to know if a server is available. The server should write its port to a discoverable location.
 
 **Acceptance Criteria:**
-- [ ] Health endpoint: `GET /api/health` → `{ status: "ok", port: 19275, version: "1.0" }`
-- [ ] Port file written on startup:
+- [x] Health endpoint: `GET /api/health` → `{ status: "ok", port: 19275, version: "1.0" }`
+- [x] Port file written on startup:
   - Windows: `%TEMP%/livedoc-server.json`
   - Mac/Linux: `/tmp/livedoc-server.json`
-- [ ] File contents: `{ "port": 19275, "pid": 12345, "started": "ISO date" }`
-- [ ] File deleted on clean shutdown
-- [ ] Stale file detection (check if PID is alive)
-- [ ] Helper function: `discoverServer()` → `{ url: string } | null`
+- [x] File contents: `{ "port": 19275, "pid": 12345, "started": "ISO date" }`
+- [x] File deleted on clean shutdown
+- [x] Stale file detection (check if PID is alive)
+- [x] Helper function: `discoverServer()` → `{ url: string } | null`
 
 **Implementation Notes:**
 ```typescript
@@ -404,12 +418,12 @@ This epic connects the server (Epic 1) to the VS Code UI.
 The extension's `activate()` function should start the server. The server runs in the extension host process. It should be resilient to startup failures.
 
 **Acceptance Criteria:**
-- [ ] Server starts in `activate()` function
-- [ ] Server starts asynchronously (don't block activation)
-- [ ] If server fails to start, log error but don't crash extension
-- [ ] Server stops in `deactivate()` function
-- [ ] If server already running (port file exists, same PID), reuse it
-- [ ] Output channel "LiveDoc Server" shows server logs
+- [x] Server starts in `activate()` function
+- [x] Server starts asynchronously (don't block activation)
+- [x] If server fails to start, log error but don't crash extension
+- [x] Server stops in `deactivate()` function
+- [x] If server already running (port file exists, same PID), reuse it
+- [x] Output channel "LiveDoc Server" shows server logs
 
 **Implementation Notes:**
 ```typescript
@@ -452,9 +466,9 @@ export function deactivate() {
 Settings should follow VS Code conventions. They appear in Settings UI under "LiveDoc" section. Changes take effect on next activation (or immediately where possible).
 
 **Acceptance Criteria:**
-- [ ] Settings defined in `package.json` under `contributes.configuration`
-- [ ] Settings UI shows "LiveDoc" category
-- [ ] Settings implemented:
+- [x] Settings defined in `package.json` under `contributes.configuration`
+- [x] Settings UI shows "LiveDoc" category
+- [x] Settings implemented:
 
 |              Setting               |  Type   |  Default  |                Description                |
 | ---------                          | ------  | --------- | -------------                             |
@@ -466,8 +480,8 @@ Settings should follow VS Code conventions. They appear in Settings UI under "Li
 | `livedoc.treeView.autoRefresh`     | boolean | true      | Auto-refresh tree when results change     |
 | `livedoc.treeView.showPassedSteps` | boolean | true      | Show passed steps in tree                 |
 
-- [ ] Settings changes trigger re-configuration where appropriate
-- [ ] Invalid settings show validation errors
+- [x] Settings changes trigger re-configuration where appropriate
+- [x] Invalid settings show validation errors
 
 **Implementation Notes:**
 ```json
@@ -513,14 +527,14 @@ Settings should follow VS Code conventions. They appear in Settings UI under "Li
 Replace the current mock data loading with API calls to the local server. The tree view structure remains the same (Feature → Scenario → Step), but data comes from the REST API.
 
 **Acceptance Criteria:**
-- [ ] Tree view fetches from `GET /api/v1/projects/{id}/features`
-- [ ] Project ID determined from current workspace path
-- [ ] Shows loading state while fetching
-- [ ] Shows empty state if no results
-- [ ] Shows error state if server unavailable
-- [ ] Refresh command (`livedoc.refresh`) re-fetches from API
-- [ ] Pass/fail icons still work (same as before)
-- [ ] Clicking feature/scenario name navigates to source file
+- [x] Tree view fetches from `GET /api/v1/projects/{id}/features`
+- [x] Project ID determined from current workspace path
+- [x] Shows loading state while fetching
+- [x] Shows empty state if no results
+- [x] Shows error state if server unavailable
+- [x] Refresh command (`livedoc.refresh`) re-fetches from API
+- [x] Pass/fail icons still work (same as before)
+- [x] Clicking feature/scenario name navigates to source file
 
 **Implementation Notes:**
 ```typescript
@@ -702,11 +716,11 @@ The server already has streaming API endpoints:
 The reporter uses the existing server API (already working in Viewer). We need to integrate this into the `@livedoc/vitest` reporter.
 
 **Acceptance Criteria:**
-- [ ] Reporter class in `@livedoc/vitest` sends to server
-- [ ] Uses types from `@livedoc/server` (not duplicating)
-- [ ] Uses the EXISTING server API endpoints (not `/api/v1/`, just `/api/`)
-- [ ] Supports `ReporterConfig` options from server schema
-- [ ] Events sent using existing endpoints:
+- [x] Reporter class in `@livedoc/vitest` sends to server
+- [x] Uses types from `@livedoc/server` (not duplicating)
+- [x] Uses the EXISTING server API endpoints (not `/api/v1/`, just `/api/`)
+- [x] Supports `ReporterConfig` options from server schema
+- [x] Events sent using existing endpoints:
   - `POST /api/runs/start` at suite start
   - `POST /api/runs/:runId/features` when feature starts
   - `POST /api/runs/:runId/scenarios` when scenario starts
@@ -832,17 +846,17 @@ class EventQueue {
 If the server isn't running (most common case: VS Code not open), the reporter should silently skip sending events. Tests should complete at the same speed.
 
 **Acceptance Criteria:**
-- [ ] Health check on reporter initialization
-- [ ] If server not available:
+- [x] Health check on reporter initialization
+- [x] If server not available:
   - Log single info message: "[LiveDoc] Server not available, offline mode"
   - Skip all subsequent send attempts (no retry)
   - No errors or warnings
-- [ ] If server becomes unavailable mid-run:
+- [x] If server becomes unavailable mid-run:
   - Log once when first failure detected
   - Skip remaining sends
   - Don't fail the test run
-- [ ] Test execution time should not be affected (async sends)
-- [ ] Works correctly when running tests in CI (no server)
+- [x] Test execution time should not be affected (async sends)
+- [x] Works correctly when running tests in CI (no server)
 
 **Implementation Notes:**
 ```typescript
@@ -956,54 +970,72 @@ For MVP, we'll embed the existing viewer. This is faster and ensures parity with
 
 ---
 
-#### Story E4-S1: Build viewer as embeddable bundle
+#### Story E4-S1: Build viewer for webview consumption
 
 **As a** VS Code extension  
-**I want** the Viewer as a self-contained bundle  
-**So that** I can load it in a webview
+**I want** the Viewer built as bundled JS/CSS assets  
+**So that** I can load it in a VS Code webview
 
 **Context:**
-The Viewer is currently a Vite-based React application. It needs to be bundled into a single HTML file (or small set of assets) that can be loaded into a VS Code webview.
+> **VS Code Limitation:** Webviews are sandboxed iframes that can only render HTML content provided as a string via `webview.html`. There is no native React runtime—all React/JS code must be bundled and loaded via `<script>` tags. This is a platform constraint, not a design choice. All major VS Code extensions with React UIs (GitLens, GitHub PR, etc.) use this approach.
+
+The Viewer is currently a Vite-based React application. For VS Code integration:
+1. **Build step**: Vite compiles the React app into standard `index.js` and `index.css` assets
+2. **Runtime**: The extension generates minimal HTML dynamically, injecting the correct `vscode-resource` URIs
+
+This is the standard, clean approach—no static HTML files or "embedding" required.
 
 **Acceptance Criteria:**
-- [ ] Vite build produces:
-  - `viewer.html` - Single HTML with inline CSS
-  - `viewer.js` - Bundled JavaScript (or inline in HTML)
-  - `assets/` - Images and fonts (if any)
+- [ ] Vite build config (`vite.config.webview.ts`) produces assets in `packages/viewer/dist/webview/`:
+  - `index.js` - Bundled React application
+  - `index.css` - Bundled styles
+- [ ] **UI Stack**: React 19, Tailwind CSS 4, shadcn/ui
+- [ ] **Design**: Polished, professional aesthetic
 - [ ] Bundle size < 500KB (gzipped)
-- [ ] Works in VS Code webview CSP restrictions
-- [ ] Exposes global API for communication:
+- [ ] Build handles VS Code webview CSP requirements (no inline scripts/styles)
+- [ ] Viewer communicates with extension via VS Code messaging API:
   ```typescript
-  window.LiveDocViewer = {
-    loadData: (results: TestResults) => void,
-    navigateTo: (featureId: string, scenarioId?: string) => void,
-    onReady: (callback: () => void) => void
-  };
+  // In viewer (React app)
+  const vscode = acquireVsCodeApi();
+  vscode.postMessage({ type: 'navigate', featureId: '...' });
+  
+  window.addEventListener('message', (event) => {
+    const message = event.data;
+    if (message.type === 'loadData') { /* update state */ }
+  });
   ```
-- [ ] NPM script: `npm run build:embed` produces the bundle
-- [ ] Bundle output in `packages/viewer/dist/embed/`
+- [ ] NPM script: `pnpm run build:webview` produces the bundle
+- [ ] Assets copied to extension's `dist/viewer/` during extension build
 
 **Implementation Notes:**
 ```typescript
-// vite.config.embed.ts
+// packages/viewer/vite.config.webview.ts
 import { defineConfig } from 'vite';
-import { viteSingleFile } from 'vite-plugin-singlefile';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [viteSingleFile()],
+  plugins: [react(), tailwindcss()],
+  root: 'src/client',
   build: {
-    outDir: 'dist/embed',
+    outDir: '../../dist/webview',
+    emptyOutDir: true,
     rollupOptions: {
-      input: 'src/embed.html'
+      output: {
+        // Predictable names for extension to reference
+        entryFileNames: 'index.js',
+        chunkFileNames: '[name].js',
+        assetFileNames: '[name].[ext]'
+      }
     }
   },
   define: {
-    'import.meta.env.VITE_EMBED_MODE': 'true'
+    'import.meta.env.VITE_WEBVIEW_MODE': 'true'
   }
 });
 ```
 
-**Effort:** Large (3-4 days)
+**Effort:** Medium (2 days)
 
 ---
 
@@ -1014,7 +1046,7 @@ export default defineConfig({
 **So that** I can read documentation alongside code
 
 **Context:**
-VS Code webviews are panels that can display web content. The Viewer will render in a webview panel in the editor area.
+VS Code webviews are panels that can display web content. The extension dynamically generates the HTML shell at runtime, injecting the correct resource URIs for the bundled React assets.
 
 **Acceptance Criteria:**
 - [ ] Command: `livedoc.openViewer` opens the viewer
@@ -1027,6 +1059,7 @@ VS Code webviews are panels that can display web content. The Viewer will render
 - [ ] Panel icon: LiveDoc logo
 - [ ] Webview persists when switching tabs (retainContextWhenHidden)
 - [ ] Proper cleanup on panel close
+- [ ] HTML generated dynamically with proper CSP and resource URIs
 
 **Implementation Notes:**
 ```typescript
@@ -1049,7 +1082,7 @@ export class ViewerPanel {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [
-          vscode.Uri.joinPath(extensionUri, 'viewer')
+          vscode.Uri.joinPath(extensionUri, 'dist', 'viewer')
         ]
       }
     );
@@ -1069,6 +1102,76 @@ export class ViewerPanel {
     this.panel.onDidDispose(() => {
       ViewerPanel.instance = undefined;
     });
+    
+    // Handle messages from the webview
+    this.panel.webview.onDidReceiveMessage((message) => {
+      switch (message.type) {
+        case 'ready':
+          // Webview is ready, send initial data
+          this.sendInitialData();
+          break;
+        case 'navigateToSource':
+          // User clicked to navigate to source code
+          this.openSourceFile(message.file, message.line);
+          break;
+      }
+    });
+  }
+  
+  /**
+   * Generates the HTML shell dynamically.
+   * This is the standard pattern for React-based VS Code webviews.
+   */
+  private getHtmlContent(extensionUri: vscode.Uri, serverPort: number): string {
+    const webview = this.panel.webview;
+    
+    // Get URIs for the bundled assets
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extensionUri, 'dist', 'viewer', 'index.js')
+    );
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(extensionUri, 'dist', 'viewer', 'index.css')
+    );
+    
+    // Generate nonce for CSP
+    const nonce = this.getNonce();
+    
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'none';
+    style-src ${webview.cspSource} 'unsafe-inline';
+    script-src 'nonce-${nonce}';
+    connect-src http://localhost:${serverPort} ws://localhost:${serverPort};
+    font-src ${webview.cspSource};
+    img-src ${webview.cspSource} data:;
+  ">
+  <link rel="stylesheet" href="${styleUri}">
+  <title>LiveDoc Viewer</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script nonce="${nonce}">
+    window.livedocConfig = {
+      serverPort: ${serverPort},
+      vscode: acquireVsCodeApi()
+    };
+  </script>
+  <script nonce="${nonce}" src="${scriptUri}"></script>
+</body>
+</html>`;
+  }
+  
+  private getNonce(): string {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+      text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
   }
   
   navigateTo(featureId: string, scenarioId?: string): void {
@@ -1656,10 +1759,10 @@ interface UpdateEvent {
 ```typescript
 feature(`Server API`, () => {
   scenario(`Starting a new test run`, () => {
-    given(`the server is running`, () => { /* setup */ });
-    when(`I POST to /api/runs/start with project and environment`, () => { /* action */ });
-    then(`I receive a runId`, () => { /* assertion */ });
-    and(`a WebSocket event 'run:started' is broadcast`, () => { /* assertion */ });
+    given("the server is running on port '3000'", () => { ... });
+    when("I post a start run request for project 'MyProject'", () => { ... });
+    then("the response status should be '200'", () => { ... });
+    and("the response body should contain runId", () => { ... });
   });
 });
 ```
@@ -1691,17 +1794,17 @@ feature(`Server API`, () => {
 
 ## Suggested Implementation Order
 
-### Phase 1: Server Extraction & Foundation
-1. **E1-S1:** Extract server code into `@livedoc/server` package
-2. **E1-S3:** Update Viewer to use `@livedoc/server`
-3. **E1-S2:** Make server embeddable (library mode)
-4. **E1-S4:** Add health check and port discovery
-5. **E2-S1:** Start server on extension activation
-6. **E2-S2:** VS Code settings for configuration
-7. **E3-S1:** Create LiveDocServerReporter (uses existing API)
-8. **E3-S3:** Graceful fallback when no server
-9. **E2-S3:** Tree view reads from server API
-10. **E2-S4:** Live updates via WebSocket
+### Phase 1: Server Extraction & Foundation (Mostly Complete)
+1. **E1-S1:** Extract server code into `@livedoc/server` package (✅ Done)
+2. **E1-S3:** Update Viewer to use `@livedoc/server` (✅ Done)
+3. **E1-S2:** Make server embeddable (library mode) (✅ Done)
+4. **E1-S4:** Add health check and port discovery (✅ Done)
+5. **E2-S1:** Start server on extension activation (✅ Done)
+6. **E2-S2:** VS Code settings for configuration (✅ Done)
+7. **E3-S1:** Create LiveDocServerReporter (uses existing API) (✅ Done)
+8. **E3-S3:** Graceful fallback when no server (✅ Done)
+9. **E2-S3:** Tree view reads from server API (✅ Done)
+10. **E2-S4:** Live updates via WebSocket (TODO)
 
 **Outcome:** Running tests populates tree view in real-time. Viewer continues working.
 
@@ -1716,7 +1819,7 @@ feature(`Server API`, () => {
 
 ### Phase 3: Non-BDD & Team Features
 16. **E1-S5:** Non-BDD test support (TestSuite/Test)
-17. **E5-S1:** Local vs Remote mode toggle
+17. **E5-S1:** Local vs Remote mode toggle (✅ Done)
 18. **E5-S2:** API key authentication
 19. **E5-S3:** CI reporter mode
 20. **E5-S4:** Persistence layer (already exists in Viewer!)
@@ -1729,6 +1832,14 @@ feature(`Server API`, () => {
 - **E3-S4:** Configuration via vitest.config
 
 ---
+
+## Execution Plan
+
+This backlog serves as the primary execution plan. The "Suggested Implementation Order" section above outlines the sequence of work.
+
+- **Tracking:** Use the checkboxes `[ ]` vs `[x]` in this document to track progress.
+- **Updates:** Update this document as stories are completed.
+- **Next Up:** Focus on **E2-S4 (Live updates via WebSocket)** and **Phase 2 (Viewer Integration)**.
 
 ## Changelog
 

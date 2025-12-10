@@ -78,7 +78,10 @@ export class ExecutionFolderTreeViewItem extends ExecutionResultTreeViewItem {
  */
 export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly tesSuite: TestSuite, public readonly feature: livedoc.Feature, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
-        super("Feature: " + feature.title, collapsibleState, extensionPath);
+        super("Feature: " + feature.title.split('\n')[0], collapsibleState, extensionPath);
+        this.tooltip = new vscode.MarkdownString(feature.title);
+        // Use a simple number as a "badge"
+        this.description = `(${feature.scenarios.length})`;
         this.annotateNode(this.getStatus(feature));
     }
 }
@@ -92,7 +95,8 @@ export class FeatureTreeViewItem extends ExecutionResultTreeViewItem {
  */
 export class ScenarioTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly tesSuite: TestSuite, public readonly scenario: livedoc.Scenario, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
-        super("Scenario: " + scenario.title, collapsibleState, extensionPath, command);
+        super("Scenario: " + scenario.title.split('\n')[0], collapsibleState, extensionPath, command);
+        this.tooltip = new vscode.MarkdownString(scenario.title);
         this.annotateNode(this.getStatus(scenario));
     }
 }
@@ -106,7 +110,7 @@ export class ScenarioTreeViewItem extends ExecutionResultTreeViewItem {
  */
 export class StepTreeViewItem extends ExecutionResultTreeViewItem {
     constructor(public readonly step: livedoc.StepDefinition, public readonly collapsibleState: vscode.TreeItemCollapsibleState, protected readonly extensionPath: string, public readonly command?: vscode.Command) {
-        super(step.displayTitle, collapsibleState, extensionPath, command);
+        super(step.displayTitle || `${step.type} ${step.title}`, collapsibleState, extensionPath, command);
         const stepStatus = step.status as string;
         const scenarioStatus = ScenarioStatus[stepStatus];
         this.annotateNode(scenarioStatus);

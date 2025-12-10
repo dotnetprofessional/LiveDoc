@@ -1,20 +1,15 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import LiveDocServerReporter from './_src/app/reporter/LiveDocServerReporter';
+
+console.log("Vitest config viewer loaded");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Configuration via environment variables:
-// LIVEDOC_VIEWER_SERVER - Server URL (default: http://localhost:3000)
-// LIVEDOC_VIEWER_PROJECT - Project name (default: livedoc-vitest)  
-// LIVEDOC_VIEWER_ENV - Environment name (default: local)
-
-const viewerServer = process.env.LIVEDOC_VIEWER_SERVER || 'http://localhost:3000';
-const viewerProject = process.env.LIVEDOC_VIEWER_PROJECT || 'livedoc-vitest';
-const viewerEnvironment = process.env.LIVEDOC_VIEWER_ENV || 'local';
-
 export default defineConfig({
   test: {
+    name: 'vitest', // Matches VS Code workspace name
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
@@ -22,20 +17,10 @@ export default defineConfig({
     reporters: [
       // Console output with BDD format
       ['./_src/app/reporter/LiveDocSpecReporter.ts', { 
-        detailLevel: 'spec+summary+headers',
-        // Configure viewer reporter as post-reporter
-        postReporters: [{
-          execute: async (results: any, options: any) => {
-            const { LiveDocViewerReporter } = await import('./_src/app/reporter/LiveDocViewerReporter.ts');
-            const reporter = new LiveDocViewerReporter({
-              server: viewerServer,
-              project: viewerProject,
-              environment: viewerEnvironment
-            });
-            await reporter.execute(results, options);
-          }
-        }]
-      }]
+        detailLevel: 'spec+summary+headers'
+      }],
+      // Stream results to server
+      new LiveDocServerReporter()
     ],
     coverage: {
       provider: 'v8',

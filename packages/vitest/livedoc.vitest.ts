@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import LiveDocServerReporter from './_src/app/reporter/LiveDocServerReporter';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +19,7 @@ console.log('🟠 [VITEST CONFIG] Using vitest.config.ts - WITH custom reporter'
 
 export default defineConfig({
   test: {
+    name: 'vitest', // Matches VS Code workspace name
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
@@ -26,7 +28,10 @@ export default defineConfig({
     // The custom reporter can cause "no test suite found" errors in debug mode
     reporters: isVSCodeVitest 
       ? undefined  // Let Vitest use its default
-      : [['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'spec+summary+headers' }]],
+      : [
+          ['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'spec+summary+headers' }],
+          new LiveDocServerReporter()
+        ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

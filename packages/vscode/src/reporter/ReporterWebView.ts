@@ -33,7 +33,6 @@ class ReporterWebView {
         }
 
         this._context = context;
-        this._extensionPathResourceRoot = vscode.Uri.file(this._context.extensionPath).with({ scheme: "vscode-resource" }).toString();
     }
 
     private ensureWebview() {
@@ -49,13 +48,16 @@ class ReporterWebView {
                 preserveFocus: false
             },
             {
-                enableScripts: true
+                enableScripts: true,
+                localResourceRoots: [vscode.Uri.file(this._context.extensionPath)]
             }
         );
 
-        const indexJsPath = vscode.Uri.file(path.join(this._context.extensionPath, "out/reporter/index.js")).with({ scheme: "vscode-resource" });
-        const bootstrapCssPath = vscode.Uri.file(path.join(this._context.extensionPath, "src/resources/css/bootstrap.min.css")).with({ scheme: "vscode-resource" });
-        const faCssPath = vscode.Uri.file(path.join(this._context.extensionPath, "src/resources/fontawesome/css/all.min.css")).with({ scheme: "vscode-resource" });
+        const indexJsPath = this._webviewPanel.webview.asWebviewUri(vscode.Uri.file(path.join(this._context.extensionPath, "out/reporter/index.js")));
+        const bootstrapCssPath = this._webviewPanel.webview.asWebviewUri(vscode.Uri.file(path.join(this._context.extensionPath, "src/resources/css/bootstrap.min.css")));
+        const faCssPath = this._webviewPanel.webview.asWebviewUri(vscode.Uri.file(path.join(this._context.extensionPath, "src/resources/fontawesome/css/all.min.css")));
+        
+        this._extensionPathResourceRoot = this._webviewPanel.webview.asWebviewUri(vscode.Uri.file(this._context.extensionPath)).toString();
 
         this._webviewPanel.webview.html = `
             <!DOCTYPE html>
@@ -66,10 +68,33 @@ class ReporterWebView {
                     <title></title>
                     <link rel="stylesheet" href="${bootstrapCssPath}" />
                     <link rel="stylesheet" href="${faCssPath}" />
+                    <script>
+                        window.onerror = function(message, source, lineno, colno, error) {
+                            const div = document.createElement('div');
+                            div.style.color = 'red';
+                            div.style.padding = '20px';
+                            div.innerText = 'Error: ' + message + '\\nSource: ' + source + ':' + lineno;
+                            document.body.appendChild(div);
+                        };
+                        console.log("WebView loaded");
+                    </script>
                     <script src="${indexJsPath}"></script>
                 </head>
                 <body>
-                    <div></div>
+                    <div id="root"></div>
+                    <script>
+                        // Check if React mounted
+                        setTimeout(() => {
+                            const root = document.getElementById('root');
+                            if (!root || root.children.length === 0) {
+                                const div = document.createElement('div');
+                                div.style.color = 'orange';
+                                div.style.padding = '20px';
+                                div.innerText = 'React app did not mount. Checking scripts...';
+                                document.body.appendChild(div);
+                            }
+                        }, 1000);
+                    </script>
                 </body>
             </html>
         `;
