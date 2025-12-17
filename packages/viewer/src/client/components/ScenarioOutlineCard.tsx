@@ -69,7 +69,7 @@ export function ScenarioOutlineCard({ outline, background }: ScenarioOutlineCard
           <div className="space-y-1">
             {(background.steps || []).map((step, idx) => (
               <div key={idx} className="font-mono text-sm text-text-secondary leading-relaxed">
-                <span className="text-accent font-semibold">{step.type}</span>{' '}
+                <span className={`${getStepTypeClass(step.type)} font-semibold`}>{step.type}</span>{' '}
                 {step.title}
               </div>
             ))}
@@ -83,7 +83,7 @@ export function ScenarioOutlineCard({ outline, background }: ScenarioOutlineCard
           <div className="space-y-1">
             {outline.templateSteps.map((step, idx) => (
               <div key={idx} className="font-mono text-sm text-text-secondary leading-relaxed">
-                <span className="text-accent font-semibold">{step.type}</span>{' '}
+                <span className={`${getStepTypeClass(step.type)} font-semibold`}>{step.type}</span>{' '}
                 <HighlightedStepText text={step.title} values={substitutionValues} />
               </div>
             ))}
@@ -229,7 +229,7 @@ function StepRow({ step }: { step: Step }) {
       <span className={`${iconColor} text-sm`}>{icon}</span>
       <div className="flex-1">
         <div className="font-mono text-sm">
-          <span className="text-accent font-semibold">{step.type}</span>{' '}
+          <span className={`${getStepTypeClass(step.type)} font-semibold`}>{step.type}</span>{' '}
           <span className="text-text">{step.title}</span>
           {step.duration && (
             <span className="text-text-muted text-xs ml-2">{formatDuration(step.duration)}</span>
@@ -243,6 +243,23 @@ function StepRow({ step }: { step: Step }) {
       </div>
     </div>
   );
+}
+
+function getStepTypeClass(type: string): string {
+  switch (String(type || '').trim().toLowerCase()) {
+    case 'given':
+      return 'text-given';
+    case 'when':
+      return 'text-when';
+    case 'then':
+      return 'text-then';
+    case 'and':
+      return 'text-and';
+    case 'but':
+      return 'text-but';
+    default:
+      return 'text-text-muted';
+  }
 }
 
 // Failed example detail section

@@ -1,62 +1,83 @@
+<div align="center">
+
 # @livedoc/vitest
 
-BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax.
+### Turn your tests into living documentation
 
-## Overview
+[![npm version](https://img.shields.io/npm/v/@livedoc/vitest.svg)](https://www.npmjs.com/package/@livedoc/vitest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-@livedoc/vitest brings Behavior-Driven Development (BDD) to Vitest with full Gherkin syntax support including:
-- Feature / Scenario / Given / When / Then / And / But
-- Scenario Outlines with Examples
-- Background steps
-- Tags and filtering
-- Data tables and doc strings
-- Beautiful LiveDoc reporting
+**Write tests in Gherkin. Get documentation that never goes stale.**
 
-This is a modern rewrite of livedoc-mocha leveraging Vitest's architecture and native TypeScript support.
+</div>
 
-## Installation
+---
 
-```bash
-npm install --save-dev @livedoc/vitest vitest
+## What is LiveDoc?
+
+LiveDoc brings Behavior-Driven Development to Vitest with full Gherkin syntax:
+
+- **Feature / Scenario / Given / When / Then** — the classic BDD pattern
+- **Specification / Rule** — for technical and domain-level specs
+- **Scenario Outlines** — data-driven tests with Examples tables
+- **Tags & Filtering** — run `@smoke` tests, skip `@slow` ones
+- **Beautiful Reports** — human-readable output, JSON export, live visualization
+
+```ts
+feature("Shopping Cart", () => {
+  scenario("Adding items increases the total", () => {
+    given("an empty cart", () => { /* ... */ });
+    when("the user adds a '$25' book", () => { /* ... */ });
+    then("the cart total should be '$25'", () => { /* ... */ });
+  });
+});
 ```
+
+---
 
 ## Quick Start
 
-### 1. Create a test file
+### Install
 
-```typescript
+```bash
+npm install --save-dev vitest @livedoc/vitest
+```
+
+### Create a spec
+
+```ts
 // tests/calculator.Spec.ts
-import { feature, scenario, Given, When, Then } from '@livedoc/vitest';
+import { feature, scenario, given, when, Then as then, and } from '@livedoc/vitest';
 
-feature("Calculator", (ctx) => {
-  scenario("Adding two numbers", (ctx) => {
+feature("Calculator", () => {
+  scenario("Adding two numbers", () => {
     let result = 0;
 
-    Given("I have entered '50' into the calculator", (ctx) => {
-      result = ctx.step?.values[0] || 0;
+    given("I have entered '50' into the calculator", (ctx) => {
+      result = ctx.step?.values?.[0] ?? 0;
     });
 
-    And("I have entered '70' into the calculator", (ctx) => {
-      result += ctx.step?.values[0] || 0;
+    and("I have entered '70' into the calculator", (ctx) => {
+      result += ctx.step?.values?.[0] ?? 0;
     });
 
-    When("I press add", (ctx) => {
-      // Addition already happened in the Given steps
+    when("I press add", () => {
+      // Addition already happened above
     });
 
-    Then("the result should be '120'", (ctx) => {
-      const expected = ctx.step?.values[0];
-      if (result !== expected) {
-        throw new Error(`Expected ${expected} but got ${result}`);
-      }
+    then("the result should be '120'", (ctx) => {
+      const expected = ctx.step?.values?.[0] ?? 0;
+      expect(result).toBe(expected);
     });
   });
 });
 ```
 
-### 2. Configure Vitest
+> **Why `Then as then`?** ES modules treat `then` as a thenable indicator. We export `Then` (uppercase) and you alias it. See [Setup: Imports](./docs/setup-imports.md).
 
-```typescript
+### Configure Vitest
+
+```ts
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
 import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
@@ -66,259 +87,143 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['**/*.Spec.ts'],
-    reporters: [new LiveDocSpecReporter()]
-  }
+    reporters: [new LiveDocSpecReporter()],
+  },
 });
 ```
 
-### 3. Run tests
+### Run
 
 ```bash
 npx vitest run
 ```
 
-Output:
 ```
+Feature: Calculator
+
+  Scenario: Adding two numbers
+    ✓ given I have entered '50' into the calculator
+    ✓ and I have entered '70' into the calculator
+    ✓ when I press add
+    ✓ then the result should be '120'
+
+──────────────────────────────────────────────────────
 LiveDoc Test Summary
-────────────────────────────────────────────────────────────────
-✓ 4 steps passed
-  1 features, 1 scenarios, 4 total steps
+  ✓ 4 steps passed
+  1 feature, 1 scenario, 4 steps
 ```
 
-## Features
+---
 
-### Context Access Pattern
+## 📚 Documentation
 
-LiveDoc-Vitest uses a context parameter (ctx) to access test metadata:
+| Guide | Description |
+|-------|-------------|
+| **[Getting Started](./docs/getting-started.md)** | Install and run your first spec in 5 minutes |
+| [Setup: Imports](./docs/setup-imports.md) | Explicit imports with `Then as then` |
+| [Setup: Globals](./docs/setup-globals.md) | Zero-import specs via setup file |
+| [AI Setup Guide](./docs/ai-setup-guide.md) | Copy-paste configs for AI assistants |
 
-```typescript
-feature("Shopping Cart", (ctx) => {
-  scenario("Add item to cart", (ctx) => {
-    let cart: any;
-    let product: any;
+### Writing Specs
 
-    Given("an empty cart", (ctx) => {
-      cart = { items: [] };
-      // ctx.feature provides feature metadata
-      console.log(ctx.feature?.title);
-    });
+| Guide | Description |
+|-------|-------------|
+| [BDD Authoring](./docs/authoring-bdd.md) | Features, scenarios, backgrounds, outlines |
+| [Specification Authoring](./docs/authoring-specification.md) | Rules for technical/domain specs |
+| [Data Extraction](./docs/data-extraction.md) | Tables, doc strings, quoted values |
+| [Tags & Filtering](./docs/tags-and-filtering.md) | Run subsets with `@smoke`, `@slow`, etc. |
 
-    And("a product in stock", (ctx) => {
-      product = { id: 1, name: "Book", price: 10 };
-      // ctx.step provides step metadata
-      console.log(ctx.step?.title);
-    });
+### Output & Operations
 
-    When("the user adds the product", (ctx) => {
-      cart.items.push(product);
-    });
+| Guide | Description |
+|-------|-------------|
+| [Reporting](./docs/reporting.md) | CLI output, JSON export, Viewer integration |
+| [Troubleshooting](./docs/troubleshooting.md) | Common issues and fixes |
 
-    Then("the cart contains the product", (ctx) => {
-      if (cart.items.length !== 1) {
-        throw new Error("Cart should have 1 item");
-      }
-    });
+### Contributing
+
+| Guide | Description |
+|-------|-------------|
+| [Architecture](./docs/architecture.md) | How LiveDoc works under the hood |
+| [Contributing](./docs/contributing.md) | Dev setup and PR guidelines |
+
+---
+
+## Two Authoring Patterns
+
+### BDD (for user stories)
+
+```ts
+feature("User Authentication @auth", () => {
+  background("User exists", () => {
+    given("a registered user", () => { /* ... */ });
+  });
+
+  scenario("Successful login @smoke", () => {
+    when("they enter valid credentials", () => { /* ... */ });
+    then("they see the dashboard", () => { /* ... */ });
   });
 });
 ```
 
-**Note:** `ctx` provides metadata about the feature/scenario/step. Store your test data in local variables (closures).
+### Specification (for domain rules)
 
-### Scenario Outlines with Examples
+```ts
+specification("Password Validation", () => {
+  rule("Password must be at least 8 characters", () => {
+    expect(isValid("short")).toBe(false);
+    expect(isValid("longenough")).toBe(true);
+  });
 
-```typescript
-scenarioOutline(`Add two numbers
+  ruleOutline(`Complexity requirements
     Examples:
-    | num1 | num2 | result |
-    |    5 |    3 |      8 |
-    |   10 |    2 |     12 |
-    |    0 |    0 |      0 |
-`, (ctx) => {
-  let sum = 0;
-
-  Given("I have <num1>", (ctx) => {
-    sum = ctx.example?.num1 || 0;
-  });
-
-  When("I add <num2>", (ctx) => {
-    sum += ctx.example?.num2 || 0;
-  });
-
-  Then("the result should be <result>", (ctx) => {
-    const expected = ctx.example?.result;
-    if (sum !== expected) {
-      throw new Error(`Expected ${expected} but got ${sum}`);
-    }
+    | password   | valid |
+    | abc123     | false |
+    | Abc123!@#  | true  |
+  `, (ctx) => {
+    expect(isValid(ctx.example.password)).toBe(ctx.example.valid === 'true');
   });
 });
 ```
 
-### Background Steps
+---
 
-```typescript
-feature("Bank Account", (ctx) => {
-  let account: any;
+## Related Packages
 
-  background("User has an account", (ctx) => {
-    Given("a user with an account balance of $1000", (ctx) => {
-      account = { balance: 1000 };
-    });
+| Package | Description |
+|---------|-------------|
+| [@livedoc/viewer](../viewer/README.md) | Web-based test results visualization |
+| [@livedoc/vscode](../vscode/README.md) | VS Code extension with snippets |
+| [@livedoc/server](../server/README.md) | Results server for live updates |
 
-    ctx.afterBackground(() => {
-      // Cleanup after each scenario
-      account = null;
-    });
-  });
-
-  scenario("Withdraw money", (ctx) => {
-    When("they withdraw $100", (ctx) => {
-      account.balance -= 100;
-    });
-
-    Then("the balance is $900", (ctx) => {
-      if (account.balance !== 900) {
-        throw new Error(`Expected 900 but got ${account.balance}`);
-      }
-    });
-  });
-
-  scenario("Deposit money", (ctx) => {
-    When("they deposit $500", (ctx) => {
-      account.balance += 500;
-    });
-
-    Then("the balance is $1500", (ctx) => {
-      if (account.balance !== 1500) {
-        throw new Error(`Expected 1500 but got ${account.balance}`);
-      }
-    });
-  });
-});
-```
-
-### Data Tables
-
-```typescript
-Given(`a list of users
-    | name  | email             | age |
-    | Alice | alice@example.com |  30 |
-    | Bob   | bob@example.com   |  25 |
-`, (ctx) => {
-  const users = ctx.step?.table;
-  // users is an array of objects
-  console.log(users[0].name);  // "Alice"
-  console.log(users[1].email); // "bob@example.com"
-});
-
-// Two-column tables convert to entity
-Given(`user details
-    | name  | John              |
-    | email | john@example.com  |
-    | age   | 35                |
-`, (ctx) => {
-  const user = ctx.step?.tableAsEntity;
-  console.log(user.name);  // "John"
-  console.log(user.email); // "john@example.com"
-});
-```
-
-### Doc Strings
-
-```typescript
-Given(`a JSON payload
-    """
-    {
-      "name": "John",
-      "email": "john@example.com"
-    }
-    """
-`, (ctx) => {
-  const payload = ctx.step?.docStringAsEntity;
-  console.log(payload.name);  // "John"
-  console.log(payload.email); // "john@example.com"
-  
-  // Or get raw string
-  const raw = ctx.step?.docString;
-});
-```
-
-### Tags and Filtering
-
-```typescript
-feature("API Tests @api @integration", (ctx) => {
-  scenario("Create user @smoke", (ctx) => {
-    // Test implementation
-  });
-
-  scenario("Update user @slow", (ctx) => {
-    // Test implementation
-  });
-});
-
-// Configure filtering
-import { livedoc } from "@livedoc/vitest";
-
-livedoc.options.filters.include = ["@smoke"];
-livedoc.options.filters.exclude = ["@slow"];
-```
-
-## Context Properties
-
-The `ctx` parameter provides access to:
-
-- **`ctx.feature`** - Feature metadata
-  - `title`: Feature title
-  - `description`: Feature description
-  - `tags`: Array of tags
-  - `filename`: Source filename
-
-- **`ctx.scenario`** - Scenario metadata
-  - `title`: Scenario title
-  - `description`: Scenario description
-  - `tags`: Array of tags
-
-- **`ctx.step`** - Current step metadata
-  - `title`: Step title
-  - `values`: Quoted values from title (e.g., "value" → ["value"])
-  - `table`: Data table as array of objects
-  - `tableAsEntity`: Two-column table as object
-  - `tableAsSingleList`: Single-column table as array
-  - `docString`: Raw doc string content
-  - `docStringAsEntity`: Parsed JSON doc string
-
-- **`ctx.example`** - Example row data (in scenario outlines)
-  - Access columns by name (e.g., `ctx.example?.columnName`)
-
-- **`ctx.background`** - Background metadata (in background blocks)
-  - `title`: Background title
-
-- **`ctx.afterBackground(fn)`** - Register cleanup function (in background blocks)
+---
 
 ## Migration from livedoc-mocha
+
+> ⚠️ **livedoc-mocha is deprecated.** This Vitest-based package is the active, maintained version.
+>
+> The legacy Mocha implementation remains available for reference at [`_archive/livedoc-mocha`](../../_archive/livedoc-mocha).
 
 See [MIGRATION.md](./MIGRATION.md) for a comprehensive migration guide.
 
 Key changes:
-- Step functions are capitalized: `Given`, `When`, `Then`, `And`, `But`
-- Context accessed via `ctx` parameter instead of global variables
-- Add `(ctx)` parameter to all feature/scenario/step functions
-- Configure via `vitest.config.ts` instead of mocha.opts
+- Step keywords are **lowercase**: `given`, `when`, `then`, `and`, `but`
+- Use `Then as then` in imports (or use globals mode)
+- Context accessed via `ctx` parameter
+- Configure via `vitest.config.ts`
 
-## Documentation
-
-- [Migration Guide](./MIGRATION.md) - Migrating from livedoc-mocha
-- [Architecture](./_docs/architecture.md) - Internal architecture details
-- [API Changes](./_docs/api-changes.md) - Detailed API differences
-
-## Related Packages
-
-- [@livedoc/vscode](../vscode/README.md) - VS Code extension with snippets and formatting
-- [@livedoc/viewer](../viewer/README.md) - Web-based test results viewer
+---
 
 ## License
 
 MIT
 
-## Credits
+---
 
-Created by Garry McGlennon. This is a modernized version of livedoc-mocha rebuilt for Vitest.
+<div align="center">
+
+Created by Garry McGlennon
+
+**[📖 Read the Docs](./docs/index.md)** · **[🐛 Report a Bug](https://github.com/user/livedoc/issues)** · **[💡 Request a Feature](https://github.com/user/livedoc/issues)**
+
+</div>

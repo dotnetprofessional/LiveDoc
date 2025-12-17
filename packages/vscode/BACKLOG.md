@@ -1804,16 +1804,16 @@ feature(`Server API`, () => {
 7. **E3-S1:** Create LiveDocServerReporter (uses existing API) (✅ Done)
 8. **E3-S3:** Graceful fallback when no server (✅ Done)
 9. **E2-S3:** Tree view reads from server API (✅ Done)
-10. **E2-S4:** Live updates via WebSocket (TODO)
+10. **E2-S4:** Live updates via WebSocket (✅ Done)
 
 **Outcome:** Running tests populates tree view in real-time. Viewer continues working.
 
 ### Phase 2: Viewer Integration
-11. **E4-S1:** Build viewer as embeddable bundle
-12. **E4-S2:** Webview panel integration
-13. **E4-S3:** View button in tree
-14. **E4-S4:** Replace mode behavior
-15. **E4-S5:** Deep linking from tree to viewer
+11. **E4-S1:** Build viewer as embeddable bundle (✅ Done)
+12. **E4-S2:** Webview panel integration (✅ Done)
+13. **E4-S3:** View button in tree (✅ Done)
+14. **E4-S4:** Replace mode behavior (✅ Done)
+15. **E4-S5:** Deep linking from tree to viewer (✅ Done)
 
 **Outcome:** Full documentation viewer inside VS Code
 
@@ -1839,7 +1839,7 @@ This backlog serves as the primary execution plan. The "Suggested Implementation
 
 - **Tracking:** Use the checkboxes `[ ]` vs `[x]` in this document to track progress.
 - **Updates:** Update this document as stories are completed.
-- **Next Up:** Focus on **E2-S4 (Live updates via WebSocket)** and **Phase 2 (Viewer Integration)**.
+- **Next Up:** Focus on **Phase 3 (Non-BDD & Team Features)**.
 
 ## Changelog
 

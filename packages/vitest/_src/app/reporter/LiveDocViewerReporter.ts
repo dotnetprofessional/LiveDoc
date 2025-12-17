@@ -156,7 +156,7 @@ export class LiveDocViewerReporter implements IPostReporter {
             server: options?.server || 'http://localhost:3000',
             project: options?.project || 'default',
             environment: options?.environment || 'local',
-            timeout: options?.timeout || 5000,
+            timeout: options?.timeout || 10000,
             silent: options?.silent ?? true
         };
     }
@@ -171,6 +171,12 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
         if (rawOptions?.['viewer-environment']) {
             this.options.environment = rawOptions['viewer-environment'];
+        }
+        if (rawOptions?.['viewer-timeout'] !== undefined) {
+            const parsed = Number(rawOptions['viewer-timeout']);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                this.options.timeout = parsed;
+            }
         }
 
         try {

@@ -14,6 +14,7 @@
     "build": "npm run build:client && npm run build:server",
     "build:server": "tsc -p tsconfig.server.json",
     "build:client": "vite build",
+    "build:webview": "vite build --config vite.config.webview.ts",
     "start": "node dist/server/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json"
   },

@@ -583,7 +583,7 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
             // Each example is a child describe with example values
             // Use "Example N:" prefix to distinguish from regular scenarios
             // Display the example values as a comma-separated list
-            const exampleValues = Object.values(example.example || {}).join(', ');
+            const exampleValues = Object.entries(example.example || {}).map(([k, v]) => `${k}=${v}`).join(', ');
             const exampleName = `Example ${example.sequence}: ${exampleValues}`;
 
             vitestDescribe(exampleName, () => {
@@ -1308,9 +1308,14 @@ export class LiveDoc {
      * 
      * @param feature Feature code as string (Gherkin-style test code)
      * @param _livedocOptions LiveDoc configuration options (currently unused, for API compatibility)
+     * @param testTimeoutMs Per-test timeout for dynamic execution (defaults to 10 seconds)
      * @returns Promise resolving to execution results
      */
-    public static async executeDynamicTestAsync(feature: string, _livedocOptions?: LiveDocOptions): Promise<model.ExecutionResults> {
+    public static async executeDynamicTestAsync(
+        feature: string,
+        _livedocOptions?: LiveDocOptions,
+        testTimeoutMs: number = 10_000
+    ): Promise<model.ExecutionResults> {
         const fs = await import('fs');
         const crypto = await import('crypto');
         const path = await import('path');
@@ -1460,6 +1465,7 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                 run: true,
                 include: [absoluteFilename.replace(/\\/g, '/')],  // Override include pattern
                 setupFiles: [],  // Disable setup files - temp file has its own imports
+                testTimeout: testTimeoutMs,
             });
 
             if (!vitest) {

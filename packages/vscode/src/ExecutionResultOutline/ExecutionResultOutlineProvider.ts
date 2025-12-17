@@ -1,11 +1,10 @@
 import * as livedoc from "@livedoc/vitest";
+import { WebSocketEvent } from "@livedoc/server";
 
 import * as vscode from "vscode";
 
 import { ExecutionResultTreeViewItem, ExecutionConfigTreeViewItem, ExecutionFolderTreeViewItem, FeatureTreeViewItem, ScenarioTreeViewItem, StepTreeViewItem, BackgroundTreeViewItem } from "./ExecutionResultTreeViewItem";
 import { ScenarioStatus } from "./ScenarioStatus";
-
-import { reporterWebview } from "../reporter/ReporterWebView";
 
 /**
  * Configuration for a test suite execution
@@ -32,37 +31,94 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     readonly onDidChangeTreeData: vscode.Event<ExecutionResultTreeViewItem | undefined> = this._onDidChangeTreeData.event;
     private static executionResults: livedoc.ExecutionResults;
     private config: LiveDocConfig;
+    private isRunning = false;
 
     constructor(private rootPath: string, private extensionPath: string, private serverPort: number) {
         this.config = { testSuites: [] };
         this.refresh();
     }
 
+    public handleEvent(event: WebSocketEvent) {
+        console.log(`LiveDoc: WebSocket event received: ${event.type}`);
+        switch (event.type) {
+            case 'run:started':
+                this.isRunning = true;
+                this.refresh();
+                break;
+            case 'run:completed':
+                this.isRunning = false;
+                this.refresh();
+                break;
+            case 'feature:updated':
+            case 'scenario:completed':
+                // Refresh to get latest state
+                this.refresh();
+                break;
+        }
+    }
+
     private async fetchData() {
         this.config.testSuites = [];
         try {
-            const projectName = vscode.workspace.name || "LiveDoc Project";
-            let url = `http://localhost:${this.serverPort}/api/projects/${encodeURIComponent(projectName)}/local/latest`;
-            
-            console.log(`LiveDoc: Fetching data from ${url}`);
-            let response = await fetch(url);
-            console.log(`LiveDoc: Response status: ${response.status}`);
-            
-            // Fallback to "LiveDoc Project" if the workspace name didn't work
-            if (!response.ok && projectName !== "LiveDoc Project") {
+            const defaultProject = vscode.workspace.name || "LiveDoc Project";
+            const defaultEnvironment = "local";
+
+            const fetchLatestRun = async (project: string, environment: string) => {
+                const url = `http://localhost:${this.serverPort}/api/projects/${encodeURIComponent(project)}/${encodeURIComponent(environment)}/latest`;
+                console.log(`LiveDoc: Fetching data from ${url}`);
+                const response = await fetch(url);
+                console.log(`LiveDoc: Response status: ${response.status}`);
+                if (!response.ok) return null;
+                const run = await response.json() as any;
+                return { run, project, environment };
+            };
+
+            // 1) Try the workspace project name first
+            let selected = await fetchLatestRun(defaultProject, defaultEnvironment);
+
+            // 2) Back-compat fallback
+            if (!selected && defaultProject !== "LiveDoc Project") {
                 console.log(`LiveDoc: Fetch failed, trying fallback to LiveDoc Project`);
-                url = `http://localhost:${this.serverPort}/api/projects/LiveDoc%20Project/local/latest`;
-                response = await fetch(url);
-                console.log(`LiveDoc: Fallback response status: ${response.status}`);
+                selected = await fetchLatestRun("LiveDoc Project", defaultEnvironment);
             }
 
-            if (response.ok) {
-                const run = await response.json() as any;
+            // 3) Auto-discover from /api/projects (fixes project/env mismatch)
+            if (!selected) {
+                try {
+                    const listUrl = `http://localhost:${this.serverPort}/api/projects`;
+                    console.log(`LiveDoc: Discovering projects from ${listUrl}`);
+                    const listResponse = await fetch(listUrl);
+                    if (listResponse.ok) {
+                        const body = await listResponse.json() as any;
+                        const projects = Array.isArray(body?.projects) ? body.projects : [];
+                        const best = projects
+                            .filter((p: any) => typeof p?.project === 'string' && typeof p?.environment === 'string')
+                            .sort((a: any, b: any) => {
+                                const at = Date.parse(a?.latestRun?.timestamp ?? '') || 0;
+                                const bt = Date.parse(b?.latestRun?.timestamp ?? '') || 0;
+                                return bt - at;
+                            })[0];
+
+                        if (best) {
+                            console.log(`LiveDoc: Auto-selected project '${best.project}' env '${best.environment}'`);
+                            selected = await fetchLatestRun(best.project, best.environment);
+                        }
+                    }
+                } catch (e) {
+                    console.error("LiveDoc: Failed to discover projects", e);
+                }
+            }
+
+            if (selected) {
+                const { run, project, environment } = selected;
                 console.log(`LiveDoc: Data received, features: ${run.features?.length}`);
-                
+                if (run.features?.length > 0) {
+                    console.log(`LiveDoc: First feature: ${run.features[0].title}, scenarios: ${run.features[0].scenarios?.length}`);
+                }
+
                 const suite: IExecutionModel = {
-                    name: projectName,
-                    path: "local",
+                    name: project,
+                    path: environment,
                     results: [],
                     executionResults: {
                         features: run.features || [],
@@ -91,19 +147,25 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         let results: vscode.TreeItem[] = [];
         if (!element) {
             results = [];
-            if (this.config.testSuites.length === 0) {
+            
+            if (this.isRunning) {
+                const item = new vscode.TreeItem("Tests Running...");
+                item.iconPath = new vscode.ThemeIcon("loading~spin");
+                results.push(item);
+            }
+
+            if (this.config.testSuites.length === 0 && !this.isRunning) {
                 const item = new vscode.TreeItem("Waiting for results...");
                 item.description = "Run your tests to see them here";
-                item.iconPath = new vscode.ThemeIcon("loading~spin");
                 results.push(item);
             }
 
             this.config.testSuites.forEach(suite => {
                 const prefix = suite.path.toLocaleLowerCase().startsWith("http") ? "REMOTE" : "LOCAL";
                 results.push(new ExecutionConfigTreeViewItem(`${prefix}:${suite.name.toLocaleUpperCase()}`, suite.name, vscode.TreeItemCollapsibleState.Collapsed, {
-                    command: 'livedoc.navigateToSummaryInReporterCommand',
+                    command: 'livedoc.openViewer',
                     title: '',
-                    arguments: [suite]
+                    arguments: []
                 }));
             });
         }
@@ -123,18 +185,22 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     break;
                 case "ExecutionFolderTreeViewItem":
                     const groupView = (element as ExecutionFolderTreeViewItem);
-                    if (groupView.group.children.length === 0) {
-                        results = groupView.group.features.map(feature => {
-                            return new FeatureTreeViewItem(groupView.tesSuite, feature, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
-                        });
-                    } else {
-                        results = groupView.group.children.map(group => {
-                            return new ExecutionFolderTreeViewItem(groupView.tesSuite, group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath);
-                        });
-                    }
+                    // A group can contain both sub-folders and features; show both.
+                    results = [];
+                    results.push(
+                        ...groupView.group.children.map(group =>
+                            new ExecutionFolderTreeViewItem(groupView.tesSuite, group, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath)
+                        )
+                    );
+                    results.push(
+                        ...groupView.group.features.map(feature =>
+                            new FeatureTreeViewItem(groupView.tesSuite, feature, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath)
+                        )
+                    );
                     break;
                 case "FeatureTreeViewItem":
                     const featureView = (element as FeatureTreeViewItem);
+                    console.log(`LiveDoc: Getting children for feature ${featureView.feature.title}, scenarios: ${featureView.feature.scenarios?.length}`);
                     results = this.getTreeViewItemsForNode(featureView) as vscode.TreeItem[];
                     if (featureView.feature.background) {
                         // Add the background to the feature
@@ -143,18 +209,18 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     break;
                 case "BackgroundTreeViewItem":
                     const backgroundView = (element as BackgroundTreeViewItem);
-                    results = backgroundView.background.steps.map(step => {
+                    results = (backgroundView.background.steps || []).map(step => {
                         // create the display title (can't work out how to get VSCode to not truncate leading spaces)
-                        const indent = ["and", "but"].indexOf(step.type) >= 0 ? String.fromCharCode(160).repeat(4) : "";
+                        const indent = ["and", "but"].includes(String((step as any).type).toLowerCase()) ? String.fromCharCode(160).repeat(4) : "";
                         step.displayTitle = `${indent}${step.type} ${step.title}`
                         return new StepTreeViewItem(step, vscode.TreeItemCollapsibleState.None, this.extensionPath);
                     });
                     break;
                 case "ScenarioTreeViewItem":
                     const scenarioView = (element as ScenarioTreeViewItem);
-                    results = scenarioView.scenario.steps.map(step => {
+                    results = (scenarioView.scenario.steps || []).map(step => {
                         // create the display title (can't work out how to get VSCode to not truncate leading spaces)
-                        const indent = ["and", "but"].indexOf(step.type) >= 0 ? String.fromCharCode(160).repeat(4) : "";
+                        const indent = ["and", "but"].includes(String((step as any).type).toLowerCase()) ? String.fromCharCode(160).repeat(4) : "";
                         step.displayTitle = `${indent}${step.type} ${step.title}`
                         return new StepTreeViewItem(step, vscode.TreeItemCollapsibleState.None, this.extensionPath);
                     });
@@ -167,13 +233,24 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         return results;
     }
     private getTreeViewItemsForNode(featureView: FeatureTreeViewItem): vscode.ProviderResult<ExecutionResultTreeViewItem[]> {
-        let children: livedoc.Scenario[] = [];
-        const results = featureView.feature.scenarios.map(scenario => {
-            return new ScenarioTreeViewItem(featureView.tesSuite, scenario, vscode.TreeItemCollapsibleState.Collapsed, this.extensionPath, {
-                command: 'livedoc.navigateToScenarioInReporter',
-                title: '',
-                arguments: [featureView.tesSuite, scenario]
-            });
+        const results = (featureView.feature.scenarios || []).map(scenario => {
+            const scenarioAny = scenario as any;
+            const scenarioId = Array.isArray(scenarioAny?.examples) && scenarioAny.examples.length > 0
+                ? String(scenarioAny.examples[0].id)
+                : String(scenarioAny.id);
+
+            return new ScenarioTreeViewItem(
+                featureView.tesSuite,
+                featureView.feature,
+                scenario,
+                vscode.TreeItemCollapsibleState.Collapsed,
+                this.extensionPath,
+                {
+                    command: 'livedoc.viewItem',
+                    title: '',
+                    arguments: [{ featureId: featureView.feature.id, scenarioId }]
+                }
+            );
         });
         return results;
     }
@@ -243,20 +320,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         }
     }
 
-    // Commands
-    public navigateToScenarioInReporterCommand(testSuite: IExecutionModel, scenario: livedoc.Scenario | livedoc.ScenarioOutline) {
-        let scenarioId = scenario.id;
-        if (scenario.hasOwnProperty("examples")) {
-            scenarioId = (scenario as livedoc.ScenarioOutline).examples[0].id;
-        }
-        reporterWebview.navigateScenario(testSuite.executionResults, scenarioId);
-        //vscode.window.showInformationMessage(`(${testSuite.name}) navigate to scenario: ${scenario.title}`);
-    }
-
-    public navigateToSummaryInReporterCommand(testSuite: IExecutionModel) {
-        reporterWebview.navigateSummary(testSuite.executionResults);
-        //vscode.window.showInformationMessage('navigate to summary page for config: ' + testSuite.name);
-    }
+    // Legacy Reporter webview navigation was removed in favor of the shared Viewer webview.
 }
 
 export class FeatureGroup {

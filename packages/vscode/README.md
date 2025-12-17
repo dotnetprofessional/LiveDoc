@@ -37,7 +37,7 @@ VS Code extension providing tools and snippets for working with LiveDoc BDD test
 ### Commands
 
 - `LiveDoc: Format Data Tables` - Formats all data tables in the active document
-- `LiveDoc: Reporter` - Opens the LiveDoc test results viewer
+- `LiveDoc: Open Viewer` - Opens the LiveDoc Viewer (shared UI webview)
 
 ## Installation
 

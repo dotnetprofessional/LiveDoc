@@ -1,5 +1,6 @@
 import { Run, Feature, Scenario, Step, Background } from '../store';
 import { Breadcrumb } from './Breadcrumb';
+import { StepList } from './StepList';
 
 interface ScenarioViewProps {
   run: Run;
@@ -12,8 +13,8 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
   const feature = features.find(f => f.id === featureId);
   const scenario = feature?.scenarios?.find(s => s.id === scenarioId);
 
-  // Find background from feature scenarios
-  const background = feature?.scenarios?.find(s => 
+  // Find background from feature scenarios (legacy shape) or feature.background
+  const background = (feature as any)?.background || feature?.scenarios?.find(s =>
     s.type === 'Background' || s.title === 'Background' || s.id?.includes('background')
   );
 
@@ -85,14 +86,7 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
         {background && background.steps && background.steps.length > 0 && (
           <div className="px-5 py-4 border-b border-border bg-surface-hover/30">
             <div className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Background</div>
-            <div className="space-y-2">
-              {background.steps.map((step, idx) => (
-                <div key={idx} className="font-mono text-sm text-text-secondary leading-relaxed">
-                  <span className="text-accent font-semibold">{step.type}</span>{' '}
-                  {step.title}
-                </div>
-              ))}
-            </div>
+            <StepList steps={background.steps} showStatus={false} />
           </div>
         )}
 
@@ -126,59 +120,11 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
         {/* Steps */}
         <div className="p-5">
           {steps.length > 0 ? (
-            <div className="space-y-3">
-              {steps.map((step, idx) => (
-                <StepDetail key={idx} step={step} />
-              ))}
-            </div>
+            <StepList steps={steps} />
           ) : (
             <div className="text-center text-text-muted py-4">No steps</div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function StepDetail({ step }: { step: Step }) {
-  const icon = step.status === 'pass' ? '✓' : step.status === 'fail' ? '✗' : '○';
-  const iconColor = step.status === 'pass' ? 'text-pass' : step.status === 'fail' ? 'text-fail' : 'text-text-muted';
-
-  return (
-    <div className="flex gap-3">
-      <span className={`${iconColor} text-sm pt-0.5`}>{icon}</span>
-      <div className="flex-1">
-        <div className="font-mono text-sm leading-relaxed">
-          <span className="text-accent font-semibold">{step.type}</span>{' '}
-          <span className="text-text">{step.title}</span>
-          {step.duration && (
-            <span className="text-text-muted text-xs ml-2">{formatDuration(step.duration)}</span>
-          )}
-        </div>
-        
-        {step.error && (
-          <div className="mt-2 p-3 bg-fail/10 border-l-2 border-fail rounded-r">
-            <div className="font-mono text-xs text-fail">
-              {step.error.message}
-            </div>
-            {step.error.diff && (
-              <div className="font-mono text-xs mt-2 space-y-1">
-                <div className="text-pass">+ expected: {step.error.diff.expected}</div>
-                <div className="text-fail">- actual: {step.error.diff.actual}</div>
-              </div>
-            )}
-            {step.error.stack && (
-              <div className="font-mono text-[10px] text-text-muted mt-2 whitespace-pre-wrap break-words">
-                {step.error.stack}
-              </div>
-            )}
-            {step.error.filename && (
-              <div className="font-mono text-[10px] text-text-muted mt-2">
-                File: {step.error.filename}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

@@ -75,15 +75,37 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
   
   try {
     const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
+    const port = Number(info?.port);
+    const pid = Number(info?.pid);
+
+    // If PID is provided and not alive, clean up stale file immediately.
+    if (Number.isFinite(pid) && pid > 0) {
+      try {
+        // Signal 0 checks liveness without killing.
+        process.kill(pid, 0);
+      } catch {
+        try {
+          fs.unlinkSync(portFile);
+        } catch {}
+        return null;
+      }
+    }
+
+    if (!Number.isFinite(port) || port <= 0) {
+      return null;
+    }
     
     // Verify server is actually running
-    const response = await fetch(`http://localhost:${info.port}/api/health`);
+    const response = await fetch(`http://localhost:${port}/api/health`);
     if (response.ok) {
       return {
-        url: `http://localhost:${info.port}`,
-        port: info.port
+        url: `http://localhost:${port}`,
+        port
       };
     }
+
+    // Not a LiveDoc server (or wrong port). If PID isn't alive, we already cleaned.
+    // If PID wasn't provided, don't delete automatically (might be managed externally).
   } catch {
     // Server not responding or file invalid
     try {
@@ -151,20 +173,26 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   
   // List projects
   app.get('/api/projects', (c) => {
-    const projects = store.getProjects();
-    return c.json({
-      projects: projects.map(p => ({
-        project: p.project,
-        environment: p.environment,
-        historyCount: p.historyCount,
-        latestRun: p.latestRun ? {
-          runId: p.latestRun.runId,
-          status: p.latestRun.status,
-          timestamp: p.latestRun.timestamp,
-          summary: p.latestRun.summary
-        } : null
+    // Derive this from the same hierarchy used by the UI navigation endpoint,
+    // to avoid any divergence/staleness between endpoints.
+    const hierarchy = store.getProjectHierarchy();
+    const projects = hierarchy.flatMap((project) =>
+      project.environments.map((environment) => ({
+        project: project.name,
+        environment: environment.name,
+        historyCount: environment.historyCount,
+        latestRun: environment.latestRun
+          ? {
+              runId: environment.latestRun.runId,
+              status: environment.latestRun.status,
+              timestamp: environment.latestRun.timestamp,
+              summary: environment.latestRun.summary
+            }
+          : null
       }))
-    });
+    );
+
+    return c.json({ projects });
   });
   
   // Get project hierarchy for navigation
@@ -244,7 +272,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.get('/api/projects/:project/:environment/latest', (c) => {
     const project = c.req.param('project');
     const environment = c.req.param('environment');
-    const run = store.getLatestRun(project, environment);
+    const run = store.getRunsForProject(project, environment)[0];
     if (!run) {
       return c.json({ error: 'No runs found' }, 404);
     }

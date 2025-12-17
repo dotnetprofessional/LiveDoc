@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../store';
+import { getApiBaseUrl, getWsBaseUrl } from '../config';
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
@@ -8,8 +9,7 @@ export function useWebSocket() {
   const { setConnectionStatus, addRun, setRuns, updateFeature, selectRun, navigate, setProjectHierarchy, removeRun } = useStore();
 
   const connect = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${getWsBaseUrl()}/ws`;
     
     setConnectionStatus('connecting');
     
@@ -106,7 +106,7 @@ export function useWebSocket() {
   // Fetch project hierarchy for navigation
   const fetchProjectHierarchy = useCallback(async () => {
     try {
-      const response = await fetch('/api/hierarchy');
+      const response = await fetch(`${getApiBaseUrl()}/api/hierarchy`);
       if (!response.ok) return;
       
       const data = await response.json();
@@ -135,7 +135,7 @@ export function useWebSocket() {
       await fetchProjectHierarchy();
       
       // Then get the list of runs
-      const runsListResponse = await fetch('/api/runs');
+      const runsListResponse = await fetch(`${getApiBaseUrl()}/api/runs`);
       if (!runsListResponse.ok) return;
       
       const runsList = await runsListResponse.json();
@@ -148,7 +148,7 @@ export function useWebSocket() {
       const fullRuns = await Promise.all(
         runsList.map(async (run: any) => {
           try {
-            const response = await fetch(`/api/runs/${run.runId}`);
+            const response = await fetch(`${getApiBaseUrl()}/api/runs/${run.runId}`);
             if (response.ok) {
               const fullRun = await response.json();
               // Transform the data to match our store structure
@@ -219,8 +219,9 @@ export function useWebSocket() {
   }
 
   function mapStep(step: any) {
+    const normalizedType = normalizeStepType(step.type || step.keyword);
     return {
-      type: step.type || step.keyword,
+      type: normalizedType,
       title: step.rawTitle || step.title || step.displayTitle,
       status: mapStatus(step.status),
       duration: step.duration,
@@ -228,6 +229,24 @@ export function useWebSocket() {
       dataTable: step.dataTable,
       error: step.error,
     };
+  }
+
+  function normalizeStepType(type: unknown): import('../store').StepType {
+    const t = String(type || '').trim().toLowerCase();
+    switch (t) {
+      case 'given':
+        return 'Given';
+      case 'when':
+        return 'When';
+      case 'then':
+        return 'Then';
+      case 'and':
+        return 'And';
+      case 'but':
+        return 'But';
+      default:
+        return 'Given';
+    }
   }
 
   function mapStatus(status: string | undefined): 'pass' | 'fail' | 'skip' | 'pending' {

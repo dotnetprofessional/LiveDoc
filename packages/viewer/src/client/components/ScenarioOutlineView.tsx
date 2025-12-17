@@ -144,7 +144,13 @@ function groupScenarios(scenarios: Scenario[]): GroupedScenarios {
           tags: scenario.tags,
         });
       }
-      outlineMap.get(scenario.outlineId)!.examples.push(scenario);
+      const outline = outlineMap.get(scenario.outlineId)!;
+      outline.examples.push(scenario);
+
+      // If templateSteps are empty (e.g. outline definition didn't have steps), try to populate them from this example
+      if (outline.templateSteps.length === 0) {
+        outline.templateSteps = getTemplateSteps(scenario);
+      }
     } else {
       regularScenarios.push(scenario);
     }

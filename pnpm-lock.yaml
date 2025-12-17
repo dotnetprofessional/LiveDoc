@@ -255,6 +255,9 @@ importers:
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+      ws:
+        specifier: ^8.18.3
+        version: 8.18.3
     devDependencies:
       '@types/mocha':
         specifier: ^10.0.10
@@ -271,6 +274,9 @@ importers:
       '@types/vscode':
         specifier: ^1.106.1
         version: 1.106.1
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       esbuild:
         specifier: ^0.27.1
         version: 0.27.1
@@ -3029,7 +3035,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vitest: 4.0.15(@types/node@22.19.2)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@14.1.0)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)
+      vitest: 4.0.15(@types/node@20.19.26)(@vitest/ui@4.0.15)(jiti@2.6.1)(jsdom@14.1.0)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)
 
   '@vitest/utils@3.2.4':
     dependencies:

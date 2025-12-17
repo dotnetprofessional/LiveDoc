@@ -80,6 +80,22 @@ given("the user has items", (ctx) => { const items = 5; ... });
 - **Vitest Package**: `pnpm --filter @livedoc/vitest test`
 - **VS Code**: `pnpm --filter @livedoc/vscode compile`
 
+### Dev Scripts (Required)
+
+To avoid repeated dev friction (especially port 3000 collisions), prefer the repo scripts over ad-hoc commands.
+
+- **Start Viewer reliably (port 3000)**: `./scripts/start-viewer.ps1 -KillStale`
+  - Use this instead of running `pnpm --filter @livedoc/viewer dev` directly.
+  - If the viewer is already healthy, the script will no-op (it won’t restart unless you ask).
+  - Use `-NewWindow` if you want it in a separate terminal.
+  - Do **not** use `-KillAll` unless the user explicitly asks (it can kill non-node processes).
+
+- **Start LiveDoc server reliably (default port 19275)**: `./scripts/start-livedoc-server.ps1 -KillStale`
+  - Use this instead of ad-hoc `pnpm` commands when you need the server running for VS Code / vitest integration.
+  - If the server is already healthy, the script will no-op.
+  - Use `-NewWindow` if you want it in a separate terminal.
+  - Do **not** use `-KillAll` unless the user explicitly asks.
+
 ### Adding UI Components
 When asked to create a UI feature:
 1. Check if a relevant **shadcn/ui** component exists.

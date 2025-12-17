@@ -4,6 +4,27 @@ This file tracks features, improvements, and issues for the livedoc-vitest packa
 
 ## High Priority
 
+### Scenario Outline Header Shows Bound Values Instead of Template
+- **Status**: Bug
+- **Description**: When outputting a Scenario Outline, the header section should show the template with `<placeholders>` (e.g., `given the customer is from <country>`), but currently it shows the bound values from the first example (e.g., `given the customer is from Australia`).
+- **Expected Output**:
+  ```
+  Scenario Outline: Calculate GST status and shipping rate
+     given the customer is from <country>
+     when the customer's order totals <order total>
+     then the customer pays <GST amount> GST
+       and they are charged the <shipping rate> shipping rate
+  ```
+- **Actual Output**:
+  ```
+  Scenario Outline: Calculate GST status and shipping rate
+     given the customer is from Australia
+     when the customer's order totals 99.99
+     then the customer pays 9.999 GST
+       and they are charged the Standard Domestic shipping rate
+  ```
+- **Related Files**: Reporter code that outputs Scenario Outline template steps
+
 ### Tag-Based Test Filtering
 - **Status**: Not Implemented
 - **Description**: Support filtering tests by their tags (e.g., `@dynamic`, `@slow`, `@integration`)
@@ -53,10 +74,10 @@ This file tracks features, improvements, and issues for the livedoc-vitest packa
 
 Tracking progress migrating from livedoc-mocha to livedoc-vitest:
 
-| Config | Pass | Fail | Skip | Notes |
-|--------|------|------|------|-------|
-| nodynamic | 241 | 0 | 6 | Non-dynamic tests only |
-| full | TBD | TBD | TBD | Includes dynamic execution tests |
+|  Config   |  Pass  |  Fail  |  Skip  |              Notes               |
+| --------  | ------ | ------ | ------ | -------                          |
+| nodynamic |    241 |      0 |      6 | Non-dynamic tests only           |
+| full      | TBD    | TBD    | TBD    | Includes dynamic execution tests |
 
 ### Dynamic Test Files Status
 - [ ] DynamicExecution tests

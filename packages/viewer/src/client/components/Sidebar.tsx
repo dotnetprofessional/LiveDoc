@@ -1,4 +1,5 @@
 import { useStore, ProjectNode, Environment, HistoryRun } from '../store';
+import { getApiBaseUrl } from '../config';
 import { StatusBadge } from './StatusBadge';
 import { ChevronRight, ChevronDown, FolderIcon, FileIcon } from './Icons';
 
@@ -73,7 +74,7 @@ export function Sidebar() {
     if (!confirm('Delete this run?')) return;
     
     try {
-      const response = await fetch(`/api/runs/${runId}`, { method: 'DELETE' });
+      const response = await fetch(`${getApiBaseUrl()}/api/runs/${runId}`, { method: 'DELETE' });
       if (response.ok) {
         removeRun(runId);
       }

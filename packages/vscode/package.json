@@ -38,10 +38,24 @@
                 "title": "LiveDoc: Format Data Tables"
             },
             {
-                "command": "webview.start",
-                "title": "LiveDoc: Reporter"
+                "command": "livedoc.openViewer",
+                "title": "LiveDoc: Open Viewer"
+            },
+            {
+                "command": "livedoc.viewItem",
+                "title": "Open in Viewer",
+                "icon": "$(eye)"
             }
         ],
+        "menus": {
+            "view/item/context": [
+                {
+                    "command": "livedoc.viewItem",
+                    "when": "view == livedoc && viewItem =~ /feature|scenario/",
+                    "group": "inline"
+                }
+            ]
+        },
         "snippets": [
             {
                 "language": "typescript",
@@ -120,7 +134,7 @@
     },
     "scripts": {
         "vscode:prepublish": "pnpm run compile",
-        "compile": "tsc -p ./ && node build-reporter.js",
+        "compile": "tsc -p ./ && node copy-viewer.js",
         "watch": "tsc -watch -p ./",
         "package": "vsce package",
         "test": "pnpm run compile",
@@ -132,6 +146,7 @@
         "@types/react": "^18.3.27",
         "@types/react-dom": "^18.3.7",
         "@types/vscode": "^1.106.1",
+        "@types/ws": "^8.18.1",
         "esbuild": "^0.27.1",
         "fs-extra": "^11.3.2",
         "typescript": "~5.5.4"
@@ -141,6 +156,7 @@
         "@livedoc/vitest": "workspace:*",
         "aphrodite": "^2.4.0",
         "react": "^18.3.1",
-        "react-dom": "^18.3.1"
+        "react-dom": "^18.3.1",
+        "ws": "^8.18.3"
     }
 }

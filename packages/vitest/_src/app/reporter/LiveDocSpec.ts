@@ -50,24 +50,41 @@ export class LiveDocSpec extends LiveDocReporter {
     private static errorCount: number = 0;
 
     protected setOptions(options: LiveDocReporterOptions) {
+        const raw = options as any;
+
         this.options = new LiveDocReporterOptions();
-        if (!(options as any).detailLevel) {
-            // Default value
-            this.options.setDefaults();
-        } else {
-            const userOptions = (options as any).detailLevel.split("+");
+
+        const hasDetailLevel = typeof raw.detailLevel === 'string' && raw.detailLevel.trim().length > 0;
+        const hasProcessedFlags = ['auto', 'spec', 'summary', 'list', 'headers', 'silent']
+            .some((k) => typeof raw[k] === 'boolean');
+
+        if (hasDetailLevel) {
+            const userOptions = raw.detailLevel.split("+");
             userOptions.forEach((option: string) => {
                 (this.options as any)[option] = true;
             });
-            // the special option of silent will redefine the values to all be false
-            if (this.options.silent) {
-                this.options.enableSilent();
-            }
+        } else if (hasProcessedFlags) {
+            // LiveDocSpecReporter passes a pre-parsed LiveDocReporterOptions (booleans only).
+            // Respect those flags instead of falling back to the default spec output.
+            this.options.auto = !!raw.auto;
+            this.options.spec = !!raw.spec;
+            this.options.summary = !!raw.summary;
+            this.options.list = !!raw.list;
+            this.options.headers = !!raw.headers;
+            this.options.silent = !!raw.silent;
+        } else {
+            // Default value
+            this.options.setDefaults();
         }
 
-        // Always set output and removeHeaderText after processing detailLevel
-        this.options.output = (options as any).output || "";
-        this.options.removeHeaderText = (options as any).removeHeaderText || "";
+        // the special option of silent will redefine the values to all be false
+        if (this.options.silent) {
+            this.options.enableSilent();
+        }
+
+        // Always set output and removeHeaderText after processing detailLevel / flags
+        this.options.output = raw.output || "";
+        this.options.removeHeaderText = raw.removeHeaderText || "";
     }
 
     executionStart(): void {
