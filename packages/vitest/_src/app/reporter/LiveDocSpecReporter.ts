@@ -102,6 +102,14 @@ export default class LiveDocSpecReporter implements Reporter {
             });
         }
 
+        // Calculate paths for suites
+        if (results.suites.length > 0) {
+            const suiteRoot = LiveDocReporter.findRootPath(results.suites.map(s => s.filename));
+            results.suites.forEach(suite => {
+                suite.path = this.createPathFromFile(suite.filename, suiteRoot);
+            });
+        }
+
         // Output execution results with post-reporter support
         await this.liveDocSpec.executionEnd(results, (this.options as any).rawOptions);
     }

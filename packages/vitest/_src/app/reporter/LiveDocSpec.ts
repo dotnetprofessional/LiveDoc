@@ -531,7 +531,13 @@ export class LiveDocSpec extends LiveDocReporter {
         const statistics: DataTableRow[] = [];
         statistics.push(headerRow);
 
+        let currentPath = "";
         results.specifications.forEach(spec => {
+            const headerPath = (spec.path || "").replace(this.options.removeHeaderText, "");
+            if (this.options.headers && currentPath !== headerPath) {
+                currentPath = (spec.path || "").replace(this.options.removeHeaderText, "");
+                statistics.push([currentPath ? currentPath.toUpperCase().replace(/[_-]/g, " ") : "ROOT"]);
+            }
             // Calculate statistics for the specification
             const rules = spec.rules;
             let passCount = 0;
@@ -663,10 +669,20 @@ export class LiveDocSpec extends LiveDocReporter {
             "Elapsed"
         ];
 
+        if (!this.options.summary && !this.options.list) {
+            return;
+        }
+
         const statistics: DataTableRow[] = [];
         statistics.push(headerRow);
 
+        let currentPath = "";
         results.suites.forEach(suite => {
+            const headerPath = (suite.path || "").replace(this.options.removeHeaderText, "");
+            if (this.options.headers && currentPath !== headerPath) {
+                currentPath = (suite.path || "").replace(this.options.removeHeaderText, "");
+                statistics.push([currentPath ? currentPath.toUpperCase().replace(/[_-]/g, " ") : "ROOT"]);
+            }
             // Add the stats for the suite
             const stats = suite.statistics;
             const statusBar = this.statusBar(stats.passPercent, stats.failedPercent, stats.pendingPercent);
