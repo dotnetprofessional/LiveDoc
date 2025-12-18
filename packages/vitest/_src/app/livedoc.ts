@@ -1,4 +1,5 @@
 import { describe as vitestDescribe, it as vitestIt, beforeAll, afterAll } from "vitest";
+import { getCurrentSuite } from "vitest/suite";
 import { LiveDocGrammarParser } from "./parser/Parser";
 import * as model from "./model/index";
 import { LiveDocOptions } from "./LiveDocOptions";
@@ -151,14 +152,7 @@ livedoc.options.rules.mustIncludeThen = LiveDocRuleOption.warning;
 // Tracking displayed violations to avoid duplicates
 const displayedViolations: Record<string, boolean> = {};
 
-// Store scenario outline metadata indexed by title for the reporter
-const scenarioOutlineRegistry = new Map<string, {
-    rawTitle: string;
-    title: string;
-    description: string;
-    tables: any[];
-    tags: string[];
-}>();
+
 
 /**
  * Check if any of the tags are in the exclude filter list
@@ -552,15 +546,6 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
 
     const scenarioOutlineModel = parser.addScenarioOutline(currentFeature, title);
 
-    // Store the scenario outline metadata in registry for in-process access
-    scenarioOutlineRegistry.set(scenarioOutlineModel.title, {
-        rawTitle: title,
-        title: scenarioOutlineModel.title,
-        description: scenarioOutlineModel.description,
-        tables: scenarioOutlineModel.tables,
-        tags: scenarioOutlineModel.tags
-    });
-
     // Check if scenario outline should be skipped based on tags or explicit skip
     const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(scenarioOutlineModel.tags);
     const shouldOnlyRun = opts.isOnly || shouldInclude(scenarioOutlineModel.tags);
@@ -768,10 +753,19 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
     const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(ruleModel.tags);
     const shouldOnlyRun = opts.isOnly || shouldInclude(ruleModel.tags);
 
-    const itFunc = shouldSkip ? vitestIt.skip : shouldOnlyRun ? vitestIt.only : vitestIt;
+    const ruleMeta = {
+        livedoc: {
+            kind: "rule",
+            rule: {
+                title: ruleModel.title,
+                description: ruleModel.description ?? "",
+                tags: ruleModel.tags ?? [],
+            },
+        },
+    };
 
-    // Rules use 'it' directly (no step functions)
-    itFunc(ruleModel.displayTitle, async () => {
+    // Rules use a single test task (no step functions)
+    const ruleHandler = async () => {
         const ctx = {
             get specification() {
                 return specificationModel?.getSpecificationContext();
@@ -792,6 +786,20 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
             ruleModel.error = error;
             throw error;
         }
+    };
+
+    const currentSuite = getCurrentSuite() as any;
+    if (!currentSuite || typeof currentSuite.task !== "function") {
+        throw new Error(
+            "LiveDoc requires Vitest suite.task(name, { meta, handler }) to transport metadata to the reporter."
+        );
+    }
+
+    currentSuite.task(ruleModel.displayTitle, {
+        meta: ruleMeta,
+        handler: ruleHandler as any,
+        skip: shouldSkip,
+        only: shouldOnlyRun,
     });
 }
 
@@ -838,11 +846,25 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
         for (const example of ruleOutlineModel.examples) {
             ruleCount++;
 
-            // Display the example values as a comma-separated list
-            const exampleValues = Object.values(example.example || {}).join(', ');
-            const exampleName = `Example ${example.sequence}: ${exampleValues}`;
+            const exampleName = `Example ${example.sequence}`;
 
-            vitestIt(exampleName, async () => {
+            const exampleMeta = {
+                livedoc: {
+                    kind: "ruleExample",
+                    ruleOutline: {
+                        title: ruleOutlineModel.title,
+                        description: ruleOutlineModel.description ?? "",
+                        tables: ruleOutlineModel.tables ?? [],
+                        tags: ruleOutlineModel.tags ?? [],
+                        example: {
+                            sequence: example.sequence,
+                            values: (example.example ?? {}) as Record<string, unknown>,
+                        },
+                    },
+                },
+            };
+
+            const exampleHandler = async () => {
                 const ctx = {
                     get specification() {
                         return specificationModel?.getSpecificationContext();
@@ -866,6 +888,18 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
                     example.error = error;
                     throw error;
                 }
+            };
+
+            const currentSuite = getCurrentSuite() as any;
+            if (!currentSuite || typeof currentSuite.task !== "function") {
+                throw new Error(
+                    "LiveDoc requires Vitest suite.task(name, { meta, handler }) to transport metadata to the reporter."
+                );
+            }
+
+            currentSuite.task(exampleName, {
+                meta: exampleMeta,
+                handler: exampleHandler as any,
             });
         }
     });
@@ -893,12 +927,6 @@ export const ruleOutline = Object.assign(
  */
 function createStepFunction(stepType: string) {
     return function (title: string, fn?: (ctx: any) => void | Promise<void>, passedParam?: object | Function) {
-        // DEBUG: trace where weird calls come from
-        if (typeof title === 'function') {
-            console.error(`[DEBUG] ${stepType} called with function as title:`, (title as any).toString().substring(0, 50));
-            console.error('[DEBUG] Stack:', new Error().stack);
-        }
-        
         const filename = getFilenameFromStack(2);
 
         // If no feature, this step is at the top level - give helpful error
@@ -950,7 +978,31 @@ function createStepFunction(stepType: string) {
             backgroundStepsMap.set(capturedFeature, featureSteps);
         }
 
-        vitestIt(testName, async () => {
+        const taskMeta: Record<string, unknown> = {
+            livedoc: {
+                kind: "step",
+                step: {
+                    rawTitle: stepDefinition.rawTitle,
+                    type: stepDefinition.type,
+                },
+                ...(capturedScenario instanceof model.ScenarioExample
+                    ? {
+                          scenarioOutline: {
+                              title: capturedScenario.scenarioOutline?.title,
+                              description: capturedScenario.scenarioOutline?.description ?? "",
+                              tables: capturedScenario.scenarioOutline?.tables ?? [],
+                              tags: capturedScenario.scenarioOutline?.tags ?? [],
+                              example: {
+                                  sequence: capturedScenario.sequence,
+                                  values: capturedScenario.example ?? {},
+                              },
+                          },
+                      }
+                    : {}),
+            },
+        };
+
+        const stepHandler = async () => {
             const startTime = Date.now();
             currentStep = stepDefinition;
             displayWarnings(filename);
@@ -1085,6 +1137,18 @@ function createStepFunction(stepType: string) {
                 // Re-throw so Vitest marks the test as failed
                 throw error;
             }
+        };
+
+        const currentSuite = getCurrentSuite() as any;
+        if (!currentSuite || typeof currentSuite.task !== "function") {
+            throw new Error(
+                "LiveDoc requires Vitest suite.task(name, { meta, handler }) to transport metadata to the reporter."
+            );
+        }
+
+        currentSuite.task(testName, {
+            meta: taskMeta,
+            handler: stepHandler as any,
         });
     };
 }
@@ -1885,14 +1949,6 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
         return suiteRegistry;
     }
     
-    /**
-     * Get scenario outline metadata registry
-     * Used by reporters to access full scenario outline data including Examples tables
-     */
-    public static getScenarioOutlineRegistry(): Map<string, any> {
-        return scenarioOutlineRegistry;
-    }
-
     /**
      * Clear all registries (useful for testing)
      */

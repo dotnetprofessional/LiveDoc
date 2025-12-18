@@ -162,21 +162,56 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private buildScenarioOutlineFromNestedStructure(suite: any, feature: model.Feature): model.ScenarioOutline {
         const scenarioOutline = new model.ScenarioOutline(feature);
-        const cleanName = suite.name.replace(/^Scenario:\s*/, '').split('\n')[0].trim();
-        scenarioOutline.title = cleanName;
+
+        // Determine outline title from suite name (Vitest describes this as "Scenario: <title>")
+        const outlineTitle = (suite.name || '').replace(/^Scenario:\s*/i, '').split('\n')[0].trim();
+        scenarioOutline.title = outlineTitle;
         
         // Get example suites
         const exampleSuites = (suite.tasks || []).filter((t: any) => 
             t.type === 'suite' && t.name.startsWith('Example ')
         );
+
+        // Single source of truth: use task.meta.livedoc payload emitted by livedoc.ts.
+        const firstExampleSuite = exampleSuites[0];
+        const firstExampleLiveDoc = this.findFirstLiveDocStepMetaInSuite(firstExampleSuite);
+        if (!firstExampleLiveDoc || firstExampleLiveDoc.kind !== 'step') {
+            throw new Error(
+                `Scenario Outline metadata missing (expected task.meta.livedoc on example steps). Outline: "${outlineTitle}"`
+            );
+        }
+
+        const metaTables = firstExampleLiveDoc?.scenarioOutline?.tables;
+        if (!Array.isArray(metaTables) || metaTables.length === 0) {
+            throw new Error(
+                `Scenario Outline tables missing in task.meta.livedoc. Outline: "${outlineTitle}"`
+            );
+        }
+
+        scenarioOutline.tables = this.buildScenarioOutlineTablesFromMeta(metaTables);
+        if (Array.isArray(firstExampleLiveDoc?.scenarioOutline?.tags)) {
+            scenarioOutline.tags = firstExampleLiveDoc.scenarioOutline.tags;
+        }
+        if (typeof firstExampleLiveDoc?.scenarioOutline?.description === 'string') {
+            scenarioOutline.description = firstExampleLiveDoc.scenarioOutline.description;
+        }
         
         // Build template steps from the first example's step definitions
         if (exampleSuites.length > 0 && exampleSuites[0].tasks) {
             for (const task of exampleSuites[0].tasks) {
                 if (task.type === 'test') {
+                    const livedocMeta = this.getLiveDocMetaFromTask(task);
+                    if (
+                        typeof livedocMeta?.step?.rawTitle !== 'string' ||
+                        typeof livedocMeta?.step?.type !== 'string'
+                    ) {
+                        throw new Error(
+                            `Scenario Outline step template metadata missing (expected livedoc.step.rawTitle/type). Outline: "${outlineTitle}" Step: "${task.name}"`
+                        );
+                    }
                     const step = new model.StepDefinition(scenarioOutline, "");
-                    step.rawTitle = this.extractStepTemplate(task.name, scenarioOutline.tables);
-                    step.type = this.extractStepType(task.name);
+                    step.rawTitle = livedocMeta.step.rawTitle;
+                    step.type = livedocMeta.step.type;
                     scenarioOutline.steps.push(step);
                 }
             }
@@ -194,11 +229,12 @@ export default class LiveDocSpecReporter implements Reporter {
     private buildBackgroundFromSuite(suite: any, feature: model.Feature): model.Background {
         const background = new model.Background(feature);
         background.title = suite.name.replace(/^Background:\s*/, '').split('\n')[0].trim();
+        const forcePending = suite?.mode === 'skip' || suite?.mode === 'todo';
         
         // Build steps
         for (const task of (suite.tasks || [])) {
             if (task.type === 'test') {
-                const step = this.buildStepFromTest(task, background);
+                const step = this.buildStepFromTest(task, background, forcePending);
                 background.addStep(step);
             }
         }
@@ -210,6 +246,7 @@ export default class LiveDocSpecReporter implements Reporter {
         const scenario = new model.Scenario(feature);
         const cleanName = suite.name;
         scenario.title = cleanName.replace(/^Scenario:\s*/, '').split('\n')[0].trim();
+        const forcePending = suite?.mode === 'skip' || suite?.mode === 'todo';
         
         // Parse description if available
         const lines = cleanName.split('\n');
@@ -223,7 +260,7 @@ export default class LiveDocSpecReporter implements Reporter {
         // Build steps
         for (const task of (suite.tasks || [])) {
             if (task.type === 'test') {
-                const step = this.buildStepFromTest(task, scenario);
+                const step = this.buildStepFromTest(task, scenario, forcePending);
                 scenario.addStep(step);
             }
         }
@@ -237,15 +274,24 @@ export default class LiveDocSpecReporter implements Reporter {
         example.title = `Example ${sequence}`;
         example.sequence = sequence;
         example.displayTitle = suite.name;
+        const forcePending = suite?.mode === 'skip' || suite?.mode === 'todo';
         
-        // Extract example data from the scenario outline tables using sequence number
-        example.example = this.extractExampleDataBySequence(scenarioOutline, sequence);
+        // Single source of truth: use task.meta.livedoc payload (exact example values).
+        const livedocMeta = this.findFirstLiveDocStepMetaInSuite(suite);
+        const metaExampleValues = livedocMeta?.scenarioOutline?.example?.values;
+        if (!metaExampleValues || typeof metaExampleValues !== 'object') {
+            throw new Error(
+                `Scenario Outline example values missing in task.meta.livedoc. Outline: "${scenarioOutline.title}" Example suite: "${suite?.name ?? ''}"`
+            );
+        }
+
+        example.example = this.sanitizeExampleKeys(metaExampleValues);
         example.exampleRaw = example.example; // For now, treat them the same
         
         // Build steps
         for (const task of (suite.tasks || [])) {
             if (task.type === 'test') {
-                const step = this.buildStepFromTest(task, example);
+                const step = this.buildStepFromTest(task, example, forcePending);
                 example.addStep(step);
             }
         }
@@ -253,38 +299,36 @@ export default class LiveDocSpecReporter implements Reporter {
         example.executionTime = suite.result?.duration || 0;
         return example;
     }
-    
-    private extractExampleDataBySequence(scenarioOutline: model.ScenarioOutline, sequence: number): any {
-        // Use sequence number to pick the correct row from the tables
-        // Sequence numbers span across all tables
-        if (scenarioOutline.tables && scenarioOutline.tables.length > 0) {
-            let currentSequence = 0;
-            
-            for (const table of scenarioOutline.tables) {
-                if (table.dataTable && table.dataTable.length > 1) {
-                    // dataTable[0] is header, data rows start at index 1
-                    const dataRowCount = table.dataTable.length - 1;
-                    
-                    if (sequence <= currentSequence + dataRowCount) {
-                        // The sequence is in this table
-                        const rowIndexInTable = sequence - currentSequence; // 1-based within this table
-                        const headerRow = table.dataTable[0] as any;
-                        const dataRow = table.dataTable[rowIndexInTable] as any;
-                        
-                        // Convert to object with sanitized keys
-                        const example: any = {};
-                        for (let i = 0; i < headerRow.length && i < dataRow.length; i++) {
-                            const key = this.sanitizeName(String(headerRow[i]));
-                            example[key] = dataRow[i];
-                        }
-                        return example;
-                    }
-                    
-                    currentSequence += dataRowCount;
-                }
-            }
+
+    private getLiveDocMetaFromTask(task: any): any | undefined {
+        const meta = task?.meta as any;
+        const livedoc = meta?.livedoc;
+        if (!livedoc || typeof livedoc !== 'object') return undefined;
+        return livedoc;
+    }
+
+    private findFirstLiveDocStepMetaInSuite(suite: any): any | undefined {
+        const tasks = suite?.tasks || [];
+        for (const task of tasks) {
+            if (task?.type !== 'test') continue;
+            const livedoc = this.getLiveDocMetaFromTask(task);
+            if (livedoc?.kind === 'step') return livedoc;
         }
-        return {};
+        return undefined;
+    }
+
+    private buildScenarioOutlineTablesFromMeta(metaTables: any[]): model.Table[] {
+        const tables: model.Table[] = [];
+
+        for (const raw of metaTables) {
+            const table = new model.Table();
+            table.name = typeof raw?.name === 'string' ? raw.name : '';
+            table.description = typeof raw?.description === 'string' ? raw.description : '';
+            table.dataTable = Array.isArray(raw?.dataTable) ? raw.dataTable : [];
+            tables.push(table);
+        }
+
+        return tables;
     }
     
     private sanitizeName(name: string): string {
@@ -292,26 +336,32 @@ export default class LiveDocSpecReporter implements Reporter {
         return name.replace(/[ `'']/g, "");
     }
     
-    private buildStepFromTest(task: any, parent: model.Scenario | model.Background | model.ScenarioExample): model.StepDefinition {
+    private buildStepFromTest(
+        task: any,
+        parent: model.Scenario | model.Background | model.ScenarioExample,
+        forcePending: boolean = false
+    ): model.StepDefinition {
         const name = task.name;
-        const stepType = this.extractStepType(name);
+        const meta = this.getLiveDocMetaFromTask(task);
+        if (meta?.kind !== 'step') {
+            throw new Error(
+                `Step metadata missing (expected task.meta.livedoc.kind="step"). Test: "${name}"`
+            );
+        }
+        if (typeof meta?.step?.type !== 'string' || typeof meta?.step?.rawTitle !== 'string') {
+            throw new Error(
+                `Step metadata incomplete (expected livedoc.step.type/rawTitle). Test: "${name}"`
+            );
+        }
+
+        const stepType = meta.step.type;
         const stepTitle = this.extractStepTitle(name);
         
         const step = new model.StepDefinition(parent, stepTitle);
         step.type = stepType;
         
-        // For ScenarioExample steps, use the template step's rawTitle (with placeholders)
-        // Otherwise use the executed step's title
-        if (parent instanceof model.ScenarioExample && parent.scenarioOutline && parent.scenarioOutline.steps) {
-            const stepIndex = parent.steps.length; // Index of the step we're about to add
-            if (stepIndex < parent.scenarioOutline.steps.length) {
-                step.rawTitle = parent.scenarioOutline.steps[stepIndex].rawTitle;
-            } else {
-                step.rawTitle = stepTitle;
-            }
-        } else {
-            step.rawTitle = stepTitle;
-        }
+        // Single source of truth: transported template (placeholders) from meta.
+        step.rawTitle = meta.step.rawTitle;
         
         step.displayTitle = name;
         
@@ -320,8 +370,11 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Set status based on test result
         const duration = task.result?.duration || 0;
-        
-        if (!task.result) {
+
+        // Vitest can represent skipped tests via task.mode without a result.
+        if (forcePending || task.mode === 'skip' || task.mode === 'todo') {
+            step.setStatus(model.SpecStatus.pending, duration);
+        } else if (!task.result) {
             step.setStatus(model.SpecStatus.unknown, duration);
         } else if (task.result.state === 'pass') {
             step.setStatus(model.SpecStatus.pass, duration);
@@ -336,24 +389,20 @@ export default class LiveDocSpecReporter implements Reporter {
                     step.code = (error as any).code;
                 }
             }
-        } else if (task.mode === 'skip' || task.mode === 'todo') {
-            step.setStatus(model.SpecStatus.pending, duration);
         }
         
         return step;
     }
-    
-    private extractStepType(stepName: string): string {
-        // Handle multiline step names by only matching the first line
-        const match = stepName.match(/^(given|when|then|and|but)\s+/i);
-        if (match) {
-            return match[1].toLowerCase();
+
+    private sanitizeExampleKeys(exampleValues: unknown): Record<string, unknown> {
+        if (!exampleValues || typeof exampleValues !== 'object') return {};
+
+        const values = exampleValues as Record<string, unknown>;
+        const sanitized: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(values)) {
+            sanitized[this.sanitizeName(String(key))] = value;
         }
-        const indentedMatch = stepName.match(/^\s+(and|but)\s+/i);
-        if (indentedMatch) {
-            return indentedMatch[1].toLowerCase();
-        }
-        return 'given';
+        return sanitized;
     }
     
     private extractStepTitle(stepName: string): string {
@@ -448,37 +497,6 @@ export default class LiveDocSpecReporter implements Reporter {
         return table;
     }
     
-    private extractStepTemplate(stepName: string, tables: any[]): string {
-        // Replace actual values from the first example row with placeholders
-        let template = this.extractStepTitle(stepName);
-        
-        if (tables.length > 0 && tables[0].dataTable && tables[0].dataTable.length >= 2) {
-            const exampleTable = tables[0].dataTable as string[][];
-            const headers = exampleTable[0]; // Column names
-            const firstRow = exampleTable[1]; // First example values
-            
-            // Replace each value from the first row with its corresponding placeholder
-            for (let i = 0; i < headers.length; i++) {
-                const columnName = headers[i].trim();
-                const value = firstRow[i].trim();
-                
-                // Create the placeholder (e.g., "<Customer's Country>")
-                const placeholder = `<${columnName}>`;
-                
-                // Replace all occurrences of the value with the placeholder
-                // Use word boundaries to avoid replacing partial matches (e.g., "it" in "with")
-                const regex = new RegExp(`\\b${this.escapeRegex(value)}\\b`, 'g');
-                template = template.replace(regex, placeholder);
-            }
-        }
-        
-        return template;
-    }
-    
-    private escapeRegex(str: string): string {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-    
     private setLiveDocOptions(options: LiveDocReporterOptions): void {
         // Access protected method through inheritance chain
         (this.liveDocSpec as any).setOptions(options);
@@ -539,15 +557,22 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private buildRuleFromTest(task: any, specification: model.Specification): model.Rule {
         const rule = new model.Rule(specification);
-        const fullName = task.name.replace(/^Rule:\s*/, '');
-        const lines = fullName.split('\n');
-        rule.title = lines[0].trim();
-        
-        if (lines.length > 1) {
-            rule.description = lines.slice(1)
-                .map((l: string) => l.trim())
-                .filter((l: string) => l.length > 0)
-                .join('\n');
+        const meta = this.getLiveDocMetaFromTask(task);
+        if (meta?.kind !== 'rule') {
+            throw new Error(
+                `Rule metadata missing (expected task.meta.livedoc.kind="rule"). Test: "${task?.name ?? ''}"`
+            );
+        }
+        if (typeof meta?.rule?.title !== 'string' || typeof meta?.rule?.description !== 'string') {
+            throw new Error(
+                `Rule metadata incomplete (expected livedoc.rule.title/description). Test: "${task?.name ?? ''}"`
+            );
+        }
+
+        rule.title = meta.rule.title;
+        rule.description = meta.rule.description;
+        if (Array.isArray(meta?.rule?.tags)) {
+            rule.tags = meta.rule.tags;
         }
         
         // Set status based on task result
@@ -615,20 +640,23 @@ export default class LiveDocSpecReporter implements Reporter {
         example.title = `Example ${sequence}`;
         example.sequence = sequence;
         example.displayTitle = task.name;
-        
-        // Extract example data from the task name if available
-        // Format is "Example N: value1, value2, ..."
-        const match = task.name.match(/^Example \d+:\s*(.*)$/);
-        if (match) {
-            // Values are comma-separated, but we don't have column names
-            // Store as a simple key-value with index-based keys
-            const values = match[1].split(',').map((v: string) => v.trim());
-            example.example = {};
-            values.forEach((v: string, idx: number) => {
-                (example.example as any)[`value${idx}`] = v;
-            });
-            example.exampleRaw = example.example;
+
+        const meta = this.getLiveDocMetaFromTask(task);
+        if (meta?.kind !== 'ruleExample') {
+            throw new Error(
+                `Rule Outline example metadata missing (expected task.meta.livedoc.kind="ruleExample"). Rule: "${ruleOutline.title}" Test: "${task?.name ?? ''}"`
+            );
         }
+
+        const values = meta?.ruleOutline?.example?.values;
+        if (!values || typeof values !== 'object') {
+            throw new Error(
+                `Rule Outline example values missing in task.meta.livedoc. Rule: "${ruleOutline.title}" Test: "${task?.name ?? ''}"`
+            );
+        }
+
+        example.example = this.sanitizeExampleKeys(values);
+        example.exampleRaw = example.example;
         
         // Set status based on task result
         const taskState = task.result?.state || 'unknown';
@@ -686,8 +714,12 @@ export default class LiveDocSpecReporter implements Reporter {
         const test = new model.LiveDocTest<model.VitestSuite>(parent, task.name);
         
         // Set status based on task result
-        const taskState = task.result?.state || 'unknown';
-        test.status = this.mapTaskStateToSpecStatus(taskState);
+        if (task.mode === 'skip' || task.mode === 'todo') {
+            test.status = model.SpecStatus.pending;
+        } else {
+            const taskState = task.result?.state || 'unknown';
+            test.status = this.mapTaskStateToSpecStatus(taskState);
+        }
         test.duration = task.result?.duration || 0;
         
         if (task.result?.errors && task.result.errors.length > 0) {

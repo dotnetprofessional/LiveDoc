@@ -9,17 +9,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
-    exclude: [
-      // Exclude tests that depend on executeDynamicTestAsync
-      '_src/test/DynamicExecution.Spec.ts',
-      '_src/test/Rule Violations/**',
-      '_src/test/Reporter/**',
-      '_src/test/Filtering/**',
-      '_src/test/Vitest_Features/**',
-      '_src/test/Background_Keyword/Background_reports_errors.Spec.ts',
-      '_src/test/Background_Keyword/Background_support_only.Spec.ts',
-    ],
-    setupFiles: ['./_src/app/setup.ts'],
+    // No explicit dynamic excludes: @dynamic tests auto-skip when LIVEDOC_DISABLE_DYNAMIC is set.
+    setupFiles: ['./_src/app/setup.nodynamic.ts'],
     reporters: [
       ['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'spec+summary+headers' }]
     ],

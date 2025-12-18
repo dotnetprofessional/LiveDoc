@@ -4,6 +4,7 @@ import * as model from "../model/index";
 import CliTable3 from "cli-table3";
 import { LiveDocReporter, HeaderType } from "./LiveDocReporter";
 import wordwrap from "wordwrap";
+import type { DataTableRow } from "../types";
 
 const wrap = wordwrap(140);
 
