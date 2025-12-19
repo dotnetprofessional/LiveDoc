@@ -46,6 +46,8 @@ export class Statistics<T = any> {
             // Scenario Examples have a different parent structure
             if (parent.constructor.name === "ScenarioExample") {
                 parent.scenarioOutline.statistics.updateStats(status, duration);
+            } else if (parent.constructor.name === "RuleExample") {
+                parent.ruleOutline.statistics.updateStats(status, duration);
             } else if (parent.parent && parent.parent.statistics) {
                 parent.parent.statistics.updateStats(status, duration);
             }

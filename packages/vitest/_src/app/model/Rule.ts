@@ -2,6 +2,7 @@ import { LiveDocSuite } from "./LiveDocSuite";
 import { Specification } from "./Specification";
 import { SpecStatus } from "./SpecStatus";
 import { RuleContext } from "./RuleContext";
+import { Exception } from "./Exception";
 
 /**
  * Rule is a simple specification assertion.
@@ -13,10 +14,18 @@ export class Rule extends LiveDocSuite {
     public executionTime: number = 0;
     public status: SpecStatus = SpecStatus.unknown;
     public error?: Error;
+    public code: string = "";
+    public exception: Exception = new Exception();
 
     constructor(parent: Specification) {
         super();
         this.parent = parent;
+    }
+
+    public setStatus(status: SpecStatus, duration: number): void {
+        this.status = status;
+        this.executionTime = duration;
+        this.parent.statistics.updateStats(status, duration);
     }
 
     public getRuleContext(): RuleContext {

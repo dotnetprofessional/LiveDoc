@@ -7,7 +7,10 @@ import * as path from "path";
 import stripAnsi from "strip-ansi";
 import wordwrap from "wordwrap";
 
-const wrap = wordwrap(130);
+const wrap = (text: string) => {
+    const terminalWidth = Math.min(process.stdout.columns || 120, 120);
+    return wordwrap(terminalWidth)(text);
+};
 
 /**
  * Base class for all LiveDoc reporters providing formatting utilities

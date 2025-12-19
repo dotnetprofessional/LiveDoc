@@ -807,6 +807,7 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
             ruleModel.status = model.SpecStatus.fail;
             ruleModel.executionTime = Date.now() - startTime;
             ruleModel.error = error;
+            (error as any).code = fn.toString();
             throw error;
         }
     };
@@ -918,6 +919,7 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
                     example.status = model.SpecStatus.fail;
                     example.executionTime = Date.now() - startTime;
                     example.error = error;
+                    (error as any).code = fn.toString();
                     throw error;
                 }
             };

@@ -3,10 +3,7 @@ import stripAnsi from "strip-ansi";
 import * as model from "../model/index";
 import CliTable3 from "cli-table3";
 import { LiveDocReporter, HeaderType } from "./LiveDocReporter";
-import wordwrap from "wordwrap";
 import type { DataTableRow } from "../types";
-
-const wrap = wordwrap(140);
 
 enum StatusIdentifiers {
     pass = '√',
@@ -819,6 +816,10 @@ export class LiveDocSpec extends LiveDocReporter {
             this.outputFeatureError(feature);
         });
 
+        results.specifications.forEach(spec => {
+            this.outputSpecificationError(spec);
+        });
+
         this.suiteIndent = 0;
         results.suites.forEach(suite => {
             this.suiteIndent += 2;
@@ -886,6 +887,37 @@ export class LiveDocSpec extends LiveDocReporter {
         }
     }
 
+    private outputSpecificationError(specification: model.Specification) {
+        // Validate that the specification has errors
+        if (specification.statistics.failedCount > 0) {
+            let indent = 2;
+            this.writeLine(this.formatKeywordTitle("Specification", specification.title, this.colorTheme.keyword, this.colorTheme.featureTitle, indent));
+            indent += 2;
+
+            specification.rules.forEach(rule => {
+                if (rule.status === model.SpecStatus.fail || rule.statistics.failedCount > 0) {
+                    if (rule instanceof model.RuleOutline) {
+                        const ruleOutline = rule as model.RuleOutline;
+                        this.writeLine(this.formatKeywordTitle("Rule Outline", ruleOutline.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+                        indent += 2;
+
+                        // Now output any example that has errors
+                        ruleOutline.examples.forEach(example => {
+                            if (example.status === model.SpecStatus.fail) {
+                                this.writeLine(this.formatKeywordTitle("Example", example.sequence.toString(), this.colorTheme.statusFail, this.colorTheme.scenarioTitle, indent));
+                                this.outputStepError(example as any);
+                            }
+                        });
+                        indent -= 2;
+                    } else {
+                        this.writeLine(this.formatKeywordTitle("Rule", rule.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+                        this.outputStepError(rule as any);
+                    }
+                }
+            });
+        }
+    }
+
     private outputSuiteError(suite: model.VitestSuite) {
         // Validate that the Suite has errors
         if (suite.statistics.failedCount > 0) {
@@ -914,7 +946,13 @@ export class LiveDocSpec extends LiveDocReporter {
         const color = this.colorTheme.dataTable;
         LiveDocSpec.errorCount++;
 
+        const terminalWidth = Math.min(process.stdout.columns || 120, 120);
+        const col1Width = 15;
+        const col2Width = terminalWidth - col1Width - 4; // 4 for borders/padding
+
         const table: any = new CliTable3({
+            colWidths: [col1Width, col2Width],
+            wordWrap: true,
             chars: {
                 'top': color('─'),
                 'top-mid': color('┬'),
@@ -935,16 +973,16 @@ export class LiveDocSpec extends LiveDocReporter {
         });
         
         table.push([{ colSpan: 2, content: color('Error: ' + LiveDocSpec.errorCount) }]);
-        table.push(["Message", wrap(step.exception.message)]);
+        table.push(["Message", step.exception.message]);
         if (step.exception.expected) {
-            table.push(["Diff", wrap(this.createUnifiedDiff(step.exception.actual, step.exception.expected))]);
+            table.push(["Diff", this.createUnifiedDiff(step.exception.actual, step.exception.expected)]);
         }
-        table.push(["Code", wrap(step.code.replace(/\r/g, ""))]);
-        table.push(["Stack trace", wrap(step.exception.stackTrace)]);
+        table.push(["Code", step.code.replace(/\r/g, "")]);
+        table.push(["Stack trace", step.exception.stackTrace]);
         if (step.constructor.name === "StepDefinition") {
-            table.push(["Filename", wrap(step.parent.parent.filename)]);
+            table.push(["Filename", (step as any).parent.parent.filename]);
         } else {
-            table.push(["Filename", wrap(step.parent.filename)]);
+            table.push(["Filename", (step as any).parent.filename]);
         }
 
         this.writeLine(table.toString());

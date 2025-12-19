@@ -580,11 +580,22 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Set status based on task result
         const taskState = task.result?.state || 'unknown';
-        rule.status = this.mapTaskStateToSpecStatus(taskState);
-        rule.executionTime = task.result?.duration || 0;
+        const status = this.mapTaskStateToSpecStatus(taskState);
+        const duration = task.result?.duration || 0;
+        rule.setStatus(status, duration);
         
         if (task.result?.errors && task.result.errors.length > 0) {
-            rule.error = task.result.errors[0];
+            const error = task.result.errors[0];
+            rule.error = error;
+            rule.exception.message = error.message || '';
+            rule.exception.stackTrace = error.stack || '';
+            if (error.actual !== undefined) rule.exception.actual = String(error.actual);
+            if (error.expected !== undefined) rule.exception.expected = String(error.expected);
+            
+            // Retrieve code from error if available (attached in livedoc.ts)
+            if ((error as any).code) {
+                rule.code = (error as any).code;
+            }
         }
         
         return rule;
@@ -685,11 +696,22 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Set status based on task result
         const taskState = task.result?.state || 'unknown';
-        example.status = this.mapTaskStateToSpecStatus(taskState);
-        example.executionTime = task.result?.duration || 0;
+        const status = this.mapTaskStateToSpecStatus(taskState);
+        const duration = task.result?.duration || 0;
+        example.setStatus(status, duration);
         
         if (task.result?.errors && task.result.errors.length > 0) {
-            example.error = task.result.errors[0];
+            const error = task.result.errors[0];
+            example.error = error;
+            example.exception.message = error.message || '';
+            example.exception.stackTrace = error.stack || '';
+            if (error.actual !== undefined) example.exception.actual = String(error.actual);
+            if (error.expected !== undefined) example.exception.expected = String(error.expected);
+
+            // Retrieve code from error if available (attached in livedoc.ts)
+            if ((error as any).code) {
+                example.code = (error as any).code;
+            }
         }
         
         return example;
