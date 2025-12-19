@@ -14,7 +14,7 @@ export function GroupView({ run, groupName, onFeatureClick }: GroupViewProps) {
   const features = run.features || [];
   const groups = groupFeatures(features);
   const groupFeatureList = groups[groupName] || [];
-  const displayName = groupName === '/' ? 'Root' : groupName.replace(/_/g, ' ');
+  const displayName = formatGroupDisplayName(groupName);
 
   // Calculate group totals
   const groupTotals = groupFeatureList.reduce((acc, f) => {
@@ -72,4 +72,12 @@ export function GroupView({ run, groupName, onFeatureClick }: GroupViewProps) {
       />
     </div>
   );
+}
+
+function formatGroupDisplayName(groupName: string): string {
+  if (groupName === '/') return 'Root';
+  return groupName
+    .split('/')
+    .map((segment) => (segment.startsWith('_') ? segment : segment.replace(/_/g, ' ')))
+    .join('/');
 }

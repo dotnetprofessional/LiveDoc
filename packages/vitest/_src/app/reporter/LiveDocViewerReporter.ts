@@ -1,4 +1,5 @@
 import { IPostReporter } from "./IPostReporter";
+import * as path from 'path';
 import {
     ExecutionResults,
     Feature,
@@ -6,7 +7,13 @@ import {
     ScenarioOutline,
     ScenarioExample,
     StepDefinition,
-    SpecStatus
+    SpecStatus,
+    Specification,
+    Rule,
+    RuleOutline,
+    RuleExample,
+    VitestSuite,
+    LiveDocTest
 } from "../model/index";
 
 // =============================================================================
@@ -67,6 +74,8 @@ interface PostFeatureRequest {
     description?: string;
     rawDescription?: string;
     filename: string;
+    /** Optional folder/grouping path (relative, no filename) */
+    path?: string;
     tags?: string[];
     status: TestStatus;
     sequence?: number;
@@ -121,6 +130,38 @@ interface PostStepRequest {
     // Code
     code?: string;
 }
+
+type VirtualStep = {
+    id: string;
+    type: StepType;
+    title: string;
+    rawTitle?: string;
+    status: SpecStatus;
+    duration: number;
+    sequence?: number;
+    error?: ErrorInfo;
+    docString?: string;
+    values?: unknown[];
+    valuesRaw?: string[];
+    ruleViolations?: RuleViolation[];
+    code?: string;
+};
+
+type VirtualScenario = {
+    featureId: string;
+    id: string;
+    type: ScenarioType;
+    title: string;
+    status: SpecStatus;
+    duration: number;
+    sequence?: number;
+    outlineId?: string;
+    exampleIndex?: number;
+    exampleValues?: Record<string, unknown>;
+    exampleValuesRaw?: Record<string, string>;
+    steps?: { type: StepType; title: string; rawTitle?: string }[];
+    stepInstances?: VirtualStep[];
+};
 
 interface CompleteRunRequest {
     status: TestStatus;
@@ -189,9 +230,19 @@ export class LiveDocViewerReporter implements IPostReporter {
                 return;
             }
 
+            const pathContext = this.buildPathContext(results);
+
             // 2. Post all features
             for (const feature of results.features) {
-                await this.postFeature(runId, feature);
+                await this.postFeature(runId, feature, pathContext);
+            }
+
+            // 2b. Post specifications and suites (mapped into viewer Features)
+            for (const spec of (results as any).specifications || []) {
+                await this.postSpecificationAsFeature(runId, spec as Specification, pathContext);
+            }
+            for (const suite of (results as any).suites || []) {
+                await this.postVitestSuiteAsFeature(runId, suite as VitestSuite, pathContext);
             }
 
             // 3. Complete the run with summary
@@ -206,6 +257,70 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
     }
 
+    private buildPathContext(results: ExecutionResults): { rootPath: string } {
+        const filenames: string[] = [];
+        for (const f of results.features || []) {
+            if (f?.filename) filenames.push(f.filename);
+        }
+        for (const s of ((results as any).specifications || []) as Specification[]) {
+            if ((s as any)?.filename) filenames.push((s as any).filename);
+        }
+        for (const s of ((results as any).suites || []) as VitestSuite[]) {
+            if ((s as any)?.filename) filenames.push((s as any).filename);
+        }
+
+        const abs = filenames
+            .filter(Boolean)
+            .map((p) => (path.isAbsolute(p) ? p : path.resolve(process.cwd(), p)))
+            .map((p) => p.replace(/\\/g, '/'));
+
+        const rootPath = this.findCommonRootPath(abs);
+        return { rootPath };
+    }
+
+    private findCommonRootPath(absoluteFilenames: string[]): string {
+        if (absoluteFilenames.length === 0) return '';
+        const dirSegments = absoluteFilenames.map((f) => {
+            const parts = f.split('/').filter(Boolean);
+            parts.pop();
+            return parts;
+        });
+
+        const first = dirSegments[0];
+        let end = 0;
+        while (end < first.length) {
+            const seg = first[end];
+            if (!dirSegments.every((s) => s[end] === seg)) break;
+            end++;
+        }
+        return first.slice(0, end).join('/');
+    }
+
+    private buildFileInfo(filename: string | undefined, rootPath: string): { filename: string; path: string } {
+        const raw = filename || '';
+        const abs = raw ? (path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw)) : '';
+        const normalized = abs.replace(/\\/g, '/');
+        const root = (rootPath || '').replace(/\\/g, '/').replace(/\/+$/g, '');
+
+        if (!normalized) {
+            return { filename: '', path: '' };
+        }
+
+        let relative = normalized;
+        if (root) {
+            const rootParts = root.split('/').filter(Boolean);
+            const fileParts = normalized.split('/').filter(Boolean);
+            const matches = rootParts.every((seg, i) => fileParts[i] === seg);
+            if (matches) {
+                relative = fileParts.slice(rootParts.length).join('/');
+            }
+        }
+
+        const parts = relative.split('/').filter(Boolean);
+        const groupPath = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+        return { filename: relative, path: groupPath };
+    }
+
     private async startRun(): Promise<string | null> {
         const request: StartRunRequest = {
             project: this.options.project,
@@ -217,7 +332,8 @@ export class LiveDocViewerReporter implements IPostReporter {
         return response?.runId || null;
     }
 
-    private async postFeature(runId: string, feature: Feature): Promise<void> {
+    private async postFeature(runId: string, feature: Feature, pathContext: { rootPath: string }): Promise<void> {
+        const fileInfo = this.buildFileInfo(feature.filename, pathContext.rootPath);
         // Post the feature with all available data
         const featureRequest: PostFeatureRequest = {
             id: feature.id || this.generateId(),
@@ -225,7 +341,8 @@ export class LiveDocViewerReporter implements IPostReporter {
             displayTitle: (feature as any).displayTitle || undefined,
             description: feature.description,
             rawDescription: (feature as any).rawDescription || undefined,
-            filename: feature.filename,
+            filename: fileInfo.filename,
+            path: fileInfo.path,
             tags: feature.tags,
             status: this.mapStatus(this.calculateFeatureStatus(feature)),
             sequence: (feature as any).sequence,
@@ -626,6 +743,50 @@ export class LiveDocViewerReporter implements IPostReporter {
             }
         }
 
+        // Specifications: count rules; RuleOutline counts examples (like ScenarioOutline)
+        const specifications: Specification[] = (results as any).specifications || [];
+        for (const spec of specifications) {
+            for (const rule of spec.rules || []) {
+                if (rule instanceof RuleOutline) {
+                    for (const ex of rule.examples || []) {
+                        total++;
+                        duration += ex.executionTime || 0;
+                        const st = ex.status;
+                        if (st === SpecStatus.pass) passed++;
+                        else if (st === SpecStatus.fail) failed++;
+                        else pending++;
+                    }
+                } else {
+                    total++;
+                    duration += (rule as Rule).executionTime || 0;
+                    const st = (rule as Rule).status;
+                    if (st === SpecStatus.pass) passed++;
+                    else if (st === SpecStatus.fail) failed++;
+                    else pending++;
+                }
+            }
+        }
+
+        // Suites: count tests
+        const suites: VitestSuite[] = (results as any).suites || [];
+        const collectTests = (suite: VitestSuite): LiveDocTest<VitestSuite>[] => {
+            const all: LiveDocTest<VitestSuite>[] = [...(suite.tests || [])];
+            for (const child of suite.children || []) {
+                all.push(...collectTests(child));
+            }
+            return all;
+        };
+        for (const suite of suites) {
+            for (const t of collectTests(suite)) {
+                total++;
+                duration += t.duration || 0;
+                const st = t.status;
+                if (st === SpecStatus.pass) passed++;
+                else if (st === SpecStatus.fail) failed++;
+                else pending++;
+            }
+        }
+
         return {
             total,
             passed,
@@ -633,6 +794,249 @@ export class LiveDocViewerReporter implements IPostReporter {
             pending,
             skipped,
             duration
+        };
+    }
+
+    // =========================================================================
+    // Specification / Suite mapping for viewer
+    // =========================================================================
+
+    private async postSpecificationAsFeature(runId: string, spec: Specification, pathContext: { rootPath: string }): Promise<void> {
+        const featureId = spec.id || this.generateId();
+        const title = `Specification: ${spec.title}`;
+
+        const fileInfo = this.buildFileInfo((spec as any).filename, pathContext.rootPath);
+
+        const status = this.calculateSpecificationStatus(spec);
+        const featureRequest: PostFeatureRequest = {
+            id: featureId,
+            title,
+            description: spec.description,
+            rawDescription: (spec as any).rawDescription || undefined,
+            filename: fileInfo.filename,
+            path: fileInfo.path,
+            tags: spec.tags,
+            status: this.mapStatus(status),
+            sequence: (spec as any).sequence,
+            ruleViolations: this.mapRuleViolations((spec as any).ruleViolations)
+        };
+
+        await this.post(`/api/runs/${runId}/features`, featureRequest);
+
+        let seq = 0;
+        for (const rule of spec.rules || []) {
+            if (rule instanceof RuleOutline) {
+                const outlineId = rule.id || this.generateId();
+                const outlineStatus = this.calculateRuleOutlineStatus(rule);
+
+                const outlineScenario: VirtualScenario = {
+                    featureId,
+                    id: outlineId,
+                    type: 'ScenarioOutline',
+                    title: `Rule Outline: ${rule.title}`,
+                    status: outlineStatus,
+                    duration: 0,
+                    sequence: seq++,
+                    steps: [{ type: 'Then', title: rule.title }],
+                };
+                await this.postVirtualScenario(runId, outlineScenario);
+
+                for (let i = 0; i < (rule.examples || []).length; i++) {
+                    const ex = rule.examples[i] as RuleExample;
+                    const exId = ex.id || this.generateId();
+                    const exStatus = ex.status;
+
+                    const exScenario: VirtualScenario = {
+                        featureId,
+                        id: exId,
+                        type: 'Scenario',
+                        title: `Example ${i + 1}`,
+                        status: exStatus,
+                        duration: ex.executionTime || 0,
+                        sequence: seq++,
+                        outlineId,
+                        exampleIndex: i + 1,
+                        exampleValues: ex.example ? (ex.example as any) : undefined,
+                        exampleValuesRaw: ex.exampleRaw ? this.toExampleValuesRaw(ex.exampleRaw as any) : undefined,
+                        stepInstances: [this.virtualStepFromRule(ex, i)]
+                    };
+                    await this.postVirtualScenario(runId, exScenario);
+                }
+            } else {
+                const simple = rule as Rule;
+                const ruleId = simple.id || this.generateId();
+                const ruleScenario: VirtualScenario = {
+                    featureId,
+                    id: ruleId,
+                    type: 'Scenario',
+                    title: `Rule: ${simple.title}`,
+                    status: simple.status,
+                    duration: simple.executionTime || 0,
+                    sequence: seq++,
+                    stepInstances: [this.virtualStepFromRule(simple, seq)]
+                };
+                await this.postVirtualScenario(runId, ruleScenario);
+            }
+        }
+    }
+
+    private async postVitestSuiteAsFeature(runId: string, suite: VitestSuite, pathContext: { rootPath: string }): Promise<void> {
+        const featureId = suite.id || this.generateId();
+        const title = `Suite: ${suite.title}`;
+        const fileInfo = this.buildFileInfo((suite as any).filename, pathContext.rootPath);
+
+        const tests: Array<{ path: string; test: LiveDocTest<VitestSuite> }> = [];
+        const collect = (s: VitestSuite, prefix: string) => {
+            const nextPrefix = prefix ? `${prefix} > ${s.title}` : s.title;
+            for (const t of s.tests || []) {
+                tests.push({ path: nextPrefix, test: t });
+            }
+            for (const child of s.children || []) {
+                collect(child, nextPrefix);
+            }
+        };
+        collect(suite, '');
+
+        const status = tests.some(t => t.test.status === SpecStatus.fail)
+            ? SpecStatus.fail
+            : tests.some(t => t.test.status === SpecStatus.pending || t.test.status === SpecStatus.unknown)
+                ? SpecStatus.pending
+                : SpecStatus.pass;
+
+        const featureRequest: PostFeatureRequest = {
+            id: featureId,
+            title,
+            filename: fileInfo.filename,
+            path: fileInfo.path,
+            status: this.mapStatus(status),
+            sequence: (suite as any).sequence,
+        };
+
+        await this.post(`/api/runs/${runId}/features`, featureRequest);
+
+        let seq = 0;
+        for (const { path, test } of tests) {
+            const scenarioId = test.id || this.generateId();
+            const scenarioTitle = path ? `${path}: ${test.title}` : test.title;
+            const stepId = this.generateId();
+
+            const error: ErrorInfo | undefined = test.status === SpecStatus.fail && test.exception
+                ? {
+                    message: test.exception.message || 'Unknown error',
+                    stack: test.exception.stackTrace || undefined,
+                    expected: test.exception.expected || undefined,
+                    actual: test.exception.actual || undefined
+                }
+                : undefined;
+
+            const sc: VirtualScenario = {
+                featureId,
+                id: scenarioId,
+                type: 'Scenario',
+                title: scenarioTitle,
+                status: test.status,
+                duration: test.duration || 0,
+                sequence: seq++,
+                stepInstances: [{
+                    id: stepId,
+                    type: 'Then',
+                    title: test.title,
+                    status: test.status,
+                    duration: test.duration || 0,
+                    error,
+                    code: test.code || undefined
+                }]
+            };
+
+            await this.postVirtualScenario(runId, sc);
+        }
+    }
+
+    private async postVirtualScenario(runId: string, scenario: VirtualScenario): Promise<void> {
+        const scenarioRequest: PostScenarioRequest = {
+            featureId: scenario.featureId,
+            id: scenario.id,
+            type: scenario.type,
+            title: scenario.title,
+            status: this.mapStatus(scenario.status),
+            sequence: scenario.sequence,
+            outlineId: scenario.outlineId,
+            exampleIndex: scenario.exampleIndex,
+            exampleValues: scenario.exampleValues,
+            exampleValuesRaw: scenario.exampleValuesRaw,
+            steps: scenario.steps
+        };
+
+        await this.post(`/api/runs/${runId}/scenarios`, scenarioRequest);
+
+        for (const step of scenario.stepInstances || []) {
+            const stepRequest: PostStepRequest = {
+                scenarioId: scenario.id,
+                id: step.id,
+                type: step.type,
+                title: step.title,
+                rawTitle: step.rawTitle,
+                status: this.mapStatus(step.status),
+                duration: step.duration,
+                sequence: step.sequence,
+                error: step.error,
+                docString: step.docString,
+                values: step.values,
+                valuesRaw: step.valuesRaw,
+                ruleViolations: step.ruleViolations,
+                code: step.code
+            };
+            await this.post(`/api/runs/${runId}/steps`, stepRequest);
+        }
+    }
+
+    private calculateSpecificationStatus(spec: Specification): SpecStatus {
+        let hasFailure = false;
+        let hasPending = false;
+        for (const rule of spec.rules || []) {
+            if (rule instanceof RuleOutline) {
+                const st = this.calculateRuleOutlineStatus(rule);
+                if (st === SpecStatus.fail) hasFailure = true;
+                if (st === SpecStatus.pending) hasPending = true;
+            } else {
+                const st = (rule as Rule).status;
+                if (st === SpecStatus.fail) hasFailure = true;
+                if (st === SpecStatus.pending || st === SpecStatus.unknown) hasPending = true;
+            }
+        }
+        if (hasFailure) return SpecStatus.fail;
+        if (hasPending) return SpecStatus.pending;
+        return SpecStatus.pass;
+    }
+
+    private calculateRuleOutlineStatus(rule: RuleOutline): SpecStatus {
+        let hasFailure = false;
+        let hasPending = false;
+        for (const ex of rule.examples || []) {
+            if (ex.status === SpecStatus.fail) hasFailure = true;
+            if (ex.status === SpecStatus.pending || ex.status === SpecStatus.unknown) hasPending = true;
+        }
+        if (hasFailure) return SpecStatus.fail;
+        if (hasPending) return SpecStatus.pending;
+        return SpecStatus.pass;
+    }
+
+    private virtualStepFromRule(rule: Rule | RuleExample, sequence: number): VirtualStep {
+        const error = rule.status === SpecStatus.fail && (rule as any).error
+            ? {
+                message: (rule as any).error.message || 'Unknown error',
+                stack: (rule as any).error.stack || undefined
+            }
+            : undefined;
+
+        return {
+            id: this.generateId(),
+            type: 'Then',
+            title: rule.title,
+            status: rule.status,
+            duration: (rule as any).executionTime || 0,
+            sequence,
+            error
         };
     }
 

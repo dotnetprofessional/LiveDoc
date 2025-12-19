@@ -129,40 +129,37 @@ export default class LiveDocSpecReporter implements Reporter {
                 .join('\n');
         }
         
-        // Process tasks - detect backgrounds, scenarios, and scenario outlines
-        let backgroundSuite: any = null;
-        
-        for (const task of (suite.tasks || [])) {
-            if (task.type === 'suite') {
-                // Check if this is a background
-                if (task.name.startsWith('Background:')) {
-                    backgroundSuite = task;
-                    continue;
-                }
-                
-                // Check if this is a scenario (starts with "Scenario:")
-                if (task.name.startsWith('Scenario:')) {
-                    // Check if this scenario has child suites that are examples (Scenario Outline structure)
-                    const exampleSuites = (task.tasks || []).filter((t: any) => 
-                        t.type === 'suite' && t.name.startsWith('Example ')
-                    );
-                    
-                    if (exampleSuites.length > 0) {
-                        // This is a Scenario Outline with nested examples
-                        const scenarioOutline = this.buildScenarioOutlineFromNestedStructure(task, feature);
-                        feature.scenarios.push(scenarioOutline);
-                    } else {
-                        // This is a regular Scenario
-                        const scenario = this.buildScenarioFromSuite(task, feature);
-                        feature.scenarios.push(scenario);
-                    }
-                }
-            }
-        }
-        
-        // Build background if exists
+        // Process tasks - detect backgrounds, scenarios, and scenario outlines.
+        // IMPORTANT: build the Background first so Scenario.addStep() can validate
+        // mustIncludeGiven against background givens during reconstruction.
+        const tasks = (suite.tasks || []).filter((t: any) => t?.type === 'suite');
+
+        const backgroundSuite = tasks.find((t: any) => typeof t?.name === 'string' && t.name.startsWith('Background:'));
         if (backgroundSuite) {
             feature.background = this.buildBackgroundFromSuite(backgroundSuite, feature);
+        }
+
+        for (const task of tasks) {
+            // Skip background suite (already processed)
+            if (task === backgroundSuite) continue;
+
+            // Check if this is a scenario (starts with "Scenario:")
+            if (typeof task.name === 'string' && task.name.startsWith('Scenario:')) {
+                // Check if this scenario has child suites that are examples (Scenario Outline structure)
+                const exampleSuites = (task.tasks || []).filter((t: any) =>
+                    t.type === 'suite' && t.name.startsWith('Example ')
+                );
+
+                if (exampleSuites.length > 0) {
+                    // This is a Scenario Outline with nested examples
+                    const scenarioOutline = this.buildScenarioOutlineFromNestedStructure(task, feature);
+                    feature.scenarios.push(scenarioOutline);
+                } else {
+                    // This is a regular Scenario
+                    const scenario = this.buildScenarioFromSuite(task, feature);
+                    feature.scenarios.push(scenario);
+                }
+            }
         }
         
         return feature;

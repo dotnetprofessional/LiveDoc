@@ -328,6 +328,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       description: body.description,
       rawDescription: body.rawDescription,
       filename: body.filename,
+      path: body.path,
       tags: body.tags,
       status: body.status,
       duration: 0,

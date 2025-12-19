@@ -209,7 +209,7 @@ feature(`Validate step rules
                 """`, (ctx) => {
                     // locate the second step that has the violation
                     const keyword = executionResults.features[0];
-                    keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
+                    (keyword.ruleViolations[0].message as any).should.be.eq(ctx.step.docString);
                 });
 
             and(`the scenarioOutline has following rule violation added 
@@ -218,7 +218,7 @@ feature(`Validate step rules
                 """`, (ctx) => {
                     // locate the second step that has the violation
                     const keyword = executionResults.features[0].scenarios[1];
-                    keyword.ruleViolations[0].message.should.be.eq(ctx.step.docString);
+                    (keyword.ruleViolations[0].message as any).should.be.eq(ctx.step.docString);
                 });
 
             and(`the scenario has following rule violation added 
@@ -276,6 +276,45 @@ feature(`Validate step rules
                 });
         });
 
+        scenario(`Scenario with Background given does not violate mustIncludeGiven`, (ctx) => {
+            given(`the livedoc rules are
+                """
+                {
+                    "mustIncludeGiven": "${LiveDocRuleOption.warning}"
+                }
+                """
+                `, (ctx) => {
+                    ruleOptions.rules = ctx.step.docStringAsEntity!;
+                });
+
+            and(`the following feature
+                """
+                import { feature, background, scenario, given, when, Then as then } from './livedoc';
+                
+                feature("Background provides a given", ()=> {
+                    background("Background sets preconditions", ()=> {
+                        given("some precondition exists", ()=> {});
+                    });
+                    scenario("Scenario relies on Background", ()=>{
+                        when("an action occurs", ()=> {});
+                        then("an assertion passes", ()=> {});
+                    });
+                });
+                """
+                `, (ctx) => {
+                    outlineGiven = ctx.step;
+                });
+
+            when(`executing feature`, async () => {
+                executionResults = await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!, ruleOptions);
+            });
+
+            then(`the scenario when step has no rule violations`, () => {
+                const whenStep = executionResults.features[0].scenarios[0].steps[0];
+                ((whenStep.ruleViolations || []).length as any).should.be.equal(0);
+            });
+        });
+
         scenario(`Using before instead of given in scenario`, (ctx) => {
             given(`the livedoc rules are
             """
@@ -312,7 +351,7 @@ feature(`Validate step rules
                 """`, (ctx) => {
                     // locate the second step that has the violation
                     const scenario = executionResults.features[0].scenarios[0];
-                    scenario.ruleViolations[0].message.should.be.eq(ctx.step.docString);
+                    (scenario.ruleViolations[0].message as any).should.be.eq(ctx.step.docString);
                 });
         });
 

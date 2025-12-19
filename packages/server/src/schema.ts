@@ -152,6 +152,8 @@ export interface Feature {
   description?: string;
   rawDescription?: string;  // Original description
   filename: string;
+  /** Optional folder/grouping path (relative, no filename) */
+  path?: string;
   tags?: string[];
   status: TestStatus;
   duration: number;
@@ -244,6 +246,8 @@ export interface PostFeatureRequest {
   description?: string;
   rawDescription?: string;
   filename: string;
+  /** Optional folder/grouping path (relative, no filename) */
+  path?: string;
   tags?: string[];
   status: TestStatus;
   sequence?: number;

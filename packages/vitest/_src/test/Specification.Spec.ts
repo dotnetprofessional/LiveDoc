@@ -83,7 +83,7 @@ specification("Data-driven Rules", () => {
         expect(isValid).toBe(expectedValid);
     });
 
-    ruleOutline(`Number comparisons
+    ruleOutline(`Number comparisons <a> <comparison> <b>
         Examples:
         | a | b | comparison |
         | 5 | 3 | greater    |

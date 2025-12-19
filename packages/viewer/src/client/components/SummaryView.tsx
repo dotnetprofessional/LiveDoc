@@ -40,7 +40,7 @@ export function SummaryView({ run, onGroupClick }: SummaryViewProps) {
     
     const total = groupStats.passed + groupStats.failed + groupStats.pending;
     const groupStatus = groupStats.failed > 0 ? 'fail' : groupStats.pending > 0 ? 'pending' : 'pass';
-    const displayName = name === '/' ? 'Root' : name.replace(/_/g, ' ');
+    const displayName = formatGroupDisplayName(name);
 
     return {
       id: name,
@@ -86,19 +86,35 @@ export function SummaryView({ run, onGroupClick }: SummaryViewProps) {
   );
 }
 
+function formatGroupDisplayName(groupName: string): string {
+  if (groupName === '/') return 'Root';
+  return groupName
+    .split('/')
+    .map((segment) => (segment.startsWith('_') ? segment : segment.replace(/_/g, ' ')))
+    .join('/');
+}
+
 // Group features by their folder path
 function groupFeatures(features: Feature[]): Record<string, Feature[]> {
   const groups: Record<string, Feature[]> = {};
   const basePath = findCommonPath(features.map(f => f.filename || ''));
-  
+
   for (const f of features) {
-    const path = (f.filename || '').replace(basePath, '');
-    const parts = path.split(/[/\\]/).filter(Boolean);
-    const groupName = parts.length > 1 ? parts.slice(0, -1).join('/') : '/';
+    const groupName = getGroupName(f, basePath);
     groups[groupName] = groups[groupName] || [];
     groups[groupName].push(f);
   }
   return groups;
+}
+
+function getGroupName(feature: Feature, basePath: string): string {
+  const raw = (feature.path || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  if (raw) return raw;
+
+  // Fallback: derive from filename
+  const filename = (feature.filename || '').replace(basePath, '').replace(/\\/g, '/');
+  const parts = filename.split('/').filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join('/') : '/';
 }
 
 function findCommonPath(paths: string[]): string {

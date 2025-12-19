@@ -1,6 +1,7 @@
 import type { Reporter } from 'vitest/reporters';
 import type { Task } from '@vitest/runner';
 import type { Vitest } from 'vitest/node';
+import * as path from 'path';
 import { discoverServer } from '@livedoc/server';
 import type { Feature, Scenario, Step, StepType, TestRun, TestStatus, Statistics } from '@livedoc/server';
 
@@ -74,12 +75,47 @@ export default class LiveDocServerReporter implements Reporter {
     private buildCompleteRun(testModules: any[], timestamp: string): Omit<TestRun, 'runId'> {
         const features: Feature[] = [];
 
+        const moduleFilepaths = (testModules || [])
+            .map((m) => {
+                const file = m?.task || m;
+                return (file as any)?.filepath || (file as any)?.file?.filepath || (file as any)?.file?.name || (file as any)?.name || '';
+            })
+            .filter(Boolean)
+            .map((p) => (path.isAbsolute(p) ? p : path.resolve(process.cwd(), p)))
+            .map((p) => p.replace(/\\/g, '/'));
+
+        const rootPath = this.findCommonRootPath(moduleFilepaths);
+
         for (const module of testModules || []) {
             const file = module?.task || module;
             const tasks: Task[] = (file?.tasks || []) as Task[];
+            const rawFilePath = (file as any)?.filepath || (file as any)?.file?.filepath || (file as any)?.file?.name || '';
+            const absFilePath = rawFilePath ? (path.isAbsolute(rawFilePath) ? rawFilePath : path.resolve(process.cwd(), rawFilePath)) : '';
+            const fileInfo = this.buildFileInfo(absFilePath, rootPath);
             for (const task of tasks) {
-                if (task?.type === 'suite') {
-                    this.collectFeatures(task, features);
+                if (task?.type !== 'suite') continue;
+
+                // Top-level: Feature, Specification, or regular suite
+                if (task.name?.startsWith('Feature:')) {
+                    features.push(this.buildFeature(task, fileInfo));
+                } else if (task.name?.startsWith('Specification:')) {
+                    const specFeature = this.buildSpecificationAsFeature(task, fileInfo);
+                    if (specFeature) features.push(specFeature);
+                } else {
+                    const suiteFeature = this.buildSuiteAsFeature(task, fileInfo);
+                    if (suiteFeature) features.push(suiteFeature);
+
+                    // Also collect nested features/specifications inside wrappers
+                    for (const child of getSuiteChildren(task)) {
+                        if (child.type === 'suite') {
+                            if (child.name?.startsWith('Feature:')) {
+                                features.push(this.buildFeature(child, fileInfo));
+                            } else if (child.name?.startsWith('Specification:')) {
+                                const nestedSpec = this.buildSpecificationAsFeature(child, fileInfo);
+                                if (nestedSpec) features.push(nestedSpec);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -102,24 +138,237 @@ export default class LiveDocServerReporter implements Reporter {
         };
     }
 
-    private collectFeatures(task: Task, out: Feature[]) {
-        if (task.type !== 'suite') return;
+    private findCommonRootPath(absoluteFilenames: string[]): string {
+        if (absoluteFilenames.length === 0) return '';
+        const dirSegments = absoluteFilenames.map((f) => {
+            const parts = f.split('/').filter(Boolean);
+            parts.pop();
+            return parts;
+        });
 
-        if (task.name?.startsWith('Feature:')) {
-            out.push(this.buildFeature(task));
-            return;
+        const first = dirSegments[0];
+        let end = 0;
+        while (end < first.length) {
+            const seg = first[end];
+            if (!dirSegments.every((s) => s[end] === seg)) break;
+            end++;
         }
-
-        for (const child of getSuiteChildren(task)) {
-            if (child.type === 'suite') {
-                this.collectFeatures(child, out);
-            }
-        }
+        return first.slice(0, end).join('/');
     }
 
-    private buildFeature(featureSuite: Task): Feature {
+    private buildFileInfo(absFilename: string, rootPath: string): { filename: string; path: string } {
+        const normalized = (absFilename || '').replace(/\\/g, '/');
+        const root = (rootPath || '').replace(/\\/g, '/').replace(/\/+$/g, '');
+
+        if (!normalized) return { filename: '', path: '' };
+
+        let relative = normalized;
+        if (root) {
+            const rootParts = root.split('/').filter(Boolean);
+            const fileParts = normalized.split('/').filter(Boolean);
+            const matches = rootParts.every((seg, i) => fileParts[i] === seg);
+            if (matches) {
+                relative = fileParts.slice(rootParts.length).join('/');
+            }
+        }
+
+        const parts = relative.split('/').filter(Boolean);
+        const groupPath = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+        return { filename: relative, path: groupPath };
+    }
+
+    private buildSpecificationAsFeature(specSuite: Task, fileInfo: { filename: string; path: string }): Feature | null {
+        if (specSuite.type !== 'suite') return null;
+
+        const title = specSuite.name.replace(/^Specification:\s*/, '').trim();
+
+        const scenarios: Scenario[] = [];
+        let sequence = 0;
+
+        // Rules can be tests (simple) or suites (outline)
+        for (const child of getSuiteChildren(specSuite)) {
+            if (child.type === 'test' && child.name?.startsWith('Rule:')) {
+                scenarios.push(this.buildRuleScenarioFromTest(child, sequence++));
+            } else if (child.type === 'suite' && child.name?.startsWith('Rule:')) {
+                const { outline, examples } = this.tryBuildRuleOutline(child, sequence++);
+                if (outline) {
+                    scenarios.push(outline);
+                    scenarios.push(...examples);
+                    sequence += examples.length;
+                }
+            }
+        }
+
+        // Skip empty spec containers
+        if (scenarios.length === 0) return null;
+
+        const statistics = this.summarizeScenarios(scenarios);
+        const status: TestStatus = statistics.failed > 0 ? 'failed' : statistics.passed > 0 ? 'passed' : 'pending';
+
+        return {
+            id: specSuite.id,
+            title: `Specification: ${title}`,
+            filename: fileInfo.filename,
+            path: fileInfo.path,
+            tags: undefined,
+            status,
+            duration: statistics.duration,
+            background: undefined,
+            scenarios,
+            ruleViolations: undefined,
+            statistics,
+        };
+    }
+
+    private tryBuildRuleOutline(ruleSuite: Task, outlineSequence: number): { outline: Scenario | null; examples: Scenario[] } {
+        if (ruleSuite.type !== 'suite') return { outline: null, examples: [] };
+
+        const exampleTests = getSuiteChildren(ruleSuite).filter((t: Task) => t.type === 'test' && /^Example\s+\d+/.test(t.name || '')) as Task[];
+        if (exampleTests.length === 0) return { outline: null, examples: [] };
+
+        const outlineTitle = ruleSuite.name.replace(/^Rule:\s*/, '').trim();
+        const examples: Scenario[] = [];
+
+        for (let i = 0; i < exampleTests.length; i++) {
+            const t = exampleTests[i];
+            examples.push(this.buildRuleExampleScenarioFromTest(t, ruleSuite.id, outlineSequence + 1 + i));
+        }
+
+        const stats = this.summarizeScenarioExamples(examples);
+        const status: TestStatus = stats.failed > 0 ? 'failed' : stats.passed > 0 ? 'passed' : 'pending';
+
+        const outline: Scenario = {
+            id: ruleSuite.id,
+            type: 'ScenarioOutline',
+            title: `Rule Outline: ${outlineTitle}`,
+            status,
+            duration: stats.duration,
+            steps: [{
+                id: ruleSuite.id,
+                type: 'Then',
+                title: outlineTitle,
+                status: 'pending',
+                duration: 0,
+            }],
+            sequence: outlineSequence,
+        };
+
+        return { outline, examples };
+    }
+
+    private buildRuleScenarioFromTest(task: Task, sequence: number): Scenario {
+        const ruleTitle = (task.name || '').replace(/^Rule:\s*/, '').trim();
+        const step: Step = {
+            id: task.id,
+            type: 'Then',
+            title: ruleTitle || task.name || 'Rule',
+            status: this.mapStatus(task.result?.state),
+            duration: task.result?.duration || 0,
+        };
+        const stats = this.summarizeSteps([step]);
+        const status: TestStatus = stats.failed > 0 ? 'failed' : stats.passed > 0 ? 'passed' : 'pending';
+        return {
+            id: task.id,
+            type: 'Scenario',
+            title: `Rule: ${ruleTitle || task.name || ''}`.trim(),
+            status,
+            duration: step.duration,
+            steps: [step],
+            sequence,
+        };
+    }
+
+    private buildRuleExampleScenarioFromTest(task: Task, outlineId: string, sequence: number): Scenario {
+        const step: Step = {
+            id: task.id,
+            type: 'Then',
+            title: task.name || 'Example',
+            status: this.mapStatus(task.result?.state),
+            duration: task.result?.duration || 0,
+        };
+        const stats = this.summarizeSteps([step]);
+        const status: TestStatus = stats.failed > 0 ? 'failed' : stats.passed > 0 ? 'passed' : 'pending';
+        const parsed = this.parseExampleTitle(task.name || '');
+        return {
+            id: task.id,
+            type: 'Scenario',
+            title: task.name || 'Example',
+            status,
+            duration: step.duration,
+            steps: [step],
+            outlineId,
+            exampleIndex: parsed?.index,
+            exampleValues: parsed?.values,
+            sequence,
+        };
+    }
+
+    private buildSuiteAsFeature(suite: Task, fileInfo: { filename: string; path: string }): Feature | null {
+        if (suite.type !== 'suite') return null;
+
+        // Avoid wrapping livedoc feature/spec containers
+        if (suite.name?.startsWith('Feature:') || suite.name?.startsWith('Specification:')) return null;
+
+        const scenarios: Scenario[] = [];
+        let sequence = 0;
+
+        const collect = (s: Task, prefix: string) => {
+            if (s.type !== 'suite') return;
+            const nextPrefix = prefix ? `${prefix} > ${s.name || ''}` : (s.name || '');
+
+            // Ignore nested livedoc containers; they are handled separately
+            if (s.name?.startsWith('Feature:') || s.name?.startsWith('Specification:')) return;
+
+            for (const child of getSuiteChildren(s)) {
+                if (child.type === 'test') {
+                    const step: Step = {
+                        id: child.id,
+                        type: 'Then',
+                        title: child.name || 'test',
+                        status: this.mapStatus(child.result?.state),
+                        duration: child.result?.duration || 0,
+                    };
+                    const stats = this.summarizeSteps([step]);
+                    const status: TestStatus = stats.failed > 0 ? 'failed' : stats.passed > 0 ? 'passed' : 'pending';
+                    scenarios.push({
+                        id: child.id,
+                        type: 'Scenario',
+                        title: nextPrefix ? `${nextPrefix}: ${child.name || ''}`.trim() : (child.name || 'test'),
+                        status,
+                        duration: step.duration,
+                        steps: [step],
+                        sequence: sequence++,
+                    });
+                } else if (child.type === 'suite') {
+                    collect(child, nextPrefix);
+                }
+            }
+        };
+
+        collect(suite, '');
+
+        if (scenarios.length === 0) return null;
+
+        const statistics = this.summarizeScenarios(scenarios);
+        const status: TestStatus = statistics.failed > 0 ? 'failed' : statistics.passed > 0 ? 'passed' : 'pending';
+
+        return {
+            id: suite.id,
+            title: `Suite: ${suite.name || 'Suite'}`,
+            filename: fileInfo.filename,
+            path: fileInfo.path,
+            tags: undefined,
+            status,
+            duration: statistics.duration,
+            background: undefined,
+            scenarios,
+            ruleViolations: undefined,
+            statistics,
+        };
+    }
+
+    private buildFeature(featureSuite: Task, fileInfo: { filename: string; path: string }): Feature {
         const title = featureSuite.name.replace('Feature:', '').trim();
-        const filename = featureSuite.file?.name || '';
 
         const scenarios: Scenario[] = [];
         let background: Scenario | undefined;
@@ -167,7 +416,8 @@ export default class LiveDocServerReporter implements Reporter {
         return {
             id: featureSuite.id,
             title,
-            filename,
+            filename: fileInfo.filename,
+            path: fileInfo.path,
             tags: undefined,
             status,
             duration: statistics.duration,

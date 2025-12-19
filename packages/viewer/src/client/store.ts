@@ -53,6 +53,8 @@ export interface Feature {
   title: string;
   description?: string;
   filename?: string;
+  /** Optional folder/grouping path (relative, no filename) */
+  path?: string;
   status: 'pass' | 'fail' | 'skip' | 'pending';
   background?: Background;
   scenarios: Scenario[];

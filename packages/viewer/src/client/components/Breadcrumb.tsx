@@ -38,7 +38,7 @@ export function Breadcrumb() {
 
   // Add Group if we're in group, feature, scenario, or outline view
   if (groupName && ['group', 'feature', 'scenario', 'outline'].includes(currentView.type)) {
-    const displayGroup = groupName === '/' ? 'Root' : groupName.replace(/_/g, ' ');
+    const displayGroup = formatGroupDisplayName(groupName);
     items.push({
       label: displayGroup,
       onClick: currentView.type === 'group' ? undefined : () => navigate('group', groupName),
@@ -102,6 +102,14 @@ export function Breadcrumb() {
       ))}
     </nav>
   );
+}
+
+function formatGroupDisplayName(groupName: string): string {
+  if (groupName === '/') return 'Root';
+  return groupName
+    .split('/')
+    .map((segment) => (segment.startsWith('_') ? segment : segment.replace(/_/g, ' ')))
+    .join('/');
 }
 
 function findFeature(features: Feature[], featureId: string): Feature | undefined {

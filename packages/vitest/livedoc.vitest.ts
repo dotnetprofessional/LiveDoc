@@ -5,17 +5,13 @@ import LiveDocServerReporter from './_src/app/reporter/LiveDocServerReporter';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Detect if running under VS Code Vitest extension or in debug mode
-// VITEST_VSCODE is set by the Vitest extension
-// VSCODE_* env vars are set when running from VS Code
-const isVSCodeVitest = !!(
-  process.env.VITEST_VSCODE || 
-  process.env.VSCODE_PID || 
-  process.env.VSCODE_IPC_HOOK
-);
+// Detect if running under the VS Code Vitest extension.
+// NOTE: VS Code debugging also sets VSCODE_* env vars, but we still want LiveDoc
+// reporters when using our launch.json debug configs. The extension sets VITEST_VSCODE.
+const isVSCodeVitest = !!process.env.VITEST_VSCODE;
 
 // Log which config is being used
-console.log('🟠 [VITEST CONFIG] Using vitest.config.ts - WITH custom reporter');
+console.log('🟠 [VITEST CONFIG] Using livedoc.vitest.ts - WITH custom reporter');
 
 export default defineConfig({
   test: {
