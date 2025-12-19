@@ -189,7 +189,7 @@ export default class LiveDocServerReporter implements Reporter {
         for (const child of getSuiteChildren(specSuite)) {
             if (child.type === 'test' && child.name?.startsWith('Rule:')) {
                 scenarios.push(this.buildRuleScenarioFromTest(child, sequence++));
-            } else if (child.type === 'suite' && child.name?.startsWith('Rule:')) {
+            } else if (child.type === 'suite' && (child.name?.startsWith('Rule Outline:') || child.name?.startsWith('Rule:'))) {
                 const { outline, examples } = this.tryBuildRuleOutline(child, sequence++);
                 if (outline) {
                     scenarios.push(outline);
@@ -223,11 +223,20 @@ export default class LiveDocServerReporter implements Reporter {
     private tryBuildRuleOutline(ruleSuite: Task, outlineSequence: number): { outline: Scenario | null; examples: Scenario[] } {
         if (ruleSuite.type !== 'suite') return { outline: null, examples: [] };
 
-        const exampleTests = getSuiteChildren(ruleSuite).filter((t: Task) => t.type === 'test' && /^Example\s+\d+/.test(t.name || '')) as Task[];
+        const exampleTests = getSuiteChildren(ruleSuite).filter((t: Task) => {
+            if (t.type !== 'test') return false;
+            const meta: any = (t as any).meta?.livedoc;
+            return meta?.kind === 'ruleExample';
+        }) as Task[];
         if (exampleTests.length === 0) return { outline: null, examples: [] };
 
-        const outlineTitle = ruleSuite.name.replace(/^Rule:\s*/, '').trim();
+        const suiteName = String(ruleSuite.name || '');
+        const outlineTitle = suiteName.replace(/^Rule\s+Outline:\s*/i, '').replace(/^Rule:\s*/i, '').trim();
         const examples: Scenario[] = [];
+
+        const firstMeta: any = (exampleTests[0] as any)?.meta?.livedoc?.ruleOutline;
+        const outlineDescription = typeof firstMeta?.description === 'string' ? firstMeta.description : undefined;
+        const outlineTags = Array.isArray(firstMeta?.tags) ? firstMeta.tags : undefined;
 
         for (let i = 0; i < exampleTests.length; i++) {
             const t = exampleTests[i];
@@ -241,6 +250,8 @@ export default class LiveDocServerReporter implements Reporter {
             id: ruleSuite.id,
             type: 'ScenarioOutline',
             title: `Rule Outline: ${outlineTitle}`,
+            description: outlineDescription,
+            tags: outlineTags,
             status,
             duration: stats.duration,
             steps: [{
@@ -257,7 +268,7 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     private buildRuleScenarioFromTest(task: Task, sequence: number): Scenario {
-        const ruleTitle = (task.name || '').replace(/^Rule:\s*/, '').trim();
+        const ruleTitle = (task.name || '').replace(/^(Rule|Example\s+\d+):\s*/i, '').trim();
         const step: Step = {
             id: task.id,
             type: 'Then',
@@ -279,26 +290,42 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     private buildRuleExampleScenarioFromTest(task: Task, outlineId: string, sequence: number): Scenario {
+        const meta: any = (task as any).meta?.livedoc;
+        const exampleIndex = Number(meta?.ruleOutline?.example?.sequence);
+        const exampleValues = meta?.ruleOutline?.example?.values;
+        const exampleValuesRaw = meta?.ruleOutline?.example?.valuesRaw;
+
+        const toStringRecord = (obj: unknown): Record<string, string> | undefined => {
+            if (!obj || typeof obj !== 'object') return undefined;
+            return Object.fromEntries(
+                Object.entries(obj as Record<string, unknown>).map(([k, v]) => [k, v === undefined || v === null ? '' : String(v)])
+            );
+        };
+
+        const rawTitle = String(task.name || 'Rule');
+        const ruleTitle = rawTitle.replace(/^(Rule|Example\s+\d+):\s*/i, '').trim();
+
         const step: Step = {
             id: task.id,
             type: 'Then',
-            title: task.name || 'Example',
+            title: ruleTitle || rawTitle,
             status: this.mapStatus(task.result?.state),
             duration: task.result?.duration || 0,
         };
         const stats = this.summarizeSteps([step]);
         const status: TestStatus = stats.failed > 0 ? 'failed' : stats.passed > 0 ? 'passed' : 'pending';
-        const parsed = this.parseExampleTitle(task.name || '');
         return {
             id: task.id,
             type: 'Scenario',
-            title: task.name || 'Example',
+            title: (Number.isFinite(exampleIndex) ? `Example ${exampleIndex}: ${ruleTitle}` : `Rule: ${ruleTitle || rawTitle}`).trim(),
             status,
             duration: step.duration,
             steps: [step],
             outlineId,
-            exampleIndex: parsed?.index,
-            exampleValues: parsed?.values,
+            exampleIndex: Number.isFinite(exampleIndex) ? exampleIndex : undefined,
+            // Viewer/VS Code renderers expect string values for substitution/highlighting
+            exampleValues: toStringRecord(exampleValuesRaw ?? exampleValues),
+            exampleValuesRaw: toStringRecord(exampleValuesRaw),
             sequence,
         };
     }

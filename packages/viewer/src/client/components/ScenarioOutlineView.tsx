@@ -1,6 +1,7 @@
 import { Run, Feature, Scenario, Background, Step } from '../store';
 import { Breadcrumb } from './Breadcrumb';
 import { ScenarioOutlineCard } from './ScenarioOutlineCard';
+import { groupScenarios } from '../lib/gherkin-utils';
 
 interface ScenarioOutlineViewProps {
   run: Run;
@@ -78,113 +79,6 @@ export function ScenarioOutlineView({ run, featureId, outlineId }: ScenarioOutli
 }
 
 // Duplicated from FeatureView - could be extracted to shared utility
-interface GroupedScenarios {
-  regularScenarios: Scenario[];
-  outlines: {
-    id: string;
-    title: string;
-    description?: string;
-    templateSteps: { type: string; title: string }[];
-    examples: Scenario[];
-    tags?: string[];
-  }[];
-  background?: Background;
-}
-
-function groupScenarios(scenarios: Scenario[]): GroupedScenarios {
-  const outlineMap = new Map<string, {
-    id: string;
-    title: string;
-    description?: string;
-    templateSteps: { type: string; title: string }[];
-    examples: Scenario[];
-    tags?: string[];
-  }>();
-  
-  // First pass: process ScenarioOutline entries first
-  for (const scenario of scenarios) {
-    if (scenario.type === 'ScenarioOutline' && !scenario.outlineId) {
-      outlineMap.set(scenario.id, {
-        id: scenario.id,
-        title: scenario.title,
-        description: scenario.description,
-        templateSteps: scenario.steps?.map(s => ({ type: s.type, title: s.title })) || [],
-        examples: [],
-        tags: scenario.tags,
-      });
-    }
-  }
-  
-  const regularScenarios: Scenario[] = [];
-  let background: Background | undefined;
-  
-  for (const scenario of scenarios) {
-    if (scenario.type === 'ScenarioOutline' && !scenario.outlineId) {
-      continue;
-    }
-    
-    if (scenario.title === 'Background' || scenario.type === 'Background' || scenario.id?.includes('background')) {
-      background = {
-        id: scenario.id,
-        title: scenario.title,
-        description: scenario.description,
-        steps: scenario.steps,
-      };
-      continue;
-    }
-    
-    if (scenario.outlineId) {
-      if (!outlineMap.has(scenario.outlineId)) {
-        outlineMap.set(scenario.outlineId, {
-          id: scenario.outlineId,
-          title: scenario.title,
-          description: scenario.description,
-          templateSteps: getTemplateSteps(scenario),
-          examples: [],
-          tags: scenario.tags,
-        });
-      }
-      const outline = outlineMap.get(scenario.outlineId)!;
-      outline.examples.push(scenario);
-
-      // If templateSteps are empty (e.g. outline definition didn't have steps), try to populate them from this example
-      if (outline.templateSteps.length === 0) {
-        outline.templateSteps = getTemplateSteps(scenario);
-      }
-    } else {
-      regularScenarios.push(scenario);
-    }
-  }
-  
-  return {
-    regularScenarios,
-    outlines: Array.from(outlineMap.values()),
-    background,
-  };
-}
-
-function getTemplateSteps(scenario: Scenario): { type: string; title: string }[] {
-  if (!scenario.steps) return [];
-  
-  return scenario.steps.map(step => {
-    let templateTitle = step.title;
-    
-    if (scenario.exampleValues) {
-      for (const [key, value] of Object.entries(scenario.exampleValues)) {
-        if (value && templateTitle.includes(value)) {
-          templateTitle = templateTitle.replace(new RegExp(escapeRegExp(value), 'g'), `<${key}>`);
-        }
-      }
-    }
-    
-    return { type: step.type, title: templateTitle };
-  });
-}
-
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function getStatusColor(status: string): string {
   switch (status) {
     case 'pass':

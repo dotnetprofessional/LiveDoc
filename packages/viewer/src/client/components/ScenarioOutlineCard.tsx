@@ -43,7 +43,9 @@ export function ScenarioOutlineCard({ outline, background }: ScenarioOutlineCard
       {/* Outline Header */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <span className={`w-2.5 h-2.5 rounded-full ${getStatusDot(aggregateStatus)}`}></span>
-        <span className="flex-1 text-sm font-semibold text-text">{outline.title}</span>
+        <span className="flex-1 text-sm font-semibold text-text">
+          <HighlightedStepText text={outline.title} values={null} />
+        </span>
         <div className="flex items-center gap-3 text-xs">
           {passCount > 0 && <span className="text-pass font-medium">✓ {passCount}</span>}
           {failCount > 0 && <span className="text-fail font-medium">✗ {failCount}</span>}
@@ -170,13 +172,13 @@ function HighlightedStepText({ text, values }: { text: string; values: Record<st
           
           if (value !== undefined) {
             return (
-              <span key={i} className="text-placeholder font-semibold bg-placeholder/20 px-1 rounded">
+              <span key={i} className="px-1 bg-accent/20 text-accent rounded font-medium">
                 {value}
               </span>
             );
           }
           return (
-            <span key={i} className="text-placeholder font-medium">
+            <span key={i} className="px-1 bg-accent/20 text-accent rounded font-medium">
               {part}
             </span>
           );

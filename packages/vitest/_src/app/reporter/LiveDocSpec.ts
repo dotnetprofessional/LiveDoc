@@ -214,16 +214,36 @@ export class LiveDocSpec extends LiveDocReporter {
             if (rule instanceof model.RuleOutline) {
                 // Output Rule Outline with status indicator (like regular rules)
                 const status = this.getStatusIndicator(rule.status);
-                this.writeLine(`    ${status} ${this.colorTheme.keyword("Rule Outline:")} ${this.colorTheme.scenarioTitle(rule.title)}`);
+                const title = this.highlight(rule.title, /<[^>]+>/g, this.colorTheme.valuePlaceholders);
+                this.writeLine(`    ${status} ${this.colorTheme.keyword("Rule Outline:")} ${this.colorTheme.scenarioTitle(title)}`);
                 if (rule.description) {
                     this.writeLine(this.formatDescription(rule.description, 6, this.colorTheme.scenarioDescription));
+                }
+
+                // Output Examples tables (at the start of the outline)
+                if (rule.tables && rule.tables.length > 0) {
+                    let runningTotal = 0;
+                    for (let i = 0; i < rule.tables.length; i++) {
+                        this.writeLine(this.applyBlockIndent(this.colorTheme.keyword("Examples: " + (rule.tables[i].name || "")), 8));
+                        this.writeLine(this.applyBlockIndent(this.formatTable(rule.tables[i].dataTable as any[][], HeaderType.Top, true, runningTotal), 8));
+                        runningTotal += (rule.tables[i].dataTable?.length || 1) - 1;
+                    }
                 }
                 
                 // Output each example
                 for (const example of rule.examples) {
                     const exampleStatus = this.getStatusIndicator(example.status);
-                    const exampleTitle = `Example ${example.sequence}`;
-                    this.writeLine(`      ${exampleStatus} ${this.colorTheme.stepTitle(exampleTitle)}`);
+                    let title = example.title;
+                    if (example.example) {
+                        const values = Object.values(example.example).map(v => String(v)).filter(v => v.length > 0);
+                        if (values.length > 0) {
+                            // Sort values by length descending to avoid partial matches
+                            values.sort((a, b) => b.length - a.length);
+                            const regex = new RegExp(`(${values.map(v => this.escapeRegExp(v)).join('|')})`, 'g');
+                            title = this.highlight(title, regex, this.colorTheme.valuePlaceholders);
+                        }
+                    }
+                    this.writeLine(`      ${exampleStatus} ${this.colorTheme.keyword("Example " + example.sequence + ":")} ${this.colorTheme.stepTitle(title)}`);
                 }
                 this.writeLine(" ");
             } else {
@@ -391,7 +411,8 @@ export class LiveDocSpec extends LiveDocReporter {
     private outputScenarioOutline(scenario: model.ScenarioOutline) {
         let indent = 4;
 
-        this.writeLine(this.formatKeywordTitle("Scenario Outline", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+        const title = this.highlight(scenario.title, /<[^>]+>/g, this.colorTheme.valuePlaceholders);
+        this.writeLine(this.formatKeywordTitle("Scenario Outline", title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
         indent += 2;
         if (scenario.tags.length > 0) this.writeLine(this.applyBlockIndent(this.formatTags(scenario.tags), indent));
         if (scenario.description.length > 0) this.writeLine(this.formatDescription(scenario.description, indent, this.colorTheme.scenarioDescription));
@@ -414,7 +435,15 @@ export class LiveDocSpec extends LiveDocReporter {
 
     private outputScenario(scenario: model.Scenario) {
         let indent = 4;
-        this.writeLine(this.formatKeywordTitle("Scenario", scenario.title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
+        let title = scenario.title;
+        if (scenario instanceof model.ScenarioExample) {
+            const values = Object.values(scenario.example).map(v => String(v)).filter(v => v.length > 0);
+            // Sort by length descending to avoid partial matches if one value is a substring of another
+            values.sort((a, b) => b.length - a.length);
+            const regex = new RegExp(`(${values.map(v => this.escapeRegExp(v)).join('|')})`, 'g');
+            title = this.highlight(title, regex, this.colorTheme.valuePlaceholders);
+        }
+        this.writeLine(this.formatKeywordTitle("Scenario", title, this.colorTheme.keyword, this.colorTheme.scenarioTitle, indent));
         indent += 2;
         if (scenario.tags.length > 0) this.writeLine(this.applyBlockIndent(this.formatTags(scenario.tags), indent));
         if (scenario.description.length > 0) this.writeLine(this.formatDescription(scenario.description, indent, this.colorTheme.scenarioDescription));

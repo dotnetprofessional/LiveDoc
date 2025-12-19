@@ -124,6 +124,10 @@ export abstract class LiveDocReporter {
         }
     }
 
+    protected escapeRegExp(text: string): string {
+        return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
     protected sanitizeName(name: string): string {
         // removing spaces and apostrophes
         return name.replace(/[ `'']/g, "");

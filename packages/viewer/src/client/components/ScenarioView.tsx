@@ -69,7 +69,9 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
         <div className="p-5 border-b border-border">
           <div className="flex items-center gap-2.5 mb-1.5">
             <span className={`w-3 h-3 rounded-full ${getStatusColor(status)}`}></span>
-            <h2 className="text-base font-semibold text-text">{scenario.title}</h2>
+            <h2 className="text-base font-semibold text-text">
+              {highlightExampleValues(scenario.title, scenario.exampleValues)}
+            </h2>
           </div>
           
           <div className="flex items-center gap-4 text-xs text-text-secondary">
@@ -120,7 +122,7 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
         {/* Steps */}
         <div className="p-5">
           {steps.length > 0 ? (
-            <StepList steps={steps} />
+            <StepList steps={steps} highlightValues={scenario.exampleValues} />
           ) : (
             <div className="text-center text-text-muted py-4">No steps</div>
           )}
@@ -128,6 +130,31 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
       </div>
     </div>
   );
+}
+
+function highlightExampleValues(text: string, values?: Record<string, string>): React.ReactNode {
+  if (!values || Object.keys(values).length === 0) return text;
+
+  const escapeRegExp = (str: string): string => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const uniqueValues = Array.from(
+    new Set(Object.values(values).map((v) => String(v ?? '')).filter((v) => v.length > 0))
+  ).sort((a, b) => b.length - a.length);
+
+  if (uniqueValues.length === 0) return text;
+
+  const pattern = new RegExp(`(${uniqueValues.map(escapeRegExp).join('|')})`, 'g');
+  const parts = text.split(pattern);
+
+  return parts.map((part, idx) => {
+    if (uniqueValues.includes(part)) {
+      return (
+        <span key={idx} className="px-1 bg-accent/20 text-accent rounded font-medium">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
 }
 
 function getStatusColor(status: string): string {

@@ -535,17 +535,15 @@ export default class LiveDocSpecReporter implements Reporter {
         // Process tasks - detect rules and rule outlines
         for (const task of (suite.tasks || [])) {
             if (task.type === 'suite') {
-                // Check if this is a Rule Outline (has Example children)
-                if (task.name.startsWith('Rule:')) {
-                    const exampleTests = (task.tasks || []).filter((t: any) => 
-                        t.type === 'test' && t.name.startsWith('Example ')
-                    );
-                    
-                    if (exampleTests.length > 0) {
-                        // This is a Rule Outline with nested examples
-                        const ruleOutline = this.buildRuleOutlineFromSuite(task, specification);
-                        specification.rules.push(ruleOutline);
-                    }
+                // RuleOutline suites contain child tests with livedoc.kind === 'ruleExample'
+                const exampleTests = (task.tasks || []).filter((t: any) => {
+                    if (t.type !== 'test') return false;
+                    const meta = this.getLiveDocMetaFromTask(t);
+                    return meta?.kind === 'ruleExample';
+                });
+                if (exampleTests.length > 0) {
+                    const ruleOutline = this.buildRuleOutlineFromSuite(task, specification);
+                    specification.rules.push(ruleOutline);
                 }
             } else if (task.type === 'test') {
                 // Check if this is a simple Rule (test starting with "Rule:")
@@ -594,22 +592,41 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private buildRuleOutlineFromSuite(suite: any, specification: model.Specification): model.RuleOutline {
         const ruleOutline = new model.RuleOutline(specification);
-        const fullName = suite.name.replace(/^Rule:\s*/, '');
-        const lines = fullName.split('\n');
-        ruleOutline.title = lines[0].trim();
-        
-        if (lines.length > 1) {
-            ruleOutline.description = lines.slice(1)
-                .map((l: string) => l.trim())
-                .filter((l: string) => l.length > 0)
-                .join('\n');
+
+        const exampleTests = (suite.tasks || []).filter((t: any) => {
+            if (t.type !== 'test') return false;
+            const meta = this.getLiveDocMetaFromTask(t);
+            return meta?.kind === 'ruleExample';
+        });
+
+        const firstMeta = exampleTests.length > 0 ? this.getLiveDocMetaFromTask(exampleTests[0]) : null;
+        const outlineMeta = firstMeta?.ruleOutline;
+
+        // Prefer metadata (supports description/tables/tags like ScenarioOutline)
+        if (outlineMeta && typeof outlineMeta.title === 'string') {
+            ruleOutline.title = outlineMeta.title;
+            ruleOutline.description = String(outlineMeta.description || '');
+            if (Array.isArray(outlineMeta.tags)) {
+                ruleOutline.tags = outlineMeta.tags;
+            }
+            if (Array.isArray(outlineMeta.tables)) {
+                ruleOutline.tables = outlineMeta.tables as any;
+            }
+        } else {
+            // Fallback to suite name parsing
+            const fullName = String(suite.name || '').replace(/^Rule\s+Outline:\s*/i, '').replace(/^Rule:\s*/i, '');
+            const lines = fullName.split('\n');
+            ruleOutline.title = lines[0].trim();
+
+            if (lines.length > 1) {
+                ruleOutline.description = lines.slice(1)
+                    .map((l: string) => l.trim())
+                    .filter((l: string) => l.length > 0)
+                    .join('\n');
+            }
         }
         
         // Build rule examples from each example test
-        const exampleTests = (suite.tasks || []).filter((t: any) => 
-            t.type === 'test' && t.name.startsWith('Example ')
-        );
-        
         for (let i = 0; i < exampleTests.length; i++) {
             const example = this.buildRuleExampleFromTest(exampleTests[i], ruleOutline, i + 1);
             ruleOutline.examples.push(example);
@@ -642,7 +659,9 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private buildRuleExampleFromTest(task: any, ruleOutline: model.RuleOutline, sequence: number): model.RuleExample {
         const example = new model.RuleExample(ruleOutline.parent, ruleOutline);
-        example.title = `Example ${sequence}`;
+        // Title comes from the actual test name (materialized), but remove the "Rule:" or "Example N:" prefix.
+        const ruleTitle = String(task.name || '').replace(/^(Rule|Example\s+\d+):\s*/i, '').trim();
+        example.title = ruleTitle || ruleOutline.title;
         example.sequence = sequence;
         example.displayTitle = task.name;
 
@@ -654,6 +673,7 @@ export default class LiveDocSpecReporter implements Reporter {
         }
 
         const values = meta?.ruleOutline?.example?.values;
+        const valuesRaw = meta?.ruleOutline?.example?.valuesRaw;
         if (!values || typeof values !== 'object') {
             throw new Error(
                 `Rule Outline example values missing in task.meta.livedoc. Rule: "${ruleOutline.title}" Test: "${task?.name ?? ''}"`
@@ -661,7 +681,7 @@ export default class LiveDocSpecReporter implements Reporter {
         }
 
         example.example = this.sanitizeExampleKeys(values);
-        example.exampleRaw = example.example;
+        example.exampleRaw = valuesRaw && typeof valuesRaw === 'object' ? this.sanitizeExampleKeys(valuesRaw) : example.example;
         
         // Set status based on task result
         const taskState = task.result?.state || 'unknown';

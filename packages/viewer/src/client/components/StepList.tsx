@@ -3,13 +3,15 @@ import { Step, StepType } from '../store';
 interface StepListProps {
   steps: Step[];
   showStatus?: boolean;
+  /** Optional example values to highlight in rendered titles (ScenarioOutline / RuleOutline examples) */
+  highlightValues?: Record<string, string>;
 }
 
-export function StepList({ steps, showStatus = true }: StepListProps) {
+export function StepList({ steps, showStatus = true, highlightValues }: StepListProps) {
   return (
     <div className="space-y-2">
       {steps.map((step, index) => (
-        <StepItem key={index} step={step} showStatus={showStatus} />
+        <StepItem key={index} step={step} showStatus={showStatus} highlightValues={highlightValues} />
       ))}
     </div>
   );
@@ -18,9 +20,10 @@ export function StepList({ steps, showStatus = true }: StepListProps) {
 interface StepItemProps {
   step: Step;
   showStatus?: boolean;
+  highlightValues?: Record<string, string>;
 }
 
-function StepItem({ step, showStatus = true }: StepItemProps) {
+function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
   const typeColors: Record<StepType, string> = {
     Given: 'text-given',
     When: 'text-when',
@@ -58,7 +61,7 @@ function StepItem({ step, showStatus = true }: StepItemProps) {
       </span>
       <div className="text-text flex-1 min-w-0">
         <div className="whitespace-pre-wrap wrap-break-word">
-          {highlightPlaceholders(step.title)}
+          {renderStepTitle(step.title, highlightValues)}
         </div>
 
         {step.docString && (
@@ -96,6 +99,40 @@ function StepItem({ step, showStatus = true }: StepItemProps) {
       </div>
     </div>
   );
+}
+
+function renderStepTitle(text: string, highlightValues?: Record<string, string>): React.ReactNode {
+  // Prefer placeholder highlighting for template steps
+  if (/<[^>]+>/.test(text)) return highlightPlaceholders(text);
+  if (!highlightValues || Object.keys(highlightValues).length === 0) return text;
+  return highlightExampleValues(text, highlightValues);
+}
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Highlight concrete example values in step titles (and scenario titles)
+function highlightExampleValues(text: string, values: Record<string, string>): React.ReactNode {
+  const uniqueValues = Array.from(
+    new Set(Object.values(values).map((v) => String(v ?? '')).filter((v) => v.length > 0))
+  ).sort((a, b) => b.length - a.length);
+
+  if (uniqueValues.length === 0) return text;
+
+  const pattern = new RegExp(`(${uniqueValues.map(escapeRegExp).join('|')})`, 'g');
+  const parts = text.split(pattern);
+
+  return parts.map((part, idx) => {
+    if (uniqueValues.includes(part)) {
+      return (
+        <span key={idx} className="px-1 bg-accent/20 text-accent rounded font-medium">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
 }
 
 function normalizeDataTable(dataTable: unknown): { headers: string[]; rows: string[][] } | null {

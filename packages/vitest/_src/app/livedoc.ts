@@ -46,6 +46,29 @@ function getFilenameFromStack(skipFrames: number = 2): string {
     return filename;
 }
 
+/**
+ * Materializes placeholders in a template string using the provided values.
+ * Placeholders are in the format <key>.
+ */
+function materializePlaceholders(template: string, values: Record<string, unknown>): string {
+    return template.replace(/<([^>]+)>/g, (m, key) => {
+        const k = String(key || "").trim();
+        if (!k) return m;
+        // Try exact match first, then sanitized match
+        if (k in values) {
+            const v = values[k];
+            return v === undefined || v === null ? "" : String(v);
+        }
+        // Sanitize key (remove spaces/apostrophes) to match ScenarioExample.bind behavior
+        const sanitizedKey = k.replace(/[ `'']/g, "");
+        if (sanitizedKey in values) {
+            const v = values[sanitizedKey];
+            return v === undefined || v === null ? "" : String(v);
+        }
+        return m;
+    });
+}
+
 // Global state for current execution context
 let currentFeature: model.Feature | null = null;
 let currentScenario: model.Scenario | null = null;
@@ -568,8 +591,8 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
             // Each example is a child describe with example values
             // Use "Example N:" prefix to distinguish from regular scenarios
             // Display the example values as a comma-separated list
-            const exampleValues = Object.entries(example.example || {}).map(([k, v]) => `${k}=${v}`).join(', ');
-            const exampleName = `Example ${example.sequence}: ${exampleValues}`;
+            const materializedScenarioTitle = materializePlaceholders(scenarioOutlineModel.title, (example.exampleRaw ?? example.example ?? {}) as Record<string, unknown>);
+            const exampleName = `Example ${example.sequence}: ${materializedScenarioTitle}`;
 
             vitestDescribe(exampleName, () => {
                 // Set current scenario during registration so steps can be added
@@ -841,12 +864,20 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
     // Capture the specification at registration time (not execution time)
     const specificationModel = currentSpecification;
 
-    outlineDescribeFunc(`Rule: ${ruleOutlineModel.title}`, () => {
+    outlineDescribeFunc(`Rule Outline: ${ruleOutlineModel.title}`, () => {
         // Create a test for each example
         for (const example of ruleOutlineModel.examples) {
             ruleCount++;
 
-            const exampleName = `Example ${example.sequence}`;
+            const exampleValuesRaw = (example.exampleRaw ?? example.example ?? {}) as Record<string, unknown>;
+            const materializedRuleTitle = materializePlaceholders(ruleOutlineModel.title, exampleValuesRaw);
+
+            // Make the example behave like a concrete Rule (for ctx.rule and renderers)
+            example.title = materializedRuleTitle;
+            example.displayTitle = materializedRuleTitle;
+
+            // Child test name is an Example leaf
+            const exampleName = `Example ${example.sequence}: ${materializedRuleTitle}`;
 
             const exampleMeta = {
                 livedoc: {
@@ -859,6 +890,7 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
                         example: {
                             sequence: example.sequence,
                             values: (example.example ?? {}) as Record<string, unknown>,
+                            valuesRaw: (example.exampleRaw ?? {}) as Record<string, unknown>,
                         },
                     },
                 },
