@@ -2,15 +2,38 @@
 
 # 🤖 AI Setup Guide
 
-### Copy-paste configurations for AI coding assistants
+### Let AI handle the configuration for you
 
 </div>
 
 ---
 
-> **For AI agents:** This page contains complete, production-ready configurations. Copy the relevant sections directly into your project.
+LiveDoc is designed to be AI-friendly. You can use AI coding assistants (like GitHub Copilot, Cursor, or Windsurf) to automatically set up your environment and write your tests.
+
+## 🚀 How to use with AI
+
+To have an AI agent automatically set up and maintain your LiveDoc tests, simply provide it with the following prompt:
+
+> *"Follow the instructions at: **[ai-instructions.md](./ai-instructions.md)** to set up and author LiveDoc tests for this project."*
+
+*(If you are using an external AI tool, you can provide the raw URL: `https://raw.githubusercontent.com/dotNetProfessional/LiveDoc/main/packages/vitest/docs/ai-instructions.md`)*
+
+## 📋 What the AI will do
+
+When you give the AI the prompt above, it will:
+
+1.  **Discover your environment** (Node.js, Vitest, TypeScript).
+2.  **Ask you for preferences** (BDD vs. Specification style, Globals vs. Imports).
+3.  **Install dependencies** and configure your `vitest.config.ts`.
+4.  **Create a smoke test** to verify everything is working.
+5.  **Configure scripts** in your `package.json` for different reporting levels (spec, list, summary, full).
+6.  **Set up local instructions** and link them in your `README.md` so it remembers how to write LiveDoc tests in future sessions.
 
 ---
+
+## 🛠️ Manual Reference
+
+If you prefer to copy-paste configurations manually, use the sections below.
 
 ## Quick reference
 
@@ -117,6 +140,21 @@ feature("Feature Title", () => {
 ---
 
 ## Reporter configuration matrix
+
+### package.json Scripts
+
+Add these scripts to your `package.json` to easily switch between reporting detail levels:
+
+```json
+{
+  "scripts": {
+    "test:spec": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=spec+headers",
+    "test:list": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=list+headers",
+    "test:summary": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=summary+headers",
+    "test:full": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=spec+summary+headers"
+  }
+}
+```
 
 ### LiveDocSpecReporter options
 

@@ -119,7 +119,7 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Extract feature title and description from suite name
         const lines = suite.name.split('\n');
-        feature.title = lines[0].trim();
+        feature.title = lines[0].replace(/^Feature:\s*/, '').trim();
         feature.filename = filepath;
         
         if (lines.length > 1) {

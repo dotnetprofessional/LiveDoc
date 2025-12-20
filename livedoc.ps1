@@ -1,5 +1,9 @@
 [CmdletBinding()]
 param(
+    # If set, runs the specified command (e.g. 'build') and exits.
+    [Parameter(Position = 0)]
+    [string]$Command,
+
     # If set, prints available packages/scripts and exits (no interactive UI).
     [switch]$List
 )
@@ -52,6 +56,70 @@ function Invoke-InDirectory {
     }
 }
 
+function Run-Build {
+    Write-Host "Starting local release build..." -ForegroundColor Cyan
+    
+    # 1. Clean all packages
+    Write-Host "Cleaning workspace..." -ForegroundColor Cyan
+    Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'clean')
+
+    # 2. Install dependencies
+    Write-Host "Installing dependencies..." -ForegroundColor Cyan
+    Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('install')
+    
+    # 3. Build all packages
+    Write-Host "Building all packages..." -ForegroundColor Cyan
+    Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'build')
+    
+    # 4. Package VS Code extension
+    $vscodeDir = Join-Path $repoRoot 'packages/vscode'
+    if (Test-Path $vscodeDir) {
+        Write-Host "Packaging VS Code extension..." -ForegroundColor Cyan
+        Invoke-InDirectory -WorkingDirectory $vscodeDir -Executable 'pnpm' -Arguments @('run', 'package')
+    }
+
+    # 5. Package Vitest package
+    $vitestDir = Join-Path $repoRoot 'packages/vitest'
+    if (Test-Path $vitestDir) {
+        Write-Host "Packaging Vitest package..." -ForegroundColor Cyan
+        Invoke-InDirectory -WorkingDirectory $vitestDir -Executable 'pnpm' -Arguments @('run', 'pack:local')
+    }
+    
+    Sync-Releases
+    Write-Host "Build complete!" -ForegroundColor Green
+}
+
+function Sync-Releases {
+    $releasesDir = Join-Path $repoRoot 'releases'
+    if (-not (Test-Path $releasesDir)) {
+        New-Item -ItemType Directory -Path $releasesDir | Out-Null
+    }
+
+    Write-Host "Syncing artifacts to releases folder..." -ForegroundColor Cyan
+
+    # VS Code extension
+    $vscodeDir = Join-Path $repoRoot 'packages/vscode'
+    if (Test-Path $vscodeDir) {
+        Get-ChildItem -Path $vscodeDir -Filter "*.vsix" | Copy-Item -Destination $releasesDir -ErrorAction SilentlyContinue
+    }
+
+    # Vitest package
+    $vitestDir = Join-Path $repoRoot 'packages/vitest'
+    if (Test-Path $vitestDir) {
+        Get-ChildItem -Path $vitestDir -Filter "*.tgz" | Copy-Item -Destination $releasesDir -ErrorAction SilentlyContinue
+    }
+
+    $artifacts = @(Get-ChildItem -Path $releasesDir)
+    if ($artifacts.Count -gt 0) {
+        Write-Host "Current artifacts in releases:" -ForegroundColor White
+        foreach ($a in $artifacts) {
+            Write-Host "  - $($a.Name)" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "  (No artifacts found)" -ForegroundColor DarkGray
+    }
+}
+
 function Get-PackageInfo {
     param(
         [Parameter(Mandatory)]
@@ -85,16 +153,19 @@ function Select-ScriptsForMenu {
         [object[]]$Scripts
     )
 
-    # “Tests supported by the package” + a bit of validation coverage.
+    # Include build, package, test, validate, typecheck
     $wanted = $Scripts | Where-Object {
-        $_.Name -match '^(test|validate)' -or $_.Name -eq 'typecheck'
+        $_.Name -match '^(test|validate|build|compile|package|pack)' -or $_.Name -eq 'typecheck'
     }
 
-    # Keep stable ordering: test*, validate*, typecheck
+    # Keep stable ordering: build, package, test*, validate*, typecheck
     $wanted = $wanted | Sort-Object {
-        if ($_.Name -match '^test') { 0 }
-        elseif ($_.Name -match '^validate') { 1 }
-        elseif ($_.Name -eq 'typecheck') { 2 }
+        if ($_.Name -eq 'build') { 0 }
+        elseif ($_.Name -match '^package|^pack') { 1 }
+        elseif ($_.Name -match '^compile') { 2 }
+        elseif ($_.Name -match '^test') { 3 }
+        elseif ($_.Name -match '^validate') { 4 }
+        elseif ($_.Name -eq 'typecheck') { 5 }
         else { 9 }
     }, Name
 
@@ -199,7 +270,7 @@ function Run-Menu {
 
         $currentFrameIndex = $stack.Count - 1
         $current = $stack[$currentFrameIndex]
-        $items = $current.Items
+        $items = @($current.Items)
 
         if ($items.Count -eq 0) {
             # Nothing to show; just go back.
@@ -228,7 +299,7 @@ function Run-Menu {
             }
             'Enter' {
                 $selected = $items[$current.SelectedIndex]
-                if ($selected.Children -and $selected.Children.Count -gt 0) {
+                if ($selected.Children -and @($selected.Children).Count -gt 0) {
                     $stack.Add([PSCustomObject]@{
                         Title = $selected.Label
                         Items = $selected.Children
@@ -256,7 +327,7 @@ function Run-Menu {
 
                         # If the hotkey points to a leaf action, execute immediately.
                         $hit = $items[$idx]
-                        if (-not ($hit.Children -and $hit.Children.Count -gt 0) -and $null -ne $hit.Action) {
+                        if (-not ($hit.Children -and @($hit.Children).Count -gt 0) -and $null -ne $hit.Action) {
                             Clear-Host
                             & $hit.Action
                             if ($script:LiveDocQuit) {
@@ -317,6 +388,11 @@ function Build-PnpmScriptMenuItems {
         $scriptNameLocal = $name
         $items.Add((New-MenuItem -Label $label -HotKey $hk -Action ({
             Invoke-InDirectory -WorkingDirectory $packageDirLocal -Executable 'pnpm' -Arguments @('run', $scriptNameLocal)
+            
+            # If this was a package script, sync the artifacts to the root releases folder
+            if ($scriptNameLocal -match 'package|pack') {
+                Sync-Releases
+            }
         }.GetNewClosure())))
     }
 
@@ -385,8 +461,57 @@ if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
+if ($Command -eq 'help' -or $Command -eq '-h' -or $Command -eq '--help') {
+    Write-Host "LiveDoc Launcher" -ForegroundColor Cyan
+    Write-Host "Usage: livedoc [command]" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Commands:" -ForegroundColor White
+    Write-Host "  build    Run a full local release build (install, build, package)" -ForegroundColor Gray
+    Write-Host "  clean    Clean all packages" -ForegroundColor Gray
+    Write-Host "  test     Run all tests" -ForegroundColor Gray
+    Write-Host "  -List    List all available package scripts (including build/package)" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "If no command is provided, the interactive menu will be shown." -ForegroundColor Gray
+    Write-Host "Package submenus now include build, compile, and package scripts." -ForegroundColor Gray
+    return
+}
+
+if ($Command -eq 'build') {
+    Run-Build
+    return
+}
+
+if ($Command -eq 'clean') {
+    Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'clean')
+    $releasesDir = Join-Path $repoRoot 'releases'
+    if (Test-Path $releasesDir) {
+        Write-Host "Cleaning releases folder..." -ForegroundColor Cyan
+        Remove-Item -Path "$releasesDir\*" -Recurse -Force
+    }
+    return
+}
+
+if ($Command -eq 'test') {
+    Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'test')
+    return
+}
+
 # ---- Build menus ----
 $packageMenuItems = New-Object System.Collections.Generic.List[object]
+
+# Add Build All option
+$packageMenuItems.Add((New-MenuItem -Label 'Build All (pnpm build + package)' -HotKey 'b' -Action ({
+    Run-Build
+}.GetNewClosure())))
+
+$packageMenuItems.Add((New-MenuItem -Label 'Clean All (pnpm clean)' -HotKey 'x' -Action ({
+    Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'clean')
+    $releasesDir = Join-Path $repoRoot 'releases'
+    if (Test-Path $releasesDir) {
+        Write-Host "Cleaning releases folder..." -ForegroundColor Cyan
+        Remove-Item -Path "$releasesDir\*" -Recurse -Force
+    }
+}.GetNewClosure())))
 
 foreach ($p in $packages) {
     $hotKey = [char]0

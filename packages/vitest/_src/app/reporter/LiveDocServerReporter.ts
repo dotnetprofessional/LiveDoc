@@ -2,7 +2,6 @@ import type { Reporter } from 'vitest/reporters';
 import type { Task } from '@vitest/runner';
 import type { Vitest } from 'vitest/node';
 import * as path from 'path';
-import { discoverServer } from '@livedoc/server';
 import type { Feature, Scenario, Step, StepType, TestRun, TestStatus, Statistics } from '@livedoc/server';
 
 type SuiteTask = Task & { type: 'suite'; tasks?: Task[] };
@@ -32,13 +31,20 @@ export default class LiveDocServerReporter implements Reporter {
         this.project = ctx.config.name || "LiveDoc Project";
         
         // Try to discover server
-        const serverInfo = await discoverServer();
-        if (serverInfo) {
-            this.serverUrl = serverInfo.url;
-            this.isAvailable = true;
-            console.log(`[LiveDoc] Connected to server at ${this.serverUrl}`);
-        } else {
-            console.log(`[LiveDoc] Server not found. Reporter disabled.`);
+        try {
+            const { discoverServer } = await import('@livedoc/server');
+            const serverInfo = await discoverServer();
+            if (serverInfo) {
+                this.serverUrl = serverInfo.url;
+                this.isAvailable = true;
+                console.log(`[LiveDoc] Connected to server at ${this.serverUrl}`);
+            } else {
+                console.log(`[LiveDoc] Server not found. Reporter disabled.`);
+            }
+        } catch (e) {
+            // @livedoc/server is not installed. This is expected if the user is not using the server reporter.
+            // We only log if they explicitly tried to use this reporter but it's missing.
+            this.isAvailable = false;
         }
     }
 

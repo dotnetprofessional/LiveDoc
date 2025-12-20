@@ -7,10 +7,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@livedoc/vitest": "workspace:*"
+    "@livedoc/vitest": "file:..\\..\\packages\\vitest\\livedoc-vitest-0.1.1.tgz"
   },
   "devDependencies": {
-    "@types/node": "^22.19.2",
+    "@types/node": "^22.19.3",
     "chai": "^5.3.3",
     "cross-env": "^7.0.3",
     "typescript": "^5.9.3",

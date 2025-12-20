@@ -138,17 +138,18 @@
         "watch": "tsc -watch -p ./",
         "package": "vsce package",
         "test": "pnpm run compile",
-        "link-livedoc": "node scripts/link-livedoc.js"
+        "link-livedoc": "node scripts/link-livedoc.js",
+        "clean": "rimraf out *.vsix"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
-        "@types/node": "^20.19.26",
+        "@types/node": "^20.19.27",
         "@types/react": "^18.3.27",
         "@types/react-dom": "^18.3.7",
-        "@types/vscode": "^1.106.1",
+        "@types/vscode": "^1.107.0",
         "@types/ws": "^8.18.1",
-        "esbuild": "^0.27.1",
-        "fs-extra": "^11.3.2",
+        "esbuild": "^0.27.2",
+        "fs-extra": "^11.3.3",
         "typescript": "~5.5.4"
     },
     "dependencies": {

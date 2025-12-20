@@ -9,6 +9,7 @@ npm-debug.log
 *.log
 /build
 /release
+/releases
 /mochawesome-reports
 _temp
 

@@ -18,22 +18,37 @@ specification("Calculator Rules", () => {
         calculator = { value: 0 };
     });
 
-    rule("Adding positive numbers increases the value", async () => {
-        calculator.value = 5;
-        calculator.value += 3;
-        expect(calculator.value).toBe(8);
+    ruleOutline(`Adding numbers
+        Examples:
+        | a  | b  | expected |
+        |  5 |  3 |        8 |
+        | 10 | 20 |       30 |
+        `, (ctx) => {
+        calculator.value = ctx.example.a;
+        calculator.value += ctx.example.b;
+        expect(calculator.value).toBe(ctx.example.expected);
     });
 
-    rule("Subtracting numbers decreases the value", async () => {
-        calculator.value = 10;
-        calculator.value -= 4;
-        expect(calculator.value).toBe(6);
+    ruleOutline(`Subtracting numbers
+        Examples:
+        | a  | b  | expected |
+        | 10 |  4 |        6 |
+        |  5 | 10 |       -5 |
+        `, (ctx) => {
+        calculator.value = ctx.example.a;
+        calculator.value -= ctx.example.b;
+        expect(calculator.value).toBe(ctx.example.expected);
     });
 
-    rule("Multiplying by zero returns zero", async () => {
-        calculator.value = 100;
-        calculator.value *= 0;
-        expect(calculator.value).toBe(0);
+    ruleOutline(`Multiplying numbers
+        Examples:
+        | a  | b | expected |
+        | 10 | 0 |        0 |
+        |  5 | 5 |       25 |
+        `, (ctx) => {
+        calculator.value = ctx.example.a;
+        calculator.value *= ctx.example.b;
+        expect(calculator.value).toBe(ctx.example.expected);
     });
 });
 
@@ -51,12 +66,17 @@ specification(`String Operations
         expect(str.length).toBe(0);
     });
 
-    rule("Concatenation joins strings", async () => {
-        const result = "Hello" + " " + "World";
-        expect(result).toBe("Hello World");
+    ruleOutline(`Concatenation joins strings
+        Examples:
+        | left  | right |  expected   |
+        | Hello | World | Hello World |
+        | Foo   | Bar   | Foo Bar     |
+        `, async (ctx) => {
+        const result = ctx.example.left + " " + ctx.example.right;
+        expect(result).toBe(ctx.example.expected);
     });
 
-    rule("Trim removes whitespace @trim", async () => {
+    rule("Trim removes whitespace from '  padded  ' @trim", async () => {
         const result = "  padded  ".trim();
         expect(result).toBe("padded");
     });
@@ -74,13 +94,10 @@ specification("Data-driven Rules", () => {
         | invalid           | false |
         | user@domain.co.uk | true  |
         `, async (ctx) => {
-        const email = ctx.example.email;
-        const expectedValid = ctx.example.valid;  // Already a boolean from table parsing
-        
         // Simple email regex for demo
-        const isValid = /^[^@]+@[^@]+\.[^@]+$/.test(email);
+        const isValid = /^[^@]+@[^@]+\.[^@]+$/.test(ctx.example.email);
         
-        expect(isValid).toBe(expectedValid);
+        expect(isValid).toBe(ctx.example.valid);
     });
 
     ruleOutline(`Number comparisons <a> <comparison> <b>
@@ -90,9 +107,7 @@ specification("Data-driven Rules", () => {
         | 2 | 7 | less       |
         | 4 | 4 | equal      |
         `, async (ctx) => {
-        const a = parseInt(ctx.example.a, 10);
-        const b = parseInt(ctx.example.b, 10);
-        const comparison = ctx.example.comparison;
+        const { a, b, comparison } = ctx.example;
 
         switch (comparison) {
             case "greater":
@@ -137,6 +152,17 @@ specification(`Context with Tags and Description
     rule("Specification context includes description", async (ctx) => {
         expect(ctx.specification.description).toContain("tests context with metadata");
     });
+
+    rule(`Rule with multi-line description
+        @rule-tag
+        This is a multi-line description
+        for a specific rule.
+        `, async (ctx) => {
+        expect(ctx.rule.title).toBe("Rule with multi-line description");
+        expect(ctx.rule.tags).toContain("rule-tag");
+        expect(ctx.rule.description).toContain("multi-line description");
+        expect(ctx.rule.description).toContain("for a specific rule");
+    });
 });
 
 // =============================================================================
@@ -160,6 +186,19 @@ specification("RuleOutline Context Access", () => {
             expect(ctx.example.value).toBe(100);
         } else if (ctx.example.name === "beta") {
             expect(ctx.example.value).toBe(200);
+        }
+    });
+
+    ruleOutline(`Automatic type coercion in examples
+        Examples:
+        |  value  |  type   |
+        |     123 | number  |
+        | true    | boolean |
+        | [1,2,3] | object  |
+        `, async (ctx) => {
+        expect(typeof ctx.example.value).toBe(ctx.example.type);
+        if (ctx.example.type === "object") {
+            expect(Array.isArray(ctx.example.value)).toBe(true);
         }
     });
 

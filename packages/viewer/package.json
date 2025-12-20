@@ -16,29 +16,30 @@
     "build:client": "vite build",
     "build:webview": "vite build --config vite.config.webview.ts",
     "start": "node dist/server/index.js",
-    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json"
+    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "@livedoc/server": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "commander": "^12.1.0",
-    "open": "^10.2.0",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "zustand": "^5.0.9",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.0",
     "lucide-react": "^0.330.0",
-    "tailwind-merge": "^2.2.1",
-    "tailwindcss-animate": "^1.0.7"
+    "open": "^10.2.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.17",
-    "@types/node": "^22.19.2",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^22.19.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.1.2",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^6.4.1"

@@ -1,6 +1,6 @@
 {
   "name": "@livedoc/vitest",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Garry McGlennon",
   "license": "MIT",
   "description": "BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax and MSpec-style specifications.",
@@ -65,36 +65,42 @@
     "build": "npm run compile",
     "watch": "tsup --watch",
     "prepack": "npm run build",
-    "pack:local": "npm pack",
+    "pack:local": "pnpm pack",
     "prepublishOnly": "npm run build && npm test",
     "publish:dry": "npm publish --dry-run",
     "publish:beta": "npm publish --tag beta",
     "publish:release": "npm publish"
   },
   "devDependencies": {
+    "@livedoc/server": "workspace:^",
     "@types/chai": "^5.2.3",
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^20.19.26",
+    "@types/node": "^20.19.27",
     "@types/wordwrap": "^1.0.3",
-    "@vitest/runner": "^4.0.15",
-    "@vitest/ui": "^4.0.15",
+    "@vitest/runner": "^4.0.16",
+    "@vitest/ui": "^4.0.16",
     "chai": "^6.2.1",
     "rimraf": "^5.0.10",
     "strip-ansi": "^7.1.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.15"
+    "vitest": "^4.0.16"
   },
   "peerDependencies": {
+    "@livedoc/server": ">=1.0.0",
     "vitest": ">=1.0.0"
   },
+  "peerDependenciesMeta": {
+    "@livedoc/server": {
+      "optional": true
+    }
+  },
   "dependencies": {
-    "@livedoc/server": "workspace:^",
     "@types/diff": "^7.0.2",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",
     "diff": "^5.2.0",
-    "fs-extra": "^11.3.2",
+    "fs-extra": "^11.3.3",
     "wordwrap": "^1.0.0"
   }
 }

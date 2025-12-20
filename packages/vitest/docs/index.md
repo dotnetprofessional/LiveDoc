@@ -46,6 +46,7 @@ New to LiveDoc? Start here:
 | -------                                     | -------------                                |
 | **[Getting Started](./getting-started.md)** | Install and run your first spec in 5 minutes |
 | **[Tutorial](./tutorial.md)**               | Build your first living spec from scratch    |
+| **[AI Setup Guide](./ai-setup-guide.md)**   | **Optimized instructions for AI Agents**     |
 | [Setup: Imports](./setup-imports.md)        | Explicit imports for full control            |
 | [Setup: Globals](./setup-globals.md)        | Zero-import specs for maximum clarity        |
 

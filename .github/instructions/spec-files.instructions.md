@@ -1,5 +1,5 @@
 ---
-applyTo: "**/*.Spec.ts"
+applyTo: "**/*.{Spec,spec}.ts"
 ---
 
 # LiveDoc Vitest API Reference
@@ -8,15 +8,26 @@ BDD test framework using Gherkin syntax. Tests are living documentation.
 
 ## Documentation Principle
 
-**Embed all inputs and expected outputs in step titles.** This makes features self-documenting—readers see what was tested without reading code. Use the built-in data extraction apis to extract and use them in step implementations.
+**Embed all inputs and expected outputs in step titles.** This makes features self-documenting—readers see what was tested without reading code. 
+
+### CRITICAL: Avoid Value Drift
+To ensure the documentation matches the execution, **NEVER** hardcode values in step implementations that are already present in the title. Always extract them using the context APIs (`ctx.step.values`, `ctx.example`, etc.).
 
 ```typescript
-// ✓ Good: Values visible in documentation
-given("a user with balance '500' dollars", ...);
-when("they withdraw '200' dollars", ...);
-then("the balance should be '300' dollars", ...);
+// ✓ BEST: Values in title AND extracted from context
+given("a user with balance '500' dollars", (ctx) => {
+    account.balance = ctx.step.values[0]; // Uses 500
+});
+then("the balance should be '300' dollars", (ctx) => {
+    expect(account.balance).toBe(ctx.step.values[0]); // Uses 300
+});
 
-// ✗ Bad: Values hidden in code
+// ✗ BAD: Value drift risk (Title says 300, code checks 200)
+then("the balance should be '300' dollars", (ctx) => {
+    expect(account.balance).toBe(200); 
+});
+
+// ✗ WORSE: Values hidden in code (Not Living Documentation)
 given("a user with some balance", (ctx) => { balance = 500; });
 then("the balance is correct", (ctx) => { expect(balance).toBe(300); });
 ```
@@ -114,10 +125,12 @@ scenarioOutline(`Validate inputs
     | foo   | true     |
     | bar   | false    |
     `, (ctx) => {
-    When("checking <input>", (ctx) => {
+    when("checking <input>", (ctx) => {
+        // Use ctx.example to access the current row's data
         result = validate(ctx.example.input);
     });
-    Then("result is <expected>", (ctx) => {
+    then("result is <expected>", (ctx) => {
+        // Use ctx.example for assertions to avoid hardcoding
         expect(result).toBe(ctx.example.expected);
     });
 });
@@ -204,6 +217,7 @@ specification("Email Validation", () => {
         | invalid         | false |
         | user@domain.org | true  |
         `, (ctx) => {
+        // Always use ctx.example in ruleOutlines
         const result = isValidEmail(ctx.example.email);
         expect(result).toBe(ctx.example.valid);
     });
@@ -235,12 +249,13 @@ specification("My Spec @tag1", (ctx) => {
 
 ### Quoted Values (`ctx.step.values`)
 
-Auto-extracted and type-coerced from step title:
+Auto-extracted and type-coerced from step title. Use these to avoid hardcoding values in your test logic.
 
 ```typescript
 given("user has '100' items and active is 'true'", (ctx) => {
-    ctx.step.values[0] // 100 (number)
-    ctx.step.values[1] // true (boolean)
+    const [count, isActive] = ctx.step.values;
+    expect(count).toBe(100);      // count is a number
+    expect(isActive).toBe(true);  // isActive is a boolean
 });
 ```
 
@@ -254,7 +269,10 @@ given(`data:
     | name  | age |
     | Alice |  30 |
     `, (ctx) => {
-    ctx.step.table // [{name: "Alice", age: 30}]
+    // ctx.step.table => [{name: "Alice", age: 30}]
+    const user = ctx.step.table[0];
+    expect(user.name).toBe("Alice");
+    expect(user.age).toBe(30);
 });
 ```
 
@@ -264,8 +282,9 @@ given(`config:
     | key   | value |
     | debug | true  |
     `, (ctx) => {
-    ctx.step.tableAsEntity // {key: "value", debug: true} — WRONG
-    // Actually: {debug: true} — first col = key, second = value
+    // ctx.step.tableAsEntity => {debug: true}
+    // First column is the key, second is the value
+    expect(ctx.step.tableAsEntity.debug).toBe(true);
 });
 ```
 
@@ -275,7 +294,8 @@ given(`codes:
     | 200 |
     | 404 |
     `, (ctx) => {
-    ctx.step.tableAsSingleList // [200, 404]
+    // ctx.step.tableAsSingleList => [200, 404]
+    expect(ctx.step.tableAsSingleList).toContain(200);
 });
 ```
 
@@ -287,8 +307,9 @@ given(`JSON input:
     {"key": "value"}
     """
     `, (ctx) => {
-    ctx.step.docString        // raw string
-    ctx.step.docStringAsEntity // parsed JSON object
+    // ctx.step.docString => raw string
+    // ctx.step.docStringAsEntity => parsed JSON object
+    expect(ctx.step.docStringAsEntity.key).toBe("value");
 });
 ```
 

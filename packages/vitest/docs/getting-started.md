@@ -17,6 +17,14 @@ By the end of this guide, you'll have:
 
 ---
 
+## 🤖 Using an AI Assistant?
+
+If you're using an AI coding assistant (like GitHub Copilot, Cursor, or Windsurf), you can skip the manual setup! 
+
+Check out our **[AI Setup Guide](./ai-setup-guide.md)** for a one-sentence prompt that will have your AI agent configure everything for you.
+
+---
+
 ## Step 1: Install
 
 ```bash

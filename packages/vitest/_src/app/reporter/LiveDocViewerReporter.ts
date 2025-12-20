@@ -152,6 +152,8 @@ type VirtualScenario = {
     id: string;
     type: ScenarioType;
     title: string;
+    description?: string;
+    tags?: string[];
     status: SpecStatus;
     duration: number;
     sequence?: number;
@@ -853,6 +855,8 @@ export class LiveDocViewerReporter implements IPostReporter {
                         id: exId,
                         type: 'Scenario',
                         title: `Rule: ${ex.title}`,
+                        description: ex.description,
+                        tags: ex.tags,
                         status: exStatus,
                         duration: ex.executionTime || 0,
                         sequence: seq++,
@@ -872,6 +876,8 @@ export class LiveDocViewerReporter implements IPostReporter {
                     id: ruleId,
                     type: 'Scenario',
                     title: `Rule: ${simple.title}`,
+                    description: simple.description,
+                    tags: simple.tags,
                     status: simple.status,
                     duration: simple.executionTime || 0,
                     sequence: seq++,

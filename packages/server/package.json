@@ -32,13 +32,13 @@
   "dependencies": {
     "@hono/node-server": "^1.19.7",
     "commander": "^12.1.0",
-    "hono": "^4.10.7",
+    "hono": "^4.11.1",
     "open": "^10.2.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "@livedoc/vitest": "workspace:*",
-    "@types/node": "^22.19.2",
+    "@types/node": "^22.19.3",
     "@types/ws": "^8.18.1",
     "rimraf": "^6.1.2",
     "tsup": "^8.5.1",
