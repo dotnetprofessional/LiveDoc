@@ -1,6 +1,6 @@
 {
   "name": "@livedoc/vitest",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "Garry McGlennon",
   "license": "MIT",
   "description": "BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax and MSpec-style specifications.",
@@ -26,6 +26,16 @@
       "types": "./dist/reporter/index.d.ts",
       "import": "./dist/reporter/index.js",
       "require": "./dist/reporter/index.cjs"
+    },
+    "./setup": {
+      "types": "./dist/setup.d.ts",
+      "import": "./dist/setup.js",
+      "require": "./dist/setup.cjs"
+    },
+    "./globals": {
+      "types": "./dist/globals.d.ts",
+      "import": "./dist/globals.js",
+      "require": "./dist/globals.cjs"
     }
   },
   "files": [
