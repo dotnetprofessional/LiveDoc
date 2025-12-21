@@ -48,7 +48,7 @@ We aim for a **professional, polished, and delightful user experience**.
 ### 3. Testing & Specifications
 **Applies to:** All tests in `packages/vitest`, `packages/viewer`, etc.
 
-**Strictly follow the guidelines in `.github/instructions/spec-files.instructions.md`.**
+**Strictly follow the guidelines in `.github/instructions/livedoc-vitest.instructions.md`.**
 
 - **File Naming**: Must end in `.Spec.ts` (e.g., `UserLogin.Spec.ts`).
 - **Patterns**:
@@ -104,5 +104,5 @@ When asked to create a UI feature:
 4. Ensure it is fully typed.
 
 ## Reference Documentation
-- **Testing API**: See `.github/instructions/spec-files.instructions.md`
+- **Testing API**: See `.github/instructions/livedoc-vitest.instructions.md`
 - **Migration History**: See `MIGRATION_PLAN.md` (Migration is complete, but useful for context).

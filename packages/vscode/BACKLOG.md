@@ -42,7 +42,7 @@ A unified server that:
 **Testing:**
 - **Pattern**: BDD (Gherkin) or Specification
 - **Rule**: **Self-Documenting Steps** (embed inputs/outputs in titles)
-- **Reference**: `.github/instructions/spec-files.instructions.md`
+- **Reference**: `.github/instructions/livedoc-vitest.instructions.md`
 
 ---
 

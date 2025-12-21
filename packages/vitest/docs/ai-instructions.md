@@ -43,9 +43,9 @@ Follow this plan to initialize or update the LiveDoc environment:
         *   A plain `describe`/`it` smoke test does **not** validate the LiveDoc formatting/reporting path.
     *   Run the tests and confirm the reporter output is visible.
 6.  **Instruction Persistence**:
-    *   Download the `spec-files.instructions.md` to the project's `.github/instructions/` folder.
+    *   Download the `livedoc-vitest.instructions.md` to the project's `.github/instructions/` folder.
     *   **CRITICAL**: Add a reference to these instructions in the project's root `README.md` or a dedicated AI rules file (e.g., `.cursorrules`, `.clinerules`, or `copilot-instructions.md`) so you and other agents can find them automatically in future sessions.
-    *   Example link to add: `[LiveDoc Instructions](.github/instructions/spec-files.instructions.md)`
+    *   Example link to add: `[LiveDoc Instructions](.github/instructions/livedoc-vitest.instructions.md)`
 
 ## 🛠️ Automated Setup Snippet
 
@@ -257,4 +257,4 @@ feature(`LiveDoc Smoke Test
 ## 📝 Authoring Reference
 
 For detailed authoring rules (Gherkin syntax, data extraction, etc.), always refer to:
-https://raw.githubusercontent.com/dotNetProfessional/LiveDoc/main/.github/instructions/spec-files.instructions.md
+https://raw.githubusercontent.com/dotNetProfessional/LiveDoc/main/.github/instructions/livedoc-vitest.instructions.md
