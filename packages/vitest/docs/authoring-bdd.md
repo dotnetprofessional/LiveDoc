@@ -223,13 +223,13 @@ scenario("Example", (ctx) => {
 
 ### Context properties
 
-|     Property     |   Available in   |                  Contains                  |
-| ----------       | --------------   | ----------                                 |
-| `ctx.feature`    | All callbacks    | Feature title, description, tags, filename |
-| `ctx.scenario`   | Scenario + steps | Scenario title, description, tags          |
-| `ctx.step`       | Step callbacks   | Step title, values, table, docString       |
-| `ctx.example`    | Scenario outline | Current example row data                   |
-| `ctx.background` | Background steps | Background title                           |
+|     Property     |   Available in   |                   Contains                   |
+| ----------       | --------------   | ----------                                   |
+| `ctx.feature`    | All callbacks    | Feature title, description, tags, filename   |
+| `ctx.scenario`   | Scenario + steps | Scenario title, description, tags            |
+| `ctx.step`       | Step callbacks   | Step title, values, params, table, docString |
+| `ctx.example`    | Scenario outline | Current example row data                     |
+| `ctx.background` | Background steps | Background title                             |
 
 ---
 
@@ -285,12 +285,17 @@ then("an error appears", () => { /* ... */ });
 
 ### 4. Use data in step titles
 
-Put test values in the step title so documentation is self-explanatory:
+Put test values in the step title so documentation is self-explanatory. Use **named values** for better readability in code:
 
 ```ts
-// ✅ Good - data visible in output
+// ✅ Good - data visible in output and clear in code
+given("the user has <balance:$50> in their account", (ctx) => {
+  const amount = ctx.step.params.balance;  // 50
+});
+
+// ✅ Also good - positional values
 given("the user has '$50' in their account", (ctx) => {
-  const amount = ctx.step?.values?.[0];  // 50
+  const amount = ctx.step.values[0];  // 50
 });
 
 // ❌ Avoid - hidden data

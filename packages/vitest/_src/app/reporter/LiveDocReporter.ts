@@ -118,6 +118,17 @@ export abstract class LiveDocReporter {
         });
     }
 
+    /**
+     * Will return the string substituting named values defined with <name:value> with 
+     * the value part
+     */
+    protected namedBind(content: string, color: any): string {
+        const regex = /<([^:>]+):([^>]+)>/g;
+        return content.replace(regex, (_match, _name, value) => {
+            return color(value);
+        });
+    }
+
     private applyBinding(item: string, model: any, bindingSyntaxLength = 1): string {
         const key = this.sanitizeName(item.substr(bindingSyntaxLength, item.length - bindingSyntaxLength * 2));
         if (model.hasOwnProperty(key)) {

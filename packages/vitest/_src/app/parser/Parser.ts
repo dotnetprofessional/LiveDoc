@@ -168,6 +168,8 @@ export class LiveDocGrammarParser {
         step.displayTitle = this.formatStepDisplayTitle(description, type, indentation);
         step.rawTitle = step.title;
         step.values = parser.coerceValues(step.valuesRaw);
+        step.paramsRaw = parser.namedValues;
+        step.params = parser.coerceNamedValues(step.paramsRaw);
         step.type = type;
         step.passedParam = passedParam;
 
@@ -304,6 +306,7 @@ export class DescriptionParser {
     public dataTable: DataTableRow[] = [];
     public docString: string = "";
     public quotedValues: string[] = [];
+    public namedValues: Record<string, string> = {};
 
     public parseDescription(text: string): void {
         this.text = text;
@@ -313,6 +316,7 @@ export class DescriptionParser {
             this.title = textReader.line!.trim();
             // Quoted values are only found in the title
             this.quotedValues = this.parseQuotedValues(textReader);
+            this.namedValues = this.parseNamedValues(textReader);
         }
 
         let descriptionIndex = -1;
@@ -375,6 +379,14 @@ export class DescriptionParser {
 
     public coerceValues(values: string[]): any[] {
         return values.map(value => this.coerceValue(value));
+    }
+
+    public coerceNamedValues(namedValues: Record<string, string>): Record<string, any> {
+        const results: Record<string, any> = {};
+        for (const key in namedValues) {
+            results[key] = this.coerceValue(namedValues[key]);
+        }
+        return results;
     }
 
     public coerceValue(valueString: string): any {
@@ -467,6 +479,19 @@ export class DescriptionParser {
                 const valueString = element.substring(1, element.length - 1).trim();
                 results.push(valueString);
             });
+        }
+        return results;
+    }
+
+    private parseNamedValues(textReader: TextBlockReader): Record<string, string> {
+        const regex = /<([^:>]+):([^>]+)>/g;
+        const results: Record<string, string> = {};
+        let match;
+
+        while ((match = regex.exec(textReader.line!)) !== null) {
+            const name = this.sanitizeName(match[1].trim());
+            const value = match[2].trim();
+            results[name] = value;
         }
         return results;
     }

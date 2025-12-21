@@ -20,6 +20,7 @@ LiveDoc brings Behavior-Driven Development to Vitest with full Gherkin syntax:
 - **Feature / Scenario / Given / When / Then** — the classic BDD pattern
 - **Specification / Rule** — for technical and domain-level specs
 - **Scenario Outlines** — data-driven tests with Examples tables
+- **Named Step Values** — extract data by name using `<name:value>`
 - **Tags & Filtering** — run `@smoke` tests, skip `@slow` ones
 - **Beautiful Reports** — human-readable output, JSON export, live visualization
 
@@ -117,35 +118,35 @@ LiveDoc Test Summary
 
 ## 📚 Documentation
 
-| Guide | Description |
-|-------|-------------|
+| Guide                                            | Description                                  |
+| -------                                          | -------------                                |
 | **[Getting Started](./docs/getting-started.md)** | Install and run your first spec in 5 minutes |
-| [Setup: Imports](./docs/setup-imports.md) | Explicit imports with `Then as then` |
-| [Setup: Globals](./docs/setup-globals.md) | Zero-import specs via setup file |
-| [AI Setup Guide](./docs/ai-setup-guide.md) | Copy-paste configs for AI assistants |
+| [Setup: Imports](./docs/setup-imports.md)        | Explicit imports with `Then as then`         |
+| [Setup: Globals](./docs/setup-globals.md)        | Zero-import specs via setup file             |
+| [AI Setup Guide](./docs/ai-setup-guide.md)       | Copy-paste configs for AI assistants         |
 
 ### Writing Specs
 
-| Guide | Description |
-|-------|-------------|
-| [BDD Authoring](./docs/authoring-bdd.md) | Features, scenarios, backgrounds, outlines |
-| [Specification Authoring](./docs/authoring-specification.md) | Rules for technical/domain specs |
-| [Data Extraction](./docs/data-extraction.md) | Tables, doc strings, quoted values |
-| [Tags & Filtering](./docs/tags-and-filtering.md) | Run subsets with `@smoke`, `@slow`, etc. |
+| Guide                                                        | Description                                |
+| -------                                                      | -------------                              |
+| [BDD Authoring](./docs/authoring-bdd.md)                     | Features, scenarios, backgrounds, outlines |
+| [Specification Authoring](./docs/authoring-specification.md) | Rules for technical/domain specs           |
+| [Data Extraction](./docs/data-extraction.md)                 | Tables, doc strings, quoted values         |
+| [Tags & Filtering](./docs/tags-and-filtering.md)             | Run subsets with `@smoke`, `@slow`, etc.   |
 
 ### Output & Operations
 
-| Guide | Description |
-|-------|-------------|
-| [Reporting](./docs/reporting.md) | CLI output, JSON export, Viewer integration |
-| [Troubleshooting](./docs/troubleshooting.md) | Common issues and fixes |
+| Guide                                        | Description                                 |
+| -------                                      | -------------                               |
+| [Reporting](./docs/reporting.md)             | CLI output, JSON export, Viewer integration |
+| [Troubleshooting](./docs/troubleshooting.md) | Common issues and fixes                     |
 
 ### Contributing
 
-| Guide | Description |
-|-------|-------------|
+| Guide                                  | Description                      |
+| -------                                | -------------                    |
 | [Architecture](./docs/architecture.md) | How LiveDoc works under the hood |
-| [Contributing](./docs/contributing.md) | Dev setup and PR guidelines |
+| [Contributing](./docs/contributing.md) | Dev setup and PR guidelines      |
 
 ---
 
@@ -177,9 +178,9 @@ specification("Password Validation", () => {
 
   ruleOutline(`Complexity requirements
     Examples:
-    | password   | valid |
-    | abc123     | false |
-    | Abc123!@#  | true  |
+    | password  | valid |
+    | abc123    | false |
+    | Abc123!@# | true  |
   `, (ctx) => {
     expect(isValid(ctx.example.password)).toBe(ctx.example.valid === 'true');
   });
@@ -190,11 +191,11 @@ specification("Password Validation", () => {
 
 ## Related Packages
 
-| Package | Description |
-|---------|-------------|
+| Package                                | Description                          |
+| ---------                              | -------------                        |
 | [@livedoc/viewer](../viewer/README.md) | Web-based test results visualization |
-| [@livedoc/vscode](../vscode/README.md) | VS Code extension with snippets |
-| [@livedoc/server](../server/README.md) | Results server for live updates |
+| [@livedoc/vscode](../vscode/README.md) | VS Code extension with snippets      |
+| [@livedoc/server](../server/README.md) | Results server for live updates      |
 
 ---
 

@@ -47,6 +47,25 @@ LiveDoc automatically converts quoted values:
 
 ---
 
+## Named values
+
+Extract values by name using the `<name:value>` syntax. This is more robust than positional extraction and makes the test code more readable.
+
+```ts
+given("a user with <name:John> and <age:30> years old", (ctx) => {
+  const { name, age } = ctx.step.params;
+  // name = "John", age = 30
+});
+```
+
+### Key features:
+- **Automatic Sanitization**: Spaces in names are removed (e.g., `<user name:John>` becomes `ctx.step.params.username`).
+- **Type Coercion**: Values are automatically converted to numbers, booleans, or objects just like quoted values.
+- **Raw Values**: Access the original string values via `ctx.step.paramsRaw`.
+- **Reporter Support**: LiveDoc reporters automatically highlight the value part and hide the name/colon for a cleaner look.
+
+---
+
 ## Data tables
 
 Embed structured data directly in step titles:

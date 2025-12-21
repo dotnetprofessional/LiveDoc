@@ -18,6 +18,12 @@ To ensure the documentation matches the execution, **NEVER** hardcode values in 
 given("a user with balance '500' dollars", (ctx) => {
     account.balance = ctx.step.values[0]; // Uses 500
 });
+
+// ✓ EVEN BETTER: Named values for clarity and robustness
+given("a user with <balance:500> dollars", (ctx) => {
+    account.balance = ctx.step.params.balance; // Uses 500
+});
+
 then("the balance should be '300' dollars", (ctx) => {
     expect(account.balance).toBe(ctx.step.values[0]); // Uses 300
 });
@@ -340,6 +346,8 @@ given(`JSON input:
 | ----------          | ---------                             |
 | `values`            | Coerced quoted values array           |
 | `valuesRaw`         | Raw string values                     |
+| `params`            | Coerced named values object `<n:v>`   |
+| `paramsRaw`         | Raw named values string object        |
 | `docString`         | Raw doc string content                |
 | `docStringAsEntity` | Parsed JSON or undefined              |
 | `table`             | Headers as keys, array of row objects |

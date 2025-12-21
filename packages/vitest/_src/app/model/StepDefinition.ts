@@ -17,6 +17,8 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     public dataTable: DataTableRow[] = [];
     public values: any[] = [];
     public valuesRaw: string[] = [];
+    public params: Record<string, any> = {};
+    public paramsRaw: Record<string, string> = {};
     public ruleViolations: LiveDocRuleViolation[] = [];
     public associatedScenarioId: number = 0;
 
@@ -56,6 +58,8 @@ export class StepDefinition extends LiveDocTest<Scenario> {
         context.docString = this.docString;
         context.values = this.values;
         context.valuesRaw = this.valuesRaw;
+        context.params = this.params;
+        context.paramsRaw = this.paramsRaw;
         context.type = this.type;
         return context;
     }
@@ -75,6 +79,8 @@ export class StepDefinition extends LiveDocTest<Scenario> {
             dataTable: this.dataTable,
             values: this.values,
             valuesRaw: this.valuesRaw,
+            params: this.params,
+            paramsRaw: this.paramsRaw,
             ruleViolations: this.ruleViolations.map(r => r.toJSON()),
             associatedScenarioId: this.associatedScenarioId
         };

@@ -15,6 +15,8 @@ export class StepContext {
     public type: string = "";
     public values: any[] = [];
     public valuesRaw: string[] = [];
+    public params: Record<string, any> = {};
+    public paramsRaw: Record<string, string> = {};
 
     /**
      * Parse docString as JSON entity

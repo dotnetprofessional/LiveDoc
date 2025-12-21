@@ -1047,6 +1047,13 @@ export class LiveDocSpec extends LiveDocReporter {
             }
         }
 
+        // Named values <name:value>
+        if (useDefinition) {
+            title = this.highlight(title, /<([^:>]+):([^>]+)>/g, this.colorTheme.valuePlaceholders);
+        } else {
+            title = this.namedBind(title, this.colorTheme.valuePlaceholders);
+        }
+
         // Now highlight any values within the title
         title = this.highlight(title, /('[^']+')|("[^"]+")/g, this.colorTheme.valuePlaceholders);
 

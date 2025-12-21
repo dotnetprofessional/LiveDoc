@@ -63,6 +63,19 @@ rule("API returns user data", async (ctx) => {
 });
 ```
 
+### Data in rules
+
+Just like BDD steps, rules can extract data from their titles:
+
+```ts
+rule("The result of <a:10> + <b:20> should be <expected:30>", (ctx) => {
+  const { a, b, expected } = ctx.step.params;
+  expect(a + b).toBe(expected);
+});
+```
+
+> 💡 **Note:** Even though it's a `rule`, the data is accessed via `ctx.step` as the underlying model uses the same step definition logic.
+
 ### `ruleOutline`
 
 Data-driven rules with an Examples table:
@@ -73,10 +86,10 @@ import { specification, ruleOutline } from '@livedoc/vitest';
 specification("Tax Calculation", () => {
   ruleOutline(`Tax rate by income bracket
     Examples:
-    | income  | rate |
-    | 10000   | 0.10 |
-    | 50000   | 0.22 |
-    | 100000  | 0.32 |
+    | income | rate |
+    |  10000 | 0.10 |
+    |  50000 | 0.22 |
+    | 100000 | 0.32 |
   `, (ctx) => {
     const { income, rate } = ctx.example;
     expect(calculateTaxRate(Number(income))).toBe(Number(rate));
@@ -103,17 +116,25 @@ specification("My Spec", () => {
 ### `ctx.rule`
 
 ```ts
-rule("Must do something", (ctx) => {
-  console.log(ctx.rule?.title);  // "Must do something"
+rule("Must do something with <value:42>", (ctx) => {
+  console.log(ctx.rule?.title);          // "Must do something with <value:42>"
+  console.log(ctx.step?.params.value);   // 42
 });
 ```
+
+|      Property       |  Available in  |                   Contains                   |
+| ----------          | -------------- | ----------                                   |
+| `ctx.specification` | All callbacks  | Specification title, description, tags       |
+| `ctx.rule`          | Rule callbacks | Rule title, description, tags                |
+| `ctx.step`          | Rule callbacks | Rule title, values, params, table, docString |
+| `ctx.example`       | Rule outline   | Current example row data                     |
 
 ### `ctx.example` (in ruleOutline)
 
 ```ts
 ruleOutline(`Examples:
   | a | b | sum |
-  | 1 | 2 | 3   |
+  | 1 | 2 |   3 |
 `, (ctx) => {
   const { a, b, sum } = ctx.example;
   expect(Number(a) + Number(b)).toBe(Number(sum));
@@ -142,12 +163,12 @@ specification.only("Only this spec", () => { /* ... */ });
 
 ## Comparing BDD vs Specification
 
-| Aspect | BDD (`feature/scenario`) | Specification (`specification/rule`) |
-|--------|--------------------------|--------------------------------------|
-| **Best for** | User stories, acceptance tests | Technical rules, domain logic |
-| **Structure** | Given/When/Then steps | Direct assertions |
-| **Verbosity** | More structured | More concise |
-| **Audience** | Cross-functional teams | Developers |
+|    Aspect     |    BDD (`feature/scenario`)    |  Specification (`specification/rule`)  |
+| --------      | --------------------------     | -------------------------------------- |
+| **Best for**  | User stories, acceptance tests | Technical rules, domain logic          |
+| **Structure** | Given/When/Then steps          | Direct assertions                      |
+| **Verbosity** | More structured                | More concise                           |
+| **Audience**  | Cross-functional teams         | Developers                             |
 
 You can mix both patterns in the same project:
 
@@ -191,9 +212,9 @@ rule("Token test", () => { /* ... */ });
 ruleOutline(`Age verification boundaries
   Examples:
   | age | allowed |
-  | 17  | false   |
-  | 18  | true    |
-  | 21  | true    |
+  |  17 | false   |
+  |  18 | true    |
+  |  21 | true    |
 `, (ctx) => {
   expect(isAllowed(Number(ctx.example.age))).toBe(ctx.example.allowed === 'true');
 });

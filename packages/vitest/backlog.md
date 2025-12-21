@@ -68,6 +68,11 @@ This file tracks features, improvements, and issues for the livedoc-vitest packa
 - **Description**: When reconstructing from subprocess results, ScenarioOutline `tables` and `examples` were not being restored.
 - **Solution**: Added proper reconstruction logic in `reconstructScenario` method.
 
+### Named Step Values (keyed value extraction)
+- **Date Completed**: 2025-12-21
+- **Description**: Support named values in step titles using `<name:value>` syntax, accessible via `ctx.step.params.<name>`.
+- **Solution**: Updated `DescriptionParser` to extract named values and `StepDefinition`/`StepContext` to expose them via `params`.
+
 ---
 
 ## Test Migration Progress
