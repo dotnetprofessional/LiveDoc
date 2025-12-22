@@ -1,4 +1,6 @@
-# @livedoc/vscode Extension Backlog
+# @livedoc/vscode Extension Backlog (DEPRECATED)
+
+> **DEPRECATION NOTICE**: This document is now deprecated. Please refer to the new [packages/vscode/vscode-brd.md](vscode-brd.md) for the current source of truth.
 
 ## Vision
 

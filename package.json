@@ -9,9 +9,11 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "test:vitest": "pnpm --filter @livedoc/vitest test",
+    "test:publish": "pnpm --filter @livedoc/vitest test:publish",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "typescript": "^5.9.3"
   }
 }

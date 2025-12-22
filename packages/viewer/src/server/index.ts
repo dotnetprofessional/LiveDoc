@@ -28,8 +28,8 @@ export interface ViewerServerOptions {
  * Start the LiveDoc Viewer server with static file serving
  */
 export async function startViewerServer(options: ViewerServerOptions = {}) {
-  const port = options.port || 3000;
-  const host = options.host || 'localhost';
+  const port = options.port || 3100;
+  const host = options.host || '0.0.0.0';
   const staticDir = getStaticDir();
   
   // Create base server from @livedoc/server
@@ -143,7 +143,8 @@ export async function startViewerServer(options: ViewerServerOptions = {}) {
 export { startViewerServer as startServer };
 
 // Run if executed directly
-const isMainModule = process.argv[1]?.includes('index');
+const isMainModule = process.argv[1]?.includes('index.ts') || process.argv[1]?.includes('index.js');
 if (isMainModule) {
-  startViewerServer({ port: 3000, open: false });
+  const port = parseInt(process.env.PORT || '3100', 10);
+  startViewerServer({ port, open: false });
 }

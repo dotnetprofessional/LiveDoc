@@ -6,7 +6,7 @@ program
   .name('livedoc-viewer')
   .description('LiveDoc BDD Test Results Viewer')
   .version('1.0.0')
-  .option('-p, --port <port>', 'Port to run server on', '3000')
+  .option('-p, --port <port>', 'Port to run server on', '3100')
   .option('-h, --host <host>', 'Host to bind to', 'localhost')
   .option('-o, --open', 'Open browser automatically', false)
   .action(async (options) => {

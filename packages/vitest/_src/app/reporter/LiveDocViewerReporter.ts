@@ -227,10 +227,14 @@ export class LiveDocViewerReporter implements IPostReporter {
             const runId = await this.startRun();
             if (!runId) {
                 if (!this.options.silent) {
-                    console.error('LiveDocViewerReporter: Failed to start run');
+                    console.error(`LiveDocViewerReporter: Failed to connect to server at ${this.options.server}`);
                 }
                 return;
             }
+
+            console.log(`LiveDoc Viewer: Connected to ${this.options.server}`);
+            console.log(`  Project:     ${this.options.project}`);
+            console.log(`  Environment: ${this.options.environment}`);
 
             const pathContext = this.buildPathContext(results);
 
@@ -250,8 +254,7 @@ export class LiveDocViewerReporter implements IPostReporter {
             // 3. Complete the run with summary
             await this.completeRun(runId, results);
 
-            console.log(`LiveDoc Viewer: Results posted to ${this.options.server}`);
-            console.log(`  View at: ${this.options.server}`);
+            console.log(`LiveDoc Viewer: Results successfully posted to ${this.options.server}`);
         } catch (error) {
             if (!this.options.silent) {
                 console.error('LiveDocViewerReporter error:', error);
@@ -540,8 +543,9 @@ export class LiveDocViewerReporter implements IPostReporter {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
+                const errorText = await response.text().catch(() => 'No error body');
                 if (!this.options.silent) {
-                    console.error(`LiveDocViewerReporter: HTTP ${response.status} at ${path}`);
+                    console.error(`LiveDocViewerReporter: HTTP ${response.status} at ${path}. Error: ${errorText}`);
                 }
                 return null;
             }

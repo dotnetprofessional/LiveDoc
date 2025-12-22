@@ -1,4 +1,6 @@
-# LiveDoc Viewer - Product Backlog
+# LiveDoc Viewer - Product Backlog (DEPRECATED)
+
+> **DEPRECATION NOTICE**: This document is now deprecated. Please refer to the new [packages/viewer/viewer-brd.md](../viewer-brd.md) for the current source of truth.
 
 **Last Updated:** December 5, 2025
 

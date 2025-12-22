@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-const viewerServer = process.env.LIVEDOC_VIEWER_SERVER || 'http://localhost:3000';
+const viewerServer = process.env.LIVEDOC_VIEWER_SERVER || 'http://localhost:3200';
 const viewerProject = process.env.LIVEDOC_VIEWER_PROJECT || 'livedoc-vitest';
 const viewerEnvironment = process.env.LIVEDOC_VIEWER_ENV || 'local';
 

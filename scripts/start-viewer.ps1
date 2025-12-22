@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [int]$Port = 3000,
+    [int]$Port = 3100,
     [string]$HostName = 'localhost',
 
     # Kill stale node processes holding the port (recommended for dev workflows).

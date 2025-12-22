@@ -178,14 +178,15 @@ export class RunStore {
    * Delete a run from disk and memory
    */
   async deleteRun(runId: string): Promise<boolean> {
+    // Remove from memory first
     const run = this.runs.get(runId);
+    this.runs.delete(runId);
+
     if (!run) return false;
     
     const key = `${run.project}/${run.environment}`;
     const projectRuns = this.runsByProject.get(key) || [];
     
-    // Remove from memory
-    this.runs.delete(runId);
     const newProjectRuns = projectRuns.filter(id => id !== runId);
     
     if (newProjectRuns.length === 0) {

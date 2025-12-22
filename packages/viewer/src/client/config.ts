@@ -17,7 +17,7 @@ export function getWsBaseUrl(): string {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${protocol}//${window.location.host}`;
   }
-  return 'ws://localhost:3000';
+  return 'ws://localhost:3200';
 }
 
 export function isEmbedded(): boolean {

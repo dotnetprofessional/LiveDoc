@@ -1,5 +1,10 @@
 
-# LiveDoc — Unified Living Documentation BRD & Delivery Backlog
+# LiveDoc — Unified Living Documentation BRD & Delivery Backlog (DEPRECATED)
+
+> **DEPRECATION NOTICE**: This unified document is now deprecated and split into component-specific BRDs to reduce cognitive load. Please refer to the following new documents:
+> - **Vitest**: [packages/vitest/vitest-brd.md](packages/vitest/vitest-brd.md)
+> - **Viewer**: [packages/viewer/viewer-brd.md](packages/viewer/viewer-brd.md)
+> - **VS Code**: [packages/vscode/vscode-brd.md](packages/vscode/vscode-brd.md)
 
 **Document type:** Business Requirements Document (BRD) + delivery backlog + progress tracker  
 **Applies to:** `@livedoc/server`, `@livedoc/vitest`, `@livedoc/viewer` (website), `@livedoc/vscode` (VS Code extension)  

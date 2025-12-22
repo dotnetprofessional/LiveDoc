@@ -153,19 +153,20 @@ function Select-ScriptsForMenu {
         [object[]]$Scripts
     )
 
-    # Include build, package, test, validate, typecheck
+    # Include dev, build, package, test, validate, typecheck
     $wanted = $Scripts | Where-Object {
-        $_.Name -match '^(test|validate|build|compile|package|pack)' -or $_.Name -eq 'typecheck'
+        $_.Name -match '^(dev|test|validate|build|compile|package|pack)' -or $_.Name -eq 'typecheck'
     }
 
-    # Keep stable ordering: build, package, test*, validate*, typecheck
+    # Keep stable ordering: dev*, build, package, test*, validate*, typecheck
     $wanted = $wanted | Sort-Object {
-        if ($_.Name -eq 'build') { 0 }
-        elseif ($_.Name -match '^package|^pack') { 1 }
-        elseif ($_.Name -match '^compile') { 2 }
-        elseif ($_.Name -match '^test') { 3 }
-        elseif ($_.Name -match '^validate') { 4 }
-        elseif ($_.Name -eq 'typecheck') { 5 }
+        if ($_.Name -match '^dev') { 0 }
+        elseif ($_.Name -eq 'build') { 1 }
+        elseif ($_.Name -match '^package|^pack') { 2 }
+        elseif ($_.Name -match '^compile') { 3 }
+        elseif ($_.Name -match '^test') { 4 }
+        elseif ($_.Name -match '^validate') { 5 }
+        elseif ($_.Name -eq 'typecheck') { 6 }
         else { 9 }
     }, Name
 
@@ -498,6 +499,11 @@ if ($Command -eq 'test') {
 
 # ---- Build menus ----
 $packageMenuItems = New-Object System.Collections.Generic.List[object]
+
+# Add Dev All option
+$packageMenuItems.Add((New-MenuItem -Label 'Dev All (Viewer + Server)' -HotKey 'a' -Action ({
+    Invoke-InDirectory -WorkingDirectory (Join-Path $repoRoot 'packages/viewer') -Executable 'pnpm' -Arguments @('run', 'dev:all')
+}.GetNewClosure())))
 
 # Add Build All option
 $packageMenuItems.Add((New-MenuItem -Label 'Build All (pnpm build + package)' -HotKey 'b' -Action ({

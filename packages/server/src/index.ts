@@ -122,9 +122,9 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
  * Use this when you want to control the server lifecycle (e.g., in VS Code extension).
  */
 export function createServer(options: ServerOptions = {}): LiveDocServer {
-  // Use port 0 for ephemeral port assignment, otherwise default to 3000
-  const port = options.port !== undefined ? options.port : 3000;
-  const host = options.host || 'localhost';
+  // Use port 0 for ephemeral port assignment, otherwise default to 3100
+  const port = options.port !== undefined ? options.port : 3100;
+  const host = options.host || '0.0.0.0';
   
   // Use the singleton store or create a new one with custom options
   const store = options.dataDir || options.historyLimit

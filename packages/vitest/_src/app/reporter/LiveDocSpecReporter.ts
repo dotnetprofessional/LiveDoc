@@ -3,6 +3,8 @@ import type { Vitest } from 'vitest/node';
 import { LiveDocSpec, LiveDocReporterOptions } from './LiveDocSpec';
 import { DefaultColorTheme } from './ColorTheme';
 import { LiveDocReporter } from './LiveDocReporter';
+import { LiveDocViewerReporter } from './LiveDocViewerReporter';
+import { livedoc } from '../livedoc';
 import * as model from '../model/index';
 
 /**
@@ -31,6 +33,14 @@ export default class LiveDocSpecReporter implements Reporter {
             this.options.setDefaults();
         }
 
+        // If publish options are passed directly, update the livedoc singleton
+        if (options.publish) {
+            livedoc.options.publish.enabled = options.publish.enabled ?? livedoc.options.publish.enabled;
+            livedoc.options.publish.server = options.publish.server ?? livedoc.options.publish.server;
+            livedoc.options.publish.project = options.publish.project ?? livedoc.options.publish.project;
+            livedoc.options.publish.environment = options.publish.environment ?? livedoc.options.publish.environment;
+        }
+
         this.options.removeHeaderText = options.removeHeaderText || "";
 
         // Store all options for post-reporters
@@ -47,6 +57,14 @@ export default class LiveDocSpecReporter implements Reporter {
         // Store context for potential future use
         void ctx;
         this.liveDocSpec.executionStart();
+
+        // Output start message if publishing is enabled
+        if (livedoc.options.publish.enabled) {
+            const publishOptions = livedoc.options.publish;
+            console.log(`\nLiveDoc Viewer: Connecting to ${publishOptions.server}...`);
+            console.log(`  Project:     ${publishOptions.project}`);
+            console.log(`  Environment: ${publishOptions.environment}\n`);
+        }
     }
 
     async onTestRunEnd(testModules: readonly any[]): Promise<void> {
@@ -108,6 +126,24 @@ export default class LiveDocSpecReporter implements Reporter {
             results.suites.forEach(suite => {
                 suite.path = this.createPathFromFile(suite.filename, suiteRoot);
             });
+        }
+
+        // Add publish reporter if enabled in global options
+        if (livedoc.options.publish.enabled) {
+            const publishOptions = livedoc.options.publish;
+            const viewerReporter = new LiveDocViewerReporter({
+                server: publishOptions.server,
+                project: publishOptions.project,
+                environment: publishOptions.environment,
+                silent: false
+            });
+            
+            // Ensure postReporters exists on rawOptions
+            const rawOptions = (this.options as any).rawOptions || {};
+            if (!rawOptions.postReporters) {
+                rawOptions.postReporters = [];
+            }
+            rawOptions.postReporters.push(viewerReporter);
         }
 
         // Output execution results with post-reporter support

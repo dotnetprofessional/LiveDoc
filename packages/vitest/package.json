@@ -69,6 +69,7 @@
     "test:file": "vitest run --config vitest.config.file.ts",
     "test:json": "vitest run --config vitest.config.json.ts",
     "test:viewer": "vitest run --config vitest.config.viewer.ts",
+    "test:publish": "vitest run --config vitest.config.publish.ts",
     "test:coverage": "vitest run --coverage --config livedoc.vitest.ts",
     "clean": "rimraf dist *.tgz",
     "compile": "tsup",

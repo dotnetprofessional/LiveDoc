@@ -1,4 +1,6 @@
-# LiveDoc-Vitest Backlog
+# LiveDoc-Vitest Backlog (DEPRECATED)
+
+> **DEPRECATION NOTICE**: This document is now deprecated. Please refer to the new [packages/vitest/vitest-brd.md](vitest-brd.md) for the current source of truth.
 
 This file tracks features, improvements, and issues for the livedoc-vitest package.
 

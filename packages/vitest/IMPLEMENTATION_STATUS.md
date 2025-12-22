@@ -1,4 +1,6 @@
-# LiveDoc-Vitest Implementation Status
+# LiveDoc-Vitest Implementation Status (DEPRECATED)
+
+> **DEPRECATION NOTICE**: This document is now deprecated. Please refer to the new [packages/vitest/vitest-brd.md](vitest-brd.md) for the current source of truth.
 
 ## ✅ Completed Features
 

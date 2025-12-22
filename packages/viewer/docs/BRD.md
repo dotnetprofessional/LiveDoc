@@ -1,4 +1,6 @@
-# LiveDoc Viewer - Business Requirements Document
+# LiveDoc Viewer - Business Requirements Document (DEPRECATED)
+
+> **DEPRECATION NOTICE**: This document is now deprecated. Please refer to the new [packages/viewer/viewer-brd.md](../viewer-brd.md) for the current source of truth.
 
 **Version:** 1.0  
 **Last Updated:** December 5, 2025  

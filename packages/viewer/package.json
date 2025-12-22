@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
     "dev:client": "vite",
-    "dev:all": "start cmd /c \"npm run dev\" && npm run dev:client",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:client\"",
     "build": "npm run build:client && npm run build:server",
     "build:server": "tsc -p tsconfig.server.json",
     "build:client": "vite build",
