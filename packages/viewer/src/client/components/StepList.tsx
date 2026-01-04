@@ -64,6 +64,12 @@ function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
           {renderStepTitle(step.title, highlightValues)}
         </div>
 
+        {step.description && (
+          <div className="mt-1 text-sm text-text-muted whitespace-pre-wrap italic">
+            {step.description}
+          </div>
+        )}
+
         {step.docString && (
           <pre className="mt-2 text-xs font-mono text-text-secondary bg-surface-hover/30 border border-border rounded p-3 whitespace-pre-wrap overflow-x-auto">
 {step.docString}
@@ -102,14 +108,49 @@ function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
 }
 
 function renderStepTitle(text: string, highlightValues?: Record<string, string>): React.ReactNode {
-  // Prefer placeholder highlighting for template steps
-  if (/<[^>]+>/.test(text)) return highlightPlaceholders(text);
-  if (!highlightValues || Object.keys(highlightValues).length === 0) return text;
-  return highlightExampleValues(text, highlightValues);
+  // 1. Highlight placeholders like <Customer's Country> or <name:value>
+  if (/<[^>]+>/.test(text)) {
+    return highlightPlaceholders(text, highlightValues);
+  }
+
+  // 2. Highlight quoted values like '10' or "110"
+  const quotedPattern = /('[^']+')|("[^"]+")/g;
+  if (quotedPattern.test(text)) {
+    return highlightQuotedValues(text, highlightValues);
+  }
+
+  // 3. Highlight concrete example values from ScenarioOutline
+  if (highlightValues && Object.keys(highlightValues).length > 0) {
+    return highlightExampleValues(text, highlightValues);
+  }
+
+  return text;
 }
 
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Highlight values in quotes like 'value' or "value"
+function highlightQuotedValues(text: string, highlightValues?: Record<string, string>): React.ReactNode {
+  const parts = text.split(/('[^']+')|("[^"]+")/g).filter(p => p !== undefined);
+  
+  return parts.map((part, index) => {
+    if ((part.startsWith("'") && part.endsWith("'")) || (part.startsWith('"') && part.endsWith('"'))) {
+      return (
+        <span key={index} className="px-1 bg-accent/20 text-accent rounded font-medium">
+          {part}
+        </span>
+      );
+    }
+    
+    // If we have highlightValues, we should still try to highlight them in the non-quoted parts
+    if (highlightValues && Object.keys(highlightValues).length > 0) {
+      return highlightExampleValues(part, highlightValues);
+    }
+    
+    return part;
+  });
 }
 
 // Highlight concrete example values in step titles (and scenario titles)
@@ -170,19 +211,41 @@ function normalizeDataTable(dataTable: unknown): { headers: string[]; rows: stri
 }
 
 // Highlight placeholders like <Customer's Country> in step titles
-function highlightPlaceholders(text: string): React.ReactNode {
+function highlightPlaceholders(text: string, values?: Record<string, string>): React.ReactNode {
   const parts = text.split(/(<[^>]+>)/g);
   
   return parts.map((part, index) => {
     if (part.startsWith('<') && part.endsWith('>')) {
+      const placeholder = part.slice(1, -1);
+      const value = values ? findMatchingValue(placeholder, values) : undefined;
+      
       return (
         <span key={index} className="px-1 bg-accent/20 text-accent rounded font-medium">
-          {part}
+          {value !== undefined ? value : part}
         </span>
       );
     }
     return part;
   });
+}
+
+function findMatchingValue(placeholder: string, values: Record<string, string>): string | undefined {
+  // Direct match first
+  if (values[placeholder] !== undefined) {
+    return values[placeholder];
+  }
+  
+  // Normalize: remove spaces, apostrophes, and compare case-insensitively
+  const normalize = (s: string) => s.replace(/['\s]/g, '').toLowerCase();
+  const normalizedPlaceholder = normalize(placeholder);
+  
+  for (const [key, value] of Object.entries(values)) {
+    if (normalize(key) === normalizedPlaceholder) {
+      return value;
+    }
+  }
+  
+  return undefined;
 }
 
 // Template step list for ScenarioOutline (no status, just template)
@@ -201,16 +264,19 @@ export function TemplateStepList({ steps }: TemplateStepListProps) {
 
   return (
     <div className="space-y-2">
-      {steps.map((step, index) => (
-        <div key={index} className="flex items-start gap-2">
-          <span className={`font-semibold shrink-0 w-14 ${typeColors[step.type] || 'text-text-muted'}`}>
-            {step.type}
-          </span>
-          <span className="text-text flex-1">
-            {highlightPlaceholders(step.title)}
-          </span>
-        </div>
-      ))}
+      {steps.map((step, index) => {
+        const isContinuation = step.type === 'And' || step.type === 'But';
+        return (
+          <div key={index} className="flex items-start gap-2">
+            <span className={`font-semibold shrink-0 w-14 ${typeColors[step.type] || 'text-text-muted'} ${isContinuation ? 'pl-4' : ''}`}>
+              {step.type}
+            </span>
+            <span className="text-text flex-1">
+              {highlightPlaceholders(step.title)}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

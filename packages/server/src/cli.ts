@@ -15,7 +15,7 @@ program
   .version('1.0.0');
 
 program
-  .option('-p, --port <port>', 'Port to listen on', '3000')
+  .option('-p, --port <port>', 'Port to listen on', '3100')
   .option('-h, --host <host>', 'Host to bind to', 'localhost')
   .option('-d, --data-dir <dir>', 'Data directory for persistent storage')
   .option('--history-limit <limit>', 'Max runs to keep per project/environment', '50')

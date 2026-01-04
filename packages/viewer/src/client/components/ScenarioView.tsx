@@ -70,9 +70,21 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
           <div className="flex items-center gap-2.5 mb-1.5">
             <span className={`w-3 h-3 rounded-full ${getStatusColor(status)}`}></span>
             <h2 className="text-base font-semibold text-text">
+              {!scenario.title.startsWith('Scenario:') && !scenario.title.startsWith('Scenario Outline:') && !scenario.title.startsWith('Specification:') && !scenario.title.startsWith('Rule:') && (
+                <span className="text-text-muted mr-2">
+                  {scenario.title.toLowerCase().includes('rule') ? 'Rule:' :
+                   scenario.outlineId ? 'Scenario Outline:' : 'Scenario:'}
+                </span>
+              )}
               {highlightExampleValues(scenario.title, scenario.exampleValues)}
             </h2>
           </div>
+          
+          {scenario.description && (
+            <div className="mb-4 text-sm text-text-secondary whitespace-pre-wrap">
+              {scenario.description}
+            </div>
+          )}
           
           <div className="flex items-center gap-4 text-xs text-text-secondary">
             {scenario.duration && (
@@ -87,8 +99,15 @@ export function ScenarioView({ run, featureId, scenarioId }: ScenarioViewProps) 
         {/* Background Section */}
         {background && background.steps && background.steps.length > 0 && (
           <div className="px-5 py-4 border-b border-border bg-surface-hover/30">
-            <div className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-3">Background</div>
-            <StepList steps={background.steps} showStatus={false} />
+            <div className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1">
+              Background{background.title && background.title !== 'Background' ? `: ${background.title}` : ''}
+            </div>
+            {background.description && (
+              <div className="mb-3 text-sm text-text-secondary whitespace-pre-wrap italic">
+                {background.description}
+              </div>
+            )}
+            <StepList steps={background.steps} showStatus={true} />
           </div>
         )}
 

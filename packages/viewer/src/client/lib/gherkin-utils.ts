@@ -1,4 +1,4 @@
-import { Scenario, Background } from '../store';
+import { Scenario, Background, Step } from '../store';
 
 export interface GroupedScenarios {
   regularScenarios: Scenario[];
@@ -6,7 +6,7 @@ export interface GroupedScenarios {
     id: string;
     title: string;
     description?: string;
-    templateSteps: { type: string; title: string }[];
+    templateSteps: Step[];
     examples: Scenario[];
     tags?: string[];
   }[];
@@ -18,7 +18,7 @@ export function groupScenarios(scenarios: Scenario[]): GroupedScenarios {
     id: string;
     title: string;
     description?: string;
-    templateSteps: { type: string; title: string }[];
+    templateSteps: Step[];
     examples: Scenario[];
     tags?: string[];
   }>();
@@ -31,7 +31,7 @@ export function groupScenarios(scenarios: Scenario[]): GroupedScenarios {
         id: scenario.id,
         title: scenario.title,
         description: scenario.description,
-        templateSteps: scenario.steps?.map(s => ({ type: s.type, title: s.title })) || [],
+        templateSteps: scenario.steps || [],
         examples: [],
         tags: scenario.tags,
       });
@@ -124,7 +124,7 @@ export function getOutlineTitle(title: string, exampleValues: Record<string, str
 }
 
 // Get template steps from a scenario (either outline definition or first example)
-export function getTemplateSteps(scenario: Scenario): { type: string; title: string }[] {
+export function getTemplateSteps(scenario: Scenario): Step[] {
   if (!scenario.steps) return [];
   
   return scenario.steps.map(step => {
@@ -139,7 +139,7 @@ export function getTemplateSteps(scenario: Scenario): { type: string; title: str
       }
     }
     
-    return { type: step.type, title: templateTitle };
+    return { ...step, title: templateTitle };
   });
 }
 

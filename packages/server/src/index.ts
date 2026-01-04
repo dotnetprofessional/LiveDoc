@@ -71,7 +71,9 @@ export interface LiveDocServer {
  */
 export async function discoverServer(): Promise<{ url: string; port: number } | null> {
   const portFile = getPortFilePath();
-  if (!fs.existsSync(portFile)) return null;
+  if (!fs.existsSync(portFile)) {
+    return null;
+  }
   
   try {
     const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
@@ -96,22 +98,19 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
     }
     
     // Verify server is actually running
-    const response = await fetch(`http://localhost:${port}/api/health`);
-    if (response.ok) {
-      return {
-        url: `http://localhost:${port}`,
-        port
-      };
-    }
-
-    // Not a LiveDoc server (or wrong port). If PID isn't alive, we already cleaned.
-    // If PID wasn't provided, don't delete automatically (might be managed externally).
-  } catch {
-    // Server not responding or file invalid
     try {
-      // Optional: clean up stale file if we're sure it's stale
-      // fs.unlinkSync(portFile);
-    } catch {}
+      const response = await fetch(`http://localhost:${port}/api/health`);
+      if (response.ok) {
+        return {
+          url: `http://localhost:${port}`,
+          port
+        };
+      }
+    } catch (fetchError: any) {
+      // Server might be starting up or not a LiveDoc server
+    }
+  } catch (e: any) {
+    // Ignore errors during discovery
   }
   
   return null;

@@ -22,7 +22,7 @@ import {
 
 type Framework = 'vitest' | 'xunit' | 'mocha' | 'jest';
 type TestStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped' | 'completed';
-type StepType = 'Given' | 'When' | 'Then' | 'and' | 'but' | 'Background';
+type StepType = 'Given' | 'When' | 'Then' | 'And' | 'But' | 'Background';
 type ScenarioType = 'Scenario' | 'ScenarioOutline' | 'Background';
 
 interface Statistics {
@@ -583,9 +583,9 @@ export class LiveDocViewerReporter implements IPostReporter {
             case 'then':
                 return 'Then';
             case 'and':
-                return 'and';
+                return 'And';
             case 'but':
-                return 'but';
+                return 'But';
             case 'background':
                 return 'Background';
             default:

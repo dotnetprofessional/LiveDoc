@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Scenario, Background, Step } from '../store';
 import { StatusBadge } from './StatusBadge';
 import { ChevronRight, ChevronDown } from './Icons';
+import { StepList } from './StepList';
 
 interface ScenarioOutlineCardProps {
   outline: {
     id: string;
     title: string;
     description?: string;
-    templateSteps: { type: string; title: string }[];
+    templateSteps: Step[];
     examples: Scenario[];
     tags?: string[];
   };
@@ -44,6 +45,11 @@ export function ScenarioOutlineCard({ outline, background }: ScenarioOutlineCard
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <span className={`w-2.5 h-2.5 rounded-full ${getStatusDot(aggregateStatus)}`}></span>
         <span className="flex-1 text-sm font-semibold text-text">
+          {!outline.title.startsWith('Scenario Outline:') && !outline.title.startsWith('Specification:') && !outline.title.startsWith('Rule:') && (
+            <span className="text-text-muted mr-2">
+              {outline.title.toLowerCase().includes('rule') ? 'Rule:' : 'Scenario Outline:'}
+            </span>
+          )}
           <HighlightedStepText text={outline.title} values={null} />
         </span>
         <div className="flex items-center gap-3 text-xs">
@@ -62,34 +68,26 @@ export function ScenarioOutlineCard({ outline, background }: ScenarioOutlineCard
       {/* Background Section - BEFORE template steps */}
       {background && (
         <div className="px-5 py-4 border-b border-border">
-          <div className="flex items-baseline gap-2.5 mb-2">
-            <span className="text-accent font-semibold font-mono text-sm">Background</span>
-            {background.description && (
-              <span className="text-text-secondary text-sm">{background.description}</span>
-            )}
+          <div className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-1">
+            Background{background.title && background.title !== 'Background' ? `: ${background.title}` : ''}
           </div>
-          <div className="space-y-1">
-            {(background.steps || []).map((step, idx) => (
-              <div key={idx} className="font-mono text-sm text-text-secondary leading-relaxed">
-                <span className={`${getStepTypeClass(step.type)} font-semibold`}>{step.type}</span>{' '}
-                {step.title}
-              </div>
-            ))}
-          </div>
+          {background.description && (
+            <div className="mb-3 text-sm text-text-secondary whitespace-pre-wrap italic">
+              {background.description}
+            </div>
+          )}
+          <StepList steps={background.steps || []} showStatus={true} />
         </div>
       )}
 
       {/* Template Steps with Placeholder Highlighting or Value Substitution */}
       {outline.templateSteps.length > 0 && (
         <div className="px-5 py-4 bg-surface-hover/30 border-b border-border">
-          <div className="space-y-1">
-            {outline.templateSteps.map((step, idx) => (
-              <div key={idx} className="font-mono text-sm text-text-secondary leading-relaxed">
-                <span className={`${getStepTypeClass(step.type)} font-semibold`}>{step.type}</span>{' '}
-                <HighlightedStepText text={step.title} values={substitutionValues} />
-              </div>
-            ))}
-          </div>
+          <StepList 
+            steps={outline.templateSteps} 
+            showStatus={false} 
+            highlightValues={substitutionValues || undefined} 
+          />
         </div>
       )}
 
@@ -157,36 +155,72 @@ function findMatchingValue(placeholder: string, values: Record<string, string>):
 
 // Highlight <placeholder> text in steps, or substitute with values if provided
 function HighlightedStepText({ text, values }: { text: string; values: Record<string, string> | null }) {
-  // Match <word> patterns (including multi-word like <Customer's Country>)
-  const parts = text.split(/(<[^>]+>)/g);
-  
-  return (
-    <>
-      {parts.map((part, i) => {
-        const match = part.match(/^<([^>]+)>$/);
-        if (match) {
-          const placeholder = match[1];
-          // Try to find matching value - placeholder names may differ from keys
-          // e.g., "Customer's Country" vs "CustomersCountry"
-          const value = values ? findMatchingValue(placeholder, values) : undefined;
-          
-          if (value !== undefined) {
-            return (
-              <span key={i} className="px-1 bg-accent/20 text-accent rounded font-medium">
-                {value}
-              </span>
-            );
-          }
-          return (
-            <span key={i} className="px-1 bg-accent/20 text-accent rounded font-medium">
-              {part}
-            </span>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </>
-  );
+  if (!text) return null;
+
+  // 1. Handle substitution if values are provided
+  let content: (string | JSX.Element)[] = [text];
+
+  // 2. Highlight placeholders <name>
+  const placeholderRegex = /<([^>]+)>/g;
+  content = content.flatMap((part) => {
+    if (typeof part !== 'string') return part;
+    const subParts: (string | JSX.Element)[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = placeholderRegex.exec(part)) !== null) {
+      if (match.index > lastIndex) {
+        subParts.push(part.substring(lastIndex, match.index));
+      }
+      const placeholder = match[1];
+      const value = values ? findMatchingValue(placeholder, values) : undefined;
+      if (value !== undefined) {
+        subParts.push(
+          <span key={`ph-${match.index}`} className="px-1 bg-accent/20 text-accent rounded font-medium">
+            {value}
+          </span>
+        );
+      } else {
+        subParts.push(
+          <span key={`ph-${match.index}`} className="px-1 bg-accent/20 text-accent rounded font-medium">
+            {match[0]}
+          </span>
+        );
+      }
+      lastIndex = placeholderRegex.lastIndex;
+    }
+    if (lastIndex < part.length) {
+      subParts.push(part.substring(lastIndex));
+    }
+    return subParts;
+  });
+
+  // 3. Highlight quoted values 'value' or "value"
+  const quoteRegex = /('[^']+'|"[^"]+")/g;
+  content = content.flatMap((part) => {
+    if (typeof part !== 'string') return part;
+    const subParts: (string | JSX.Element)[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = quoteRegex.exec(part)) !== null) {
+      if (match.index > lastIndex) {
+        subParts.push(part.substring(lastIndex, match.index));
+      }
+      subParts.push(
+        <span key={`q-${match.index}`} className="text-accent font-medium">
+          {match[0]}
+        </span>
+      );
+      lastIndex = quoteRegex.lastIndex;
+    }
+    if (lastIndex < part.length) {
+      subParts.push(part.substring(lastIndex));
+    }
+    return subParts;
+  });
+
+  return <>{content}</>;
 }
 
 interface ExampleRowProps {

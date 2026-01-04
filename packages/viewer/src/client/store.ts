@@ -5,6 +5,7 @@ export type StepType = 'Given' | 'When' | 'Then' | 'And' | 'But';
 export interface Step {
   type: StepType;
   title: string;
+  description?: string;
   status?: 'pass' | 'fail' | 'skip' | 'pending';
   docString?: string;
   dataTable?: { rows: string[][] };

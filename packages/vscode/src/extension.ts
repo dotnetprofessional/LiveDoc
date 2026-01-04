@@ -14,10 +14,10 @@ let wsClient: LiveDocWebSocketClient | null = null;
 export async function activate(context: vscode.ExtensionContext) {
     // Start LiveDoc Server
     const outputChannel = vscode.window.createOutputChannel('LiveDoc Server');
-    let activePort = 19275;
+    let activePort = 3100;
     try {
         const config = vscode.workspace.getConfiguration('livedoc');
-        const port = config.get<number>('server.port', 19275);
+        const port = config.get<number>('server.port', 3100);
         activePort = port;
         const autoStart = config.get<boolean>('server.autoStart', true);
 

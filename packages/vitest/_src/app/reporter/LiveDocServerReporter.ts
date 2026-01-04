@@ -23,11 +23,9 @@ export default class LiveDocServerReporter implements Reporter {
     private environment = "local";
 
     constructor() {
-        console.log("[LiveDoc] Reporter constructor called");
     }
 
     async onInit(ctx: Vitest) {
-        console.log("[LiveDoc] onInit called");
         this.project = ctx.config.name || "LiveDoc Project";
         
         // Try to discover server
@@ -37,19 +35,14 @@ export default class LiveDocServerReporter implements Reporter {
             if (serverInfo) {
                 this.serverUrl = serverInfo.url;
                 this.isAvailable = true;
-                console.log(`[LiveDoc] Connected to server at ${this.serverUrl}`);
-            } else {
-                console.log(`[LiveDoc] Server not found. Reporter disabled.`);
+                process.stdout.write(`[LiveDoc] Connected to server at ${this.serverUrl}\n`);
             }
         } catch (e) {
-            // @livedoc/server is not installed. This is expected if the user is not using the server reporter.
-            // We only log if they explicitly tried to use this reporter but it's missing.
             this.isAvailable = false;
         }
     }
 
     async onTestRunEnd(files: any) {
-        console.log(`[LiveDoc] onTestRunEnd called with ${files?.length} files`);
         if (!this.isAvailable || !this.serverUrl) return;
 
         // Interim mitigation: send a complete run in batch mode.
@@ -58,7 +51,7 @@ export default class LiveDocServerReporter implements Reporter {
             const timestamp = new Date().toISOString();
             const run = this.buildCompleteRun(files, timestamp);
 
-            console.log(`[LiveDoc] Posting complete run to ${this.serverUrl}/api/runs`);
+            process.stdout.write(`[LiveDoc] Posting results to ${this.serverUrl}...\n`);
             const res = await fetch(`${this.serverUrl}/api/runs`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -66,14 +59,15 @@ export default class LiveDocServerReporter implements Reporter {
             });
 
             if (!res.ok) {
-                console.error(`[LiveDoc] Failed to post complete run. Status: ${res.status} ${res.statusText}`);
+                process.stdout.write(`[LiveDoc] Failed to post run. Status: ${res.status} ${res.statusText}\n`);
                 return;
             }
 
-            const data = await res.json().catch(() => null) as { runId?: string } | null;
-            console.log(`[LiveDoc] Run posted${data?.runId ? ` with ID: ${data.runId}` : ''}`);
-        } catch (e) {
-            console.error(`[LiveDoc] Failed to post complete run:`, e);
+            const data = await res.json().catch(() => null);
+            const runId = data?.id || data?.runId || '';
+            process.stdout.write(`[LiveDoc] Run published: ${this.serverUrl}/runs/${runId}\n`);
+        } catch (e: any) {
+            process.stdout.write(`[LiveDoc] Failed to post run: ${e.message}\n`);
             this.isAvailable = false;
         }
     }

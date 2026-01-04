@@ -14,12 +14,8 @@ The LiveDoc Viewer is a web-based dashboard that provides a professional, polish
 | **Drill-down Navigation**          | ✅ Done     | [Details](#drill-down-navigation)          |
 | **Persistent Run History**         | ✅ Done     | [Details](#persistent-run-history)         |
 | **Scenario Outline Visualization** | ✅ Done     | [Details](#scenario-outline-visualization) |
+| **Syntax Highlighting**            | ✅ Done     | [Details](#syntax-highlighting)            |
 | **Business-Friendly Mode**         | ⏳ Planned  | [Details](#business-friendly-mode)         |
-| **Search & Filter**                | ⏳ Planned  | [Details](#search--filter)                 |
-| **Shareable Deep Links**           | ⏳ Planned  | [Details](#shareable-deep-links)           |
-| **Export to PDF/HTML**             | ⏳ Planned  | [Details](#export-to-pdfhtml)              |
-| **Collaboration & Comments**       | ⏳ Planned  | [Details](#collaboration--comments)        |
-| **Requirement Mapping**            | ⏳ Planned  | [Details](#requirement-mapping)            |
 
 ## Feature Details
 
@@ -36,6 +32,12 @@ Sidebar:
     [Staging]
   [Project B]
 ```
+
+### Syntax Highlighting
+The viewer automatically highlights key elements in the Gherkin text to improve readability.
+- **Quoted Values**: Text inside single or double quotes is highlighted.
+- **Placeholders**: Gherkin placeholders (e.g., `<placeholder>`) are highlighted.
+- **Step Keywords**: Given, When, Then, And, But are styled distinctly.
 
 ### Real-time Execution View
 As tests are running (e.g., in a CI pipeline or on a developer's machine), the Viewer updates in real-time to show progress. Stakeholders can watch features turn green (pass) or red (fail) as they execute.

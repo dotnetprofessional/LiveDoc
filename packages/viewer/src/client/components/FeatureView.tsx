@@ -81,7 +81,15 @@ export function FeatureView({ feature, groupName, onScenarioClick, onOutlineClic
       <div className="bg-surface border border-border rounded-lg p-5 mb-4">
         <div className="flex items-center gap-2.5 mb-1.5">
           <span className={`w-2.5 h-2.5 rounded-full ${getStatusColor(feature.status)}`}></span>
-          <h1 className="text-lg font-semibold text-text">{feature.title}</h1>
+          <h1 className="text-lg font-semibold text-text">
+            {!feature.title.startsWith('Feature:') && !feature.title.startsWith('Specification:') && !feature.title.startsWith('Rule:') && (
+              <span className="text-text-muted mr-2">
+                {feature.title.toLowerCase().includes('specification') ? 'Specification:' : 
+                 feature.title.toLowerCase().includes('rule') ? 'Rule:' : 'Feature:'}
+              </span>
+            )}
+            {feature.title}
+          </h1>
         </div>
         
         {shortPath && (

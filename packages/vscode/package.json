@@ -97,7 +97,7 @@
                 },
                 "livedoc.server.port": {
                     "type": "number",
-                    "default": 19275,
+                    "default": 3100,
                     "description": "Port for the LiveDoc server"
                 },
                 "livedoc.server.autoStart": {

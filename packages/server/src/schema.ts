@@ -67,6 +67,8 @@ export interface Step {
   error?: ErrorInfo;
   
   // Data
+  description?: string;
+  rawDescription?: string;  // Original description
   docString?: string;
   docStringRaw?: string;    // Original docstring before binding
   dataTable?: DataTableRow[];
