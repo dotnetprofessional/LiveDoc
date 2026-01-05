@@ -1,5 +1,5 @@
 {
-    "name": "@livedoc/vscode",
+    "name": "livedoc-vscode",
     "displayName": "livedoc",
     "description": "Tools and snippets for working with LiveDoc BDD testing (Vitest)",
     "version": "0.0.1",
@@ -10,7 +10,7 @@
         "url": "https://github.com/dotnetprofessional/LiveDoc.git"
     },
     "engines": {
-        "vscode": "^1.25.1"
+        "vscode": "^1.90.0"
     },
     "categories": [
         "Snippets"
@@ -27,8 +27,7 @@
         "onLanguage:typescriptreact",
         "onLanguage:javascriptreact",
         "onLanguage:javascript",
-        "onLanguage:plaintext",
-        "onView:livedoc"
+        "onLanguage:plaintext"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -136,23 +135,26 @@
         "vscode:prepublish": "pnpm run compile",
         "compile": "tsc -p ./ && node copy-viewer.js",
         "watch": "tsc -watch -p ./",
-        "package": "vsce package",
+        "package": "vsce package --no-dependencies",
         "test": "pnpm run compile",
         "link-livedoc": "node scripts/link-livedoc.js",
-        "clean": "rimraf out *.vsix"
+        "clean": "rimraf out \"*.vsix\" -g"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
         "@types/node": "^20.19.27",
         "@types/react": "^18.3.27",
         "@types/react-dom": "^18.3.7",
-        "@types/vscode": "^1.107.0",
+        "@types/vscode": "^1.90.0",
         "@types/ws": "^8.18.1",
         "esbuild": "^0.27.2",
         "fs-extra": "^11.3.3",
-        "typescript": "~5.5.4"
+        "rimraf": "^6.1.2",
+        "typescript": "~5.5.4",
+        "@vscode/vsce": "^3.2.1"
     },
     "dependencies": {
+        "@livedoc/schema": "workspace:^",
         "@livedoc/server": "workspace:*",
         "@livedoc/vitest": "workspace:*",
         "aphrodite": "^2.4.0",

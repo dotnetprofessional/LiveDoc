@@ -1,92 +1,111 @@
 @import "tailwindcss";
 
-/* Custom colors using Tailwind v4 @theme */
 @theme {
-  /* Custom background/surface colors - CSS variables for theme switching */
-  --color-bg: var(--theme-bg);
-  --color-surface: var(--theme-surface);
-  --color-surface-hover: var(--theme-surface-hover);
-  --color-border: var(--theme-border);
-  
-  /* Text colors */
-  --color-text: var(--theme-text);
-  --color-text-secondary: var(--theme-text-secondary);
-  --color-text-muted: var(--theme-text-muted);
-  
-  /* Accent color */
-  --color-accent: #58a6ff;
-  --color-accent-hover: #4f46e5;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   
   /* Status colors */
-  --color-pass: #3fb950;
-  --color-fail: #f85149;
-  --color-skip: #a371f7;
-  --color-pending: #d29922;
-  
-  /* Placeholder highlighting */
-  --color-placeholder: #fbbf24;
+  --color-pass: #10b981;
+  --color-fail: #ef4444;
+  --color-skip: #8b5cf6;
+  --color-pending: #f59e0b;
   
   /* Step type colors */
   --color-given: #3b82f6;
   --color-when: #f59e0b;
-  --color-then: #22c55e;
+  --color-then: #10b981;
   --color-and: #6b7280;
   --color-but: #ec4899;
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 }
 
-/* Dark theme (default) */
-:root {
-  --theme-bg: #0d1117;
-  --theme-surface: #161b22;
-  --theme-surface-hover: #21262d;
-  --theme-border: #30363d;
-  --theme-text: #e6edf3;
-  --theme-text-secondary: #8b949e;
-  --theme-text-muted: #6e7681;
-  color-scheme: dark;
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --popover: #ffffff;
+    --popover-foreground: #0f172a;
+    --primary: #0f172a;
+    --primary-foreground: #f8fafc;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #0f172a;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #f1f5f9;
+    --accent-foreground: #0f172a;
+    --destructive: #ef4444;
+    --destructive-foreground: #f8fafc;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: #0f172a;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: #020617;
+    --foreground: #f8fafc;
+    --card: #020617;
+    --card-foreground: #f8fafc;
+    --popover: #020617;
+    --popover-foreground: #f8fafc;
+    --primary: #f8fafc;
+    --primary-foreground: #020617;
+    --secondary: #1e293b;
+    --secondary-foreground: #f8fafc;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #1e293b;
+    --accent-foreground: #f8fafc;
+    --destructive: #7f1d1d;
+    --destructive-foreground: #f8fafc;
+    --border: #1e293b;
+    --input: #1e293b;
+    --ring: #cbd5e1;
+  }
 }
 
-/* Light theme */
-:root.light {
-  --theme-bg: #f6f8fa;
-  --theme-surface: #ffffff;
-  --theme-surface-hover: #f3f4f6;
-  --theme-border: #d0d7de;
-  --theme-text: #1f2328;
-  --theme-text-secondary: #656d76;
-  --theme-text-muted: #8c959f;
-  color-scheme: light;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
 }
 
-html {
-  color-scheme: dark;
-}
-
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  margin: 0;
-  min-height: 100vh;
-}
-
-/* Scrollbar styling */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-surface);
+  @apply bg-muted;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  @apply bg-muted-foreground/20 rounded-full border-2 border-transparent bg-clip-padding hover:bg-muted-foreground/40;
 }

@@ -1,99 +1,25 @@
 import { create } from 'zustand';
-
-export type StepType = 'Given' | 'When' | 'Then' | 'And' | 'But';
-
-export interface Step {
-  type: StepType;
-  title: string;
-  description?: string;
-  status?: 'pass' | 'fail' | 'skip' | 'pending';
-  docString?: string;
-  dataTable?: { rows: string[][] };
-  duration?: number;
-  error?: {
-    message: string;
-    stack?: string;
-    diff?: { expected?: string; actual?: string };
-    filename?: string;
-  };
-}
-
-export interface Scenario {
-  id: string;
-  title: string;
-  description?: string;
-  status: 'pass' | 'fail' | 'skip' | 'pending';
-  duration?: number;
-  steps: Step[];
-  tags?: string[];
-  type?: string; // 'Scenario', 'ScenarioOutline', 'Background'
-  // For ScenarioOutline examples
-  outlineId?: string;
-  exampleValues?: Record<string, string>;
-  exampleIndex?: number;
-}
-
-export interface ScenarioOutline {
-  id: string;
-  title: string;
-  description?: string;
-  templateSteps: Step[];
-  examples: Scenario[];
-  tags?: string[];
-}
-
-export interface Background {
-  id: string;
-  title: string;
-  description?: string;
-  steps: Step[];
-}
-
-export interface Feature {
-  id: string;
-  title: string;
-  description?: string;
-  filename?: string;
-  /** Optional folder/grouping path (relative, no filename) */
-  path?: string;
-  status: 'pass' | 'fail' | 'skip' | 'pending';
-  background?: Background;
-  scenarios: Scenario[];
-  scenarioOutlines?: ScenarioOutline[];
-  tags?: string[];
-  duration?: number;
-}
-
-export interface Project {
-  id: string;
-  name: string;
-  environment?: string;
-  framework?: string;
-  features: Feature[];
-  timestamp: number;
-  status?: 'running' | 'completed' | 'failed' | 'pending';
-  duration?: number;
-}
+import { Node, Statistics, Status } from '@livedoc/schema';
 
 export interface Run {
   runId: string;
   project?: string;
   environment?: string;
   framework?: string;
-  projects: Project[];
   timestamp: number;
-  status?: 'running' | 'completed' | 'failed' | 'pending';
-  features?: Feature[];
-  summary?: { total: number; passed: number; failed: number; pending: number; duration: number };
-  duration?: number;
+  status: Status;
+  summary: Statistics;
+  duration: number;
+  documents: Node[];
+  nodeMap: Record<string, Node>;
 }
 
 // Project hierarchy for navigation
 export interface HistoryRun {
   runId: string;
   timestamp: string;
-  status: string;
-  summary?: Run['summary'];
+  status: Status;
+  summary: Statistics;
 }
 
 export interface Environment {
@@ -113,14 +39,11 @@ export type ViewMode = 'tree' | 'list';
 export type Theme = 'dark' | 'light';
 
 // Navigation view types
-export type ViewType = 'summary' | 'group' | 'feature' | 'scenario' | 'outline';
+export type ViewType = 'summary' | 'node';
 
 export interface CurrentView {
   type: ViewType;
-  groupName?: string;
-  featureId?: string;
-  scenarioId?: string;
-  outlineId?: string;
+  nodeId?: string;
 }
 
 interface AppState {
@@ -130,8 +53,7 @@ interface AppState {
   
   // Selection
   selectedRunId: string | null;
-  selectedProjectId: string | null;
-  selectedFeatureId: string | null;
+  selectedNodeId: string | null;
   
   // Navigation
   currentView: CurrentView;
@@ -151,11 +73,10 @@ interface AppState {
   setProjectHierarchy: (hierarchy: ProjectNode[]) => void;
   
   selectRun: (runId: string | null) => void;
-  selectProject: (projectId: string | null) => void;
-  selectFeature: (featureId: string | null) => void;
+  selectNode: (nodeId: string | null) => void;
   
   // Navigation actions
-  navigate: (type: ViewType, groupName?: string, featureId?: string, scenarioId?: string, outlineId?: string) => void;
+  navigate: (type: ViewType, nodeId?: string) => void;
   
   setConnectionStatus: (status: ConnectionStatus) => void;
   setViewMode: (mode: ViewMode) => void;
@@ -164,13 +85,11 @@ interface AppState {
   toggleExpanded: (itemId: string) => void;
   
   // Real-time updates
-  updateFeature: (projectId: string, feature: Feature) => void;
-  updateScenario: (projectId: string, featureId: string, scenario: Scenario) => void;
+  addOrUpdateNode: (runId: string, parentId: string | undefined, node: Node) => void;
   
   // Computed selectors
   getCurrentRun: () => Run | undefined;
-  getCurrentProject: () => Project | undefined;
-  getCurrentFeature: () => Feature | undefined;
+  getCurrentNode: () => Node | undefined;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -178,8 +97,7 @@ export const useStore = create<AppState>((set, get) => ({
   runs: [],
   projectHierarchy: [],
   selectedRunId: null,
-  selectedProjectId: null,
-  selectedFeatureId: null,
+  selectedNodeId: null,
   currentView: { type: 'summary' },
   connectionStatus: 'connecting',
   viewMode: 'tree',
@@ -221,24 +139,18 @@ export const useStore = create<AppState>((set, get) => ({
   // Selection actions
   selectRun: (runId) => set({
     selectedRunId: runId,
-    selectedProjectId: null,
-    selectedFeatureId: null,
+    selectedNodeId: null,
     currentView: { type: 'summary' },
   }),
   
-  selectProject: (projectId) => set({
-    selectedProjectId: projectId,
-    selectedFeatureId: null,
-  }),
-  
-  selectFeature: (featureId) => set({
-    selectedFeatureId: featureId,
+  selectNode: (nodeId) => set({
+    selectedNodeId: nodeId,
   }),
   
   // Navigation actions
-  navigate: (type, groupName, featureId, scenarioId, outlineId) => set({
-    currentView: { type, groupName, featureId, scenarioId, outlineId },
-    selectedFeatureId: featureId ?? null,
+  navigate: (type, nodeId) => set({
+    currentView: { type, nodeId },
+    selectedNodeId: nodeId ?? null,
   }),
   
   // UI actions
@@ -267,32 +179,78 @@ export const useStore = create<AppState>((set, get) => ({
   }),
   
   // Real-time update handlers
-  updateFeature: (projectId, feature) => set((state) => {
-    const run = state.runs.find((r) => r.runId === state.selectedRunId);
-    if (!run) return state;
-    
-    const updatedProjects = run.projects.map((p) => {
-      if (p.id !== projectId) return p;
-      
-      const existingIndex = p.features.findIndex((f) => f.id === feature.id);
-      if (existingIndex >= 0) {
-        const updatedFeatures = [...p.features];
-        updatedFeatures[existingIndex] = feature;
-        return { ...p, features: updatedFeatures };
+  addOrUpdateNode: (runId, parentId, node) => set((state) => {
+    const runIndex = state.runs.findIndex(r => r.runId === runId);
+    if (runIndex === -1) return state;
+
+    const run = state.runs[runIndex];
+    const newNodeMap = { ...run.nodeMap, [node.id]: node };
+    let newDocuments = [...run.documents];
+
+    if (parentId) {
+      // Child node - we know the parent, so update it directly
+      const updateNodeInTree = (nodes: Node[]): Node[] => {
+        return nodes.map(n => {
+          if (n.id === parentId) {
+            const children = (n as any).children || [];
+            const existingIndex = children.findIndex((c: Node) => c.id === node.id);
+            const newChildren = [...children];
+            if (existingIndex >= 0) {
+              newChildren[existingIndex] = node;
+            } else {
+              newChildren.push(node);
+            }
+            return { ...n, children: newChildren };
+          }
+          if ((n as any).children) {
+            return { ...n, children: updateNodeInTree((n as any).children) };
+          }
+          return n;
+        });
+      };
+      newDocuments = updateNodeInTree(newDocuments);
+    } else {
+      // No parentId - could be a root node OR an update to an existing node anywhere
+      const existingRootIndex = newDocuments.findIndex(n => n.id === node.id);
+      if (existingRootIndex >= 0) {
+        newDocuments[existingRootIndex] = node;
+      } else {
+        // Search and update in tree
+        let found = false;
+        const updateInTree = (nodes: Node[]): Node[] => {
+          return nodes.map(n => {
+            if (n.id === node.id) {
+              found = true;
+              return node;
+            }
+            if ((n as any).children) {
+              const updatedChildren = updateInTree((n as any).children);
+              if (found) {
+                return { ...n, children: updatedChildren };
+              }
+            }
+            return n;
+          });
+        };
+        
+        const updatedDocuments = updateInTree(newDocuments);
+        if (found) {
+          newDocuments = updatedDocuments;
+        } else {
+          // Truly a new root node
+          newDocuments.push(node);
+        }
       }
-      return { ...p, features: [...p.features, feature] };
-    });
-    
-    return {
-      runs: state.runs.map((r) =>
-        r.runId === run.runId ? { ...r, projects: updatedProjects } : r
-      ),
+    }
+
+    const newRuns = [...state.runs];
+    newRuns[runIndex] = {
+      ...run,
+      documents: newDocuments,
+      nodeMap: newNodeMap
     };
-  }),
-  
-  updateScenario: (projectId, featureId, scenario) => set((state) => {
-    // Implementation for updating individual scenarios
-    return state;
+
+    return { runs: newRuns };
   }),
   
   // Computed selectors
@@ -301,15 +259,10 @@ export const useStore = create<AppState>((set, get) => ({
     return state.runs.find((r) => r.runId === state.selectedRunId);
   },
   
-  getCurrentProject: () => {
+  getCurrentNode: () => {
     const state = get();
     const run = get().getCurrentRun();
-    return run?.projects.find((p) => p.id === state.selectedProjectId);
-  },
-  
-  getCurrentFeature: () => {
-    const state = get();
-    const project = get().getCurrentProject();
-    return project?.features.find((f) => f.id === state.selectedFeatureId);
+    if (!run || !state.selectedNodeId) return undefined;
+    return run.nodeMap[state.selectedNodeId];
   },
 }));

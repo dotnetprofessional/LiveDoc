@@ -4,7 +4,8 @@ import { activateTableFormatter, deactivateTableFormatter } from "./tableFormatt
 import { createServer, LiveDocServer } from "@livedoc/server";
 import { LiveDocWebSocketClient } from "./WebSocketClient";
 import { ViewerPanel } from "./viewer/ViewerPanel";
-import { FeatureTreeViewItem, ScenarioTreeViewItem } from "./ExecutionResultOutline/ExecutionResultTreeViewItem";
+import { NodeTreeViewItem } from "./ExecutionResultOutline/NodeTreeViewItem";
+import { Node } from "@livedoc/schema";
 import * as os from 'os';
 import * as path from 'path';
 
@@ -56,18 +57,16 @@ export async function activate(context: vscode.ExtensionContext) {
             ViewerPanel.createOrShow(context.extensionUri, activePort);
             
             if (ViewerPanel.currentPanel) {
-                if (item instanceof FeatureTreeViewItem) {
-                    ViewerPanel.currentPanel.navigateTo(item.feature.id);
-                    return;
-                }
-                if (item instanceof ScenarioTreeViewItem) {
-                    ViewerPanel.currentPanel.navigateTo(item.feature.id, item.scenario.id);
+                if (item instanceof NodeTreeViewItem) {
+                    ViewerPanel.currentPanel.navigateTo(item.node.id);
                     return;
                 }
 
-                const payload = item as { featureId?: string; scenarioId?: string } | undefined;
-                if (payload?.featureId) {
-                    ViewerPanel.currentPanel.navigateTo(payload.featureId, payload.scenarioId);
+                const payload = item as { id?: string; featureId?: string; scenarioId?: string } | undefined;
+                if (payload?.id) {
+                    ViewerPanel.currentPanel.navigateTo(payload.id);
+                } else if (payload?.featureId) {
+                    ViewerPanel.currentPanel.navigateTo(payload.scenarioId || payload.featureId);
                 }
             }
         })

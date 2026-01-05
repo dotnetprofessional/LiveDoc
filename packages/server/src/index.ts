@@ -8,15 +8,14 @@ import { EventEmitter } from 'events';
 import { WebSocketManager } from './websocket.js';
 import { RunStore, runStore } from './store.js';
 import type {
-  StartRunRequest,
-  StartRunResponse,
   TestRun,
-  Feature,
-  Scenario,
-  Step,
+  Node,
   WebSocketEvent,
-  ServerConfig
+  ServerConfig,
+  Status,
+  Framework
 } from './schema.js';
+import { NodeSchema } from './schema.js';
 
 // Re-export all schema types
 export * from './schema.js';
@@ -280,7 +279,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   
   // Start a new run
   app.post('/api/runs/start', async (c) => {
-    const body = await c.req.json<StartRunRequest>();
+    const body = await c.req.json<{ project: string; environment: string; framework: string; timestamp?: string }>();
     const runId = generateId();
     const timestamp = body.timestamp || new Date().toISOString();
     
@@ -295,21 +294,71 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         runId,
         project: body.project,
         environment: body.environment,
-        framework: body.framework,
+        framework: body.framework as Framework,
         timestamp
       };
       wsManager.broadcast(event, runId, body.project, body.environment);
     }
     
-    const response: StartRunResponse = {
+    return c.json({
       runId,
       websocketUrl: `/ws`
-    };
+    }, 201);
+  });
+
+  // Add or update a node
+  app.post('/api/runs/:runId/nodes', async (c) => {
+    const runId = c.req.param('runId');
+    const body = await c.req.json();
     
-    return c.json(response, 201);
+    const run = store.getRun(runId);
+    if (!run) {
+      return c.json({ error: 'Run not found' }, 404);
+    }
+
+    // Validate node
+    const result = NodeSchema.safeParse(body.node);
+    if (!result.success) {
+      return c.json({ error: 'Invalid node data', details: result.error.format() }, 400);
+    }
+
+    const node = result.data as Node;
+    store.addNode(runId, body.parentId, node);
+    
+    eventEmitter.emit('run:updated', runId);
+
+    if (wsManager) {
+      const event: WebSocketEvent = { type: 'node:added', runId, node };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+    
+    return c.json({ success: true });
+  });
+
+  // Update node execution
+  app.patch('/api/runs/:runId/nodes/:nodeId/execution', async (c) => {
+    const runId = c.req.param('runId');
+    const nodeId = c.req.param('nodeId');
+    const body = await c.req.json();
+    
+    const run = store.getRun(runId);
+    if (!run) {
+      return c.json({ error: 'Run not found' }, 404);
+    }
+
+    store.updateNodeExecution(runId, nodeId, body);
+    
+    eventEmitter.emit('run:updated', runId);
+
+    if (wsManager) {
+      const event: WebSocketEvent = { type: 'node:updated', runId, nodeId, patch: { execution: body } };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+    
+    return c.json({ success: true });
   });
   
-  // Add feature
+  // Add feature (Legacy support - maps to addNode)
   app.post('/api/runs/:runId/features', async (c) => {
     const runId = c.req.param('runId');
     const body = await c.req.json();
@@ -319,37 +368,31 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       return c.json({ error: 'Run not found' }, 404);
     }
     
-    // Pass through ALL fields from the reporter - don't filter data
-    const feature: Feature = {
+    const feature: Node = {
       id: body.id,
+      kind: 'Feature',
       title: body.title,
-      displayTitle: body.displayTitle,
       description: body.description,
-      rawDescription: body.rawDescription,
-      filename: body.filename,
-      path: body.path,
       tags: body.tags,
-      status: body.status,
-      duration: 0,
-      sequence: body.sequence,
-      scenarios: [],
-      ruleViolations: body.ruleViolations,
-      statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
+      execution: {
+        status: body.status || 'pending',
+        duration: 0
+      }
     };
     
-    store.addFeature(runId, feature);
+    store.addNode(runId, undefined, feature);
     
     eventEmitter.emit('run:updated', runId);
 
     if (wsManager) {
-      const event: WebSocketEvent = { type: 'feature:added', runId, feature };
+      const event: WebSocketEvent = { type: 'node:added', runId, node: feature };
       wsManager.broadcast(event, runId, run.project, run.environment);
     }
     
     return c.json({ success: true });
   });
   
-  // Add scenario
+  // Add scenario (Legacy support - maps to addNode)
   app.post('/api/runs/:runId/scenarios', async (c) => {
     const runId = c.req.param('runId');
     const body = await c.req.json();
@@ -359,36 +402,47 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       return c.json({ error: 'Run not found' }, 404);
     }
     
-    // Pass through ALL fields from the reporter - don't filter data
-    const scenario: Scenario = {
+    const scenario: Node = {
       id: body.id,
-      type: body.type,
+      kind: body.type === 'ScenarioOutline' ? 'ScenarioOutline' : 'Scenario',
       title: body.title,
-      displayTitle: body.displayTitle,
       description: body.description,
-      rawDescription: body.rawDescription,
       tags: body.tags,
-      status: body.status,
-      duration: 0,
-      sequence: body.sequence,
-      steps: body.steps || [],  // Include template steps for ScenarioOutline
-      ruleViolations: body.ruleViolations,
-      exampleIndex: body.exampleIndex,
-      exampleValues: body.exampleValues,
-      exampleValuesRaw: body.exampleValuesRaw,
-      outlineId: body.outlineId  // Link examples to their parent outline
+      execution: {
+        status: body.status || 'pending',
+        duration: 0
+      }
     };
+
+    if (body.type === 'ScenarioOutline') {
+      (scenario as any).template = {
+        id: `${body.id}-template`,
+        kind: 'Scenario',
+        title: body.title,
+        execution: { status: 'pending', duration: 0 },
+        children: body.steps?.map((s: any, i: number) => ({
+          id: `${body.id}-template-step-${i}`,
+          kind: 'Step',
+          title: s.title,
+          keyword: s.type.toLowerCase(),
+          execution: { status: 'pending', duration: 0 }
+        })) || []
+      };
+      (scenario as any).examples = [];
+      (scenario as any).tables = [];
+    } else {
+      (scenario as any).children = [];
+    }
     
-    store.addScenario(runId, body.featureId, scenario);
+    store.addNode(runId, body.featureId, scenario);
     
     eventEmitter.emit('run:updated', runId);
 
     if (wsManager) {
       const event: WebSocketEvent = { 
-        type: 'scenario:started', 
+        type: 'node:added', 
         runId, 
-        featureId: body.featureId, 
-        scenario 
+        node: scenario 
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
     }
@@ -396,7 +450,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     return c.json({ success: true });
   });
   
-  // Add step
+  // Add step (Legacy support - maps to addNode)
   app.post('/api/runs/:runId/steps', async (c) => {
     const runId = c.req.param('runId');
     const body = await c.req.json();
@@ -406,36 +460,29 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       return c.json({ error: 'Run not found' }, 404);
     }
     
-    // Pass through ALL fields from the reporter - don't filter data
-    const step: Step = {
+    const step: Node = {
       id: body.id,
-      type: body.type,
+      kind: 'Step',
       title: body.title,
-      displayTitle: body.displayTitle,
-      rawTitle: body.rawTitle,
-      status: body.status,
-      duration: body.duration,
-      sequence: body.sequence,
-      error: body.error,
-      docString: body.docString,
-      docStringRaw: body.docStringRaw,
-      dataTable: body.dataTable,
-      values: body.values,
-      valuesRaw: body.valuesRaw,
-      ruleViolations: body.ruleViolations,
-      code: body.code
+      execution: {
+        status: body.status || 'pending',
+        duration: body.duration || 0,
+        error: body.error
+      }
     };
+    (step as any).keyword = body.type.toLowerCase();
+    (step as any).docString = body.docString;
+    (step as any).dataTable = body.dataTable;
     
-    store.addStep(runId, body.scenarioId, step);
+    store.addNode(runId, body.scenarioId, step);
     
     eventEmitter.emit('run:updated', runId);
 
     if (wsManager) {
       const event: WebSocketEvent = { 
-        type: 'step:completed', 
+        type: 'node:added', 
         runId, 
-        scenarioId: body.scenarioId, 
-        step 
+        node: step 
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
     }
@@ -443,7 +490,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     return c.json({ success: true });
   });
   
-  // Complete scenario
+  // Complete scenario (Legacy support)
   app.post('/api/runs/:runId/scenarios/:scenarioId/complete', async (c) => {
     const runId = c.req.param('runId');
     const scenarioId = c.req.param('scenarioId');
@@ -454,17 +501,16 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       return c.json({ error: 'Run not found' }, 404);
     }
     
-    store.updateScenarioStatus(runId, scenarioId, body.status, body.duration);
+    store.updateNodeExecution(runId, scenarioId, { status: body.status, duration: body.duration });
     
     eventEmitter.emit('run:updated', runId);
 
     if (wsManager) {
       const event: WebSocketEvent = { 
-        type: 'scenario:completed', 
+        type: 'node:updated', 
         runId, 
-        scenarioId, 
-        status: body.status, 
-        duration: body.duration 
+        nodeId: scenarioId, 
+        patch: { execution: { status: body.status, duration: body.duration } }
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
     }

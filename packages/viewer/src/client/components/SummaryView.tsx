@@ -1,199 +1,220 @@
-import { Run, Feature, Scenario } from '../store';
+import { Run } from '../store';
 import { StatsBar } from './StatsBar';
-import { ItemList } from './ItemList';
+import { useStore } from '../store';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Badge } from './ui/badge';
+import { Separator } from './ui/separator';
+import { Button } from './ui/button';
 import { StatusBadge } from './StatusBadge';
+import { ChevronRight, Clock, Calendar, Globe, Zap, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '../lib/utils';
 
 interface SummaryViewProps {
   run: Run;
-  onGroupClick: (groupName: string) => void;
 }
 
-export function SummaryView({ run, onGroupClick }: SummaryViewProps) {
-  const features = run.features || [];
-  const groups = groupFeatures(features);
+export function SummaryView({ run }: SummaryViewProps) {
+  const { navigate } = useStore();
   
-  // Calculate total stats from scenarios (not steps)
-  const stats = features.reduce((acc, f) => {
-    const s = getFeatureStats(f);
-    acc.passed += s.passed;
-    acc.failed += s.failed;
-    acc.pending += s.pending;
-    return acc;
-  }, { passed: 0, failed: 0, pending: 0 });
-  
-  const duration = run.summary?.duration || run.duration || 0;
-  
-  // Determine the result status based on test outcomes (not run execution status)
-  // Run status is about execution: running -> completed
-  // Result status is about test outcomes: pass/fail/pending
-  const resultStatus = stats.failed > 0 ? 'failed' : stats.passed > 0 ? 'passed' : 'pending';
+  const summary = run.summary;
+  const duration = run.duration;
+  const status = run.status;
 
-  const groupItems = Object.entries(groups).map(([name, groupFeatures]) => {
-    const groupStats = groupFeatures.reduce((acc, f) => {
-      const s = getFeatureStats(f);
-      acc.passed += s.passed;
-      acc.failed += s.failed;
-      acc.pending += s.pending;
-      acc.duration += f.duration || 0;
-      return acc;
-    }, { passed: 0, failed: 0, pending: 0, duration: 0 });
-    
-    const total = groupStats.passed + groupStats.failed + groupStats.pending;
-    const groupStatus = groupStats.failed > 0 ? 'fail' : groupStats.pending > 0 ? 'pending' : 'pass';
-    const displayName = formatGroupDisplayName(name);
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05
+      }
+    }
+  };
 
-    return {
-      id: name,
-      name: displayName,
-      status: groupStatus as 'pass' | 'fail' | 'pending',
-      count: total,
-      passed: groupStats.passed,
-      failed: groupStats.failed,
-      pending: groupStats.pending,
-      duration: groupStats.duration,
-    };
-  });
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
 
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Page Header */}
-      <div className="mb-5">
-        <h1 className="text-2xl font-semibold text-text mb-1.5">{run.project || 'Test Results'}</h1>
-        <div className="flex items-center gap-4 text-sm text-text-secondary">
-          {run.environment && <span>{run.environment}</span>}
-          {run.framework && <span>{run.framework}</span>}
-          <span>{new Date(run.timestamp).toLocaleString()}</span>
-          <StatusBadge status={statusToVariant(resultStatus)} showLabel />
+    <div className="space-y-8">
+      {/* Hero Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="outline" className="rounded-full px-3 py-1 border-primary/20 bg-primary/5 text-primary font-bold tracking-wider uppercase text-[10px]">
+              {run.framework || 'LiveDoc'}
+            </Badge>
+            <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
+            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {new Date(run.timestamp).toLocaleDateString()}
+            </span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-foreground sm:text-5xl">
+            {run.project || 'Test Results'}
+          </h1>
+          <p className="text-muted-foreground mt-3 max-w-2xl text-lg font-medium leading-relaxed">
+            Living documentation generated from executable specifications. 
+            Review the latest execution results and business requirements.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col items-end">
+            <StatusBadge status={status as any} showLabel size="lg" className="px-6 py-2 text-sm" />
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-2 mr-1">
+              Overall Status
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Stats Bar */}
-      <StatsBar 
-        passed={stats.passed}
-        failed={stats.failed}
-        pending={stats.pending}
-        duration={duration}
-        label="scenarios"
-      />
+      <Separator className="opacity-50" />
 
-      {/* Groups List */}
-      <ItemList 
-        type="Group"
-        items={groupItems}
-        onItemClick={onGroupClick}
-      />
+      {/* Dashboard Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Stats Card */}
+        <Card className="lg:col-span-2 overflow-hidden border-none shadow-xl bg-linear-to-br from-card to-muted/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              Execution Summary
+            </CardTitle>
+            <CardDescription>Real-time metrics from the latest test run</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <StatsBar summary={summary} duration={duration} size="lg" />
+          </CardContent>
+        </Card>
+
+        {/* Environment Info Card */}
+        <Card className="border-none shadow-xl bg-card">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Globe className="w-5 h-5 text-primary" />
+              Environment
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Target</span>
+              <Badge variant="secondary" className="font-bold">{run.environment || 'Default'}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Started</span>
+              <span className="text-sm font-bold">{new Date(run.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Duration</span>
+              <span className="text-sm font-bold flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                {formatDuration(duration)}
+              </span>
+            </div>
+            <Separator />
+            <div className="pt-2">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                Quick Actions
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" className="text-[10px] font-bold uppercase tracking-wider">
+                  Export PDF
+                </Button>
+                <Button variant="outline" size="sm" className="text-[10px] font-bold uppercase tracking-wider">
+                  Share Link
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Specifications List */}
+      <div className="space-y-6 pt-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Specifications</h2>
+              <p className="text-sm text-muted-foreground font-medium">Explore the executable requirements</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mr-2">Filter:</span>
+            <Button variant="secondary" size="sm" className="rounded-full text-[10px] font-bold uppercase tracking-wider">All</Button>
+            <Button variant="ghost" size="sm" className="rounded-full text-[10px] font-bold uppercase tracking-wider">Failed</Button>
+          </div>
+        </div>
+
+        <motion.div 
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="grid gap-4"
+        >
+          {run.documents.map(node => (
+            <motion.div key={node.id} variants={item}>
+              <Card 
+                className="group cursor-pointer hover:shadow-2xl hover:scale-[1.01] transition-all duration-300 border-muted/50 overflow-hidden"
+                onClick={() => navigate('node', node.id)}
+              >
+                <div className="flex items-stretch min-h-20">
+                  <div className={cn(
+                    "w-1.5 shrink-0 transition-colors duration-300",
+                    node.execution.status === 'passed' ? 'bg-pass' : 
+                    node.execution.status === 'failed' ? 'bg-fail' : 'bg-pending'
+                  )} />
+                  <div className="flex-1 p-5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="shrink-0">
+                        <StatusBadge status={node.execution.status} size="md" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                            {node.kind}
+                          </span>
+                          {node.tags && node.tags.length > 0 && (
+                            <div className="flex gap-1">
+                              {node.tags.slice(0, 2).map(tag => (
+                                <span key={tag} className="text-[9px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                                  @{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                          {node.title}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-6 shrink-0">
+                      <div className="hidden md:flex flex-col items-end">
+                        <span className="text-xs font-bold">{node.execution.duration}ms</span>
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">Duration</span>
+                      </div>
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300">
+                        <ChevronRight className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
     </div>
   );
 }
 
-function formatGroupDisplayName(groupName: string): string {
-  if (groupName === '/') return 'Root';
-  return groupName
-    .split('/')
-    .map((segment) => (segment.startsWith('_') ? segment : segment.replace(/_/g, ' ')))
-    .join('/');
+function formatDuration(ms?: number): string {
+  if (ms === undefined) return '-';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
 }
-
-// Group features by their folder path
-function groupFeatures(features: Feature[]): Record<string, Feature[]> {
-  const groups: Record<string, Feature[]> = {};
-  const basePath = findCommonPath(features.map(f => f.filename || ''));
-
-  for (const f of features) {
-    const groupName = getGroupName(f, basePath);
-    groups[groupName] = groups[groupName] || [];
-    groups[groupName].push(f);
-  }
-  return groups;
-}
-
-function getGroupName(feature: Feature, basePath: string): string {
-  const raw = (feature.path || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
-  if (raw) return raw;
-
-  // Fallback: derive from filename
-  const filename = (feature.filename || '').replace(basePath, '').replace(/\\/g, '/');
-  const parts = filename.split('/').filter(Boolean);
-  return parts.length > 1 ? parts.slice(0, -1).join('/') : '/';
-}
-
-function findCommonPath(paths: string[]): string {
-  if (!paths.length) return '';
-  const parts = paths[0].split(/[/\\]/);
-  let common: string[] = [];
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (paths.every(p => p.split(/[/\\]/)[i] === parts[i])) {
-      common.push(parts[i]);
-    } else break;
-  }
-  return common.join('/') + (common.length ? '/' : '');
-}
-
-// Get scenario stats for a feature
-function getFeatureStats(f: Feature): { passed: number; failed: number; pending: number } {
-  let passed = 0, failed = 0, pending = 0;
-  const scenarios = f.scenarios || [];
-  
-  // Group scenarios to count ScenarioOutlines as single items
-  const { outlines, standaloneScenarios } = groupScenarios(scenarios);
-  
-  // Count each ScenarioOutline as 1 scenario
-  for (const { examples } of outlines) {
-    const outlineStatus = examples.some((e: Scenario) => e.status === 'fail') ? 'fail'
-                        : examples.some((e: Scenario) => e.status === 'pending' || !e.status) ? 'pending'
-                        : 'pass';
-    outlineStatus === 'pass' ? passed++ : outlineStatus === 'fail' ? failed++ : pending++;
-  }
-  
-  // Count standalone scenarios
-  for (const s of standaloneScenarios) {
-    const st = s.status || 'pending';
-    st === 'pass' ? passed++ : st === 'fail' ? failed++ : pending++;
-  }
-  
-  return { passed, failed, pending };
-}
-
-function groupScenarios(scenarios: Scenario[]): { outlines: { outline: Scenario; examples: Scenario[] }[]; standaloneScenarios: Scenario[] } {
-  const outlineMap = new Map<string, { outline: Scenario; examples: Scenario[] }>();
-  const standaloneScenarios: Scenario[] = [];
-
-  for (const s of scenarios) {
-    if (s.type === 'Background') {
-      continue; // Skip background
-    } else if (s.type === 'ScenarioOutline') {
-      outlineMap.set(s.id, { outline: s, examples: [] });
-    } else if (s.outlineId) {
-      const parent = outlineMap.get(s.outlineId);
-      if (parent) {
-        parent.examples.push(s);
-      }
-    } else {
-      standaloneScenarios.push(s);
-    }
-  }
-
-  return {
-    outlines: Array.from(outlineMap.values()),
-    standaloneScenarios,
-  };
-}
-
-function statusToVariant(status: string): 'pass' | 'fail' | 'skip' | 'pending' {
-  switch (status) {
-    case 'completed':
-    case 'passed':
-    case 'pass':
-      return 'pass';
-    case 'failed':
-    case 'fail':
-      return 'fail';
-    case 'running':
-    case 'pending':
-      return 'pending';
-    default:
-      return 'skip';
-  }
-}
-
-export { groupFeatures, getFeatureStats, groupScenarios };

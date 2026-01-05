@@ -56,8 +56,7 @@ feature(`RunStore Data Management
         });
 
         and("the run should have empty features and suites", () => {
-            expect(run?.features).toEqual([]);
-            expect(run?.suites).toEqual([]);
+            expect(run?.documents).toEqual([]);
         });
     });
 
@@ -86,24 +85,23 @@ feature(`RunStore Data Management
         });
 
         when("a feature 'User Authentication' is added to the run", () => {
-            store.addFeature("run-1", {
+            store.addNode("run-1", undefined, {
                 id: "feature-1",
+                kind: "feature",
                 title: "User Authentication",
-                filename: "auth.feature.ts",
-                status: "pending",
-                duration: 0,
-                scenarios: [],
-                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
+                tags: [],
+                children: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
             });
             run = store.getRun("run-1");
         });
 
         Then("the run should have '1' feature", (ctx) => {
-            expect(run?.features).toHaveLength(ctx.step.values[0]);
+            expect(run?.documents).toHaveLength(ctx.step.values[0]);
         });
 
         and("the feature title should be 'User Authentication'", (ctx) => {
-            expect(run?.features[0].title).toBe(ctx.step.values[0]);
+            expect(run?.documents[0].title).toBe(ctx.step.values[0]);
         });
     });
 
@@ -112,103 +110,100 @@ feature(`RunStore Data Management
 
         given("a run with feature 'feature-1' exists", () => {
             store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
-            store.addFeature("run-1", {
+            store.addNode("run-1", undefined, {
                 id: "feature-1",
+                kind: "feature",
                 title: "User Authentication",
-                filename: "auth.feature.ts",
-                status: "pending",
-                duration: 0,
-                scenarios: [],
-                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
+                tags: [],
+                children: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
             });
         });
 
         when("a scenario 'Valid login' is added to the feature", () => {
-            store.addScenario("run-1", "feature-1", {
+            store.addNode("run-1", "feature-1", {
                 id: "scenario-1",
-                type: "Scenario",
+                kind: "scenario",
                 title: "Valid login",
-                status: "pending",
-                duration: 0,
-                steps: []
+                tags: [],
+                children: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
             });
             run = store.getRun("run-1");
         });
 
         Then("the feature should have '1' scenario", (ctx) => {
-            expect(run?.features[0].scenarios).toHaveLength(ctx.step.values[0]);
+            const feature = run?.documents[0] as any;
+            expect(feature.children).toHaveLength(ctx.step.values[0]);
         });
 
         and("the scenario title should be 'Valid login'", (ctx) => {
-            expect(run?.features[0].scenarios[0].title).toBe(ctx.step.values[0]);
+            const feature = run?.documents[0] as any;
+            expect(feature.children[0].title).toBe(ctx.step.values[0]);
         });
     });
 
     scenario("Adding a step to a scenario", () => {
-        let scenario: Scenario | undefined;
+        let scenario: any;
 
         given("a run with a scenario 'scenario-1' exists", () => {
             store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
-            store.addFeature("run-1", {
+            store.addNode("run-1", undefined, {
                 id: "feature-1",
+                kind: "feature",
                 title: "Feature",
-                filename: "test.ts",
-                status: "pending",
-                duration: 0,
-                scenarios: [],
-                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0, duration: 0 }
+                tags: [],
+                children: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
             });
-            store.addScenario("run-1", "feature-1", {
+            store.addNode("run-1", "feature-1", {
                 id: "scenario-1",
-                type: "Scenario",
+                kind: "scenario",
                 title: "Test scenario",
-                status: "pending",
-                duration: 0,
-                steps: []
+                tags: [],
+                children: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
             });
         });
 
         when("a step 'a registered user' of type 'Given' with status 'passed' is added", () => {
-            store.addStep("run-1", "scenario-1", {
+            store.addNode("run-1", "scenario-1", {
                 id: "step-1",
-                type: "Given",
+                kind: "step",
                 title: "a registered user",
-                status: "passed",
-                duration: 10
+                keyword: "given",
+                execution: {
+                    status: "passed",
+                    duration: 10
+                }
             });
             const run = store.getRun("run-1");
-            scenario = run?.features[0].scenarios[0] as Scenario;
+            const feature = run?.documents[0] as any;
+            scenario = feature.children[0];
         });
 
         Then("the scenario should have '1' step", (ctx) => {
-            expect(scenario?.steps).toHaveLength(ctx.step.values[0]);
+            expect(scenario?.children).toHaveLength(ctx.step.values[0]);
         });
 
         and("the step title should be 'a registered user'", (ctx) => {
-            expect(scenario?.steps[0].title).toBe(ctx.step.values[0]);
+            expect(scenario?.children[0].title).toBe(ctx.step.values[0]);
         });
 
         and("the step status should be 'passed'", (ctx) => {
-            expect(scenario?.steps[0].status).toBe(ctx.step.values[0]);
+            expect(scenario?.children[0].execution.status).toBe(ctx.step.values[0]);
         });
     });
 
-    scenario("Completing a run with summary statistics", () => {
+    scenario("Completing a run", () => {
         let run: ReturnType<typeof store.getRun>;
 
         given("a running test run exists", () => {
             store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
         });
 
-        when("the run is completed with status 'passed' duration '1500' and summary totals '5' passed '4' failed '1'", (ctx) => {
-            store.completeRun("run-1", "passed", 1500, {
-                total: 5,
-                passed: 4,
-                failed: 1,
-                pending: 0,
-                skipped: 0,
-                duration: 1500
-            });
+        when("the run is completed with status 'passed' duration '1500'", (ctx) => {
+            store.completeRun("run-1", "passed", 1500);
             run = store.getRun("run-1");
         });
 
@@ -218,12 +213,6 @@ feature(`RunStore Data Management
 
         and("the run duration should be '1500' milliseconds", (ctx) => {
             expect(run?.duration).toBe(ctx.step.values[0]);
-        });
-
-        and("the summary should show '5' total and '4' passed and '1' failed", (ctx) => {
-            expect(run?.summary.total).toBe(ctx.step.values[0]);
-            expect(run?.summary.passed).toBe(ctx.step.values[1]);
-            expect(run?.summary.failed).toBe(ctx.step.values[2]);
         });
     });
 

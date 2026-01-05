@@ -2,171 +2,50 @@ import { IPostReporter } from "./IPostReporter";
 import * as path from 'path';
 import {
     ExecutionResults,
+    Feature as SDKFeature,
+    Scenario as SDKScenario,
+    ScenarioOutline as SDKScenarioOutline,
+    ScenarioExample as SDKScenarioExample,
+    StepDefinition as SDKStepDefinition,
+    SpecStatus,
+    Specification as SDKSpecification,
+    Rule as SDKRule,
+    RuleOutline as SDKRuleOutline,
+    VitestSuite as SDKVitestSuite,
+    LiveDocTest as SDKLiveDocTest
+} from "../model/index";
+import {
+    Node,
     Feature,
     Scenario,
     ScenarioOutline,
-    ScenarioExample,
-    StepDefinition,
-    SpecStatus,
+    Step,
     Specification,
     Rule,
     RuleOutline,
-    RuleExample,
-    VitestSuite,
-    LiveDocTest
-} from "../model/index";
+    TestSuite,
+    Test,
+    Status,
+    Framework,
+    generateStabilityId,
+    TypedValue,
+    Binding,
+    ExampleTable,
+    Row,
+    Statistics
+} from "@livedoc/schema";
 
 // =============================================================================
-// Types from livedoc-viewer schema (duplicated to avoid cross-package imports)
+// Types from livedoc-viewer schema (vNext)
 // =============================================================================
-
-type Framework = 'vitest' | 'xunit' | 'mocha' | 'jest';
-type TestStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped' | 'completed';
-type StepType = 'Given' | 'When' | 'Then' | 'And' | 'But' | 'Background';
-type ScenarioType = 'Scenario' | 'ScenarioOutline' | 'Background';
-
-interface Statistics {
-    total: number;
-    passed: number;
-    failed: number;
-    pending: number;
-    skipped: number;
-    duration: number;
-}
-
-interface RuleViolation {
-    rule: string;
-    message: string;
-    title?: string;
-}
-
-interface ErrorInfo {
-    message: string;
-    stack?: string;
-    expected?: string;
-    actual?: string;
-    diff?: string;
-    filename?: string;
-    line?: number;
-    column?: number;
-}
-
-interface ViewerDataTableRow {
-    [key: string]: string;
-}
-
-interface StartRunRequest {
-    project: string;
-    environment: string;
-    framework: Framework;
-    timestamp?: string;
-}
 
 interface StartRunResponse {
     runId: string;
     websocketUrl: string;
 }
 
-interface PostFeatureRequest {
-    id: string;
-    title: string;
-    displayTitle?: string;
-    description?: string;
-    rawDescription?: string;
-    filename: string;
-    /** Optional folder/grouping path (relative, no filename) */
-    path?: string;
-    tags?: string[];
-    status: TestStatus;
-    sequence?: number;
-    ruleViolations?: RuleViolation[];
-}
-
-interface PostScenarioRequest {
-    featureId: string;
-    id: string;
-    type: ScenarioType;
-    title: string;
-    displayTitle?: string;
-    description?: string;
-    rawDescription?: string;
-    tags?: string[];
-    status: TestStatus;
-    sequence?: number;
-    ruleViolations?: RuleViolation[];
-    
-    // For ScenarioOutline examples
-    outlineId?: string;
-    exampleIndex?: number;
-    exampleValues?: Record<string, unknown>;
-    exampleValuesRaw?: Record<string, string>;
-    
-    // Template steps for ScenarioOutline (with placeholders)
-    steps?: { type: StepType; title: string; rawTitle?: string }[];
-}
-
-interface PostStepRequest {
-    scenarioId: string;
-    id: string;
-    type: StepType;
-    title: string;
-    displayTitle?: string;
-    rawTitle?: string;
-    status: TestStatus;
-    duration: number;
-    sequence?: number;
-    error?: ErrorInfo;
-    
-    // Data
-    docString?: string;
-    docStringRaw?: string;
-    dataTable?: ViewerDataTableRow[];
-    values?: unknown[];
-    valuesRaw?: string[];
-    
-    // Validation
-    ruleViolations?: RuleViolation[];
-    
-    // Code
-    code?: string;
-}
-
-type VirtualStep = {
-    id: string;
-    type: StepType;
-    title: string;
-    rawTitle?: string;
-    status: SpecStatus;
-    duration: number;
-    sequence?: number;
-    error?: ErrorInfo;
-    docString?: string;
-    values?: unknown[];
-    valuesRaw?: string[];
-    ruleViolations?: RuleViolation[];
-    code?: string;
-};
-
-type VirtualScenario = {
-    featureId: string;
-    id: string;
-    type: ScenarioType;
-    title: string;
-    description?: string;
-    tags?: string[];
-    status: SpecStatus;
-    duration: number;
-    sequence?: number;
-    outlineId?: string;
-    exampleIndex?: number;
-    exampleValues?: Record<string, unknown>;
-    exampleValuesRaw?: Record<string, string>;
-    steps?: { type: StepType; title: string; rawTitle?: string }[];
-    stepInstances?: VirtualStep[];
-};
-
 interface CompleteRunRequest {
-    status: TestStatus;
+    status: Status;
     duration: number;
     summary: Statistics;
 }
@@ -243,12 +122,12 @@ export class LiveDocViewerReporter implements IPostReporter {
                 await this.postFeature(runId, feature, pathContext);
             }
 
-            // 2b. Post specifications and suites (mapped into viewer Features)
+            // 2b. Post specifications and suites (first-class in vNext)
             for (const spec of (results as any).specifications || []) {
-                await this.postSpecificationAsFeature(runId, spec as Specification, pathContext);
+                await this.postSpecification(runId, spec as SDKSpecification, pathContext);
             }
             for (const suite of (results as any).suites || []) {
-                await this.postVitestSuiteAsFeature(runId, suite as VitestSuite, pathContext);
+                await this.postTestSuite(runId, suite as SDKVitestSuite, pathContext);
             }
 
             // 3. Complete the run with summary
@@ -267,10 +146,10 @@ export class LiveDocViewerReporter implements IPostReporter {
         for (const f of results.features || []) {
             if (f?.filename) filenames.push(f.filename);
         }
-        for (const s of ((results as any).specifications || []) as Specification[]) {
+        for (const s of ((results as any).specifications || []) as SDKSpecification[]) {
             if ((s as any)?.filename) filenames.push((s as any).filename);
         }
-        for (const s of ((results as any).suites || []) as VitestSuite[]) {
+        for (const s of ((results as any).suites || []) as SDKVitestSuite[]) {
             if ((s as any)?.filename) filenames.push((s as any).filename);
         }
 
@@ -327,195 +206,267 @@ export class LiveDocViewerReporter implements IPostReporter {
     }
 
     private async startRun(): Promise<string | null> {
-        const request: StartRunRequest = {
+        const request = {
             project: this.options.project,
             environment: this.options.environment,
-            framework: 'vitest'
+            framework: 'vitest' as Framework
         };
 
         const response = await this.post<StartRunResponse>('/api/runs/start', request);
         return response?.runId || null;
     }
 
-    private async postFeature(runId: string, feature: Feature, pathContext: { rootPath: string }): Promise<void> {
-        const fileInfo = this.buildFileInfo(feature.filename, pathContext.rootPath);
-        // Post the feature with all available data
-        const featureRequest: PostFeatureRequest = {
-            id: feature.id || this.generateId(),
-            title: feature.title,
-            displayTitle: (feature as any).displayTitle || undefined,
-            description: feature.description,
-            rawDescription: (feature as any).rawDescription || undefined,
-            filename: fileInfo.filename,
-            path: fileInfo.path,
-            tags: feature.tags,
-            status: this.mapStatus(this.calculateFeatureStatus(feature)),
-            sequence: (feature as any).sequence,
-            ruleViolations: this.mapRuleViolations((feature as any).ruleViolations)
+    private async postFeature(runId: string, sdkFeature: SDKFeature, pathContext: { rootPath: string }): Promise<void> {
+        const fileInfo = this.buildFileInfo(sdkFeature.filename, pathContext.rootPath);
+        
+        const featureId = generateStabilityId({
+            project: this.options.project,
+            path: fileInfo.filename,
+            title: sdkFeature.title,
+            kind: 'Feature'
+        });
+
+        const feature: Feature = {
+            id: featureId,
+            kind: 'Feature',
+            title: sdkFeature.title,
+            description: sdkFeature.description,
+            tags: sdkFeature.tags,
+            execution: {
+                status: this.mapStatus(this.calculateFeatureStatus(sdkFeature)),
+                duration: 0
+            },
+            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+            children: []
         };
 
-        await this.post(`/api/runs/${runId}/features`, featureRequest);
+        await this.postNode(runId, undefined, feature);
 
         // Post background if exists
-        if (feature.background) {
-            await this.postScenario(runId, featureRequest.id, feature.background, 'Background');
+        if (sdkFeature.background) {
+            await this.postScenario(runId, featureId, sdkFeature.background, 'Scenario'); // Background is a Scenario in vNext
         }
 
         // Post all scenarios
-        for (const scenario of feature.scenarios) {
-            if (scenario instanceof ScenarioOutline || (scenario as any).examples) {
-                // Handle ScenarioOutline with examples
-                await this.postScenarioOutline(runId, featureRequest.id, scenario as ScenarioOutline);
+        for (const sdkScenario of sdkFeature.scenarios) {
+            if (sdkScenario instanceof SDKScenarioOutline || (sdkScenario as any).examples) {
+                await this.postScenarioOutline(runId, featureId, sdkScenario as SDKScenarioOutline);
             } else {
-                await this.postScenario(runId, featureRequest.id, scenario);
+                await this.postScenario(runId, featureId, sdkScenario as SDKScenario);
             }
         }
     }
 
     private async postScenario(
         runId: string,
-        featureId: string,
-        scenario: Scenario,
-        typeOverride?: ScenarioType
+        parentId: string,
+        sdkScenario: SDKScenario,
+        kind: 'Scenario' = 'Scenario'
     ): Promise<void> {
-        const status = this.calculateScenarioStatus(scenario);
-        const scenarioRequest: PostScenarioRequest = {
-            featureId,
-            id: scenario.id || this.generateId(),
-            type: typeOverride || 'Scenario',
-            title: scenario.title,
-            displayTitle: (scenario as any).displayTitle || undefined,
-            description: scenario.description,
-            rawDescription: (scenario as any).rawDescription || undefined,
-            tags: scenario.tags,
-            status: this.mapStatus(status),
-            sequence: (scenario as any).sequence,
-            ruleViolations: this.mapRuleViolations((scenario as any).ruleViolations)
+        const scenarioId = generateStabilityId({
+            project: this.options.project,
+            title: sdkScenario.title,
+            kind,
+            parentId
+        });
+
+        const scenario: Scenario = {
+            id: scenarioId,
+            kind,
+            title: sdkScenario.title,
+            description: sdkScenario.description,
+            tags: sdkScenario.tags,
+            execution: {
+                status: this.mapStatus(this.calculateScenarioStatus(sdkScenario)),
+                duration: sdkScenario.executionTime || 0
+            },
+            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+            children: []
         };
 
-        await this.post(`/api/runs/${runId}/scenarios`, scenarioRequest);
+        await this.postNode(runId, parentId, scenario);
 
         // Post all steps
-        for (const step of scenario.steps) {
-            await this.postStep(runId, scenarioRequest.id, step);
+        for (let i = 0; i < sdkScenario.steps.length; i++) {
+            await this.postStep(runId, scenarioId, sdkScenario.steps[i], i);
         }
     }
 
     private async postScenarioOutline(
         runId: string,
-        featureId: string,
-        outline: ScenarioOutline
+        parentId: string,
+        sdkOutline: SDKScenarioOutline
     ): Promise<void> {
-        const outlineId = outline.id || this.generateId();
+        const outlineId = generateStabilityId({
+            project: this.options.project,
+            title: sdkOutline.title,
+            kind: 'ScenarioOutline',
+            parentId
+        });
 
-        // Build template steps from the first example's steps using rawTitle (has placeholders)
-        // The outline.steps is empty - steps are on the examples with bound values
-        // We need to get the unbound template from the first example's rawTitle
-        let templateSteps: { type: StepType; title: string; rawTitle?: string }[] = [];
-        
-        if (outline.examples.length > 0 && outline.examples[0].steps.length > 0) {
-            templateSteps = outline.examples[0].steps.map(step => ({
-                type: this.mapStepType(step.type),
-                title: step.rawTitle || step.title,  // rawTitle has the placeholders
-                rawTitle: step.rawTitle || step.title
-            }));
-        }
-
-        // Post the outline itself with template steps
-        const outlineRequest: PostScenarioRequest = {
-            featureId,
-            id: outlineId,
-            type: 'ScenarioOutline',
-            title: outline.title,
-            displayTitle: (outline as any).displayTitle || undefined,
-            description: outline.description,
-            rawDescription: (outline as any).rawDescription || undefined,
-            tags: outline.tags,
-            status: this.mapStatus(this.calculateOutlineStatus(outline)),
-            sequence: (outline as any).sequence,
-            ruleViolations: this.mapRuleViolations((outline as any).ruleViolations),
-            steps: templateSteps  // Include template steps with placeholders
+        // Template scenario
+        const templateScenario: Scenario = {
+            id: `${outlineId}:template`,
+            kind: 'Scenario',
+            title: sdkOutline.title,
+            execution: { status: 'pending', duration: 0 },
+            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+            children: sdkOutline.examples[0]?.steps.map((s, i) => ({
+                id: `${outlineId}:template:step:${i}`,
+                kind: 'Step',
+                title: s.rawTitle || s.title,
+                keyword: s.type.toLowerCase() as any,
+                execution: { status: 'pending', duration: 0 }
+            })) || []
         };
 
-        await this.post(`/api/runs/${runId}/scenarios`, outlineRequest);
+        const outline: ScenarioOutline = {
+            id: outlineId,
+            kind: 'ScenarioOutline',
+            title: sdkOutline.title,
+            description: sdkOutline.description,
+            tags: sdkOutline.tags,
+            execution: {
+                status: this.mapStatus(this.calculateOutlineStatus(sdkOutline)),
+                duration: 0
+            },
+            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+            template: templateScenario,
+            examples: [],
+            tables: [] // TODO: Map tables if available in SDK
+        };
 
-        // Post each example as a scenario
-        for (let i = 0; i < outline.examples.length; i++) {
-            const example = outline.examples[i];
-            const exampleVals = this.toExampleValues(example.example || example.exampleRaw);
-            const exampleValsRaw = this.toExampleValuesRaw(example.exampleRaw);
-            const exampleRequest: PostScenarioRequest = {
-                featureId,
-                id: example.id || this.generateId(),
-                type: 'Scenario',
-                title: `Example ${i + 1}`,
-                displayTitle: (example as any).displayTitle,
-                description: example.description,
-                rawDescription: (example as any).rawDescription,
-                status: this.mapStatus(this.calculateScenarioStatus(example)),
-                sequence: (example as any).sequence,
-                ruleViolations: this.mapRuleViolations((example as any).ruleViolations),
-                outlineId,
-                exampleIndex: i + 1,
-                exampleValues: exampleVals,
-                exampleValuesRaw: exampleValsRaw
+        await this.postNode(runId, parentId, outline);
+
+        // Post each example
+        for (let i = 0; i < sdkOutline.examples.length; i++) {
+            const sdkExample = sdkOutline.examples[i];
+            const exampleId = generateStabilityId({
+                project: this.options.project,
+                title: sdkOutline.title,
+                kind: 'Scenario',
+                parentId: outlineId,
+                index: i
+            });
+
+            const example: Scenario = {
+                id: exampleId,
+                kind: 'Scenario',
+                title: sdkOutline.title,
+                binding: this.mapBinding(sdkExample.example || sdkExample.exampleRaw),
+                execution: {
+                    status: this.mapStatus(this.calculateScenarioStatus(sdkExample)),
+                    duration: sdkExample.executionTime || 0
+                },
+                summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                children: []
             };
 
-            await this.post(`/api/runs/${runId}/scenarios`, exampleRequest);
+            await this.postNode(runId, outlineId, example);
 
             // Post steps for this example
-            for (const step of example.steps) {
-                await this.postStep(runId, exampleRequest.id, step);
+            for (let j = 0; j < sdkExample.steps.length; j++) {
+                await this.postStep(runId, exampleId, sdkExample.steps[j], j);
             }
         }
     }
 
-    private async postStep(runId: string, scenarioId: string, step: StepDefinition): Promise<void> {
-        const stepRequest: PostStepRequest = {
-            scenarioId,
-            id: step.id || this.generateId(),
-            type: this.mapStepType(step.type),
-            title: step.title || step.rawTitle,
-            displayTitle: step.displayTitle || undefined,
-            rawTitle: step.rawTitle || undefined,
-            status: this.mapStatus(step.status),
-            duration: step.duration || 0,
-            sequence: (step as any).sequence,
-            
-            // Data
-            docString: step.docString || undefined,
-            docStringRaw: (step as any).docStringRaw || undefined,
-            dataTable: this.mapDataTable(step.dataTable) as ViewerDataTableRow[] | undefined,
-            values: step.values?.length ? step.values : undefined,
-            valuesRaw: step.valuesRaw?.length ? step.valuesRaw : undefined,
-            
-            // Validation
-            ruleViolations: this.mapRuleViolations(step.ruleViolations),
-            
-            // Code
-            code: (step as any).code || undefined
+    private async postStep(runId: string, parentId: string, sdkStep: SDKStepDefinition, index: number): Promise<void> {
+        const stepId = generateStabilityId({
+            project: this.options.project,
+            title: sdkStep.rawTitle || sdkStep.title,
+            kind: 'Step',
+            parentId,
+            keyword: sdkStep.type.toLowerCase(),
+            index
+        });
+
+        const step: Step = {
+            id: stepId,
+            kind: 'Step',
+            title: sdkStep.rawTitle || sdkStep.title,
+            keyword: sdkStep.type.toLowerCase() as any,
+            execution: {
+                status: this.mapStatus(sdkStep.status),
+                duration: sdkStep.duration || 0,
+                error: sdkStep.status === SpecStatus.fail && sdkStep.exception ? {
+                    message: sdkStep.exception.message || 'Unknown error',
+                    stack: sdkStep.exception.stackTrace,
+                    diff: sdkStep.exception.expected && sdkStep.exception.actual
+                        ? `Expected: ${sdkStep.exception.expected}\nActual: ${sdkStep.exception.actual}`
+                        : undefined
+                } : undefined
+            },
+            docString: sdkStep.docString || undefined,
+            dataTable: this.mapDataTableVNext(sdkStep.dataTable),
+            values: this.mapTypedValues(sdkStep.values)
         };
 
-        // Add error info if failed
-        if (step.status === SpecStatus.fail && step.exception) {
-            stepRequest.error = {
-                message: step.exception.message || 'Unknown error',
-                stack: step.exception.stackTrace,
-                expected: step.exception.expected || undefined,
-                actual: step.exception.actual || undefined
-            };
-        }
+        await this.postNode(runId, parentId, step);
+    }
 
-        await this.post(`/api/runs/${runId}/steps`, stepRequest);
+    private async postNode(runId: string, parentId: string | undefined, node: Node): Promise<void> {
+        await this.post(`/api/runs/${runId}/nodes`, { parentId, node });
+    }
+
+    private mapBinding(example: any): Binding | undefined {
+        if (!example) return undefined;
+        const variables: Binding['variables'] = [];
+        for (const [name, value] of Object.entries(example)) {
+            variables.push({
+                name,
+                value: this.toTypedValue(value)
+            });
+        }
+        return { variables };
+    }
+
+    private toTypedValue(value: any): TypedValue {
+        const type = typeof value;
+        let mappedType: TypedValue['type'] = 'string';
+        if (type === 'number') mappedType = 'number';
+        else if (type === 'boolean') mappedType = 'boolean';
+        else if (value instanceof Date) mappedType = 'date';
+        else if (type === 'object') mappedType = 'object';
+        else if (value === null) mappedType = 'null';
+        else if (value === undefined) mappedType = 'undefined';
+
+        return {
+            value,
+            type: mappedType
+        };
+    }
+
+    private mapTypedValues(values: any[] | undefined): TypedValue[] | undefined {
+        if (!values) return undefined;
+        return values.map(v => this.toTypedValue(v));
+    }
+
+    private mapDataTableVNext(dataTable: any[] | undefined): ExampleTable | undefined {
+        if (!dataTable || dataTable.length < 2) return undefined;
+        const headers = dataTable[0] as string[];
+        const rows: Row[] = [];
+        for (let i = 1; i < dataTable.length; i++) {
+            const sdkRow = dataTable[i] as any[];
+            rows.push({
+                rowId: `row-${i}`,
+                values: sdkRow.map(v => this.toTypedValue(v))
+            });
+        }
+        return {
+            name: 'Data Table',
+            headers,
+            rows
+        };
     }
 
     private async completeRun(runId: string, results: ExecutionResults): Promise<void> {
-        const summary = this.calculateSummary(results);
+        const { summary, duration } = this.calculateSummary(results);
         const overallStatus = this.calculateOverallStatus(results);
 
         const request: CompleteRunRequest = {
             status: overallStatus,
-            duration: summary.duration,
+            duration,
             summary
         };
 
@@ -559,7 +510,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
     }
 
-    private mapStatus(status: SpecStatus): TestStatus {
+    private mapStatus(status: SpecStatus): Status {
         switch (status) {
             case SpecStatus.pass:
                 return 'passed';
@@ -573,105 +524,16 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
     }
 
-    private mapStepType(type: string): StepType {
-        const normalized = type.toLowerCase();
-        switch (normalized) {
-            case 'given':
-                return 'Given';
-            case 'when':
-                return 'When';
-            case 'then':
-                return 'Then';
-            case 'and':
-                return 'And';
-            case 'but':
-                return 'But';
-            case 'background':
-                return 'Background';
-            default:
-                return 'Given';
-        }
-    }
-
-    private mapDataTable(dataTable: any[] | undefined): ViewerDataTableRow[] | undefined {
-        if (!dataTable || dataTable.length === 0) {
-            return undefined;
-        }
-
-        // Check if it's already in object format
-        if (typeof dataTable[0] === 'object' && !Array.isArray(dataTable[0])) {
-            return dataTable as ViewerDataTableRow[];
-        }
-
-        // Convert array format to object format
-        // First row is headers, rest are data
-        if (dataTable.length < 2 || !Array.isArray(dataTable[0])) {
-            return undefined;
-        }
-
-        const headers = dataTable[0] as string[];
-        const result: ViewerDataTableRow[] = [];
-
-        for (let i = 1; i < dataTable.length; i++) {
-            const row = dataTable[i] as string[];
-            const obj: ViewerDataTableRow = {};
-            for (let j = 0; j < headers.length && j < row.length; j++) {
-                obj[headers[j]] = row[j];
-            }
-            result.push(obj);
-        }
-
-        return result;
-    }
-
-    private toExampleValues(dataRow: any): Record<string, unknown> | undefined {
-        if (!dataRow) {
-            return undefined;
-        }
-        // If it's already an object (not array), return as-is
-        if (typeof dataRow === 'object' && !Array.isArray(dataRow)) {
-            return dataRow as Record<string, unknown>;
-        }
-        // Cannot convert array format to named values without headers
-        return undefined;
-    }
-
-    private toExampleValuesRaw(dataRow: any): Record<string, string> | undefined {
-        if (!dataRow) {
-            return undefined;
-        }
-        // If it's already an object (not array), convert all values to strings
-        if (typeof dataRow === 'object' && !Array.isArray(dataRow)) {
-            const result: Record<string, string> = {};
-            for (const [key, value] of Object.entries(dataRow)) {
-                result[key] = String(value);
-            }
-            return result;
-        }
-        return undefined;
-    }
-
-    private mapRuleViolations(violations: any[] | undefined): RuleViolation[] | undefined {
-        if (!violations || violations.length === 0) {
-            return undefined;
-        }
-        return violations.map(v => ({
-            rule: v.rule?.toString() || String(v.rule),
-            message: v.message || '',
-            title: v.title
-        }));
-    }
-
-    private calculateFeatureStatus(feature: Feature): SpecStatus {
+    private calculateFeatureStatus(feature: SDKFeature): SpecStatus {
         let hasFailure = false;
         let hasPending = false;
 
         for (const scenario of feature.scenarios) {
             // Check if it's a ScenarioOutline (has examples array) vs regular Scenario
-            const outline = scenario as ScenarioOutline;
+            const outline = scenario as SDKScenarioOutline;
             const status = outline.examples && outline.examples.length > 0
                 ? this.calculateOutlineStatus(outline)
-                : this.calculateScenarioStatus(scenario as Scenario);
+                : this.calculateScenarioStatus(scenario as SDKScenario);
             if (status === SpecStatus.fail) hasFailure = true;
             if (status === SpecStatus.pending) hasPending = true;
         }
@@ -681,7 +543,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         return SpecStatus.pass;
     }
 
-    private calculateScenarioStatus(scenario: Scenario | ScenarioExample): SpecStatus {
+    private calculateScenarioStatus(scenario: SDKScenario | SDKScenarioExample): SpecStatus {
         let hasFailure = false;
         let hasPending = false;
 
@@ -695,7 +557,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         return SpecStatus.pass;
     }
 
-    private calculateOutlineStatus(outline: ScenarioOutline): SpecStatus {
+    private calculateOutlineStatus(outline: SDKScenarioOutline): SpecStatus {
         let hasFailure = false;
         let hasPending = false;
 
@@ -710,13 +572,13 @@ export class LiveDocViewerReporter implements IPostReporter {
         return SpecStatus.pass;
     }
 
-    private calculateOverallStatus(_results: ExecutionResults): TestStatus {
+    private calculateOverallStatus(_results: ExecutionResults): Status {
         // The run status indicates whether the run completed, not the test results.
         // Individual test statuses (passed/failed/pending) are tracked separately.
-        return 'completed';
+        return 'passed';
     }
 
-    private calculateSummary(results: ExecutionResults): Statistics {
+    private calculateSummary(results: ExecutionResults): { summary: Statistics; duration: number } {
         let total = 0;
         let passed = 0;
         let failed = 0;
@@ -728,7 +590,7 @@ export class LiveDocViewerReporter implements IPostReporter {
             for (const scenario of feature.scenarios) {
                 if ((scenario as any).examples) {
                     // ScenarioOutline
-                    const outline = scenario as ScenarioOutline;
+                    const outline = scenario as SDKScenarioOutline;
                     for (const example of outline.examples) {
                         total++;
                         duration += example.executionTime || 0;
@@ -740,8 +602,8 @@ export class LiveDocViewerReporter implements IPostReporter {
                 } else {
                     // Regular Scenario
                     total++;
-                    duration += (scenario as Scenario).executionTime || 0;
-                    const status = this.calculateScenarioStatus(scenario as Scenario);
+                    duration += (scenario as SDKScenario).executionTime || 0;
+                    const status = this.calculateScenarioStatus(scenario as SDKScenario);
                     if (status === SpecStatus.pass) passed++;
                     else if (status === SpecStatus.fail) failed++;
                     else if (status === SpecStatus.pending) pending++;
@@ -750,10 +612,10 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
 
         // Specifications: count rules; RuleOutline counts examples (like ScenarioOutline)
-        const specifications: Specification[] = (results as any).specifications || [];
+        const specifications: SDKSpecification[] = (results as any).specifications || [];
         for (const spec of specifications) {
             for (const rule of spec.rules || []) {
-                if (rule instanceof RuleOutline) {
+                if (rule instanceof SDKRuleOutline) {
                     for (const ex of rule.examples || []) {
                         total++;
                         duration += ex.executionTime || 0;
@@ -764,8 +626,8 @@ export class LiveDocViewerReporter implements IPostReporter {
                     }
                 } else {
                     total++;
-                    duration += (rule as Rule).executionTime || 0;
-                    const st = (rule as Rule).status;
+                    duration += (rule as SDKRule).executionTime || 0;
+                    const st = (rule as SDKRule).status;
                     if (st === SpecStatus.pass) passed++;
                     else if (st === SpecStatus.fail) failed++;
                     else pending++;
@@ -774,9 +636,9 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
 
         // Suites: count tests
-        const suites: VitestSuite[] = (results as any).suites || [];
-        const collectTests = (suite: VitestSuite): LiveDocTest<VitestSuite>[] => {
-            const all: LiveDocTest<VitestSuite>[] = [...(suite.tests || [])];
+        const suites: SDKVitestSuite[] = (results as any).suites || [];
+        const collectTests = (suite: SDKVitestSuite): SDKLiveDocTest<SDKVitestSuite>[] => {
+            const all: SDKLiveDocTest<SDKVitestSuite>[] = [...(suite.tests || [])];
             for (const child of suite.children || []) {
                 all.push(...collectTests(child));
             }
@@ -794,11 +656,13 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
 
         return {
-            total,
-            passed,
-            failed,
-            pending,
-            skipped,
+            summary: {
+                total,
+                passed,
+                failed,
+                pending,
+                skipped
+            },
             duration
         };
     }
@@ -807,211 +671,193 @@ export class LiveDocViewerReporter implements IPostReporter {
     // Specification / Suite mapping for viewer
     // =========================================================================
 
-    private async postSpecificationAsFeature(runId: string, spec: Specification, pathContext: { rootPath: string }): Promise<void> {
-        const featureId = spec.id || this.generateId();
-        const title = `Specification: ${spec.title}`;
+    private async postSpecification(runId: string, sdkSpec: SDKSpecification, pathContext: { rootPath: string }): Promise<void> {
+        const fileInfo = this.buildFileInfo((sdkSpec as any).filename, pathContext.rootPath);
+        const specId = generateStabilityId({
+            project: this.options.project,
+            path: fileInfo.filename,
+            title: sdkSpec.title,
+            kind: 'Specification'
+        });
 
-        const fileInfo = this.buildFileInfo((spec as any).filename, pathContext.rootPath);
-
-        const status = this.calculateSpecificationStatus(spec);
-        const featureRequest: PostFeatureRequest = {
-            id: featureId,
-            title,
-            description: spec.description,
-            rawDescription: (spec as any).rawDescription || undefined,
-            filename: fileInfo.filename,
-            path: fileInfo.path,
-            tags: spec.tags,
-            status: this.mapStatus(status),
-            sequence: (spec as any).sequence,
-            ruleViolations: this.mapRuleViolations((spec as any).ruleViolations)
+        const spec: Specification = {
+            id: specId,
+            kind: 'Specification',
+            title: sdkSpec.title,
+            description: sdkSpec.description,
+            tags: sdkSpec.tags,
+            execution: {
+                status: this.mapStatus(this.calculateSpecificationStatus(sdkSpec)),
+                duration: 0
+            },
+            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+            children: []
         };
 
-        await this.post(`/api/runs/${runId}/features`, featureRequest);
+        await this.postNode(runId, undefined, spec);
 
-        let seq = 0;
-        for (const rule of spec.rules || []) {
-            if (rule instanceof RuleOutline) {
-                const outlineId = rule.id || this.generateId();
-                const outlineStatus = this.calculateRuleOutlineStatus(rule);
-
-                const outlineScenario: VirtualScenario = {
-                    featureId,
-                    id: outlineId,
-                    type: 'ScenarioOutline',
-                    title: `Rule Outline: ${rule.title}`,
-                    description: rule.description,
-                    tags: rule.tags,
-                    status: outlineStatus,
-                    duration: 0,
-                    sequence: seq++,
-                    steps: [{ type: 'Then', title: rule.title }],
-                };
-                await this.postVirtualScenario(runId, outlineScenario);
-
-                for (let i = 0; i < (rule.examples || []).length; i++) {
-                    const ex = rule.examples[i] as RuleExample;
-                    const exId = ex.id || this.generateId();
-                    const exStatus = ex.status;
-
-                    const exScenario: VirtualScenario = {
-                        featureId,
-                        id: exId,
-                        type: 'Scenario',
-                        title: `Rule: ${ex.title}`,
-                        description: ex.description,
-                        tags: ex.tags,
-                        status: exStatus,
-                        duration: ex.executionTime || 0,
-                        sequence: seq++,
-                        outlineId,
-                        exampleIndex: i + 1,
-                        exampleValues: ex.example ? (ex.example as any) : undefined,
-                        exampleValuesRaw: ex.exampleRaw ? this.toExampleValuesRaw(ex.exampleRaw as any) : undefined,
-                        stepInstances: [this.virtualStepFromRule(ex, i)]
-                    };
-                    await this.postVirtualScenario(runId, exScenario);
-                }
+        for (const sdkRule of sdkSpec.rules || []) {
+            if (sdkRule instanceof SDKRuleOutline) {
+                await this.postRuleOutline(runId, specId, sdkRule);
             } else {
-                const simple = rule as Rule;
-                const ruleId = simple.id || this.generateId();
-                const ruleScenario: VirtualScenario = {
-                    featureId,
-                    id: ruleId,
-                    type: 'Scenario',
-                    title: `Rule: ${simple.title}`,
-                    description: simple.description,
-                    tags: simple.tags,
-                    status: simple.status,
-                    duration: simple.executionTime || 0,
-                    sequence: seq++,
-                    stepInstances: [this.virtualStepFromRule(simple, seq)]
-                };
-                await this.postVirtualScenario(runId, ruleScenario);
+                await this.postRule(runId, specId, sdkRule as SDKRule);
             }
         }
     }
 
-    private async postVitestSuiteAsFeature(runId: string, suite: VitestSuite, pathContext: { rootPath: string }): Promise<void> {
-        const featureId = suite.id || this.generateId();
-        const title = `Suite: ${suite.title}`;
-        const fileInfo = this.buildFileInfo((suite as any).filename, pathContext.rootPath);
+    private async postRule(runId: string, parentId: string, sdkRule: SDKRule): Promise<void> {
+        const ruleId = generateStabilityId({
+            project: this.options.project,
+            title: sdkRule.title,
+            kind: 'Rule',
+            parentId
+        });
 
-        const tests: Array<{ path: string; test: LiveDocTest<VitestSuite> }> = [];
-        const collect = (s: VitestSuite, prefix: string) => {
-            const nextPrefix = prefix ? `${prefix} > ${s.title}` : s.title;
-            for (const t of s.tests || []) {
-                tests.push({ path: nextPrefix, test: t });
-            }
-            for (const child of s.children || []) {
-                collect(child, nextPrefix);
-            }
-        };
-        collect(suite, '');
-
-        const status = tests.some(t => t.test.status === SpecStatus.fail)
-            ? SpecStatus.fail
-            : tests.some(t => t.test.status === SpecStatus.pending || t.test.status === SpecStatus.unknown)
-                ? SpecStatus.pending
-                : SpecStatus.pass;
-
-        const featureRequest: PostFeatureRequest = {
-            id: featureId,
-            title,
-            filename: fileInfo.filename,
-            path: fileInfo.path,
-            status: this.mapStatus(status),
-            sequence: (suite as any).sequence,
+        const rule: Rule = {
+            id: ruleId,
+            kind: 'Rule',
+            title: sdkRule.title,
+            description: sdkRule.description,
+            tags: sdkRule.tags,
+            execution: {
+                status: this.mapStatus(sdkRule.status),
+                duration: sdkRule.executionTime || 0
+            },
+            code: (sdkRule as any).code
         };
 
-        await this.post(`/api/runs/${runId}/features`, featureRequest);
+        await this.postNode(runId, parentId, rule);
+    }
 
-        let seq = 0;
-        for (const { path, test } of tests) {
-            const scenarioId = test.id || this.generateId();
-            const scenarioTitle = path ? `${path}: ${test.title}` : test.title;
-            const stepId = this.generateId();
+    private async postRuleOutline(runId: string, parentId: string, sdkOutline: SDKRuleOutline): Promise<void> {
+        const outlineId = generateStabilityId({
+            project: this.options.project,
+            title: sdkOutline.title,
+            kind: 'RuleOutline',
+            parentId
+        });
 
-            const error: ErrorInfo | undefined = test.status === SpecStatus.fail && test.exception
-                ? {
-                    message: test.exception.message || 'Unknown error',
-                    stack: test.exception.stackTrace || undefined,
-                    expected: test.exception.expected || undefined,
-                    actual: test.exception.actual || undefined
+        const templateRule: Rule = {
+            id: `${outlineId}:template`,
+            kind: 'Rule',
+            title: sdkOutline.title,
+            execution: { status: 'pending', duration: 0 }
+        };
+
+        const outline: RuleOutline = {
+            id: outlineId,
+            kind: 'RuleOutline',
+            title: sdkOutline.title,
+            description: sdkOutline.description,
+            tags: sdkOutline.tags,
+            execution: {
+                status: this.mapStatus(this.calculateRuleOutlineStatus(sdkOutline)),
+                duration: 0
+            },
+            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+            template: templateRule,
+            examples: [],
+            tables: []
+        };
+
+        await this.postNode(runId, parentId, outline);
+
+        for (let i = 0; i < sdkOutline.examples.length; i++) {
+            const sdkExample = sdkOutline.examples[i];
+            const exampleId = generateStabilityId({
+                project: this.options.project,
+                title: sdkOutline.title,
+                kind: 'Rule',
+                parentId: outlineId,
+                index: i
+            });
+
+            const example: Rule = {
+                id: exampleId,
+                kind: 'Rule',
+                title: sdkOutline.title,
+                binding: this.mapBinding(sdkExample.example || sdkExample.exampleRaw),
+                execution: {
+                    status: this.mapStatus(sdkExample.status),
+                    duration: sdkExample.executionTime || 0
                 }
-                : undefined;
-
-            const sc: VirtualScenario = {
-                featureId,
-                id: scenarioId,
-                type: 'Scenario',
-                title: scenarioTitle,
-                status: test.status,
-                duration: test.duration || 0,
-                sequence: seq++,
-                stepInstances: [{
-                    id: stepId,
-                    type: 'Then',
-                    title: test.title,
-                    status: test.status,
-                    duration: test.duration || 0,
-                    error,
-                    code: test.code || undefined
-                }]
             };
 
-            await this.postVirtualScenario(runId, sc);
+            await this.postNode(runId, outlineId, example);
         }
     }
 
-    private async postVirtualScenario(runId: string, scenario: VirtualScenario): Promise<void> {
-        const scenarioRequest: PostScenarioRequest = {
-            featureId: scenario.featureId,
-            id: scenario.id,
-            type: scenario.type,
-            title: scenario.title,
-            status: this.mapStatus(scenario.status),
-            sequence: scenario.sequence,
-            outlineId: scenario.outlineId,
-            exampleIndex: scenario.exampleIndex,
-            exampleValues: scenario.exampleValues,
-            exampleValuesRaw: scenario.exampleValuesRaw,
-            steps: scenario.steps
+    private async postTestSuite(runId: string, sdkSuite: SDKVitestSuite, pathContext: { rootPath: string }): Promise<void> {
+        const fileInfo = this.buildFileInfo((sdkSuite as any).filename, pathContext.rootPath);
+        const suiteId = generateStabilityId({
+            project: this.options.project,
+            path: fileInfo.filename,
+            title: sdkSuite.title,
+            kind: 'Suite'
+        });
+
+        const suite: TestSuite = {
+            id: suiteId,
+            kind: 'Suite',
+            title: sdkSuite.title,
+            execution: {
+                status: 'passed', // Will be updated by server
+                duration: 0
+            },
+            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+            children: []
         };
 
-        await this.post(`/api/runs/${runId}/scenarios`, scenarioRequest);
+        await this.postNode(runId, undefined, suite);
 
-        for (const step of scenario.stepInstances || []) {
-            const stepRequest: PostStepRequest = {
-                scenarioId: scenario.id,
-                id: step.id,
-                type: step.type,
-                title: step.title,
-                rawTitle: step.rawTitle,
-                status: this.mapStatus(step.status),
-                duration: step.duration,
-                sequence: step.sequence,
-                error: step.error,
-                docString: step.docString,
-                values: step.values,
-                valuesRaw: step.valuesRaw,
-                ruleViolations: step.ruleViolations,
-                code: step.code
-            };
-            await this.post(`/api/runs/${runId}/steps`, stepRequest);
+        for (const sdkTest of sdkSuite.tests || []) {
+            await this.postTest(runId, suiteId, sdkTest);
+        }
+
+        for (const sdkChild of sdkSuite.children || []) {
+            await this.postTestSuite(runId, sdkChild, pathContext);
         }
     }
 
-    private calculateSpecificationStatus(spec: Specification): SpecStatus {
+    private async postTest(runId: string, parentId: string, sdkTest: SDKLiveDocTest<SDKVitestSuite>): Promise<void> {
+        const testId = generateStabilityId({
+            project: this.options.project,
+            title: sdkTest.title,
+            kind: 'Test',
+            parentId
+        });
+
+        const test: Test = {
+            id: testId,
+            kind: 'Test',
+            title: sdkTest.title,
+            execution: {
+                status: this.mapStatus(sdkTest.status),
+                duration: sdkTest.duration || 0,
+                error: sdkTest.status === SpecStatus.fail && sdkTest.exception ? {
+                    message: sdkTest.exception.message || 'Unknown error',
+                    stack: sdkTest.exception.stackTrace,
+                    diff: sdkTest.exception.expected && sdkTest.exception.actual
+                        ? `Expected: ${sdkTest.exception.expected}\nActual: ${sdkTest.exception.actual}`
+                        : undefined
+                } : undefined
+            },
+            code: sdkTest.code || undefined
+        };
+
+        await this.postNode(runId, parentId, test);
+    }
+
+    private calculateSpecificationStatus(spec: SDKSpecification): SpecStatus {
         let hasFailure = false;
         let hasPending = false;
         for (const rule of spec.rules || []) {
-            if (rule instanceof RuleOutline) {
+            if (rule instanceof SDKRuleOutline) {
                 const st = this.calculateRuleOutlineStatus(rule);
                 if (st === SpecStatus.fail) hasFailure = true;
                 if (st === SpecStatus.pending) hasPending = true;
             } else {
-                const st = (rule as Rule).status;
+                const st = (rule as SDKRule).status;
                 if (st === SpecStatus.fail) hasFailure = true;
                 if (st === SpecStatus.pending || st === SpecStatus.unknown) hasPending = true;
             }
@@ -1021,7 +867,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         return SpecStatus.pass;
     }
 
-    private calculateRuleOutlineStatus(rule: RuleOutline): SpecStatus {
+    private calculateRuleOutlineStatus(rule: SDKRuleOutline): SpecStatus {
         let hasFailure = false;
         let hasPending = false;
         for (const ex of rule.examples || []) {
@@ -1031,28 +877,5 @@ export class LiveDocViewerReporter implements IPostReporter {
         if (hasFailure) return SpecStatus.fail;
         if (hasPending) return SpecStatus.pending;
         return SpecStatus.pass;
-    }
-
-    private virtualStepFromRule(rule: Rule | RuleExample, sequence: number): VirtualStep {
-        const error = rule.status === SpecStatus.fail && (rule as any).error
-            ? {
-                message: (rule as any).error.message || 'Unknown error',
-                stack: (rule as any).error.stack || undefined
-            }
-            : undefined;
-
-        return {
-            id: this.generateId(),
-            type: 'Then',
-            title: rule.title,
-            status: rule.status,
-            duration: (rule as any).executionTime || 0,
-            sequence,
-            error
-        };
-    }
-
-    private generateId(): string {
-        return Math.random().toString(36).substring(2, 10);
     }
 }

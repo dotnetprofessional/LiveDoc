@@ -46,7 +46,7 @@ feature(`Server API - Health and Discovery
             data = await response.json();
         });
 
-        Then("the response status should be '200'", (ctx) => {
+        Then("the response status should be '200'", async (ctx) => {
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
@@ -165,8 +165,8 @@ feature(`Server API - Run Management
             data = await response.json();
         });
 
-        Then("the response status should be '201'", (ctx) => {
-            expect(response.status).toBe(ctx.step.values[0]);
+        Then("the response status should be '201'", async (ctx) => {
+            if (response.status !== 201) { console.log(JSON.stringify(data, null, 2)); } expect(response.status).toBe(ctx.step.values[0]);
         });
 
         and("a runId should be returned", () => {
@@ -198,7 +198,7 @@ feature(`Server API - Run Management
             data = await response.json();
         });
 
-        Then("the response status should be '200'", (ctx) => {
+        Then("the response status should be '200'", async (ctx) => {
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
@@ -218,7 +218,7 @@ feature(`Server API - Run Management
             response = await fetch(`${baseUrl}/api/runs/non-existent`);
         });
 
-        Then("the response status should be '404'", (ctx) => {
+        Then("the response status should be '404'", async (ctx) => {
             expect(response.status).toBe(ctx.step.values[0]);
         });
     });
@@ -299,27 +299,31 @@ feature(`Server API - BDD Data Streaming
         let run: any;
 
         when("adding a feature 'User Login' to the run", async () => {
-            response = await fetch(`${baseUrl}/api/runs/${runId}/features`, {
+            response = await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    id: "feature-1",
-                    title: "User Login",
-                    filename: "login.feature.ts",
-                    status: "pending"
+                    node: {
+                        id: "feature-1",
+                        kind: "feature",
+                        title: "User Login",
+                        tags: [],
+                        children: [],
+                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+                    }
                 })
             });
         });
 
-        Then("the response status should be '200'", (ctx) => {
+        Then("the response status should be '200'", async (ctx) => {
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
         and("the run should contain the feature 'User Login'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             run = await runResponse.json();
-            expect(run.features).toHaveLength(1);
-            expect(run.features[0].title).toBe("User Login");
+            expect(run.documents).toHaveLength(1);
+            expect(run.documents[0].title).toBe("User Login");
         });
     });
 
@@ -328,41 +332,49 @@ feature(`Server API - BDD Data Streaming
         let run: any;
 
         given("a feature 'feature-1' exists in the run", async () => {
-            await fetch(`${baseUrl}/api/runs/${runId}/features`, {
+            await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    id: "feature-1",
-                    title: "User Login",
-                    filename: "login.feature.ts",
-                    status: "pending"
+                    node: {
+                        id: "feature-1",
+                        kind: "feature",
+                        title: "User Login",
+                        tags: [],
+                        children: [],
+                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+                    }
                 })
             });
         });
 
         when("adding a scenario 'Valid credentials' to the feature", async () => {
-            response = await fetch(`${baseUrl}/api/runs/${runId}/scenarios`, {
+            response = await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    featureId: "feature-1",
-                    id: "scenario-1",
-                    type: "Scenario",
-                    title: "Valid credentials",
-                    status: "pending"
+                    parentId: "feature-1",
+                    node: {
+                        id: "scenario-1",
+                        kind: "scenario",
+                        title: "Valid credentials",
+                        tags: [],
+                        children: [],
+                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+                    }
                 })
             });
         });
 
-        Then("the response status should be '200'", (ctx) => {
+        Then("the response status should be '200'", async (ctx) => {
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
         and("the feature should contain the scenario 'Valid credentials'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             run = await runResponse.json();
-            expect(run.features[0].scenarios).toHaveLength(1);
-            expect(run.features[0].scenarios[0].title).toBe("Valid credentials");
+            expect(run.documents[0].children).toHaveLength(1);
+            expect(run.documents[0].children[0].title).toBe("Valid credentials");
         });
     });
 
@@ -371,80 +383,86 @@ feature(`Server API - BDD Data Streaming
         let run: any;
 
         given("a scenario 'scenario-1' exists in the run", async () => {
-            await fetch(`${baseUrl}/api/runs/${runId}/features`, {
+            await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    id: "feature-1",
-                    title: "Feature",
-                    filename: "test.ts",
-                    status: "pending"
+                    node: {
+                        id: "feature-1",
+                        kind: "feature",
+                        title: "Feature",
+                        tags: [],
+                        children: [],
+                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+                    }
                 })
             });
-            await fetch(`${baseUrl}/api/runs/${runId}/scenarios`, {
+            await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    featureId: "feature-1",
-                    id: "scenario-1",
-                    type: "Scenario",
-                    title: "Test scenario",
-                    status: "pending"
+                    parentId: "feature-1",
+                    node: {
+                        id: "scenario-1",
+                        kind: "scenario",
+                        title: "Test scenario",
+                        tags: [],
+                        children: [],
+                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+                    }
                 })
             });
         });
 
         when("adding a step 'a registered user' with status 'passed' and duration '15'", async () => {
-            response = await fetch(`${baseUrl}/api/runs/${runId}/steps`, {
+            response = await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    scenarioId: "scenario-1",
-                    id: "step-1",
-                    type: "Given",
-                    title: "a registered user",
-                    status: "passed",
-                    duration: 15
+                    parentId: "scenario-1",
+                    node: {
+                        id: "step-1",
+                        kind: "step",
+                        title: "a registered user",
+                        keyword: "given",
+                        execution: {
+                            status: "passed",
+                            duration: 15
+                        }
+                    }
                 })
             });
         });
 
-        Then("the response status should be '200'", (ctx) => {
+        Then("the response status should be '200'", async (ctx) => {
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
         and("the scenario should contain the step 'a registered user'", async () => {
             const runResponse = await fetch(`${baseUrl}/api/runs/${runId}`);
             run = await runResponse.json();
-            expect(run.features[0].scenarios[0].steps).toHaveLength(1);
-            expect(run.features[0].scenarios[0].steps[0].title).toBe("a registered user");
+            const scenario = run.documents[0].children[0];
+            expect(scenario.children).toHaveLength(1);
+            expect(scenario.children[0].title).toBe("a registered user");
         });
     });
 
-    scenario("Completing a run with summary", () => {
+    scenario("Completing a run", () => {
         let response: Response;
         let run: any;
 
-        when("completing the run with status 'passed' duration '2500' and '10' total '9' passed '1' failed", async () => {
+        when("completing the run with status 'passed' and duration '2500'", async () => {
             response = await fetch(`${baseUrl}/api/runs/${runId}/complete`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     status: "passed",
-                    duration: 2500,
-                    summary: {
-                        total: 10,
-                        passed: 9,
-                        failed: 1,
-                        pending: 0,
-                        skipped: 0,
-                        duration: 2500
-                    }
+                    duration: 2500
                 })
             });
         });
 
-        Then("the response status should be '200'", (ctx) => {
+        Then("the response status should be '200'", async (ctx) => {
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
@@ -454,8 +472,8 @@ feature(`Server API - BDD Data Streaming
             expect(run.status).toBe("passed");
         });
 
-        and("the run summary should show '10' total tests", () => {
-            expect(run.summary.total).toBe(10);
+        and("the run duration should be '2500'", () => {
+            expect(run.duration).toBe(2500);
         });
     });
 });
@@ -525,7 +543,7 @@ feature(`Server API - Batch Mode
                             status: "passed",
                             duration: 2500,
                             scenarios: [],
-                            statistics: { total: 10, passed: 10, failed: 0, pending: 0, skipped: 0, duration: 2500 }
+                            stats: { total: 10, passed: 10, failed: 0, pending: 0, skipped: 0, duration: 2500 }
                         }
                     ],
                     suites: []
@@ -534,8 +552,8 @@ feature(`Server API - Batch Mode
             data = await response.json();
         });
 
-        Then("the response status should be '201'", (ctx) => {
-            expect(response.status).toBe(ctx.step.values[0]);
+        Then("the response status should be '201'", async (ctx) => {
+            if (response.status !== 201) { console.log(JSON.stringify(data, null, 2)); } expect(response.status).toBe(ctx.step.values[0]);
         });
 
         and("a runId should be returned", () => {
@@ -553,3 +571,4 @@ feature(`Server API - Batch Mode
         });
     });
 });
+

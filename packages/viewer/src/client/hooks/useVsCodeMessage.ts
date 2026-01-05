@@ -11,14 +11,12 @@ export function useVsCodeMessage() {
 
       switch (message.command) {
         case 'navigate':
-            if (message.featureId) {
-                // Find run containing this feature
+            if (message.nodeId) {
+                // Find run containing this node
                 let targetRunId: string | undefined;
                 
-                // Check all runs
                 for (const run of runs) {
-                    const feature = run.features.find(f => f.id === message.featureId);
-                    if (feature) {
+                    if (run.nodeMap[message.nodeId]) {
                         targetRunId = run.runId;
                         break;
                     }
@@ -26,11 +24,21 @@ export function useVsCodeMessage() {
                 
                 if (targetRunId) {
                     selectRun(targetRunId);
-                    if (message.scenarioId) {
-                        navigate('scenario', undefined, message.featureId, message.scenarioId);
-                    } else {
-                        navigate('feature', undefined, message.featureId);
+                    navigate('node', message.nodeId);
+                }
+            } else if (message.featureId) {
+                // Back-compat for legacy navigation
+                let targetRunId: string | undefined;
+                for (const run of runs) {
+                    if (run.nodeMap[message.featureId]) {
+                        targetRunId = run.runId;
+                        break;
                     }
+                }
+                
+                if (targetRunId) {
+                    selectRun(targetRunId);
+                    navigate('node', message.scenarioId || message.featureId);
                 }
             }
             break;

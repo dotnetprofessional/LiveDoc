@@ -56,11 +56,10 @@ export class ViewerPanel {
     ViewerPanel.currentPanel = new ViewerPanel(panel, extensionUri, serverPort);
   }
 
-  public navigateTo(featureId: string, scenarioId?: string) {
+  public navigateTo(nodeId: string) {
     this._panel.webview.postMessage({
         command: 'navigate',
-        featureId,
-        scenarioId
+        nodeId
     });
   }
 

@@ -1,4 +1,7 @@
-import { Step, StepType } from '../store';
+import { Step, Status } from '@livedoc/schema';
+import { renderTitle, highlightPlaceholders } from '../lib/title-utils';
+import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, FileText, ChevronRight } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface StepListProps {
   steps: Step[];
@@ -9,7 +12,7 @@ interface StepListProps {
 
 export function StepList({ steps, showStatus = true, highlightValues }: StepListProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-6">
       {steps.map((step, index) => (
         <StepItem key={index} step={step} showStatus={showStatus} highlightValues={highlightValues} />
       ))}
@@ -24,75 +27,87 @@ interface StepItemProps {
 }
 
 function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
-  const typeColors: Record<StepType, string> = {
+  const typeColors: Record<string, string> = {
     Given: 'text-given',
     When: 'text-when',
     Then: 'text-then',
-    And: 'text-and',
-    But: 'text-but',
+    And: 'text-muted-foreground/70',
+    But: 'text-destructive/70',
   };
 
-  const statusIcons: Record<string, string> = {
-    pass: '✓',
-    fail: '✗',
-    skip: '○',
-    pending: '◌',
+  const getStatusIcon = (status: Status) => {
+    switch (status) {
+      case 'passed': return <CheckCircle2 className="w-4 h-4 text-pass" />;
+      case 'failed': return <XCircle className="w-4 h-4 text-fail" />;
+      case 'pending': return <AlertCircle className="w-4 h-4 text-pending" />;
+      default: return <HelpCircle className="w-4 h-4 text-muted-foreground/40" />;
+    }
   };
 
-  const statusColors: Record<string, string> = {
-    pass: 'text-pass',
-    fail: 'text-fail',
-    skip: 'text-skip',
-    pending: 'text-pending',
-  };
-
-  const isContinuation = step.type === 'And' || step.type === 'But';
-  const normalizedTable = normalizeDataTable(step.dataTable);
+  const normalizedTable = normalizeDataTable(step.table);
 
   return (
-    <div className="flex items-start gap-2">
-      {showStatus && step.status && (
-        <span className={`shrink-0 w-4 text-center ${statusColors[step.status]}`}>
-          {statusIcons[step.status]}
-        </span>
+    <div className="group relative pl-8">
+      {/* Status Icon - Absolute positioned */}
+      {showStatus && (
+        <div className="absolute left-0 top-1">
+          {getStatusIcon(step.execution.status)}
+        </div>
       )}
-      <span className={`font-semibold shrink-0 w-14 ${typeColors[step.type]} ${isContinuation ? 'pl-4' : ''}`}>
-        {step.type}
-      </span>
-      <div className="text-text flex-1 min-w-0">
-        <div className="whitespace-pre-wrap wrap-break-word">
-          {renderStepTitle(step.title, highlightValues)}
+
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline gap-3">
+          <span className={cn(
+            "font-black text-[10px] uppercase tracking-[0.2em] shrink-0 w-16",
+            typeColors[step.type]
+          )}>
+            {step.type}
+          </span>
+          <div className="text-[15px] text-foreground font-medium leading-relaxed">
+            {renderTitle(step.title, highlightValues)}
+          </div>
+          {step.execution.duration > 0 && (
+            <span className="text-[10px] font-bold text-muted-foreground/40 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+              <Clock className="w-3 h-3" />
+              {step.execution.duration}ms
+            </span>
+          )}
         </div>
 
         {step.description && (
-          <div className="mt-1 text-sm text-text-muted whitespace-pre-wrap italic">
+          <div className="mt-1 ml-20 text-sm text-muted-foreground/80 italic leading-relaxed border-l-2 border-muted pl-4 py-1">
             {step.description}
           </div>
         )}
 
         {step.docString && (
-          <pre className="mt-2 text-xs font-mono text-text-secondary bg-surface-hover/30 border border-border rounded p-3 whitespace-pre-wrap overflow-x-auto">
-{step.docString}
-          </pre>
+          <div className="mt-3 ml-20">
+            <div className="relative">
+              <div className="absolute -left-4 top-0 bottom-0 w-1 bg-primary/10 rounded-full" />
+              <pre className="text-xs font-mono text-muted-foreground bg-muted/30 rounded-xl p-4 whitespace-pre-wrap overflow-x-auto border border-border/50 shadow-inner">
+                {step.docString}
+              </pre>
+            </div>
+          </div>
         )}
 
         {normalizedTable && (
-          <div className="mt-2 overflow-x-auto">
-            <table className="w-full text-xs font-mono border border-border rounded overflow-hidden">
+          <div className="mt-4 ml-20 overflow-hidden rounded-xl border border-border/50 shadow-sm">
+            <table className="min-w-full text-xs font-medium border-collapse bg-card">
               <thead>
-                <tr className="bg-surface-hover/50">
+                <tr className="bg-muted/50 border-b border-border">
                   {normalizedTable.headers.map((h) => (
-                    <th key={h} className="px-2 py-1 text-left font-semibold text-text-muted uppercase border-r border-border last:border-r-0">
+                    <th key={h} className="px-4 py-2.5 text-left font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50 last:border-r-0">
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {normalizedTable.rows.map((row, idx) => (
-                  <tr key={idx} className="border-t border-border">
+                {normalizedTable.rows.map((row, i) => (
+                  <tr key={i} className="border-b border-border/50 last:border-b-0 hover:bg-muted/20 transition-colors">
                     {row.map((cell, cIdx) => (
-                      <td key={cIdx} className="px-2 py-1 text-text-secondary border-r border-border last:border-r-0 whitespace-pre-wrap">
+                      <td key={cIdx} className="px-4 py-2.5 text-foreground/80 border-r border-border/50 last:border-r-0 font-mono">
                         {cell}
                       </td>
                     ))}
@@ -102,78 +117,23 @@ function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
             </table>
           </div>
         )}
+
+        {step.execution.error && (
+          <div className="mt-4 ml-20 p-4 bg-destructive/5 border border-destructive/20 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 text-destructive font-bold text-xs mb-2">
+              <XCircle className="w-4 h-4" />
+              {step.execution.error.message}
+            </div>
+            {step.execution.error.stack && (
+              <pre className="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap overflow-x-auto max-h-60 scrollbar-thin">
+                {step.execution.error.stack}
+              </pre>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
-}
-
-function renderStepTitle(text: string, highlightValues?: Record<string, string>): React.ReactNode {
-  // 1. Highlight placeholders like <Customer's Country> or <name:value>
-  if (/<[^>]+>/.test(text)) {
-    return highlightPlaceholders(text, highlightValues);
-  }
-
-  // 2. Highlight quoted values like '10' or "110"
-  const quotedPattern = /('[^']+')|("[^"]+")/g;
-  if (quotedPattern.test(text)) {
-    return highlightQuotedValues(text, highlightValues);
-  }
-
-  // 3. Highlight concrete example values from ScenarioOutline
-  if (highlightValues && Object.keys(highlightValues).length > 0) {
-    return highlightExampleValues(text, highlightValues);
-  }
-
-  return text;
-}
-
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// Highlight values in quotes like 'value' or "value"
-function highlightQuotedValues(text: string, highlightValues?: Record<string, string>): React.ReactNode {
-  const parts = text.split(/('[^']+')|("[^"]+")/g).filter(p => p !== undefined);
-  
-  return parts.map((part, index) => {
-    if ((part.startsWith("'") && part.endsWith("'")) || (part.startsWith('"') && part.endsWith('"'))) {
-      return (
-        <span key={index} className="px-1 bg-accent/20 text-accent rounded font-medium">
-          {part}
-        </span>
-      );
-    }
-    
-    // If we have highlightValues, we should still try to highlight them in the non-quoted parts
-    if (highlightValues && Object.keys(highlightValues).length > 0) {
-      return highlightExampleValues(part, highlightValues);
-    }
-    
-    return part;
-  });
-}
-
-// Highlight concrete example values in step titles (and scenario titles)
-function highlightExampleValues(text: string, values: Record<string, string>): React.ReactNode {
-  const uniqueValues = Array.from(
-    new Set(Object.values(values).map((v) => String(v ?? '')).filter((v) => v.length > 0))
-  ).sort((a, b) => b.length - a.length);
-
-  if (uniqueValues.length === 0) return text;
-
-  const pattern = new RegExp(`(${uniqueValues.map(escapeRegExp).join('|')})`, 'g');
-  const parts = text.split(pattern);
-
-  return parts.map((part, idx) => {
-    if (uniqueValues.includes(part)) {
-      return (
-        <span key={idx} className="px-1 bg-accent/20 text-accent rounded font-medium">
-          {part}
-        </span>
-      );
-    }
-    return part;
-  });
 }
 
 function normalizeDataTable(dataTable: unknown): { headers: string[]; rows: string[][] } | null {
@@ -210,44 +170,6 @@ function normalizeDataTable(dataTable: unknown): { headers: string[]; rows: stri
   return null;
 }
 
-// Highlight placeholders like <Customer's Country> in step titles
-function highlightPlaceholders(text: string, values?: Record<string, string>): React.ReactNode {
-  const parts = text.split(/(<[^>]+>)/g);
-  
-  return parts.map((part, index) => {
-    if (part.startsWith('<') && part.endsWith('>')) {
-      const placeholder = part.slice(1, -1);
-      const value = values ? findMatchingValue(placeholder, values) : undefined;
-      
-      return (
-        <span key={index} className="px-1 bg-accent/20 text-accent rounded font-medium">
-          {value !== undefined ? value : part}
-        </span>
-      );
-    }
-    return part;
-  });
-}
-
-function findMatchingValue(placeholder: string, values: Record<string, string>): string | undefined {
-  // Direct match first
-  if (values[placeholder] !== undefined) {
-    return values[placeholder];
-  }
-  
-  // Normalize: remove spaces, apostrophes, and compare case-insensitively
-  const normalize = (s: string) => s.replace(/['\s]/g, '').toLowerCase();
-  const normalizedPlaceholder = normalize(placeholder);
-  
-  for (const [key, value] of Object.entries(values)) {
-    if (normalize(key) === normalizedPlaceholder) {
-      return value;
-    }
-  }
-  
-  return undefined;
-}
-
 // Template step list for ScenarioOutline (no status, just template)
 interface TemplateStepListProps {
   steps: { type: string; title: string }[];
@@ -258,20 +180,22 @@ export function TemplateStepList({ steps }: TemplateStepListProps) {
     Given: 'text-given',
     When: 'text-when',
     Then: 'text-then',
-    And: 'text-and',
-    But: 'text-but',
+    And: 'text-muted-foreground/70',
+    But: 'text-destructive/70',
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {steps.map((step, index) => {
-        const isContinuation = step.type === 'And' || step.type === 'But';
         return (
-          <div key={index} className="flex items-start gap-2">
-            <span className={`font-semibold shrink-0 w-14 ${typeColors[step.type] || 'text-text-muted'} ${isContinuation ? 'pl-4' : ''}`}>
+          <div key={index} className="flex items-baseline gap-3 pl-8">
+            <span className={cn(
+              "font-black text-[10px] uppercase tracking-[0.2em] shrink-0 w-16",
+              typeColors[step.type] || 'text-muted-foreground'
+            )}>
               {step.type}
             </span>
-            <span className="text-text flex-1">
+            <span className="text-[15px] text-foreground/80 font-medium">
               {highlightPlaceholders(step.title)}
             </span>
           </div>

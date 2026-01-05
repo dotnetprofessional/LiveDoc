@@ -1,4 +1,4 @@
-import type { TestRun, Feature, Scenario, Step, Statistics, TestStatus } from './schema.js';
+import type { TestRun, Node, Feature, Scenario, Step, Statistics, Status, Framework } from './schema.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -161,7 +161,7 @@ export class RunStore {
       }
       
       // Also save to history if completed
-      if (run.status === 'passed' || run.status === 'failed' || run.status === 'completed') {
+      if (run.status === 'passed' || run.status === 'failed') {
         const historyDir = this.getHistoryDir(run.project, run.environment);
         await fs.mkdir(historyDir, { recursive: true });
         
@@ -308,15 +308,15 @@ export class RunStore {
   }
   
   /**
-   * Create a new run
-   */
+ * Create a new run
+ */
   createRun(runId: string, project: string, environment: string, framework: string, timestamp: string): TestRun {
     const run: TestRun = {
-      version: '1.0',
+      protocolVersion: '2.0',
       runId,
       project,
       environment,
-      framework: framework as TestRun['framework'],
+      framework: framework as Framework,
       timestamp,
       duration: 0,
       status: 'running',
@@ -325,11 +325,9 @@ export class RunStore {
         passed: 0,
         failed: 0,
         pending: 0,
-        skipped: 0,
-        duration: 0
+        skipped: 0
       },
-      features: [],
-      suites: []
+      documents: []
     };
     
     this.runs.set(runId, run);
@@ -364,102 +362,169 @@ export class RunStore {
   }
   
   /**
-   * Add a feature to a run
+   * Find a node in the run by ID
    */
-  addFeature(runId: string, feature: Feature): void {
+  private findNode(run: TestRun, nodeId: string): Node | undefined {
+    const search = (nodes: Node[]): Node | undefined => {
+      for (const node of nodes) {
+        if (node.id === nodeId) return node;
+        if ('children' in node && Array.isArray((node as any).children)) {
+          const found = search((node as any).children);
+          if (found) return found;
+        }
+        if ('examples' in node && Array.isArray((node as any).examples)) {
+          const found = search((node as any).examples);
+          if (found) return found;
+        }
+        if ('template' in node && (node as any).template) {
+          const found = search([(node as any).template]);
+          if (found) return found;
+        }
+        if ('background' in node && (node as any).background) {
+          const found = search([(node as any).background]);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+
+    return search(run.documents);
+  }
+
+  /**
+   * Add or update a node in the run
+   */
+  addNode(runId: string, parentId: string | undefined, node: Node): void {
     const run = this.runs.get(runId);
     if (!run) return;
-    
-    // Check if feature already exists
-    const existing = run.features.find(f => f.id === feature.id);
-    if (existing) {
-      Object.assign(existing, feature);
+
+    if (!parentId) {
+      // Root document
+      const existingIndex = run.documents.findIndex(d => d.id === node.id);
+      if (existingIndex >= 0) {
+        run.documents[existingIndex] = node as any;
+      } else {
+        run.documents.push(node as any);
+      }
     } else {
-      run.features.push(feature);
+      const parent = this.findNode(run, parentId);
+      if (parent) {
+        if ('children' in parent && Array.isArray((parent as any).children)) {
+          const children = (parent as any).children as Node[];
+          const existingIndex = children.findIndex(c => c.id === node.id);
+          if (existingIndex >= 0) {
+            children[existingIndex] = node;
+          } else {
+            children.push(node);
+          }
+        } else if ('examples' in parent && Array.isArray((parent as any).examples)) {
+          const examples = (parent as any).examples as Node[];
+          const existingIndex = examples.findIndex(e => e.id === node.id);
+          if (existingIndex >= 0) {
+            examples[existingIndex] = node;
+          } else {
+            examples.push(node);
+          }
+        }
+      }
     }
-    
-    // Save to disk (debounced)
+
+    // Update statistics and status incrementally
+    this.updateStatistics(run);
+
     this.scheduleSaveRun(run);
   }
-  
+
   /**
-   * Update feature status
+   * Update statistics and status for the run and its containers
    */
-  updateFeatureStatus(runId: string, featureId: string, status: TestStatus): void {
+  private updateStatistics(run: TestRun): void {
+    const computeSummary = (node: Node): Statistics => {
+      const summary: Statistics = {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        pending: 0,
+        skipped: 0
+      };
+
+      if ('children' in node && Array.isArray((node as any).children)) {
+        const children = (node as any).children as Node[];
+        for (const child of children) {
+          const childSummary = computeSummary(child);
+          const status = child.execution?.status || 'pending';
+          summary.total += childSummary.total || 1;
+          summary.passed += childSummary.passed || (status === 'passed' ? 1 : 0);
+          summary.failed += childSummary.failed || (status === 'failed' ? 1 : 0);
+          summary.pending += childSummary.pending || (status === 'pending' || status === 'running' ? 1 : 0);
+          summary.skipped += childSummary.skipped || (status === 'skipped' ? 1 : 0);
+        }
+        (node as any).summary = summary;
+      } else if ('examples' in node && Array.isArray((node as any).examples)) {
+        const examples = (node as any).examples as Node[];
+        for (const example of examples) {
+          const exampleSummary = computeSummary(example);
+          const status = example.execution?.status || 'pending';
+          summary.total += exampleSummary.total || 1;
+          summary.passed += exampleSummary.passed || (status === 'passed' ? 1 : 0);
+          summary.failed += exampleSummary.failed || (status === 'failed' ? 1 : 0);
+          summary.pending += exampleSummary.pending || (status === 'pending' || status === 'running' ? 1 : 0);
+          summary.skipped += exampleSummary.skipped || (status === 'skipped' ? 1 : 0);
+        }
+        (node as any).summary = summary;
+      }
+
+      return summary;
+    };
+
+    const runSummary: Statistics = {
+      total: 0,
+      passed: 0,
+      failed: 0,
+      pending: 0,
+      skipped: 0
+    };
+
+    for (const doc of run.documents) {
+      const docSummary = computeSummary(doc);
+      runSummary.total += docSummary.total;
+      runSummary.passed += docSummary.passed;
+      runSummary.failed += docSummary.failed;
+      runSummary.pending += docSummary.pending;
+      runSummary.skipped += docSummary.skipped;
+    }
+
+    run.summary = runSummary;
+
+    // Update run status based on summary
+    if (runSummary.failed > 0) {
+      run.status = 'failed';
+    } else if (runSummary.pending > 0) {
+      run.status = 'running';
+    } else if (runSummary.total > 0 && runSummary.passed + runSummary.skipped === runSummary.total) {
+      run.status = 'passed';
+    }
+  }
+
+  /**
+   * Update a node's execution result
+   */
+  updateNodeExecution(runId: string, nodeId: string, execution: Partial<Node['execution']>): void {
     const run = this.runs.get(runId);
     if (!run) return;
-    
-    const feature = run.features.find(f => f.id === featureId);
-    if (feature) {
-      feature.status = status;
+
+    const node = this.findNode(run, nodeId);
+    if (node) {
+      Object.assign(node.execution, execution);
+      this.updateStatistics(run);
       this.scheduleSaveRun(run);
     }
   }
-  
-  /**
-   * Add or update a scenario
-   */
-  addScenario(runId: string, featureId: string, scenario: Scenario): void {
-    const run = this.runs.get(runId);
-    if (!run) return;
-    
-    const feature = run.features.find(f => f.id === featureId);
-    if (!feature) return;
-    
-    const existing = feature.scenarios.find(s => s.id === scenario.id);
-    if (existing) {
-      Object.assign(existing, scenario);
-    } else {
-      feature.scenarios.push(scenario);
-    }
-    
-    this.scheduleSaveRun(run);
-  }
-  
-  /**
-   * Update scenario status
-   */
-  updateScenarioStatus(runId: string, scenarioId: string, status: TestStatus, duration: number): void {
-    const run = this.runs.get(runId);
-    if (!run) return;
-    
-    for (const feature of run.features) {
-      const scenario = feature.scenarios.find(s => s.id === scenarioId);
-      if (scenario && 'steps' in scenario) {
-        scenario.status = status;
-        scenario.duration = duration;
-        this.scheduleSaveRun(run);
-        return;
-      }
-    }
-  }
-  
-  /**
-   * Add a step to a scenario
-   */
-  addStep(runId: string, scenarioId: string, step: Step): void {
-    const run = this.runs.get(runId);
-    if (!run) return;
-    
-    for (const feature of run.features) {
-      const scenario = feature.scenarios.find(s => s.id === scenarioId);
-      if (scenario && 'steps' in scenario) {
-        const existing = scenario.steps.find(s => s.id === step.id);
-        if (existing) {
-          Object.assign(existing, step);
-        } else {
-          scenario.steps.push(step);
-        }
-        this.scheduleSaveRun(run);
-        return;
-      }
-    }
-  }
-  
+
   /**
    * Complete a run
    */
-  completeRun(runId: string, status: TestStatus, duration: number, summary: Statistics): void {
+  completeRun(runId: string, status: Status, duration: number, summary: Statistics): void {
     const run = this.runs.get(runId);
     if (!run) return;
     

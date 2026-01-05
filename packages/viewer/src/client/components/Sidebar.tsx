@@ -1,64 +1,50 @@
+import * as React from "react"
 import { useStore, ProjectNode, Environment, HistoryRun } from '../store';
 import { getApiBaseUrl } from '../config';
 import { StatusBadge } from './StatusBadge';
-import { ChevronRight, ChevronDown, FolderIcon, FileIcon } from './Icons';
-
-// Icons for the tree
-function ProjectIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M1.5 1h5l.5.5L7.5 3h7l.5.5v11l-.5.5h-13l-.5-.5v-13l.5-.5zm0 1v12h13V4H7l-.5-.5L6 2H1.5z"/>
-    </svg>
-  );
-}
-
-function EnvIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M14 4v8.5l-.5.5H11v-1h2V4H3v8h2v1H2.5l-.5-.5V4h12z"/>
-      <path d="M8 5L4 9h3v4h2V9h3L8 5z"/>
-    </svg>
-  );
-}
-
-function HistoryIcon() {
-  return (
-    <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M8 1a7 7 0 1 0 7 7h-1a6 6 0 1 1-1.76-4.24l-1.95 1.95L14 8V2l-2.05 2.05A6.97 6.97 0 0 0 8 1z"/>
-      <path d="M7.5 4v4.5l3 1.5.5-.87-2.5-1.25V4h-1z"/>
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-      <path fillRule="evenodd" clipRule="evenodd" d="M10 3h3v1h-1v9l-1 1H5l-1-1V4H3V3h3V2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1zM9 2H7v1h2V2zM5 4v9h6V4H5zm1 2h1v5H6V6zm3 0h1v5H9V6z"/>
-    </svg>
-  );
-}
+import { Node } from '@livedoc/schema';
+import { 
+  ChevronRight, 
+  ChevronDown, 
+  Folder, 
+  FileText, 
+  History, 
+  Trash2, 
+  Activity, 
+  Globe, 
+  Box,
+  Search,
+  Plus,
+  MoreVertical
+} from "lucide-react"
+import { cn } from "../lib/utils"
+import { Button } from "./ui/button"
+import { motion, AnimatePresence } from "framer-motion"
 
 export function Sidebar() {
   const { 
     runs, 
     projectHierarchy,
     selectedRunId, 
+    selectedNodeId,
     connectionStatus,
     sidebarWidth,
-    theme,
     expandedItems,
     selectRun,
     navigate,
-    toggleTheme,
     toggleExpanded,
     removeRun,
+    getCurrentRun,
   } = useStore();
 
+  const currentRun = getCurrentRun();
+  const [searchQuery, setSearchQuery] = React.useState("");
+
   const connectionColors: Record<string, string> = {
-    connected: 'bg-pass',
+    connected: 'bg-pass shadow-[0_0_8px_rgba(34,197,94,0.5)]',
     connecting: 'bg-pending animate-pulse',
-    disconnected: 'bg-text-muted',
-    error: 'bg-fail',
+    disconnected: 'bg-muted-foreground/30',
+    error: 'bg-fail shadow-[0_0_8px_rgba(239,68,68,0.5)]',
   };
 
   const connectionLabels: Record<string, string> = {
@@ -90,205 +76,306 @@ export function Sidebar() {
     const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
     return (
-      <li 
+      <motion.li 
         key={run.runId}
-        className={`group pl-10 pr-2 py-1.5 cursor-pointer transition-colors flex items-center justify-between
-          ${isSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover/50'}`}
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        className={cn(
+          "group pl-10 pr-2 py-2 cursor-pointer transition-all flex items-center justify-between rounded-md mx-2 mb-0.5",
+          isSelected 
+            ? "bg-primary/10 text-primary font-medium" 
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        )}
         onClick={() => {
           selectRun(run.runId);
           navigate('summary');
         }}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`w-2 h-2 rounded-full shrink-0 ${getStatusDot(run.status)}`}></span>
-          <span className="text-xs text-text-muted truncate">{formattedDate}</span>
+        <div className="flex items-center gap-2 overflow-hidden">
+          <History className={cn("w-3.5 h-3.5 shrink-0", isSelected ? "text-primary" : "text-muted-foreground/50")} />
+          <span className="text-xs truncate">{formattedDate}</span>
         </div>
-        <button
-          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-fail/20 rounded transition-opacity text-text-muted hover:text-fail"
+        <button 
           onClick={(e) => handleDelete(e, run.runId)}
-          title="Delete run"
+          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-fail/10 hover:text-fail rounded transition-all"
         >
-          <TrashIcon />
+          <Trash2 className="w-3 h-3" />
         </button>
-      </li>
+      </motion.li>
     );
   };
 
-  // Render environment node
-  const renderEnvironment = (env: Environment, project: string) => {
-    const envKey = `${project}/${env.name}`;
-    const isExpanded = expandedItems.has(envKey);
-    const historyKey = `${envKey}/history`;
-    const isHistoryExpanded = expandedItems.has(historyKey);
-    const latestRunId = env.latestRun?.runId;
-    const isLatestSelected = latestRunId === selectedRunId;
-    
-    return (
-      <li key={env.name}>
-        {/* Environment header */}
-        <div 
-          className={`flex items-center gap-1 pl-4 pr-2 py-1.5 cursor-pointer transition-colors
-            ${isLatestSelected ? 'bg-surface-hover' : 'hover:bg-surface-hover/50'}`}
-          onClick={() => toggleExpanded(envKey)}
-        >
-          <span className="text-text-muted w-4 flex justify-center">
-            {isExpanded ? <ChevronDown /> : <ChevronRight />}
-          </span>
-          <span className="text-text-muted"><EnvIcon /></span>
-          <span className="text-sm text-text flex-1">{env.name}</span>
-          {env.latestRun && (
-            <span className={`w-2 h-2 rounded-full ${getStatusDot(env.latestRun.status || '')}`}></span>
-          )}
-        </div>
-        
-        {/* Environment children */}
-        {isExpanded && (
-          <ul className="space-y-0.5">
-            {/* Latest run */}
-            {env.latestRun && (
-              <li 
-                className={`group pl-8 pr-2 py-1.5 cursor-pointer transition-colors flex items-center justify-between
-                  ${isLatestSelected ? 'bg-accent/20 border-l-2 border-accent' : 'hover:bg-surface-hover/50'}`}
-                onClick={() => {
-                  selectRun(env.latestRun!.runId);
-                  navigate('summary');
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${getStatusDot(env.latestRun.status || '')}`}></span>
-                  <span className="text-sm font-medium text-text">Latest</span>
-                </div>
-                <button
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-fail/20 rounded transition-opacity text-text-muted hover:text-fail"
-                  onClick={(e) => handleDelete(e, env.latestRun!.runId)}
-                  title="Delete run"
-                >
-                  <TrashIcon />
-                </button>
-              </li>
+  // Render the tree recursively
+  const renderTree = (nodes: Node[], level = 0) => {
+    return nodes.map(node => {
+      const isExpanded = expandedItems.has(node.id);
+      const isSelected = selectedNodeId === node.id;
+      const children = (node as any).children || (node as any).examples || [];
+      const hasChildren = children.length > 0;
+      
+      // Filter by search
+      if (searchQuery && !node.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+        if (!hasChildren) return null;
+        // If children match, we should still show this node
+        const childrenMatch = children.some((c: Node) => c.title.toLowerCase().includes(searchQuery.toLowerCase()));
+        if (!childrenMatch) return null;
+      }
+
+      return (
+        <div key={node.id} className="select-none">
+          <div 
+            className={cn(
+              "flex items-center gap-2 py-1.5 px-2 cursor-pointer transition-all rounded-md mx-2 mb-0.5 group",
+              isSelected 
+                ? "bg-primary text-primary-foreground shadow-sm" 
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+            style={{ paddingLeft: `${(level * 12) + 8}px` }}
+            onClick={() => {
+              if (hasChildren) toggleExpanded(node.id);
+              navigate('node', node.id);
+            }}
+          >
+            <div 
+              className="w-4 h-4 flex items-center justify-center shrink-0"
+              onClick={(e) => {
+                if (hasChildren) {
+                  e.stopPropagation();
+                  toggleExpanded(node.id);
+                }
+              }}
+            >
+              {hasChildren ? (
+                isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
+              ) : (
+                <div className="w-1 h-1 rounded-full bg-current opacity-20" />
+              )}
+            </div>
+            
+            {node.kind === 'Feature' || node.kind === 'Specification' ? (
+              <FileText className={cn("w-4 h-4 shrink-0", isSelected ? "text-primary-foreground" : "text-primary/70")} />
+            ) : (
+              <Folder className={cn("w-4 h-4 shrink-0", isSelected ? "text-primary-foreground" : "text-muted-foreground/50")} />
             )}
             
-            {/* History folder */}
-            {env.history.length > 0 && (
-              <li>
-                <div 
-                  className="flex items-center gap-1 pl-8 pr-2 py-1.5 cursor-pointer hover:bg-surface-hover/50 transition-colors"
-                  onClick={() => toggleExpanded(historyKey)}
-                >
-                  <span className="text-text-muted w-4 flex justify-center">
-                    {isHistoryExpanded ? <ChevronDown /> : <ChevronRight />}
-                  </span>
-                  <span className="text-text-muted"><HistoryIcon /></span>
-                  <span className="text-sm text-text-muted">History</span>
-                  <span className="text-xs text-text-muted ml-auto">({env.history.length})</span>
-                </div>
-                
-                {/* History runs */}
-                {isHistoryExpanded && (
-                  <ul className="space-y-0.5">
-                    {env.history.map(run => renderHistoryRun(run, project, env.name))}
-                  </ul>
-                )}
-              </li>
+            <span className="text-sm truncate flex-1">{node.title}</span>
+            
+            {node.execution?.status && (
+              <StatusBadge status={node.execution.status} size="xs" />
             )}
-          </ul>
-        )}
-      </li>
-    );
-  };
-
-  // Render project node
-  const renderProject = (project: ProjectNode) => {
-    const isExpanded = expandedItems.has(project.name);
-    
-    return (
-      <li key={project.name}>
-        {/* Project header */}
-        <div 
-          className="flex items-center gap-1 px-2 py-2 cursor-pointer hover:bg-surface-hover/50 transition-colors"
-          onClick={() => toggleExpanded(project.name)}
-        >
-          <span className="text-text-muted w-4 flex justify-center">
-            {isExpanded ? <ChevronDown /> : <ChevronRight />}
-          </span>
-          <span className="text-accent"><ProjectIcon /></span>
-          <span className="text-sm font-medium text-text">{project.name}</span>
+          </div>
+          
+          <AnimatePresence initial={false}>
+            {hasChildren && isExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                {renderTree(children, level + 1)}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        
-        {/* Project environments */}
-        {isExpanded && (
-          <ul className="space-y-0.5">
-            {project.environments.map(env => renderEnvironment(env, project.name))}
-          </ul>
-        )}
-      </li>
-    );
+      );
+    });
   };
 
   return (
     <aside 
-      className="bg-surface border-r border-border flex flex-col overflow-hidden"
+      className="flex flex-col bg-card border-r shrink-0 overflow-hidden transition-all duration-300 ease-in-out"
       style={{ width: sidebarWidth }}
     >
-      {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xl">🍵</span>
-          <h1 className="text-base font-semibold text-text">LiveDoc</h1>
+      {/* Sidebar Header */}
+      <div className="h-16 border-b flex items-center px-4 gap-3 shrink-0 bg-muted/30">
+        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+          <Activity className="w-5 h-5 text-primary-foreground" />
         </div>
-        <button 
-          className="p-1.5 bg-surface-hover border border-border rounded hover:bg-bg transition-colors text-sm"
-          title="Toggle theme"
-          onClick={toggleTheme}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-sm font-bold truncate tracking-tight">LiveDoc</h1>
+          <div className="flex items-center gap-1.5">
+            <div className={cn("w-1.5 h-1.5 rounded-full", connectionColors[connectionStatus])} />
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              {connectionLabels[connectionStatus]}
+            </span>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md">
+          <Plus className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="p-3 shrink-0">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <input 
+            type="text" 
+            placeholder="Filter..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-muted/50 border-none rounded-md py-1.5 pl-8 pr-3 text-xs focus:ring-1 focus:ring-primary/30 transition-all"
+          />
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+        <div 
+          className={cn(
+            "flex items-center gap-3 py-2 px-4 cursor-pointer transition-all hover:bg-muted group mb-2",
+            !selectedNodeId && selectedRunId === 'current' && "bg-primary/5 border-r-2 border-primary"
+          )}
+          onClick={() => navigate('summary')}
         >
-          {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
-      </div>
+          <Box className={cn("w-4 h-4", !selectedNodeId && selectedRunId === 'current' ? "text-primary" : "text-muted-foreground")} />
+          <span className={cn("text-sm font-medium", !selectedNodeId && selectedRunId === 'current' ? "text-primary" : "text-foreground")}>
+            Dashboard
+          </span>
+        </div>
 
-      {/* Connection Status */}
-      <div className="flex items-center gap-1.5 px-4 py-2 text-[11px] text-text-muted border-b border-border/50">
-        <span className={`w-1.5 h-1.5 rounded-full ${connectionColors[connectionStatus]}`}></span>
-        <span>{connectionLabels[connectionStatus]}</span>
-      </div>
-
-      {/* Project Tree */}
-      <div className="flex-1 overflow-auto p-2">
-        {projectHierarchy.length > 0 ? (
-          <ul className="space-y-0.5">
-            {projectHierarchy.map(project => renderProject(project))}
-          </ul>
-        ) : runs.length > 0 ? (
-          // Fallback to flat list if hierarchy not loaded
-          <ul className="space-y-0.5">
-            {runs.map((run) => (
-              <li 
-                key={run.runId}
-                className={`px-3 py-2.5 rounded-md cursor-pointer transition-colors
-                  ${run.runId === selectedRunId ? 'bg-surface-hover' : 'hover:bg-surface-hover/50'}`}
-                onClick={() => {
-                  selectRun(run.runId);
-                  navigate('summary');
-                }}
-              >
-                <div className="text-sm font-medium text-text mb-0.5">{run.project || 'Unknown Project'}</div>
-                <div className="flex items-center gap-2 text-[11px] text-text-muted">
-                  <span className={`w-2 h-2 rounded-full ${getStatusDot(run.status || '')}`}></span>
-                  <span>{run.environment || 'default'}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-center text-text-muted py-8 text-sm">
-            No projects
+        {/* Current Run Tree */}
+        {currentRun && (
+          <div className="mb-6">
+            <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-between">
+              <span>Specifications</span>
+              <span className="bg-muted px-1.5 py-0.5 rounded text-[9px]">{currentRun.documents.length}</span>
+            </div>
+            <div className="mt-1">
+              {renderTree(currentRun.documents)}
+            </div>
           </div>
         )}
+
+        {/* History */}
+        {projectHierarchy.length > 0 && (
+          <div className="mt-4">
+            <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              History
+            </div>
+            {projectHierarchy.map(project => (
+              <div key={project.name} className="mt-1">
+                <div 
+                  className="flex items-center gap-2 py-1.5 px-4 cursor-pointer hover:bg-muted/50 text-muted-foreground transition-all"
+                  onClick={() => toggleExpanded(project.name)}
+                >
+                  {expandedItems.has(project.name) ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                  <Globe className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium truncate">{project.name}</span>
+                </div>
+                
+                <AnimatePresence>
+                  {expandedItems.has(project.name) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      {project.environments.map(env => {
+                        const envKey = `${project.name}/${env.name}`;
+                        const isEnvExpanded = expandedItems.has(envKey);
+                        const historyKey = `${envKey}/history`;
+                        const isHistoryExpanded = expandedItems.has(historyKey);
+
+                        return (
+                          <div key={env.name}>
+                            <div 
+                              className="flex items-center gap-2 py-1.5 px-8 cursor-pointer hover:bg-muted/50 text-muted-foreground transition-all"
+                              onClick={() => toggleExpanded(envKey)}
+                            >
+                              {isEnvExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                              <span className="text-xs truncate">{env.name}</span>
+                            </div>
+                            
+                            <AnimatePresence>
+                              {isEnvExpanded && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  className="overflow-hidden"
+                                >
+                                  {/* Latest run */}
+                                  {env.latestRun && (
+                                    <div 
+                                      className={cn(
+                                        "group pl-12 pr-2 py-1.5 cursor-pointer transition-all flex items-center justify-between rounded-md mx-2 mb-0.5",
+                                        env.latestRun.runId === selectedRunId ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      )}
+                                      onClick={() => {
+                                        selectRun(env.latestRun!.runId);
+                                        navigate('summary');
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <div className={cn("w-1.5 h-1.5 rounded-full", getStatusColor(env.latestRun.status || ''))} />
+                                        <span className="text-xs">Latest</span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* History folder */}
+                                  {env.history.length > 0 && (
+                                    <div>
+                                      <div 
+                                        className="flex items-center gap-2 py-1.5 px-12 cursor-pointer hover:bg-muted/50 text-muted-foreground transition-all"
+                                        onClick={() => toggleExpanded(historyKey)}
+                                      >
+                                        {isHistoryExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                                        <span className="text-xs">History ({env.history.length})</span>
+                                      </div>
+                                      
+                                      <AnimatePresence>
+                                        {isHistoryExpanded && (
+                                          <motion.ul
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: "auto", opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="overflow-hidden"
+                                          >
+                                            {env.history.map(run => renderHistoryRun(run, project.name, env.name))}
+                                          </motion.ul>
+                                        )}
+                                      </AnimatePresence>
+                                    </div>
+                                  )}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Sidebar Footer */}
+      <div className="p-4 border-t bg-muted/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+              <span className="text-[10px] font-bold text-primary">LD</span>
+            </div>
+            <span className="text-xs font-medium">LiveDoc User</span>
+          </div>
+          <Button variant="ghost" size="icon" className="h-7 w-7">
+            <MoreVertical className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </div>
     </aside>
   );
 }
 
-function getStatusDot(status: string): string {
+function getStatusColor(status: string): string {
   switch (status) {
     case 'completed':
     case 'passed':
@@ -300,6 +387,6 @@ function getStatusDot(status: string): string {
     case 'pending':
       return 'bg-pending';
     default:
-      return 'bg-text-muted';
+      return 'bg-muted-foreground/30';
   }
 }
