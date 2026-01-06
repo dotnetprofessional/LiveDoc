@@ -25,7 +25,8 @@ import {
     Binding,
     ExampleTable,
     Row,
-    Statistics
+    Statistics,
+    SpecKind
 } from "@livedoc/schema";
 
 // =============================================================================
@@ -277,12 +278,12 @@ export class LiveDocViewerReporter implements IPostReporter {
             project: this.options.project,
             path: fileInfo.filename,
             title: sdkFeature.title,
-            kind: 'Feature'
+            kind: SpecKind.Feature
         });
 
         const feature: any = {
             id: featureId,
-            kind: 'Feature',
+            kind: SpecKind.Feature,
             path: fileInfo.filename || undefined,
             title: sdkFeature.title,
             description: sdkFeature.description,
@@ -300,7 +301,7 @@ export class LiveDocViewerReporter implements IPostReporter {
 
         // Post background if exists
         if (sdkFeature.background) {
-            await this.postScenario(runId, featureId, sdkFeature.background, 'Scenario'); // Background is a Scenario in vNext
+            await this.postScenario(runId, featureId, sdkFeature.background, SpecKind.Background); 
         }
 
         // Post all scenarios
@@ -317,7 +318,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         runId: string,
         parentId: string,
         sdkScenario: SDKScenario,
-        kind: 'Scenario' = 'Scenario'
+        kind: string = SpecKind.Scenario
     ): Promise<void> {
         const scenarioId = generateStabilityId({
             project: this.options.project,
@@ -357,20 +358,20 @@ export class LiveDocViewerReporter implements IPostReporter {
         const outlineId = generateStabilityId({
             project: this.options.project,
             title: sdkOutline.title,
-            kind: 'ScenarioOutline',
+            kind: SpecKind.ScenarioOutline,
             parentId
         });
 
         // Template scenario
         const templateScenario: Scenario = {
             id: `${outlineId}:template`,
-            kind: 'Scenario',
+            kind: SpecKind.Scenario,
             title: sdkOutline.title,
             execution: { status: 'pending', duration: 0 },
             summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
             children: sdkOutline.examples[0]?.steps.map((s, i) => ({
                 id: `${outlineId}:template:step:${i}`,
-                kind: 'Step',
+                kind: SpecKind.Step,
                 title: s.rawTitle || s.title,
                 keyword: s.type.toLowerCase() as any,
                 execution: { status: 'pending', duration: 0 }
@@ -379,7 +380,7 @@ export class LiveDocViewerReporter implements IPostReporter {
 
         const outline: any = {
             id: outlineId,
-            kind: 'ScenarioOutline',
+            kind: SpecKind.ScenarioOutline,
             title: sdkOutline.title,
             description: sdkOutline.description,
             tags: sdkOutline.tags,
@@ -402,14 +403,14 @@ export class LiveDocViewerReporter implements IPostReporter {
             const exampleId = generateStabilityId({
                 project: this.options.project,
                 title: sdkOutline.title,
-                kind: 'Scenario',
+                kind: SpecKind.Scenario,
                 parentId: outlineId,
                 index: i
             });
 
             const example: Scenario = {
                 id: exampleId,
-                kind: 'Scenario',
+                kind: SpecKind.Scenario,
                 title: sdkOutline.title,
                 binding: this.mapBinding(sdkExample.example || sdkExample.exampleRaw),
                 execution: {
@@ -433,7 +434,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         const stepId = generateStabilityId({
             project: this.options.project,
             title: sdkStep.rawTitle || sdkStep.title,
-            kind: 'Step',
+            kind: SpecKind.Step,
             parentId,
             keyword: sdkStep.type.toLowerCase(),
             index
@@ -441,7 +442,7 @@ export class LiveDocViewerReporter implements IPostReporter {
 
         const step: any = {
             id: stepId,
-            kind: 'Step',
+            kind: SpecKind.Step,
             title: sdkStep.rawTitle || sdkStep.title,
             keyword: sdkStep.type.toLowerCase() as any,
             ruleViolations: this.mapRuleViolations(sdkStep),
@@ -765,12 +766,12 @@ export class LiveDocViewerReporter implements IPostReporter {
             project: this.options.project,
             path: fileInfo.filename,
             title: sdkSpec.title,
-            kind: 'Specification'
+            kind: SpecKind.Specification
         });
 
         const spec: any = {
             id: specId,
-            kind: 'Specification',
+            kind: SpecKind.Specification,
             path: fileInfo.filename || undefined,
             title: sdkSpec.title,
             description: sdkSpec.description,
@@ -799,13 +800,13 @@ export class LiveDocViewerReporter implements IPostReporter {
         const ruleId = generateStabilityId({
             project: this.options.project,
             title: sdkRule.title,
-            kind: 'Rule',
+            kind: SpecKind.Rule,
             parentId
         });
 
         const rule: any = {
             id: ruleId,
-            kind: 'Rule',
+            kind: SpecKind.Rule,
             title: sdkRule.title,
             description: sdkRule.description,
             tags: sdkRule.tags,
@@ -824,20 +825,20 @@ export class LiveDocViewerReporter implements IPostReporter {
         const outlineId = generateStabilityId({
             project: this.options.project,
             title: sdkOutline.title,
-            kind: 'RuleOutline',
+            kind: SpecKind.RuleOutline,
             parentId
         });
 
         const templateRule: Rule = {
             id: `${outlineId}:template`,
-            kind: 'Rule',
+            kind: SpecKind.Rule,
             title: sdkOutline.title,
             execution: { status: 'pending', duration: 0 }
         };
 
         const outline: any = {
             id: outlineId,
-            kind: 'RuleOutline',
+            kind: SpecKind.RuleOutline,
             title: sdkOutline.title,
             description: sdkOutline.description,
             tags: sdkOutline.tags,
@@ -859,14 +860,14 @@ export class LiveDocViewerReporter implements IPostReporter {
             const exampleId = generateStabilityId({
                 project: this.options.project,
                 title: sdkOutline.title,
-                kind: 'Rule',
+                kind: SpecKind.Rule,
                 parentId: outlineId,
                 index: i
             });
 
             const example: Rule = {
                 id: exampleId,
-                kind: 'Rule',
+                kind: SpecKind.Rule,
                 title: sdkOutline.title,
                 binding: this.mapBinding(sdkExample.example || sdkExample.exampleRaw),
                 execution: {
@@ -874,7 +875,7 @@ export class LiveDocViewerReporter implements IPostReporter {
                     duration: sdkExample.executionTime || 0
                 }
             };
-
+            
             await this.postNode(runId, outlineId, example);
         }
     }
@@ -885,12 +886,12 @@ export class LiveDocViewerReporter implements IPostReporter {
             project: this.options.project,
             path: fileInfo.filename,
             title: sdkSuite.title,
-            kind: 'Suite'
+            kind: SpecKind.Suite
         });
 
         const suite: any = {
             id: suiteId,
-            kind: 'Suite',
+            kind: SpecKind.Suite,
             path: fileInfo.filename || undefined,
             title: sdkSuite.title,
             ruleViolations: this.mapRuleViolations(sdkSuite),
@@ -917,13 +918,13 @@ export class LiveDocViewerReporter implements IPostReporter {
         const testId = generateStabilityId({
             project: this.options.project,
             title: sdkTest.title,
-            kind: 'Test',
+            kind: SpecKind.Test,
             parentId
         });
 
         const test: any = {
             id: testId,
-            kind: 'Test',
+            kind: SpecKind.Test,
             title: sdkTest.title,
             ruleViolations: this.mapRuleViolations(sdkTest),
             execution: {

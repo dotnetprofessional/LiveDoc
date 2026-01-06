@@ -7,7 +7,7 @@ import { Exception } from '../model/Exception';
 import { DescriptionParser } from '../parser/Parser';
 import type { File, Task, TaskResultPack } from '@vitest/runner';
 import * as path from 'path';
-import { generateStabilityId, type Node, type Status } from '@livedoc/schema';
+import { generateStabilityId, type Node, type Status, SpecKind } from '@livedoc/schema';
 import { livedoc } from '../livedoc';
 
 /**
@@ -213,12 +213,12 @@ export default class LiveDocServerReporter implements Reporter {
                     project: this.project,
                     path: fileInfo.filename,
                     title: parsed.title,
-                    kind: 'Feature'
+                    kind: SpecKind.Feature
                 });
 
                 const node: Node = {
                     id: nodeId,
-                    kind: 'Feature',
+                    kind: SpecKind.Feature,
                     path: fileInfo.filename || undefined,
                     title: parsed.title,
                     description: parsed.description,
@@ -245,12 +245,12 @@ export default class LiveDocServerReporter implements Reporter {
                     project: this.project,
                     path: fileInfo.filename,
                     title: parsed.title,
-                    kind: 'Specification'
+                    kind: SpecKind.Specification
                 });
 
                 const node: Node = {
                     id: nodeId,
-                    kind: 'Specification',
+                    kind: SpecKind.Specification,
                     path: fileInfo.filename || undefined,
                     title: parsed.title,
                     description: parsed.description,
@@ -274,10 +274,10 @@ export default class LiveDocServerReporter implements Reporter {
             if (parentNodeId) {
                 if (name.startsWith('Scenario:') || name.startsWith('Background')) {
                     const parsed = this.parseTitleBlock(name.replace('Scenario:', '').replace('Background:', '').trim());
-                    const nodeId = generateStabilityId({ project: this.project, title: parsed.title, kind: 'Scenario', parentId: parentNodeId });
+                    const nodeId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Scenario, parentId: parentNodeId });
                     const node: Node = {
                         id: nodeId,
-                        kind: 'Scenario',
+                        kind: SpecKind.Scenario,
                         title: parsed.title,
                         description: parsed.description,
                         tags: parsed.tags,
@@ -303,10 +303,10 @@ export default class LiveDocServerReporter implements Reporter {
                 if (name.startsWith('Scenario Outline:')) {
                     // For streaming, represent outline as a container; children example suites will be mapped to Scenario nodes.
                     const parsed = this.parseTitleBlock(name.replace('Scenario Outline:', '').trim());
-                    const outlineId = generateStabilityId({ project: this.project, title: parsed.title, kind: 'ScenarioOutline', parentId: parentNodeId });
+                    const outlineId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.ScenarioOutline, parentId: parentNodeId });
                     const outline: any = {
                         id: outlineId,
-                        kind: 'ScenarioOutline',
+                        kind: SpecKind.ScenarioOutline,
                         title: parsed.title,
                         description: parsed.description,
                         tags: parsed.tags,
@@ -314,7 +314,7 @@ export default class LiveDocServerReporter implements Reporter {
                         summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
                         template: {
                             id: `${outlineId}:template`,
-                            kind: 'Scenario',
+                            kind: SpecKind.Scenario,
                             title: parsed.title,
                             execution: { status: 'pending', duration: 0 },
                             summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
@@ -332,10 +332,10 @@ export default class LiveDocServerReporter implements Reporter {
                     const exampleSuites = this.getTaskChildren(task).filter((t: any) => t.type === 'suite') as Task[];
                     for (let i = 0; i < exampleSuites.length; i++) {
                         const exampleSuite = exampleSuites[i];
-                        const exampleId = generateStabilityId({ project: this.project, title: parsed.title, kind: 'Scenario', parentId: outlineId, index: i });
+                        const exampleId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Scenario, parentId: outlineId, index: i });
                         const exampleNode: any = {
                             id: exampleId,
-                            kind: 'Scenario',
+                            kind: SpecKind.Scenario,
                             title: parsed.title,
                             execution: { status: 'pending', duration: 0 },
                             summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
@@ -361,10 +361,10 @@ export default class LiveDocServerReporter implements Reporter {
             // Generic Suite root
             if (!parentNodeId) {
                 const fileInfo = this.buildFileInfo(filepath, this.rootPath);
-                const suiteId = generateStabilityId({ project: this.project, path: fileInfo.filename, title: name, kind: 'Suite' });
+                const suiteId = generateStabilityId({ project: this.project, path: fileInfo.filename, title: name, kind: SpecKind.Suite });
                 const suite: any = {
                     id: suiteId,
-                    kind: 'Suite',
+                    kind: SpecKind.Suite,
                     path: fileInfo.filename || undefined,
                     title: name,
                     execution: { status: 'pending', duration: 0 },
@@ -383,10 +383,10 @@ export default class LiveDocServerReporter implements Reporter {
 
             // Nested suites under generic suites -> treat as Suite as well (without path).
             if (parentNodeId) {
-                const nestedSuiteId = generateStabilityId({ project: this.project, title: name, kind: 'Suite', parentId: parentNodeId });
+                const nestedSuiteId = generateStabilityId({ project: this.project, title: name, kind: SpecKind.Suite, parentId: parentNodeId });
                 const nested: any = {
                     id: nestedSuiteId,
-                    kind: 'Suite',
+                    kind: SpecKind.Suite,
                     title: name,
                     execution: { status: 'pending', duration: 0 },
                     summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
@@ -406,10 +406,10 @@ export default class LiveDocServerReporter implements Reporter {
 
         if (task.type === 'test' && parentNodeId) {
             // Generic Test under a Suite
-            const testId = generateStabilityId({ project: this.project, title: name, kind: 'Test', parentId: parentNodeId });
+            const testId = generateStabilityId({ project: this.project, title: name, kind: SpecKind.Test, parentId: parentNodeId });
             const node: any = {
                 id: testId,
-                kind: 'Test',
+                kind: SpecKind.Test,
                 title: name,
                 execution: { status: 'pending', duration: 0 }
             };
@@ -429,7 +429,7 @@ export default class LiveDocServerReporter implements Reporter {
         const stepId = generateStabilityId({
             project: this.project,
             title,
-            kind: 'Step',
+            kind: SpecKind.Step,
             parentId: scenarioId,
             keyword,
             index
@@ -437,7 +437,7 @@ export default class LiveDocServerReporter implements Reporter {
 
         const node: any = {
             id: stepId,
-            kind: 'Step',
+            kind: SpecKind.Step,
             title,
             keyword: keyword as any,
             execution: { status: 'pending', duration: 0 }

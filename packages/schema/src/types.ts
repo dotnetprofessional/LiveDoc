@@ -147,16 +147,20 @@ export interface Outline<TTemplate extends Node, TExample extends Node> extends 
 // Kinds (Known + Forward-Compatible)
 // =============================================================================
 
-export type KnownKind =
-  | 'Feature'
-  | 'Scenario'
-  | 'ScenarioOutline'
-  | 'Step'
-  | 'Specification'
-  | 'Rule'
-  | 'RuleOutline'
-  | 'Suite'
-  | 'Test';
+export const SpecKind = {
+  Feature: 'Feature',
+  Background: 'Background',
+  Scenario: 'Scenario',
+  ScenarioOutline: 'ScenarioOutline',
+  Step: 'Step',
+  Specification: 'Specification',
+  Rule: 'Rule',
+  RuleOutline: 'RuleOutline',
+  Suite: 'Suite',
+  Test: 'Test'
+} as const;
+
+export type KnownKind = typeof SpecKind[keyof typeof SpecKind];
 
 // =============================================================================
 // Gherkin Pattern

@@ -6,7 +6,7 @@ import { StatusBadge } from './StatusBadge';
 import { cn } from '../lib/utils';
 import { subtreeHasMatch, normalizeTag } from '../lib/filter-utils';
 import { Badge } from './ui/badge';
-import { Node, Status } from '@livedoc/schema';
+import { Node, Status, SpecKind } from '@livedoc/schema';
 
 type ListItem = 
   | { type: 'navItem'; item: NavItem }
@@ -15,14 +15,14 @@ type ListItem =
 function getIconForKind(kind: string) {
   switch (kind) {
     case 'Group': return Folder;
-    case 'Feature': return BookOpen;
-    case 'Specification': return ScrollText;
-    case 'Suite': return LayoutList;
-    case 'Scenario': 
-    case 'ScenarioOutline':
-    case 'Rule':
-    case 'RuleOutline': 
-    case 'Test': return FileText;
+    case SpecKind.Feature: return BookOpen;
+    case SpecKind.Specification: return ScrollText;
+    case SpecKind.Suite: return LayoutList;
+    case SpecKind.Scenario: 
+    case SpecKind.ScenarioOutline:
+    case SpecKind.Rule:
+    case SpecKind.RuleOutline: 
+    case SpecKind.Test: return FileText;
     default: return FileText;
   }
 }
@@ -91,15 +91,22 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
       const node = viewData.node as any;
       let childNodes: Node[] = [];
       
-      if (node.kind === 'Feature') {
+      if (node.kind === SpecKind.Feature) {
         // Scenarios, ScenarioOutlines
         const arr = Array.isArray(node.children) ? node.children : [];
-        childNodes = arr.filter((c: Node) => c.kind === 'Scenario' || c.kind === 'ScenarioOutline');
-      } else if (node.kind === 'Specification') {
+        childNodes = arr.filter((c: Node) => {
+          // Filter out Backgrounds (explicit kind or heuristic via empty title)
+          if (c.kind === SpecKind.Background) return false;
+          // In case the reporter hasn't been updated or older run data
+          if (c.kind === SpecKind.Scenario && (!c.title || c.title.trim().length === 0)) return false;
+
+          return c.kind === SpecKind.Scenario || c.kind === SpecKind.ScenarioOutline;
+        });
+      } else if (node.kind === SpecKind.Specification) {
         // Rules
         const arr = Array.isArray(node.children) ? node.children : [];
-        childNodes = arr.filter((c: Node) => c.kind === 'Rule' || c.kind === 'RuleOutline');
-      } else if (node.kind === 'Suite') {
+        childNodes = arr.filter((c: Node) => c.kind === SpecKind.Rule || c.kind === SpecKind.RuleOutline);
+      } else if (node.kind === SpecKind.Suite) {
         // Nested suites and tests
         const arr = Array.isArray(node.children) ? node.children : [];
         childNodes = arr;
@@ -138,8 +145,8 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
     for (const child of filteredChildren) {
         let kind = child.type === 'navItem' ? child.item.kind : child.node.kind;
         // Group variations together
-        if (kind === 'ScenarioOutline') kind = 'Scenario';
-        if (kind === 'RuleOutline') kind = 'Rule';
+        if (kind === SpecKind.ScenarioOutline) kind = SpecKind.Scenario;
+        if (kind === SpecKind.RuleOutline) kind = SpecKind.Rule;
         
         if (!groups[kind]) groups[kind] = [];
         groups[kind].push(child);
@@ -148,7 +155,7 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
   }, [filteredChildren]);
 
   const sortedGroupKeys = useMemo(() => {
-    const order = ['Feature', 'Specification', 'Suite', 'Scenario', 'Rule', 'Test'];
+    const order = [SpecKind.Feature, SpecKind.Specification, SpecKind.Suite, SpecKind.Scenario, SpecKind.Rule, SpecKind.Test] as string[];
     return Object.keys(groupedChildren).sort((a, b) => {
         const idxA = order.indexOf(a);
         const idxB = order.indexOf(b);
