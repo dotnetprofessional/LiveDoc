@@ -10,6 +10,7 @@ import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { subtreeHasMatch } from '../lib/filter-utils';
+import { Markdown } from './Markdown';
 
 interface NodeViewProps {
   node: Node;
@@ -99,9 +100,9 @@ export function NodeView({ node }: NodeViewProps) {
           {node.description && (
             <div className="mt-6 relative">
               <div className="absolute -left-4 top-0 bottom-0 w-1 bg-primary/10 rounded-full" />
-              <p className="text-muted-foreground text-lg font-medium leading-relaxed whitespace-pre-wrap pl-2">
-                {node.description}
-              </p>
+              <div className="pl-2">
+                 <Markdown content={node.description} className="prose-lg font-medium leading-relaxed" />
+              </div>
             </div>
           )}
 

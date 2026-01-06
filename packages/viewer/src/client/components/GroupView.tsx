@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { subtreeHasMatch, normalizeTag } from '../lib/filter-utils';
 import { Badge } from './ui/badge';
 import { Node, Status, SpecKind } from '@livedoc/schema';
+import { Markdown } from './Markdown';
 
 type ListItem = 
   | { type: 'navItem'; item: NavItem }
@@ -240,7 +241,7 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
         </div>
         
         {description && (
-             <p className="text-muted-foreground max-w-3xl leading-relaxed">{description}</p>
+             <Markdown content={description} className="max-w-3xl" />
         )}
 
         {tags.length > 0 && (

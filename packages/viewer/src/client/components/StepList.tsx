@@ -2,6 +2,7 @@ import { Step, Status } from '@livedoc/schema';
 import { renderTitle, highlightPlaceholders } from '../lib/title-utils';
 import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Markdown } from './Markdown';
 
 interface StepListProps {
   steps: Step[];
@@ -83,8 +84,8 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
         </div>
 
         {step.description && (
-          <div className="mt-1 ml-20 text-sm text-muted-foreground/80 italic leading-relaxed border-l-2 border-muted pl-4 py-1">
-            {step.description}
+          <div className="mt-1 ml-20 border-l-2 border-muted pl-4 py-1">
+             <Markdown content={step.description} className="text-sm text-muted-foreground/80 italic leading-relaxed" />
           </div>
         )}
 
