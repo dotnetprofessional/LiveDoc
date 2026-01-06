@@ -151,23 +151,8 @@ export function buildGroupedNavTree(documents: Node[]): NavItem[] {
       children: [],
     };
 
-    // Suite files can contain nested suites; keep that nesting under the suite item.
-    if (node.kind === 'Suite') {
-      const childSuites = getContainerChildren(node);
-      navNode.children = childSuites.map((c) => ({
-        kind: 'Suite',
-        id: c.id,
-        title: c.title,
-        node: c,
-        children: getContainerChildren(c).map((gc) => ({
-          kind: 'Suite',
-          id: gc.id,
-          title: gc.title,
-          node: gc,
-          children: [],
-        })),
-      }));
-    }
+    // Intentionally do not surface nested Suite containers in the nav.
+    // They often represent describe/group blocks within the same test file and create duplicates.
 
     parentChildren.push(navNode);
   }

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { Node } from '@livedoc/schema';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
@@ -156,6 +156,7 @@ export function GlobalFilter({ className }: { className?: string }) {
   }, [filterTags, filterText, run]);
 
   const resultsOpen = hasFocus && !tagPickerOpen && resultItems.length > 0;
+  const canClear = inputValue.length > 0 || filterTags.length > 0;
 
   return (
     <div className={cn('relative', className)}>
@@ -197,6 +198,37 @@ export function GlobalFilter({ className }: { className?: string }) {
               className="flex-1 min-w-30 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
             />
           </div>
+
+          <button
+            type="button"
+            disabled={!canClear}
+            className={cn(
+              "shrink-0 rounded-full p-1.5 transition-colors",
+              canClear
+                ? "text-foreground/80 hover:text-foreground hover:bg-muted/60"
+                : "text-muted-foreground/40"
+            )}
+            aria-label={canClear ? "Clear search" : "Clear search (disabled)"}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              if (!canClear) return;
+
+              if (inputValue.length > 0) {
+                // First click clears text, keeps tags.
+                setInputValue('');
+                setFilterText('');
+                setTagPickerOpen(false);
+                setActiveSuggestionIndex(0);
+                return;
+              }
+
+              // Second click (when text already empty) clears tags too.
+              setFilterTags([]);
+            }}
+            title={canClear ? "Clear (text, then tags)" : undefined}
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {tagPickerOpen && lastToken.startsWith('@') && (

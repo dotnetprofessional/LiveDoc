@@ -4,7 +4,6 @@ import { useStore } from '../store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
-import { Button } from './ui/button';
 import { StatusBadge } from './StatusBadge';
 import { Clock, Calendar, Globe, Zap, Folder, ArrowRight, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -18,6 +17,8 @@ interface SummaryViewProps {
 
 export function SummaryView({ run }: SummaryViewProps) {
   const { navigate, filterText, filterTags } = useStore();
+
+  const acceptableSlowMs = 1000;
   
   const summary = run.summary;
   const duration = run.duration;
@@ -41,20 +42,6 @@ export function SummaryView({ run }: SummaryViewProps) {
   const navTree = buildGroupedNavTree(run.documents ?? []);
   const rootGroup = navTree.find((i) => i.kind === 'Group' && i.id === 'group:/') as (NavItem & { kind: 'Group' }) | undefined;
 
-  const topGroups = (rootGroup?.children ?? []).filter((c) => c.kind === 'Group') as Array<NavItem & { kind: 'Group' }>;
-
-  const countContainers = (group: NavItem & { kind: 'Group' }): number => {
-    let count = 0;
-    const stack: NavItem[] = [...group.children];
-    while (stack.length > 0) {
-      const item = stack.pop();
-      if (!item) continue;
-      if (item.kind === 'Group') stack.push(...item.children);
-      else count += 1;
-    }
-    return count;
-  };
-
   const textLower = filterText.trim().toLowerCase();
   const hasText = textLower.length > 0;
   const hasTags = filterTags.length > 0;
@@ -71,7 +58,83 @@ export function SummaryView({ run }: SummaryViewProps) {
     return false;
   };
 
-  const visibleTopGroups = topGroups.filter((g) => groupHasMatch(g));
+  const rootContainerByNodeId = (() => {
+    const map = new Map<string, any>();
+    const docs = run.documents ?? [];
+
+    const getChildren = (node: any): any[] => {
+      const out: any[] = [];
+      if (Array.isArray(node?.children)) out.push(...node.children);
+      if (Array.isArray(node?.examples)) out.push(...node.examples);
+      if (node?.template) out.push(node.template);
+      if (node?.background) out.push(node.background);
+      return out;
+    };
+
+    for (const doc of docs as any[]) {
+      const rootContainer = doc;
+      const stack = [doc];
+      while (stack.length > 0) {
+        const n = stack.pop();
+        if (!n) continue;
+        if (n?.id) map.set(String(n.id), rootContainer);
+        for (const c of getChildren(n)) stack.push(c);
+      }
+    }
+
+    return map;
+  })();
+
+  const hotspots = (() => {
+    const textLower = filterText.trim().toLowerCase();
+    const hasText = textLower.length > 0;
+    const hasTags = filterTags.length > 0;
+
+    const nodes = Object.values((run as any).nodeMap ?? {}) as any[];
+    const tests = nodes.filter((n) => String(n?.kind ?? '') === 'Test');
+
+    const byContainerForSlow = new Map<string, { container: any; maxDuration: number; slowestTest: any }>();
+    for (const t of tests) {
+      const dur = Number(t?.execution?.duration);
+      if (!Number.isFinite(dur) || dur <= 0) continue;
+      if (dur < acceptableSlowMs) continue;
+      if ((hasText || hasTags) && !subtreeHasMatch(t, textLower, filterTags)) continue;
+
+      const container = rootContainerByNodeId.get(String(t.id)) ?? null;
+      if (!container) continue;
+
+      const key = String(container.id);
+      const existing = byContainerForSlow.get(key);
+      if (!existing || dur > existing.maxDuration) {
+        byContainerForSlow.set(key, { container, maxDuration: dur, slowestTest: t });
+      }
+    }
+
+    const longRunning = Array.from(byContainerForSlow.values())
+      .sort((a, b) => b.maxDuration - a.maxDuration)
+      .slice(0, 8);
+
+    const byContainerForTimeouts = new Map<string, { container: any; count: number; first: any }>();
+    for (const t of tests) {
+      const status = String(t?.execution?.status ?? '');
+      if (status !== 'timedOut') continue;
+      if ((hasText || hasTags) && !subtreeHasMatch(t, textLower, filterTags)) continue;
+
+      const container = rootContainerByNodeId.get(String(t.id)) ?? null;
+      if (!container) continue;
+
+      const key = String(container.id);
+      const existing = byContainerForTimeouts.get(key);
+      if (!existing) byContainerForTimeouts.set(key, { container, count: 1, first: t });
+      else existing.count += 1;
+    }
+
+    const timeouts = Array.from(byContainerForTimeouts.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    return { longRunning, timeouts };
+  })();
 
   const failingContainers = (() => {
     const docs = run.documents ?? [];
@@ -105,7 +168,9 @@ export function SummaryView({ run }: SummaryViewProps) {
     return { items: filtered, totalViolations };
   })();
 
-  const mostRecentFailure = failingContainers[0];
+  const hasHotspots = hotspots.longRunning.length > 0 || hotspots.timeouts.length > 0;
+  const hasFailures = failingContainers.length > 0;
+  const hasRuleViolations = ruleViolationItems.totalViolations > 0;
 
   return (
     <div className="space-y-8">
@@ -183,115 +248,103 @@ export function SummaryView({ run }: SummaryViewProps) {
               </span>
             </div>
             <Separator />
-            <div className="pt-2">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                Quick Links
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="justify-between text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => navigate('group', 'group:/')}
-                >
-                  Open Root Folder
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="justify-between text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => {
-                    document.getElementById('dashboard-failures')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
-                >
-                  View Failing Tests
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!mostRecentFailure}
-                  className="justify-between text-[10px] font-bold uppercase tracking-wider"
-                  onClick={() => {
-                    if (mostRecentFailure) navigate('node', mostRecentFailure.id);
-                  }}
-                >
-                  Jump To Recent Failure
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Organization / grouping health */}
-      <div className="space-y-4 pt-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Organization</h2>
-            <p className="text-sm text-muted-foreground font-medium">Top-level groupings and roll-up health</p>
+      {/* Hotspots */}
+      {hasHotspots ? (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Hotspots</h2>
+              <p className="text-sm text-muted-foreground font-medium">
+                Long running (&gt; {formatDuration(acceptableSlowMs)}) and timed-out tests (grouped by parent container)
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="border-muted/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold">Long running</CardTitle>
+                <CardDescription>
+                  Containers where the slowest test took &gt; {formatDuration(acceptableSlowMs)}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {hotspots.longRunning.length === 0 ? null : (
+                  <div className="divide-y rounded-xl border bg-card overflow-hidden">
+                    {hotspots.longRunning.map((x) => (
+                      <button
+                        key={String(x.container.id)}
+                        type="button"
+                        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-muted/40 transition-colors"
+                        onClick={() => navigate('node', String(x.container.id))}
+                      >
+                        <StatusBadge status={String(x.container?.execution?.status ?? '') as any} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold truncate">{String(x.container?.title ?? '')}</div>
+                          <div className="text-xs text-muted-foreground truncate mt-1">
+                            Slowest: {String(x.slowestTest?.title ?? '')}
+                          </div>
+                        </div>
+                        <div className="text-xs font-bold text-muted-foreground/70">{formatDuration(x.maxDuration)}</div>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-muted/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold">Timeouts</CardTitle>
+                <CardDescription>Timed-out tests grouped by container</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {hotspots.timeouts.length === 0 ? null : (
+                  <div className="divide-y rounded-xl border bg-card overflow-hidden">
+                    {hotspots.timeouts.map((x) => (
+                      <button
+                        key={String(x.container.id)}
+                        type="button"
+                        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-muted/40 transition-colors"
+                        onClick={() => navigate('node', String(x.container.id))}
+                      >
+                        <StatusBadge status={'timedOut' as any} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold truncate">{String(x.container?.title ?? '')}</div>
+                          <div className="text-xs text-muted-foreground truncate mt-1">
+                            Example: {String(x.first?.title ?? '')}
+                          </div>
+                        </div>
+                        <Badge variant="destructive" className="font-bold">{x.count} timeout{x.count === 1 ? '' : 's'}</Badge>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
-
-        {visibleTopGroups.length === 0 ? (
-          <Card className="border-muted/50">
-            <CardContent className="py-6 text-sm text-muted-foreground">
-              No top-level folders found for this run.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleTopGroups.map((g) => (
-              <Card
-                key={g.id}
-                className="cursor-pointer hover:shadow-xl hover:scale-[1.01] transition-all duration-300 border-muted/50"
-                onClick={() => navigate('group', g.id)}
-              >
-                <CardContent className="p-5 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Folder className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold truncate">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {countContainers(g)} container{countContainers(g) === 1 ? '' : 's'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {g.status && <StatusBadge status={g.status as any} size="sm" />}
-                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      ) : null}
 
       {/* Failures */}
-      <div id="dashboard-failures" className="space-y-4 pt-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Failures</h2>
-            <p className="text-sm text-muted-foreground font-medium">Most useful starting points when something broke</p>
+      {hasFailures ? (
+        <div id="dashboard-failures" className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Failures</h2>
+              <p className="text-sm text-muted-foreground font-medium">Most useful starting points when something broke</p>
+            </div>
+            <Badge variant="secondary" className="font-bold">
+              {failingContainers.length}
+            </Badge>
           </div>
-          <Badge variant="secondary" className="font-bold">
-            {failingContainers.length}
-          </Badge>
-        </div>
 
-        {failingContainers.length === 0 ? (
-          <Card className="border-muted/50">
-            <CardContent className="py-8 text-sm text-muted-foreground flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-muted-foreground/60" />
-              No failing containers in this run.
-            </CardContent>
-          </Card>
-        ) : (
           <div className="rounded-xl border bg-card overflow-hidden">
             <div className="divide-y">
               {failingContainers.slice(0, 10).map((n) => (
@@ -316,29 +369,22 @@ export function SummaryView({ run }: SummaryViewProps) {
               ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       {/* Rule Violations */}
-      <div id="dashboard-rule-violations" className="space-y-4 pt-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Rule Violations</h2>
-            <p className="text-sm text-muted-foreground font-medium">Non-fatal warnings that may indicate weak specs or unclear intent</p>
+      {hasRuleViolations ? (
+        <div id="dashboard-rule-violations" className="space-y-4 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Rule Violations</h2>
+              <p className="text-sm text-muted-foreground font-medium">Non-fatal warnings that may indicate weak specs or unclear intent</p>
+            </div>
+            <Badge variant="secondary" className="font-bold">
+              {ruleViolationItems.totalViolations}
+            </Badge>
           </div>
-          <Badge variant="secondary" className="font-bold">
-            {ruleViolationItems.totalViolations}
-          </Badge>
-        </div>
 
-        {ruleViolationItems.items.length === 0 ? (
-          <Card className="border-muted/50">
-            <CardContent className="py-8 text-sm text-muted-foreground flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-muted-foreground/60" />
-              No rule violations in this run.
-            </CardContent>
-          </Card>
-        ) : (
           <div className="rounded-xl border bg-card overflow-hidden">
             <div className="divide-y">
               {ruleViolationItems.items.slice(0, 10).map((x) => {
@@ -372,8 +418,8 @@ export function SummaryView({ run }: SummaryViewProps) {
               })}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

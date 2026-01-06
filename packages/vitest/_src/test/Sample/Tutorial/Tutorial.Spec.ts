@@ -65,7 +65,7 @@ feature(`Beautiful Tea Shipping Costs
             | Australia          |      10.00 |      100.00 | Free                   |
             | New Zealand        |          0 |       99.99 | Standard International |
             | New Zealand        |          0 |      100.00 | Standard International |
-            | Zimbabwe           |          0 |      100.00 | Standard International |
+            | Zimbabwe           |         10 |      100.00 | Standard International |
         `, (ctx) => {
                 const cart = new ShoppingCart();
 

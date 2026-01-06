@@ -89,6 +89,25 @@ function Run-Build {
     Write-Host "Build complete!" -ForegroundColor Green
 }
 
+function Run-BuildPackages {
+    Write-Host "Building packages (incremental)..." -ForegroundColor Cyan
+    Write-Host "This builds packages individually to keep library code up to date." -ForegroundColor DarkGray
+
+    $schemaDir = Join-Path $repoRoot 'packages/schema'
+    $serverDir = Join-Path $repoRoot 'packages/server'
+    $vitestDir = Join-Path $repoRoot 'packages/vitest'
+    $viewerDir = Join-Path $repoRoot 'packages/viewer'
+    $vscodeDir = Join-Path $repoRoot 'packages/vscode'
+
+    if (Test-Path $schemaDir) { Invoke-InDirectory -WorkingDirectory $schemaDir -Executable 'pnpm' -Arguments @('run', 'build') }
+    if (Test-Path $serverDir) { Invoke-InDirectory -WorkingDirectory $serverDir -Executable 'pnpm' -Arguments @('run', 'build') }
+    if (Test-Path $vitestDir) { Invoke-InDirectory -WorkingDirectory $vitestDir -Executable 'pnpm' -Arguments @('run', 'build') }
+    if (Test-Path $viewerDir) { Invoke-InDirectory -WorkingDirectory $viewerDir -Executable 'pnpm' -Arguments @('run', 'build') }
+    if (Test-Path $vscodeDir) { Invoke-InDirectory -WorkingDirectory $vscodeDir -Executable 'pnpm' -Arguments @('run', 'compile') }
+
+    Write-Host "Package builds complete." -ForegroundColor Green
+}
+
 function Sync-Releases {
     $releasesDir = Join-Path $repoRoot 'releases'
     if (-not (Test-Path $releasesDir)) {
@@ -468,6 +487,7 @@ if ($Command -eq 'help' -or $Command -eq '-h' -or $Command -eq '--help') {
     Write-Host ""
     Write-Host "Commands:" -ForegroundColor White
     Write-Host "  build    Run a full local release build (install, build, package)" -ForegroundColor Gray
+    Write-Host "  build-packages    Build packages individually (fast incremental)" -ForegroundColor Gray
     Write-Host "  clean    Clean all packages" -ForegroundColor Gray
     Write-Host "  test     Run all tests" -ForegroundColor Gray
     Write-Host "  -List    List all available package scripts (including build/package)" -ForegroundColor Gray
@@ -479,6 +499,11 @@ if ($Command -eq 'help' -or $Command -eq '-h' -or $Command -eq '--help') {
 
 if ($Command -eq 'build') {
     Run-Build
+    return
+}
+
+if ($Command -eq 'build-packages' -or $Command -eq 'build:packages') {
+    Run-BuildPackages
     return
 }
 
@@ -508,6 +533,11 @@ $packageMenuItems.Add((New-MenuItem -Label 'Dev All (Viewer + Server)' -HotKey '
 # Add Build All option
 $packageMenuItems.Add((New-MenuItem -Label 'Build All (pnpm build + package)' -HotKey 'b' -Action ({
     Run-Build
+}.GetNewClosure())))
+
+# Add Build Packages option (fast incremental)
+$packageMenuItems.Add((New-MenuItem -Label 'Build Packages (schema/server/vitest/viewer/vscode)' -HotKey 'p' -Action ({
+    Run-BuildPackages
 }.GetNewClosure())))
 
 $packageMenuItems.Add((New-MenuItem -Label 'Clean All (pnpm clean)' -HotKey 'x' -Action ({

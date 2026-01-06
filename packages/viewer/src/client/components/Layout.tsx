@@ -6,6 +6,7 @@ import { Button } from "./ui/button"
 import { Moon, Sun, Bell } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
 import { GlobalFilter } from "./GlobalFilter"
+import { Badge } from "./ui/badge"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true)
@@ -15,6 +16,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const latestRun = runs[0]
   const latestIsRunning = latestRun?.status === "running"
   const hasNewLiveRun = latestIsRunning && latestRun.runId !== selectedRunId
+
+  const connectionLabel =
+    connectionStatus === 'connected'
+      ? 'Connected'
+      : connectionStatus === 'connecting'
+        ? 'Connecting'
+        : connectionStatus === 'disconnected'
+          ? 'Disconnected'
+          : 'Error'
 
   React.useEffect(() => {
     if (isDark) {
@@ -35,9 +45,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <GlobalFilter className="max-w-2xl w-full" />
 
             <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-              <span>
-                Live: {connectionStatus === "connected" ? "Connected" : connectionStatus}
-              </span>
+              <Badge
+                variant="outline"
+                className={
+                  connectionStatus === 'connected'
+                    ? 'rounded-full border-primary/40 bg-primary/15 text-primary font-bold'
+                    : connectionStatus === 'connecting'
+                      ? 'rounded-full border-muted-foreground/30 bg-muted/60 text-foreground font-bold'
+                      : 'rounded-full border-destructive/40 bg-destructive/15 text-destructive font-bold'
+                }
+              >
+                Live: {connectionLabel}
+              </Badge>
               {latestIsRunning && (
                 <span className="rounded-full border px-2 py-1 text-foreground">
                   Run in progress

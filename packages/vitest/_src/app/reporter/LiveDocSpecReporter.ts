@@ -85,16 +85,14 @@ export default class LiveDocSpecReporter implements Reporter {
         this.streamedStates.clear();
 
         const index = (task: Task) => {
-            if (task?.id) this.taskById.set(task.id, task);
-            for (const child of (task.tasks || []) as Task[]) {
-                index(child);
-            }
+            if ((task as any)?.id) this.taskById.set((task as any).id, task);
+            const children = Array.isArray((task as any)?.tasks) ? ((task as any).tasks as Task[]) : [];
+            for (const child of children) index(child);
         };
 
         for (const file of files || []) {
-            for (const t of (file.tasks || []) as Task[]) {
-                index(t);
-            }
+            const tasks = Array.isArray((file as any)?.tasks) ? ((file as any).tasks as Task[]) : [];
+            for (const t of tasks) index(t);
         }
     }
 

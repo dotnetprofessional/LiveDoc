@@ -161,6 +161,11 @@ export default class LiveDocServerReporter implements Reporter {
         return { taskId, result: obj?.result };
     }
 
+    private getTaskChildren(task: unknown): Task[] {
+        const anyTask = task as any;
+        return Array.isArray(anyTask?.tasks) ? (anyTask.tasks as Task[]) : [];
+    }
+
     async onTestRunEnd(testModules: readonly any[]): Promise<void> {
         if (!this.isAvailable || !this.serverUrl) return;
 
@@ -190,9 +195,7 @@ export default class LiveDocServerReporter implements Reporter {
     private indexTaskTree(task: Task): void {
         const id = (task as any).id as string | undefined;
         if (id) this.taskById.set(id, task);
-        for (const child of (task.tasks || []) as Task[]) {
-            this.indexTaskTree(child);
-        }
+        for (const child of this.getTaskChildren(task)) this.indexTaskTree(child);
     }
 
     private async postInitialNodesForTask(runId: string, task: Task, filepath: string, parentNodeId?: string): Promise<void> {
@@ -229,7 +232,7 @@ export default class LiveDocServerReporter implements Reporter {
                 this.taskToNodeId.set((task as any).id, nodeId);
                 this.nodeStatus.set(nodeId, 'pending');
 
-                for (const child of (task.tasks || []) as Task[]) {
+                for (const child of this.getTaskChildren(task)) {
                     await this.postInitialNodesForTask(runId, child, filepath, nodeId);
                 }
                 return;
@@ -261,7 +264,7 @@ export default class LiveDocServerReporter implements Reporter {
                 this.taskToNodeId.set((task as any).id, nodeId);
                 this.nodeStatus.set(nodeId, 'pending');
 
-                for (const child of (task.tasks || []) as Task[]) {
+                for (const child of this.getTaskChildren(task)) {
                     await this.postInitialNodesForTask(runId, child, filepath, nodeId);
                 }
                 return;
@@ -289,7 +292,7 @@ export default class LiveDocServerReporter implements Reporter {
                     this.nodeStatus.set(nodeId, 'pending');
 
                     let stepIndex = 0;
-                    for (const child of (task.tasks || []) as Task[]) {
+                    for (const child of this.getTaskChildren(task)) {
                         if (child.type === 'test') {
                             await this.postStepNode(runId, child, nodeId, stepIndex++);
                         }
@@ -326,7 +329,7 @@ export default class LiveDocServerReporter implements Reporter {
                     this.taskToNodeId.set((task as any).id, outlineId);
                     this.nodeStatus.set(outlineId, 'pending');
 
-                    const exampleSuites = (task.tasks || []).filter((t: any) => t.type === 'suite') as Task[];
+                    const exampleSuites = this.getTaskChildren(task).filter((t: any) => t.type === 'suite') as Task[];
                     for (let i = 0; i < exampleSuites.length; i++) {
                         const exampleSuite = exampleSuites[i];
                         const exampleId = generateStabilityId({ project: this.project, title: parsed.title, kind: 'Scenario', parentId: outlineId, index: i });
@@ -345,7 +348,7 @@ export default class LiveDocServerReporter implements Reporter {
                         this.nodeStatus.set(exampleId, 'pending');
 
                         let stepIndex = 0;
-                        for (const child of (exampleSuite.tasks || []) as Task[]) {
+                        for (const child of this.getTaskChildren(exampleSuite)) {
                             if (child.type === 'test') {
                                 await this.postStepNode(runId, child, exampleId, stepIndex++);
                             }
@@ -372,7 +375,7 @@ export default class LiveDocServerReporter implements Reporter {
                 await this.viewerReporter.postNodeToRun(runId, undefined, suite);
                 this.taskToNodeId.set((task as any).id, suiteId);
                 this.nodeStatus.set(suiteId, 'pending');
-                for (const child of (task.tasks || []) as Task[]) {
+                for (const child of this.getTaskChildren(task)) {
                     await this.postInitialNodesForTask(runId, child, filepath, suiteId);
                 }
                 return;
@@ -394,7 +397,7 @@ export default class LiveDocServerReporter implements Reporter {
                 this.recordChild(parentNodeId, nestedSuiteId);
                 this.taskToNodeId.set((task as any).id, nestedSuiteId);
                 this.nodeStatus.set(nestedSuiteId, 'pending');
-                for (const child of (task.tasks || []) as Task[]) {
+                for (const child of this.getTaskChildren(task)) {
                     await this.postInitialNodesForTask(runId, child, filepath, nestedSuiteId);
                 }
                 return;
