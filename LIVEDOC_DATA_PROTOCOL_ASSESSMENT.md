@@ -215,6 +215,7 @@ Proposed invariants (vNext-shaped examples):
 - `Node` (all kinds)
   - `id` is a **StabilityID** (deterministic hash of hierarchy + title).
   - `kind`, `title`, and `execution.status` always present.
+  - `path` is optional, but for root documents (Feature / Specification / Suite) it should be the source file path relative to the project root.
   - `title` is always a **template** (placeholder-bearing) string.
   - If `binding` exists, the UI applies it to `title` so it can format and highlight bound values.
 - `Container<TChild>`
@@ -397,7 +398,8 @@ classDiagram
         class Node {
             <<interface>>
             +id: string
-        +kind: string
+      +kind: string
+        +path: string
             +title: string
             +description: string
             +tags: string[]
@@ -655,6 +657,10 @@ export interface Node {
   id: string;
   // Kind is explicit for known types; consumers should ignore unknown kinds gracefully.
   kind: string;
+
+  // Optional source path for grouping (recommended: file path relative to repo/project root).
+  // Example: "features/auth/Login.feature" or "src/specs/UserLogin.Spec.ts".
+  path?: string;
 
   // IMPORTANT: title is a TEMPLATE.
   // If `binding` exists, the UI applies binding to `title` to render/format/highlight values.

@@ -3,12 +3,14 @@ import { Sidebar } from "./Sidebar"
 import { useStore } from "../store"
 import { isEmbedded } from "../config"
 import { Button } from "./ui/button"
-import { Moon, Sun, Search, LayoutDashboard, FileText, Settings, Bell } from "lucide-react"
-import { cn } from "../lib/utils"
+import { Moon, Sun, Bell } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
+import { GlobalFilter } from "./GlobalFilter"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true)
   const embedded = isEmbedded()
+  const { audienceMode, setAudienceMode } = useStore()
 
   React.useEffect(() => {
     if (isDark) {
@@ -26,17 +28,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Header */}
         <header className="h-16 border-b flex items-center justify-between px-6 shrink-0 bg-card/50 backdrop-blur-md z-10">
           <div className="flex items-center gap-4 flex-1">
-            <div className="relative max-w-md w-full hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input 
-                type="text" 
-                placeholder="Search specifications..." 
-                className="w-full bg-muted/50 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 transition-all"
-              />
-            </div>
+            <GlobalFilter className="max-w-2xl w-full" />
           </div>
 
           <div className="flex items-center gap-2">
+            <Tabs value={audienceMode} onValueChange={(v) => setAudienceMode(v as any)}>
+              <TabsList className="h-9 rounded-full bg-muted/40">
+                <TabsTrigger value="business" className="rounded-full text-xs">Business</TabsTrigger>
+                <TabsTrigger value="developer" className="rounded-full text-xs">Developer</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="w-4 h-4" />
             </Button>

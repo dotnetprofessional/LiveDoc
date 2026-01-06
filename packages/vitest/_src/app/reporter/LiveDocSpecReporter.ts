@@ -6,6 +6,7 @@ import { LiveDocReporter } from './LiveDocReporter';
 import { LiveDocViewerReporter } from './LiveDocViewerReporter';
 import { livedoc } from '../livedoc';
 import * as model from '../model/index';
+import { DescriptionParser } from '../parser/Parser';
 
 /**
  * Vitest Reporter that provides enhanced BDD output using LiveDocSpec
@@ -152,18 +153,12 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private buildFeatureFromSuite(suite: any, filepath: string): model.Feature {
         const feature = new model.Feature();
-        
-        // Extract feature title and description from suite name
-        const lines = suite.name.split('\n');
-        feature.title = lines[0].replace(/^Feature:\s*/, '').trim();
+
+        const parsed = this.parseTitleBlock(String(suite?.name ?? '').replace(/^Feature:\s*/i, ''));
+        feature.title = parsed.title;
+        feature.description = parsed.description;
+        feature.tags = parsed.tags;
         feature.filename = filepath;
-        
-        if (lines.length > 1) {
-            feature.description = lines.slice(1)
-                .map((l: string) => l.trim())
-                .filter((l: string) => l.length > 0)
-                .join('\n');
-        }
         
         // Process tasks - detect backgrounds, scenarios, and scenario outlines.
         // IMPORTANT: build the Background first so Scenario.addStep() can validate
@@ -204,9 +199,12 @@ export default class LiveDocSpecReporter implements Reporter {
     private buildScenarioOutlineFromNestedStructure(suite: any, feature: model.Feature): model.ScenarioOutline {
         const scenarioOutline = new model.ScenarioOutline(feature);
 
-        // Determine outline title from suite name (Vitest describes this as "Scenario: <title>")
-        const outlineTitle = (suite.name || '').replace(/^Scenario:\s*/i, '').split('\n')[0].trim();
-        scenarioOutline.title = outlineTitle;
+        // Determine outline title/description/tags from suite name (Vitest describes this as "Scenario: <title>")
+        const parsed = this.parseTitleBlock(String(suite?.name ?? '').replace(/^Scenario:\s*/i, ''));
+        const outlineTitle = parsed.title;
+        scenarioOutline.title = parsed.title;
+        scenarioOutline.description = parsed.description;
+        scenarioOutline.tags = parsed.tags;
         
         // Get example suites
         const exampleSuites = (suite.tasks || []).filter((t: any) => 
@@ -269,7 +267,11 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private buildBackgroundFromSuite(suite: any, feature: model.Feature): model.Background {
         const background = new model.Background(feature);
-        background.title = suite.name.replace(/^Background:\s*/, '').split('\n')[0].trim();
+
+        const parsed = this.parseTitleBlock(String(suite?.name ?? '').replace(/^Background:\s*/i, ''));
+        background.title = parsed.title;
+        background.description = parsed.description;
+        background.tags = parsed.tags;
         const forcePending = suite?.mode === 'skip' || suite?.mode === 'todo';
         
         // Build steps
@@ -285,18 +287,12 @@ export default class LiveDocSpecReporter implements Reporter {
     
     private buildScenarioFromSuite(suite: any, feature: model.Feature): model.Scenario {
         const scenario = new model.Scenario(feature);
-        const cleanName = suite.name;
-        scenario.title = cleanName.replace(/^Scenario:\s*/, '').split('\n')[0].trim();
+
+        const parsed = this.parseTitleBlock(String(suite?.name ?? '').replace(/^Scenario:\s*/i, ''));
+        scenario.title = parsed.title;
+        scenario.description = parsed.description;
+        scenario.tags = parsed.tags;
         const forcePending = suite?.mode === 'skip' || suite?.mode === 'todo';
-        
-        // Parse description if available
-        const lines = cleanName.split('\n');
-        if (lines.length > 1) {
-            scenario.description = lines.slice(1)
-                .map((l: string) => l.trim())
-                .filter((l: string) => l.length > 0 && !l.startsWith('Examples:'))
-                .join('\n');
-        }
         
         // Build steps
         for (const task of (suite.tasks || [])) {
@@ -370,6 +366,16 @@ export default class LiveDocSpecReporter implements Reporter {
         }
 
         return tables;
+    }
+
+    private parseTitleBlock(text: string): { title: string; description: string; tags: string[] } {
+        const parser = new DescriptionParser();
+        parser.parseDescription(text || '');
+        return {
+            title: parser.title || '',
+            description: parser.description || '',
+            tags: Array.isArray(parser.tags) ? parser.tags : []
+        };
     }
     
     private sanitizeName(name: string): string {
@@ -554,19 +560,12 @@ export default class LiveDocSpecReporter implements Reporter {
 
     private buildSpecificationFromSuite(suite: any, filepath: string): model.Specification {
         const specification = new model.Specification();
-        
-        // Extract specification title and description from suite name
-        const fullName = suite.name.replace(/^Specification:\s*/, '');
-        const lines = fullName.split('\n');
-        specification.title = lines[0].trim();
+
+        const parsed = this.parseTitleBlock(String(suite?.name ?? '').replace(/^Specification:\s*/i, ''));
+        specification.title = parsed.title;
+        specification.description = parsed.description;
+        specification.tags = parsed.tags;
         specification.filename = filepath;
-        
-        if (lines.length > 1) {
-            specification.description = lines.slice(1)
-                .map((l: string) => l.trim())
-                .filter((l: string) => l.length > 0)
-                .join('\n');
-        }
         
         // Process tasks - detect rules and rule outlines
         for (const task of (suite.tasks || [])) {
@@ -661,16 +660,12 @@ export default class LiveDocSpecReporter implements Reporter {
             }
         } else {
             // Fallback to suite name parsing
-            const fullName = String(suite.name || '').replace(/^Rule\s+Outline:\s*/i, '').replace(/^Rule:\s*/i, '');
-            const lines = fullName.split('\n');
-            ruleOutline.title = lines[0].trim();
-
-            if (lines.length > 1) {
-                ruleOutline.description = lines.slice(1)
-                    .map((l: string) => l.trim())
-                    .filter((l: string) => l.length > 0)
-                    .join('\n');
-            }
+            const parsed = this.parseTitleBlock(
+                String(suite?.name ?? '').replace(/^Rule\s+Outline:\s*/i, '').replace(/^Rule:\s*/i, '')
+            );
+            ruleOutline.title = parsed.title;
+            ruleOutline.description = parsed.description;
+            ruleOutline.tags = parsed.tags;
         }
         
         // Build rule examples from each example test

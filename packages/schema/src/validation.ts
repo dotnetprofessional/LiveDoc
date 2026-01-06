@@ -77,6 +77,7 @@ export const StatisticsSchema = z.object({
 export const NodeSchema = z.object({
   id: z.string(),
   kind: z.string(),
+  path: z.string().optional(),
   title: z.string(),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),

@@ -1,24 +1,27 @@
-import { Node, Feature, Scenario, Specification, Rule, TestSuite, Test, Outline, Step, Binding, Container } from '@livedoc/schema';
+import { Node, Binding } from '@livedoc/schema';
 import { StepList, TemplateStepList } from './StepList';
-import { StatsBar } from './StatsBar';
-import { ChevronRight, ChevronDown, Clock, Tag, FileText, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, BookOpen, Target, Info } from 'lucide-react';
+import { ChevronRight, Clock, Tag, FileText, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, BookOpen, Target, Info, Calendar, Globe } from 'lucide-react';
 import { useStore } from '../store';
 import { renderTitle } from '../lib/title-utils';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+import { subtreeHasMatch } from '../lib/filter-utils';
 
 interface NodeViewProps {
   node: Node;
 }
 
 export function NodeView({ node }: NodeViewProps) {
-  const { navigate } = useStore();
+  const { navigate, audienceMode, getCurrentRun, filterText, filterTags } = useStore();
   const [selectedExampleId, setSelectedExampleId] = useState<string | null>(null);
+
+  const run = getCurrentRun();
+  const kind = String((node as any).kind ?? '').toLowerCase();
+  const isBusiness = audienceMode === 'business';
 
   const summary = 'summary' in node ? (node as any).summary : undefined;
   const children = 'children' in node ? (node as any).children : undefined;
@@ -26,12 +29,15 @@ export function NodeView({ node }: NodeViewProps) {
   const templateSteps = 'templateSteps' in node ? (node as any).templateSteps : undefined;
   const steps = 'steps' in node ? (node as any).steps : undefined;
 
+  type BindingVariable = { name: string; value: { value: unknown } };
   const getHighlightValues = (binding?: Binding) => {
     if (!binding) return undefined;
-    return binding.variables.reduce((acc, v) => {
-      acc[v.name] = String(v.value.value);
+    const variables = (binding as any).variables as BindingVariable[] | undefined;
+    if (!variables || variables.length === 0) return undefined;
+    return variables.reduce<Record<string, string>>((acc: Record<string, string>, v: BindingVariable) => {
+      acc[v.name] = String(v.value?.value);
       return acc;
-    }, {} as Record<string, string>);
+    }, {});
   };
 
   const highlightValues = getHighlightValues(node.binding);
@@ -65,23 +71,26 @@ export function NodeView({ node }: NodeViewProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 bg-primary/5 rounded-xl border border-primary/10">
-              {node.kind === 'feature' ? <BookOpen className="w-5 h-5 text-primary" /> : 
-               node.kind === 'scenario' ? <Target className="w-5 h-5 text-primary" /> :
-               <FileText className="w-5 h-5 text-primary" />}
+              {kind === 'feature' ? <BookOpen className="w-5 h-5 text-primary" /> :
+              kind === 'scenario' || kind === 'outline' ? <Target className="w-5 h-5 text-primary" /> :
+              <FileText className="w-5 h-5 text-primary" />}
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
-              {node.kind}
+              {kind || node.kind}
             </span>
             <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-            <Badge variant="outline" className="rounded-full text-[10px] font-bold uppercase tracking-widest border-muted-foreground/20 text-muted-foreground/60">
-              ID: {node.id.split('-')[0]}
-            </Badge>
+            {!isBusiness && (
+              <Badge
+                variant="outline"
+                className="rounded-full text-[10px] font-bold uppercase tracking-widest border-muted-foreground/20 text-muted-foreground/60"
+              >
+                ID: {node.id.split('-')[0]}
+              </Badge>
+            )}
           </div>
-          
+
           <div className="flex items-start gap-4">
-            <div className="mt-1 shrink-0">
-              {getStatusIcon(node.execution.status)}
-            </div>
+            <div className="mt-1 shrink-0">{getStatusIcon(node.execution.status)}</div>
             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground leading-tight">
               {renderTitle(node.title, highlightValues)}
             </h1>
@@ -95,13 +104,38 @@ export function NodeView({ node }: NodeViewProps) {
               </p>
             </div>
           )}
-          
+
           {renderTags(node.tags)}
         </div>
 
         <div className="flex flex-col items-end gap-4 shrink-0">
           <Card className="bg-card border-none shadow-lg p-4 min-w-45">
             <div className="space-y-4">
+              {run && (
+                <>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Last verified</span>
+                    <span className="text-sm font-black flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-primary" />
+                      {new Date(run.timestamp).toLocaleString([], {
+                        year: 'numeric',
+                        month: 'numeric',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Environment</span>
+                    <span className="text-sm font-black flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-primary" />
+                      {run.environment || 'Default'}
+                    </span>
+                  </div>
+                  <Separator className="opacity-50" />
+                </>
+              )}
               <div className="flex items-center justify-between gap-4">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duration</span>
                 <span className="text-sm font-black flex items-center gap-1.5">
@@ -139,8 +173,7 @@ export function NodeView({ node }: NodeViewProps) {
     const headers = Object.keys(examples[0].exampleValues || {});
     if (headers.length === 0) return null;
 
-    const selectedExample = examples.find(e => e.id === selectedExampleId);
-    const substitutionValues = selectedExample?.exampleValues || null;
+    const selectedExample = (examples as any[]).find((e: any) => e.id === selectedExampleId);
 
     return (
       <div className="mt-12 space-y-8">
@@ -182,7 +215,7 @@ export function NodeView({ node }: NodeViewProps) {
               </tr>
             </thead>
             <tbody>
-              {examples.map((example, idx) => (
+              {(examples as any[]).map((example: any, idx: number) => (
                 <tr 
                   key={example.id} 
                   className={cn(
@@ -235,7 +268,12 @@ export function NodeView({ node }: NodeViewProps) {
                   </Badge>
                 </CardHeader>
                 <CardContent className="pt-8">
-                  <StepList steps={selectedExample.steps || []} highlightValues={selectedExample.exampleValues} />
+                  <StepList
+                    steps={selectedExample.steps || []}
+                    highlightValues={selectedExample.exampleValues}
+                    showDurations={!isBusiness}
+                    showErrorStack={!isBusiness}
+                  />
                 </CardContent>
               </Card>
             </motion.div>
@@ -247,6 +285,16 @@ export function NodeView({ node }: NodeViewProps) {
 
   const renderChildren = () => {
     if (!children || children.length === 0) return null;
+
+    const textLower = filterText.trim().toLowerCase();
+    const hasText = textLower.length > 0;
+    const hasTags = filterTags.length > 0;
+    const visibleChildren = (!hasText && !hasTags)
+      ? (children as any[])
+      : (children as any[]).filter((child: any) => subtreeHasMatch(child as any, textLower, filterTags));
+
+    if (visibleChildren.length === 0) return null;
+
     return (
       <div className="mt-16 space-y-8">
         <div className="flex items-center gap-3">
@@ -254,13 +302,13 @@ export function NodeView({ node }: NodeViewProps) {
             <Layers className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Specifications</h2>
-            <p className="text-sm text-muted-foreground font-medium">Nested requirements and scenarios</p>
+            <h2 className="text-2xl font-bold tracking-tight">{isBusiness ? 'Acceptance Criteria' : 'Specifications'}</h2>
+            <p className="text-sm text-muted-foreground font-medium">{isBusiness ? 'What is proven by these scenarios' : 'Nested requirements and scenarios'}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {children.map(child => (
+          {visibleChildren.map((child: any) => (
             <Card 
               key={child.id}
               className="group cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-muted/50 overflow-hidden"
@@ -309,13 +357,20 @@ export function NodeView({ node }: NodeViewProps) {
               <Info className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">Execution</h2>
-              <p className="text-sm text-muted-foreground font-medium">Step-by-step verification</p>
+              <h2 className="text-2xl font-bold tracking-tight">{isBusiness ? 'Acceptance Criteria' : 'Execution'}</h2>
+              <p className="text-sm text-muted-foreground font-medium">
+                {isBusiness ? 'The behavior this scenario proves' : 'Step-by-step verification'}
+              </p>
             </div>
           </div>
           <Card className="border-none shadow-2xl bg-card overflow-hidden">
             <CardContent className="pt-10">
-              <StepList steps={steps} highlightValues={highlightValues} />
+              <StepList
+                steps={steps}
+                highlightValues={highlightValues}
+                showDurations={!isBusiness}
+                showErrorStack={!isBusiness}
+              />
             </CardContent>
           </Card>
         </div>

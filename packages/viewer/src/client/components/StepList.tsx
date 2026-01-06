@@ -1,6 +1,6 @@
 import { Step, Status } from '@livedoc/schema';
 import { renderTitle, highlightPlaceholders } from '../lib/title-utils';
-import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, FileText, ChevronRight } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface StepListProps {
@@ -8,13 +8,17 @@ interface StepListProps {
   showStatus?: boolean;
   /** Optional example values to highlight in rendered titles (ScenarioOutline / RuleOutline examples) */
   highlightValues?: Record<string, string>;
+  /** Hide per-step durations (Business mode default) */
+  showDurations?: boolean;
+  /** Show stack traces for failures (Developer mode default) */
+  showErrorStack?: boolean;
 }
 
-export function StepList({ steps, showStatus = true, highlightValues }: StepListProps) {
+export function StepList({ steps, showStatus = true, highlightValues, showDurations = true, showErrorStack = true }: StepListProps) {
   return (
     <div className="space-y-6">
       {steps.map((step, index) => (
-        <StepItem key={index} step={step} showStatus={showStatus} highlightValues={highlightValues} />
+        <StepItem key={index} step={step} showStatus={showStatus} highlightValues={highlightValues} showDurations={showDurations} showErrorStack={showErrorStack} />
       ))}
     </div>
   );
@@ -24,16 +28,20 @@ interface StepItemProps {
   step: Step;
   showStatus?: boolean;
   highlightValues?: Record<string, string>;
+  showDurations?: boolean;
+  showErrorStack?: boolean;
 }
 
-function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
+function StepItem({ step, showStatus = true, highlightValues, showDurations = true, showErrorStack = true }: StepItemProps) {
   const typeColors: Record<string, string> = {
-    Given: 'text-given',
-    When: 'text-when',
-    Then: 'text-then',
-    And: 'text-muted-foreground/70',
-    But: 'text-destructive/70',
+    given: 'text-given',
+    when: 'text-when',
+    then: 'text-then',
+    and: 'text-muted-foreground/70',
+    but: 'text-destructive/70',
   };
+
+  const keywordLabel = (step.keyword?.[0]?.toUpperCase() ?? '') + (step.keyword?.slice(1) ?? '');
 
   const getStatusIcon = (status: Status) => {
     switch (status) {
@@ -44,7 +52,7 @@ function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
     }
   };
 
-  const normalizedTable = normalizeDataTable(step.table);
+  const normalizedTable = normalizeDataTable(step.dataTable);
 
   return (
     <div className="group relative pl-8">
@@ -59,14 +67,14 @@ function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
         <div className="flex items-baseline gap-3">
           <span className={cn(
             "font-black text-[10px] uppercase tracking-[0.2em] shrink-0 w-16",
-            typeColors[step.type]
+            typeColors[String(step.keyword)] || 'text-muted-foreground/70'
           )}>
-            {step.type}
+            {keywordLabel}
           </span>
           <div className="text-[15px] text-foreground font-medium leading-relaxed">
             {renderTitle(step.title, highlightValues)}
           </div>
-          {step.execution.duration > 0 && (
+          {showDurations && step.execution.duration > 0 && (
             <span className="text-[10px] font-bold text-muted-foreground/40 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
               <Clock className="w-3 h-3" />
               {step.execution.duration}ms
@@ -124,7 +132,7 @@ function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
               <XCircle className="w-4 h-4" />
               {step.execution.error.message}
             </div>
-            {step.execution.error.stack && (
+            {showErrorStack && step.execution.error.stack && (
               <pre className="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap overflow-x-auto max-h-60 scrollbar-thin">
                 {step.execution.error.stack}
               </pre>
@@ -138,6 +146,20 @@ function StepItem({ step, showStatus = true, highlightValues }: StepItemProps) {
 
 function normalizeDataTable(dataTable: unknown): { headers: string[]; rows: string[][] } | null {
   if (!dataTable) return null;
+
+  // Schema shape: { headers: string[], rows: { rowId, values: TypedValue[] }[] }
+  if (
+    typeof dataTable === 'object' &&
+    dataTable !== null &&
+    Array.isArray((dataTable as any).headers) &&
+    Array.isArray((dataTable as any).rows)
+  ) {
+    const headers = ((dataTable as any).headers as unknown[]).map((h) => String(h ?? ''));
+    const rows = ((dataTable as any).rows as any[])
+      .map((r) => (Array.isArray(r?.values) ? r.values : []))
+      .map((values) => values.map((v: any) => String(v?.displayFormat ?? v?.value ?? '')));
+    return { headers, rows };
+  }
 
   // Viewer legacy shape: { rows: string[][] }
   if (typeof dataTable === 'object' && dataTable !== null && Array.isArray((dataTable as any).rows)) {

@@ -229,6 +229,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         const feature: Feature = {
             id: featureId,
             kind: 'Feature',
+            path: fileInfo.filename || undefined,
             title: sdkFeature.title,
             description: sdkFeature.description,
             tags: sdkFeature.tags,
@@ -683,6 +684,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         const spec: Specification = {
             id: specId,
             kind: 'Specification',
+            path: fileInfo.filename || undefined,
             title: sdkSpec.title,
             description: sdkSpec.description,
             tags: sdkSpec.tags,
@@ -799,6 +801,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         const suite: TestSuite = {
             id: suiteId,
             kind: 'Suite',
+            path: fileInfo.filename || undefined,
             title: sdkSuite.title,
             execution: {
                 status: 'passed', // Will be updated by server

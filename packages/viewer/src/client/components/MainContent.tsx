@@ -1,6 +1,7 @@
 import { useStore } from '../store';
 import { SummaryView } from './SummaryView';
 import { NodeView } from './NodeView';
+import { GroupView } from './GroupView';
 import { ClipboardList, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -57,6 +58,10 @@ export function MainContent() {
           
           {currentView.type === 'node' && node && (
             <NodeView node={node} />
+          )}
+
+          {currentView.type === 'group' && currentView.id && (
+            <GroupView run={run} groupId={currentView.id} />
           )}
         </motion.div>
       </AnimatePresence>

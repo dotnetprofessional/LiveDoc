@@ -1,6 +1,6 @@
 import { Status } from '@livedoc/schema';
 import { cn } from '../lib/utils';
-import { Check, X, Minus, HelpCircle, Clock } from "lucide-react"
+import { Check, X, Minus, HelpCircle, Clock, Loader2 } from "lucide-react"
 
 interface StatusBadgeProps {
   status: Status;
@@ -10,7 +10,12 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, size = 'md', showLabel = false, className }: StatusBadgeProps) {
-  const variants = {
+  const variants: Record<Status | 'unknown', { bg: string; icon: typeof Check; label: string }> = {
+    running: {
+      bg: 'bg-muted text-muted-foreground border-border',
+      icon: Loader2,
+      label: 'Running'
+    },
     passed: {
       bg: 'bg-pass/10 text-pass border-pass/20',
       icon: Check,
@@ -20,6 +25,16 @@ export function StatusBadge({ status, size = 'md', showLabel = false, className 
       bg: 'bg-fail/10 text-fail border-fail/20',
       icon: X,
       label: 'Failed'
+    },
+    timedOut: {
+      bg: 'bg-fail/10 text-fail border-fail/20',
+      icon: X,
+      label: 'Timed Out'
+    },
+    cancelled: {
+      bg: 'bg-muted text-muted-foreground border-border',
+      icon: Minus,
+      label: 'Cancelled'
     },
     skipped: {
       bg: 'bg-muted text-muted-foreground border-border',
@@ -70,7 +85,7 @@ export function StatusBadge({ status, size = 'md', showLabel = false, className 
       )}
       title={status}
     >
-      <Icon className="w-full h-full" strokeWidth={3} />
+      <Icon className={cn("w-full h-full", status === 'running' && "animate-spin")} strokeWidth={3} />
     </span>
   );
 }

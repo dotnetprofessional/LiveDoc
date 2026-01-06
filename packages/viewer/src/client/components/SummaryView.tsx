@@ -9,13 +9,14 @@ import { StatusBadge } from './StatusBadge';
 import { ChevronRight, Clock, Calendar, Globe, Zap, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
+import { normalizeTag, subtreeHasMatch } from '../lib/filter-utils';
 
 interface SummaryViewProps {
   run: Run;
 }
 
 export function SummaryView({ run }: SummaryViewProps) {
-  const { navigate } = useStore();
+  const { navigate, filterText, filterTags } = useStore();
   
   const summary = run.summary;
   const duration = run.duration;
@@ -35,6 +36,14 @@ export function SummaryView({ run }: SummaryViewProps) {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 }
   };
+
+  const filteredDocuments = (() => {
+    const textLower = filterText.trim().toLowerCase();
+    const hasText = textLower.length > 0;
+    const hasTags = filterTags.length > 0;
+    if (!hasText && !hasTags) return run.documents;
+    return run.documents.filter((n) => subtreeHasMatch(n as any, textLower, filterTags));
+  })();
 
   return (
     <div className="space-y-8">
@@ -142,11 +151,6 @@ export function SummaryView({ run }: SummaryViewProps) {
               <p className="text-sm text-muted-foreground font-medium">Explore the executable requirements</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mr-2">Filter:</span>
-            <Button variant="secondary" size="sm" className="rounded-full text-[10px] font-bold uppercase tracking-wider">All</Button>
-            <Button variant="ghost" size="sm" className="rounded-full text-[10px] font-bold uppercase tracking-wider">Failed</Button>
-          </div>
         </div>
 
         <motion.div 
@@ -155,7 +159,7 @@ export function SummaryView({ run }: SummaryViewProps) {
           animate="show"
           className="grid gap-4"
         >
-          {run.documents.map(node => (
+          {filteredDocuments.map(node => (
             <motion.div key={node.id} variants={item}>
               <Card 
                 className="group cursor-pointer hover:shadow-2xl hover:scale-[1.01] transition-all duration-300 border-muted/50 overflow-hidden"
@@ -181,7 +185,7 @@ export function SummaryView({ run }: SummaryViewProps) {
                             <div className="flex gap-1">
                               {node.tags.slice(0, 2).map(tag => (
                                 <span key={tag} className="text-[9px] font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
-                                  @{tag}
+                                  {normalizeTag(String(tag))}
                                 </span>
                               ))}
                             </div>

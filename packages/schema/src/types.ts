@@ -93,6 +93,10 @@ export interface Node {
   // Kind is explicit for known types; consumers should ignore unknown kinds gracefully.
   kind: string;
 
+  // Optional source path for grouping (recommended: file path relative to repo/project root).
+  // Example: "features/auth/Login.feature" or "src/specs/UserLogin.Spec.ts".
+  path?: string;
+
   // IMPORTANT: title is a TEMPLATE.
   // If `binding` exists, the UI applies binding to `title` to render/format/highlight values.
   title: string;

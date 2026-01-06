@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { Node, Statistics, Status } from '@livedoc/schema';
 
+function getInitialAudienceMode(): 'business' | 'developer' {
+  try {
+    const stored = localStorage.getItem('livedoc.viewer.audienceMode');
+    if (stored === 'business' || stored === 'developer') return stored;
+  } catch {
+    // ignore (e.g. storage unavailable)
+  }
+  return 'business';
+}
+
 export interface Run {
   runId: string;
   project?: string;
@@ -37,13 +47,14 @@ export interface ProjectNode {
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 export type ViewMode = 'tree' | 'list';
 export type Theme = 'dark' | 'light';
+export type AudienceMode = 'business' | 'developer';
 
 // Navigation view types
-export type ViewType = 'summary' | 'node';
+export type ViewType = 'summary' | 'node' | 'group';
 
 export interface CurrentView {
   type: ViewType;
-  nodeId?: string;
+  id?: string;
 }
 
 interface AppState {
@@ -62,8 +73,13 @@ interface AppState {
   connectionStatus: ConnectionStatus;
   viewMode: ViewMode;
   theme: Theme;
+  audienceMode: AudienceMode;
   sidebarWidth: number;
   expandedItems: Set<string>;
+
+  // Filter (shared across nav + panes)
+  filterText: string;
+  filterTags: string[];
   
   // Actions
   setRuns: (runs: Run[]) => void;
@@ -76,13 +92,18 @@ interface AppState {
   selectNode: (nodeId: string | null) => void;
   
   // Navigation actions
-  navigate: (type: ViewType, nodeId?: string) => void;
+  navigate: (type: ViewType, id?: string) => void;
   
   setConnectionStatus: (status: ConnectionStatus) => void;
   setViewMode: (mode: ViewMode) => void;
   toggleTheme: () => void;
+  setAudienceMode: (mode: AudienceMode) => void;
+  toggleAudienceMode: () => void;
   setSidebarWidth: (width: number) => void;
   toggleExpanded: (itemId: string) => void;
+
+  setFilterText: (text: string) => void;
+  setFilterTags: (tags: string[]) => void;
   
   // Real-time updates
   addOrUpdateNode: (runId: string, parentId: string | undefined, node: Node) => void;
@@ -102,8 +123,12 @@ export const useStore = create<AppState>((set, get) => ({
   connectionStatus: 'connecting',
   viewMode: 'tree',
   theme: 'dark',
+  audienceMode: getInitialAudienceMode(),
   sidebarWidth: 280,
   expandedItems: new Set<string>(),
+
+  filterText: '',
+  filterTags: [],
   
   // Data actions
   setRuns: (runs) => set({ runs }),
@@ -148,9 +173,9 @@ export const useStore = create<AppState>((set, get) => ({
   }),
   
   // Navigation actions
-  navigate: (type, nodeId) => set({
-    currentView: { type, nodeId },
-    selectedNodeId: nodeId ?? null,
+  navigate: (type, id) => set({
+    currentView: { type, id },
+    selectedNodeId: type === 'node' ? (id ?? null) : null,
   }),
   
   // UI actions
@@ -166,6 +191,23 @@ export const useStore = create<AppState>((set, get) => ({
     }
     return { theme: newTheme };
   }),
+  setAudienceMode: (mode) => {
+    try {
+      localStorage.setItem('livedoc.viewer.audienceMode', mode);
+    } catch {
+      // ignore (e.g. storage unavailable)
+    }
+    set({ audienceMode: mode });
+  },
+  toggleAudienceMode: () => set((state) => {
+    const next = state.audienceMode === 'business' ? 'developer' : 'business';
+    try {
+      localStorage.setItem('livedoc.viewer.audienceMode', next);
+    } catch {
+      // ignore
+    }
+    return { audienceMode: next };
+  }),
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
   
   toggleExpanded: (itemId) => set((state) => {
@@ -177,6 +219,9 @@ export const useStore = create<AppState>((set, get) => ({
     }
     return { expandedItems: newExpanded };
   }),
+
+  setFilterText: (text) => set({ filterText: text }),
+  setFilterTags: (tags) => set({ filterTags: tags }),
   
   // Real-time update handlers
   addOrUpdateNode: (runId, parentId, node) => set((state) => {

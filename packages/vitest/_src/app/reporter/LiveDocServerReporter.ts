@@ -4,6 +4,7 @@ import { LiveDocViewerReporter } from './LiveDocViewerReporter';
 import * as model from '../model/index';
 import { SpecStatus } from '../model/SpecStatus';
 import { Exception } from '../model/Exception';
+import { DescriptionParser } from '../parser/Parser';
 
 /**
  * Vitest Reporter that automatically discovers a LiveDoc server and posts results.
@@ -87,9 +88,11 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     private buildFeatureFromTask(task: any, filepath: string): model.Feature {
-        const title = task.name.replace('Feature:', '').trim();
+        const parsed = this.parseTitleBlock(task.name.replace('Feature:', '').trim());
         const feature = new model.Feature();
-        feature.title = title;
+        feature.title = parsed.title;
+        feature.description = parsed.description;
+        feature.tags = parsed.tags;
         feature.filename = filepath;
 
         for (const child of (task.tasks || [])) {
@@ -107,9 +110,11 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     private buildScenarioFromTask(task: any, parent: model.Feature): model.Scenario {
-        const title = task.name.replace('Scenario:', '').replace('Background:', '').trim();
+        const parsed = this.parseTitleBlock(task.name.replace('Scenario:', '').replace('Background:', '').trim());
         const scenario = new model.Scenario(parent);
-        scenario.title = title;
+        scenario.title = parsed.title;
+        scenario.description = parsed.description;
+        scenario.tags = parsed.tags;
 
         for (const child of (task.tasks || [])) {
             if (child.type === 'test') {
@@ -120,9 +125,11 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     private buildScenarioOutlineFromTask(task: any, parent: model.Feature): model.ScenarioOutline {
-        const title = task.name.replace('Scenario Outline:', '').trim();
+        const parsed = this.parseTitleBlock(task.name.replace('Scenario Outline:', '').trim());
         const outline = new model.ScenarioOutline(parent);
-        outline.title = title;
+        outline.title = parsed.title;
+        outline.description = parsed.description;
+        outline.tags = parsed.tags;
 
         for (const child of (task.tasks || [])) {
             if (child.type === 'suite') {
@@ -141,7 +148,11 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     private buildStepFromTask(task: any, parent: any): model.StepDefinition {
-        const step = new model.StepDefinition(parent, task.name);
+        const { keyword, title } = this.parseStepTitle(task.name);
+
+        const step = new model.StepDefinition(parent, title);
+        step.rawTitle = title;
+        step.type = keyword;
         
         const state = task.result?.state || 'pending';
         step.status = this.mapStateToStatus(state);
@@ -157,22 +168,50 @@ export default class LiveDocServerReporter implements Reporter {
         return step;
     }
 
+    private parseStepTitle(rawTitle: string): { keyword: string; title: string } {
+        const text = String(rawTitle || '').trim();
+
+        const match = /^(given|when|then|and|but)\b\s*(.*)$/i.exec(text);
+        if (!match) {
+            return { keyword: 'and', title: text };
+        }
+
+        const keyword = match[1].toLowerCase();
+        const title = (match[2] || '').trim();
+        return { keyword, title: title || text };
+    }
+
     private buildSpecificationFromTask(task: any, filepath: string): model.Specification {
-        const title = task.name.replace('Specification:', '').trim();
+        const parsed = this.parseTitleBlock(task.name.replace('Specification:', '').trim());
         const spec = new model.Specification();
-        spec.title = title;
+        spec.title = parsed.title;
+        spec.description = parsed.description;
+        spec.tags = parsed.tags;
         (spec as any).filename = filepath;
 
         for (const child of (task.tasks || [])) {
             if (child.type === 'test' && child.name.startsWith('Rule:')) {
+                const ruleParsed = this.parseTitleBlock(child.name.replace('Rule:', '').trim());
                 const rule = new model.Rule(spec);
-                rule.title = child.name.replace('Rule:', '').trim();
+                rule.title = ruleParsed.title;
+                rule.description = ruleParsed.description;
+                rule.tags = ruleParsed.tags;
                 rule.status = this.mapStateToStatus(child.result?.state);
                 rule.executionTime = child.result?.duration || 0;
                 spec.rules.push(rule);
             }
         }
         return spec;
+    }
+
+    private parseTitleBlock(text: string): { title: string; description: string; tags: string[] } {
+        const parser = new DescriptionParser();
+        parser.parseDescription(text || '');
+        return {
+            title: parser.title || '',
+            description: parser.description || '',
+            tags: parser.tags || []
+        };
     }
 
     private buildTestSuiteFromTask(task: any, filepath: string): model.VitestSuite {
