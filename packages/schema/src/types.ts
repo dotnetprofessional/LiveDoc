@@ -76,6 +76,13 @@ export interface ExecutionResult {
   attachments?: Attachment[];
 }
 
+export interface RuleViolation {
+  rule: string;
+  message: string;
+  title?: string;
+  errorId?: number;
+}
+
 export interface Statistics {
   total: number;
   passed: number;
@@ -105,6 +112,10 @@ export interface Node {
   
   // Every node has its own execution result (status, duration, error)
   execution: ExecutionResult;
+
+  // Non-fatal issues detected by LiveDoc rules (e.g., missing Given, ambiguous step patterns).
+  // These should surface in dashboards as "warnings".
+  ruleViolations?: RuleViolation[];
 
   // Optional binding for templated titles (steps/rules/examples, etc.).
   binding?: Binding;
@@ -261,7 +272,7 @@ export interface ProjectHierarchyResponse {
 
 export type WebSocketEvent =
   | { type: 'run:started'; runId: string; project: string; environment: string; framework: Framework; timestamp: string }
-  | { type: 'node:added'; runId: string; node: Node }
+  | { type: 'node:added'; runId: string; parentId?: string; node: Node }
   | { type: 'node:updated'; runId: string; nodeId: string; patch: Partial<Node> }
   | { type: 'node:removed'; runId: string; nodeId: string }
   | { type: 'run:updated'; runId: string; patch: Partial<Pick<TestRun, 'status' | 'duration' | 'summary'>> }

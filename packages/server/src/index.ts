@@ -328,7 +328,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     eventEmitter.emit('run:updated', runId);
 
     if (wsManager) {
-      const event: WebSocketEvent = { type: 'node:added', runId, node };
+      const event: WebSocketEvent = { type: 'node:added', runId, parentId: body.parentId, node };
       wsManager.broadcast(event, runId, run.project, run.environment);
     }
     

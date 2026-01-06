@@ -7,6 +7,7 @@ import { LiveDocViewerReporter } from './LiveDocViewerReporter';
 import { livedoc } from '../livedoc';
 import * as model from '../model/index';
 import { DescriptionParser } from '../parser/Parser';
+import type { File, Task, TaskResultPack } from '@vitest/runner';
 
 /**
  * Vitest Reporter that provides enhanced BDD output using LiveDocSpec
@@ -16,8 +17,17 @@ export default class LiveDocSpecReporter implements Reporter {
     private liveDocSpec: LiveDocSpec;
     private options: LiveDocReporterOptions;
 
+    private streamEnabled = true;
+    private taskById = new Map<string, Task>();
+    private streamedStates = new Map<string, string>();
+
     constructor(options: any = {}) {
         this.options = new LiveDocReporterOptions();
+
+        const env = process.env.LIVEDOC_SPEC_STREAMING;
+        if (env !== undefined) {
+            this.streamEnabled = !(env === '0' || env.toLowerCase() === 'false');
+        }
         
         // Parse options from Vitest reporter options
         if (options.detailLevel) {
@@ -66,6 +76,82 @@ export default class LiveDocSpecReporter implements Reporter {
             console.log(`  Project:     ${publishOptions.project}`);
             console.log(`  Environment: ${publishOptions.environment}\n`);
         }
+    }
+
+    onCollected(files?: File[]): void {
+        if (!this.streamEnabled) return;
+
+        this.taskById.clear();
+        this.streamedStates.clear();
+
+        const index = (task: Task) => {
+            if (task?.id) this.taskById.set(task.id, task);
+            for (const child of (task.tasks || []) as Task[]) {
+                index(child);
+            }
+        };
+
+        for (const file of files || []) {
+            for (const t of (file.tasks || []) as Task[]) {
+                index(t);
+            }
+        }
+    }
+
+    onTaskUpdate(packs: TaskResultPack[]): void {
+        if (!this.streamEnabled) return;
+
+        for (const pack of packs || []) {
+            const normalized = this.normalizeTaskResultPack(pack);
+            if (!normalized) continue;
+
+            const { taskId, result } = normalized;
+            const state = String(result?.state || '');
+            if (!state) continue;
+
+            // Avoid duplicate prints for the same state.
+            const prev = this.streamedStates.get(taskId);
+            if (prev === state) continue;
+            this.streamedStates.set(taskId, state);
+
+            // Only stream "leaf" task completions (tests/steps), not suite churn.
+            if (state !== 'pass' && state !== 'fail' && state !== 'skip' && state !== 'todo') continue;
+
+            const task = this.taskById.get(taskId);
+            if (!task || task.type !== 'test') continue;
+
+            const symbol = state === 'pass' ? '√' : state === 'fail' ? 'X' : '-';
+            const indent = this.computeIndent(task);
+            console.log(`${indent}${symbol} ${task.name}`);
+        }
+    }
+
+    private normalizeTaskResultPack(pack: unknown): { taskId: string; result: any } | null {
+        // Vitest's TaskResultPack shape is a tuple: [id, result, meta]
+        if (Array.isArray(pack)) {
+            const taskId = typeof pack[0] === 'string' ? pack[0] : undefined;
+            const result = pack.length >= 2 ? (pack as any)[1] : undefined;
+            if (!taskId) return null;
+            return { taskId, result };
+        }
+
+        const obj = pack as any;
+        const taskId = (obj?.id ?? obj?.taskId) as string | undefined;
+        if (!taskId) return null;
+        return { taskId, result: obj?.result };
+    }
+
+    private computeIndent(task: Task): string {
+        // TaskBase.suite points to parent suite; use it to indent steps.
+        let depth = 0;
+        let current: any = (task as any).suite;
+        while (current) {
+            // Don't count the file task (no suite) and avoid infinite loops.
+            depth++;
+            current = current.suite;
+            if (depth > 20) break;
+        }
+        return ' '.repeat(Math.max(0, depth) * 2);
     }
 
     async onTestRunEnd(testModules: readonly any[]): Promise<void> {

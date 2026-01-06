@@ -5,6 +5,10 @@ import * as model from '../model/index';
 import { SpecStatus } from '../model/SpecStatus';
 import { Exception } from '../model/Exception';
 import { DescriptionParser } from '../parser/Parser';
+import type { File, Task, TaskResultPack } from '@vitest/runner';
+import * as path from 'path';
+import { generateStabilityId, type Node, type Status } from '@livedoc/schema';
+import { livedoc } from '../livedoc';
 
 /**
  * Vitest Reporter that automatically discovers a LiveDoc server and posts results.
@@ -16,13 +20,47 @@ export default class LiveDocServerReporter implements Reporter {
     private project = "default";
     private environment = "local";
 
+    private viewerReporter: LiveDocViewerReporter | null = null;
+    private streamingEnabled = true;
+    private runId: string | null = null;
+
+    private taskToNodeId = new Map<string, string>();
+    private nodeChildren = new Map<string, Set<string>>();
+    private nodeParent = new Map<string, string>();
+    private nodeStatus = new Map<string, Status>();
+    private taskById = new Map<string, Task>();
+
+    private rootPath = '';
+
     constructor() {
     }
 
     async onInit(ctx: Vitest) {
         this.project = ctx.config.name || "default";
+        this.environment = (ctx.config as any).mode || this.environment;
+
+        // Allow opting out if streaming causes issues.
+        // Default: enabled (matches the "live" intent of the viewer).
+        const env = process.env.LIVEDOC_VIEWER_STREAMING;
+        if (env !== undefined) {
+            this.streamingEnabled = !(env === '0' || env.toLowerCase() === 'false');
+        }
         
-        // Try to discover server
+        // Prefer explicit publish server if configured (keeps server+viewer in sync).
+        if (livedoc.options.publish.enabled && livedoc.options.publish.server) {
+            this.serverUrl = livedoc.options.publish.server;
+            this.isAvailable = true;
+
+            this.viewerReporter = new LiveDocViewerReporter({
+                server: this.serverUrl,
+                project: this.project,
+                environment: this.environment,
+                silent: true
+            });
+            return;
+        }
+
+        // Otherwise, try to discover server
         try {
             // Use dynamic import to avoid circular dependencies or issues if @livedoc/server is not available
             // @ts-ignore
@@ -31,10 +69,96 @@ export default class LiveDocServerReporter implements Reporter {
             if (serverInfo) {
                 this.serverUrl = serverInfo.url;
                 this.isAvailable = true;
+
+                this.viewerReporter = new LiveDocViewerReporter({
+                    server: this.serverUrl,
+                    project: this.project,
+                    environment: this.environment,
+                    silent: true
+                });
             }
         } catch (e) {
             this.isAvailable = false;
         }
+    }
+
+    async onCollected(files?: File[]): Promise<void> {
+        if (!this.streamingEnabled) return;
+        if (!this.isAvailable || !this.serverUrl || !this.viewerReporter) return;
+        if (this.runId) return;
+        if (!files || files.length === 0) return;
+
+        try {
+            this.rootPath = this.findCommonRootPath(
+                files
+                    .map((f) => (f as any).filepath as string)
+                    .filter(Boolean)
+                    .map((p) => (path.isAbsolute(p) ? p : path.resolve(process.cwd(), p)))
+                    .map((p) => p.replace(/\\/g, '/'))
+            );
+
+            const runId = await this.viewerReporter.startRunSession();
+            if (!runId) return;
+            this.runId = runId;
+
+            // Post initial node tree in pending state.
+            for (const file of files) {
+                const filepath = ((file as any).filepath || '') as string;
+                for (const t of (file.tasks || [])) {
+                    this.indexTaskTree(t);
+                }
+                for (const t of (file.tasks || [])) {
+                    await this.postInitialNodesForTask(runId, t, filepath);
+                }
+            }
+        } catch {
+            // silent
+        }
+    }
+
+    onTaskUpdate(packs: TaskResultPack[]): void {
+        if (!this.streamingEnabled) return;
+        if (!this.isAvailable || !this.viewerReporter || !this.runId) return;
+
+        for (const pack of packs || []) {
+            const normalized = this.normalizeTaskResultPack(pack);
+            if (!normalized) continue;
+
+            const nodeId = this.taskToNodeId.get(normalized.taskId);
+            if (!nodeId) continue;
+
+            const result = normalized.result;
+            if (!result) continue;
+
+            const status = this.mapStateToViewerStatus(result.state);
+            const duration = typeof result.duration === 'number' ? result.duration : undefined;
+            const error = this.mapResultError(result);
+
+            const patch: any = { status };
+            if (duration !== undefined) patch.duration = duration;
+            if (error) patch.error = error;
+
+            void this.viewerReporter.patchNodeExecution(this.runId, nodeId, patch);
+
+            this.nodeStatus.set(nodeId, status);
+            this.propagateRollup(nodeId);
+        }
+    }
+
+    private normalizeTaskResultPack(pack: unknown): { taskId: string; result: any } | null {
+        // Vitest's TaskResultPack shape is a tuple: [id, result, meta]
+        // but keep object fallback for resilience.
+        if (Array.isArray(pack)) {
+            const taskId = typeof pack[0] === 'string' ? pack[0] : undefined;
+            const result = pack.length >= 2 ? (pack as any)[1] : undefined;
+            if (!taskId) return null;
+            return { taskId, result };
+        }
+
+        const obj = pack as any;
+        const taskId = (obj?.id ?? obj?.taskId) as string | undefined;
+        if (!taskId) return null;
+        return { taskId, result: obj?.result };
     }
 
     async onTestRunEnd(testModules: readonly any[]): Promise<void> {
@@ -44,19 +168,386 @@ export default class LiveDocServerReporter implements Reporter {
             // Build the SDK model from Vitest tasks
             const results = this.buildExecutionResults(testModules);
 
-            // Use LiveDocViewerReporter to post the results
-            const viewerReporter = new LiveDocViewerReporter({
-                server: this.serverUrl,
-                project: this.project,
-                environment: this.environment,
-                silent: true
-            });
+            // If streaming already started a run, finish it; otherwise fall back to batch.
+            if (this.viewerReporter && this.runId) {
+                await this.viewerReporter.postResultsToRun(this.runId, results);
+                await this.viewerReporter.completeRunFromResults(this.runId, results);
+            } else {
+                const viewerReporter = new LiveDocViewerReporter({
+                    server: this.serverUrl,
+                    project: this.project,
+                    environment: this.environment,
+                    silent: true
+                });
 
-            await viewerReporter.execute(results);
+                await viewerReporter.execute(results);
+            }
         } catch (e: any) {
             process.stdout.write(`[LiveDoc] Failed to post results: ${e.message}\n`);
         }
     }
+
+    private indexTaskTree(task: Task): void {
+        const id = (task as any).id as string | undefined;
+        if (id) this.taskById.set(id, task);
+        for (const child of (task.tasks || []) as Task[]) {
+            this.indexTaskTree(child);
+        }
+    }
+
+    private async postInitialNodesForTask(runId: string, task: Task, filepath: string, parentNodeId?: string): Promise<void> {
+        if (!this.viewerReporter) return;
+        if (task.type !== 'suite' && task.type !== 'test') return;
+
+        // Root-level mapping based on title prefixes.
+        const name = String((task as any).name || '');
+
+        if (task.type === 'suite') {
+            if (name.startsWith('Feature:')) {
+                const parsed = this.parseTitleBlock(name.replace('Feature:', '').trim());
+                const fileInfo = this.buildFileInfo(filepath, this.rootPath);
+                const nodeId = generateStabilityId({
+                    project: this.project,
+                    path: fileInfo.filename,
+                    title: parsed.title,
+                    kind: 'Feature'
+                });
+
+                const node: Node = {
+                    id: nodeId,
+                    kind: 'Feature',
+                    path: fileInfo.filename || undefined,
+                    title: parsed.title,
+                    description: parsed.description,
+                    tags: parsed.tags,
+                    execution: { status: 'pending', duration: 0 },
+                    summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                    children: []
+                } as any;
+
+                await this.viewerReporter.postNodeToRun(runId, undefined, node);
+                this.taskToNodeId.set((task as any).id, nodeId);
+                this.nodeStatus.set(nodeId, 'pending');
+
+                for (const child of (task.tasks || []) as Task[]) {
+                    await this.postInitialNodesForTask(runId, child, filepath, nodeId);
+                }
+                return;
+            }
+
+            if (name.startsWith('Specification:')) {
+                const parsed = this.parseTitleBlock(name.replace('Specification:', '').trim());
+                const fileInfo = this.buildFileInfo(filepath, this.rootPath);
+                const nodeId = generateStabilityId({
+                    project: this.project,
+                    path: fileInfo.filename,
+                    title: parsed.title,
+                    kind: 'Specification'
+                });
+
+                const node: Node = {
+                    id: nodeId,
+                    kind: 'Specification',
+                    path: fileInfo.filename || undefined,
+                    title: parsed.title,
+                    description: parsed.description,
+                    tags: parsed.tags,
+                    execution: { status: 'pending', duration: 0 },
+                    summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                    children: []
+                } as any;
+
+                await this.viewerReporter.postNodeToRun(runId, undefined, node);
+                this.taskToNodeId.set((task as any).id, nodeId);
+                this.nodeStatus.set(nodeId, 'pending');
+
+                for (const child of (task.tasks || []) as Task[]) {
+                    await this.postInitialNodesForTask(runId, child, filepath, nodeId);
+                }
+                return;
+            }
+
+            // Scenario / Scenario Outline / Background inside a Feature
+            if (parentNodeId) {
+                if (name.startsWith('Scenario:') || name.startsWith('Background')) {
+                    const parsed = this.parseTitleBlock(name.replace('Scenario:', '').replace('Background:', '').trim());
+                    const nodeId = generateStabilityId({ project: this.project, title: parsed.title, kind: 'Scenario', parentId: parentNodeId });
+                    const node: Node = {
+                        id: nodeId,
+                        kind: 'Scenario',
+                        title: parsed.title,
+                        description: parsed.description,
+                        tags: parsed.tags,
+                        execution: { status: 'pending', duration: 0 },
+                        summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                        children: []
+                    } as any;
+
+                    await this.viewerReporter.postNodeToRun(runId, parentNodeId, node);
+                    this.recordChild(parentNodeId, nodeId);
+                    this.taskToNodeId.set((task as any).id, nodeId);
+                    this.nodeStatus.set(nodeId, 'pending');
+
+                    let stepIndex = 0;
+                    for (const child of (task.tasks || []) as Task[]) {
+                        if (child.type === 'test') {
+                            await this.postStepNode(runId, child, nodeId, stepIndex++);
+                        }
+                    }
+                    return;
+                }
+
+                if (name.startsWith('Scenario Outline:')) {
+                    // For streaming, represent outline as a container; children example suites will be mapped to Scenario nodes.
+                    const parsed = this.parseTitleBlock(name.replace('Scenario Outline:', '').trim());
+                    const outlineId = generateStabilityId({ project: this.project, title: parsed.title, kind: 'ScenarioOutline', parentId: parentNodeId });
+                    const outline: any = {
+                        id: outlineId,
+                        kind: 'ScenarioOutline',
+                        title: parsed.title,
+                        description: parsed.description,
+                        tags: parsed.tags,
+                        execution: { status: 'pending', duration: 0 },
+                        summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                        template: {
+                            id: `${outlineId}:template`,
+                            kind: 'Scenario',
+                            title: parsed.title,
+                            execution: { status: 'pending', duration: 0 },
+                            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                            children: []
+                        },
+                        examples: [],
+                        tables: []
+                    };
+
+                    await this.viewerReporter.postNodeToRun(runId, parentNodeId, outline);
+                    this.recordChild(parentNodeId, outlineId);
+                    this.taskToNodeId.set((task as any).id, outlineId);
+                    this.nodeStatus.set(outlineId, 'pending');
+
+                    const exampleSuites = (task.tasks || []).filter((t: any) => t.type === 'suite') as Task[];
+                    for (let i = 0; i < exampleSuites.length; i++) {
+                        const exampleSuite = exampleSuites[i];
+                        const exampleId = generateStabilityId({ project: this.project, title: parsed.title, kind: 'Scenario', parentId: outlineId, index: i });
+                        const exampleNode: any = {
+                            id: exampleId,
+                            kind: 'Scenario',
+                            title: parsed.title,
+                            execution: { status: 'pending', duration: 0 },
+                            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                            children: []
+                        };
+
+                        await this.viewerReporter.postNodeToRun(runId, outlineId, exampleNode);
+                        this.recordChild(outlineId, exampleId);
+                        this.taskToNodeId.set((exampleSuite as any).id, exampleId);
+                        this.nodeStatus.set(exampleId, 'pending');
+
+                        let stepIndex = 0;
+                        for (const child of (exampleSuite.tasks || []) as Task[]) {
+                            if (child.type === 'test') {
+                                await this.postStepNode(runId, child, exampleId, stepIndex++);
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+
+            // Generic Suite root
+            if (!parentNodeId) {
+                const fileInfo = this.buildFileInfo(filepath, this.rootPath);
+                const suiteId = generateStabilityId({ project: this.project, path: fileInfo.filename, title: name, kind: 'Suite' });
+                const suite: any = {
+                    id: suiteId,
+                    kind: 'Suite',
+                    path: fileInfo.filename || undefined,
+                    title: name,
+                    execution: { status: 'pending', duration: 0 },
+                    summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                    children: []
+                };
+
+                await this.viewerReporter.postNodeToRun(runId, undefined, suite);
+                this.taskToNodeId.set((task as any).id, suiteId);
+                this.nodeStatus.set(suiteId, 'pending');
+                for (const child of (task.tasks || []) as Task[]) {
+                    await this.postInitialNodesForTask(runId, child, filepath, suiteId);
+                }
+                return;
+            }
+
+            // Nested suites under generic suites -> treat as Suite as well (without path).
+            if (parentNodeId) {
+                const nestedSuiteId = generateStabilityId({ project: this.project, title: name, kind: 'Suite', parentId: parentNodeId });
+                const nested: any = {
+                    id: nestedSuiteId,
+                    kind: 'Suite',
+                    title: name,
+                    execution: { status: 'pending', duration: 0 },
+                    summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                    children: []
+                };
+
+                await this.viewerReporter.postNodeToRun(runId, parentNodeId, nested);
+                this.recordChild(parentNodeId, nestedSuiteId);
+                this.taskToNodeId.set((task as any).id, nestedSuiteId);
+                this.nodeStatus.set(nestedSuiteId, 'pending');
+                for (const child of (task.tasks || []) as Task[]) {
+                    await this.postInitialNodesForTask(runId, child, filepath, nestedSuiteId);
+                }
+                return;
+            }
+        }
+
+        if (task.type === 'test' && parentNodeId) {
+            // Generic Test under a Suite
+            const testId = generateStabilityId({ project: this.project, title: name, kind: 'Test', parentId: parentNodeId });
+            const node: any = {
+                id: testId,
+                kind: 'Test',
+                title: name,
+                execution: { status: 'pending', duration: 0 }
+            };
+
+            await this.viewerReporter.postNodeToRun(runId, parentNodeId, node);
+            this.recordChild(parentNodeId, testId);
+            this.taskToNodeId.set((task as any).id, testId);
+            this.nodeStatus.set(testId, 'pending');
+            return;
+        }
+    }
+
+    private async postStepNode(runId: string, task: Task, scenarioId: string, index: number): Promise<void> {
+        if (!this.viewerReporter) return;
+        const name = String((task as any).name || '');
+        const { keyword, title } = this.parseStepTitle(name);
+        const stepId = generateStabilityId({
+            project: this.project,
+            title,
+            kind: 'Step',
+            parentId: scenarioId,
+            keyword,
+            index
+        });
+
+        const node: any = {
+            id: stepId,
+            kind: 'Step',
+            title,
+            keyword: keyword as any,
+            execution: { status: 'pending', duration: 0 }
+        };
+
+        await this.viewerReporter.postNodeToRun(runId, scenarioId, node);
+        this.recordChild(scenarioId, stepId);
+        this.taskToNodeId.set((task as any).id, stepId);
+        this.nodeStatus.set(stepId, 'pending');
+    }
+
+    private recordChild(parentId: string, childId: string): void {
+        if (!this.nodeChildren.has(parentId)) this.nodeChildren.set(parentId, new Set());
+        this.nodeChildren.get(parentId)!.add(childId);
+        this.nodeParent.set(childId, parentId);
+    }
+
+    private propagateRollup(fromNodeId: string): void {
+        if (!this.viewerReporter || !this.runId) return;
+
+        let current = this.nodeParent.get(fromNodeId);
+        while (current) {
+            const children = this.nodeChildren.get(current);
+            if (!children || children.size === 0) break;
+
+            const statuses = Array.from(children).map((id) => this.nodeStatus.get(id) || 'pending');
+            const rolled = this.rollupStatus(statuses);
+            const prev = this.nodeStatus.get(current);
+            if (prev !== rolled) {
+                this.nodeStatus.set(current, rolled);
+                void this.viewerReporter.patchNodeExecution(this.runId, current, { status: rolled });
+            }
+            current = this.nodeParent.get(current);
+        }
+    }
+
+    private rollupStatus(statuses: Status[]): Status {
+        if (statuses.some((s) => s === 'failed')) return 'failed';
+        if (statuses.some((s) => s === 'running')) return 'running';
+        if (statuses.some((s) => s === 'pending')) return 'running';
+        if (statuses.length > 0 && statuses.every((s) => s === 'skipped')) return 'skipped';
+        return 'passed';
+    }
+
+    private mapStateToViewerStatus(state: string | undefined): Status {
+        switch (state) {
+            case 'pass':
+                return 'passed';
+            case 'fail':
+                return 'failed';
+            case 'run':
+                return 'running';
+            case 'skip':
+            case 'todo':
+                return 'skipped';
+            case 'pending':
+                return 'pending';
+            default:
+                return 'pending';
+        }
+    }
+
+    private mapResultError(result: any): { message: string; stack?: string; diff?: string } | undefined {
+        if (!result?.errors || !Array.isArray(result.errors) || result.errors.length === 0) return undefined;
+        const first = result.errors[0];
+        const message = String(first?.message || 'Unknown error');
+        const stack = typeof first?.stack === 'string' ? first.stack : undefined;
+        return { message, stack };
+    }
+
+    private findCommonRootPath(absoluteFilenames: string[]): string {
+        if (absoluteFilenames.length === 0) return '';
+        const dirSegments = absoluteFilenames.map((f) => {
+            const parts = f.split('/').filter(Boolean);
+            parts.pop();
+            return parts;
+        });
+
+        const first = dirSegments[0];
+        let end = 0;
+        while (end < first.length) {
+            const seg = first[end];
+            if (!dirSegments.every((s) => s[end] === seg)) break;
+            end++;
+        }
+        return first.slice(0, end).join('/');
+    }
+
+    private buildFileInfo(filename: string | undefined, rootPath: string): { filename: string; path: string } {
+        const raw = filename || '';
+        const abs = raw ? (path.isAbsolute(raw) ? raw : path.resolve(process.cwd(), raw)) : '';
+        const normalized = abs.replace(/\\/g, '/');
+        const root = (rootPath || '').replace(/\\/g, '/').replace(/\/+$/g, '');
+
+        if (!normalized) {
+            return { filename: '', path: '' };
+        }
+
+        let relative = normalized;
+        if (root) {
+            const rootParts = root.split('/').filter(Boolean);
+            const fileParts = normalized.split('/').filter(Boolean);
+            const matches = rootParts.every((seg, i) => fileParts[i] === seg);
+            if (matches) {
+                relative = fileParts.slice(rootParts.length).join('/');
+            }
+        }
+
+        const parts = relative.split('/').filter(Boolean);
+        const groupPath = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+        return { filename: relative, path: groupPath };
+    }
+
 
     private buildExecutionResults(testModules: readonly any[]): model.ExecutionResults {
         const features: model.Feature[] = [];

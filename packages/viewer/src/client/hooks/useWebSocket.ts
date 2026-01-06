@@ -51,10 +51,26 @@ export function useWebSocket() {
     addOrUpdateNode
   } = useStore();
 
+  const fetchRunById = useCallback(async (runId: string): Promise<Run | null> => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/runs/${runId}`, {
+        cache: 'no-store'
+      });
+      if (!response.ok) return null;
+      const fullRun = await response.json();
+      return transformRunData(fullRun);
+    } catch (e) {
+      console.error(`Failed to fetch run ${runId}:`, e);
+      return null;
+    }
+  }, []);
+
   // Fetch project hierarchy for navigation
   const fetchProjectHierarchy = useCallback(async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/hierarchy`);
+      const response = await fetch(`${getApiBaseUrl()}/api/hierarchy`, {
+        cache: 'no-store'
+      });
       if (!response.ok) return;
       
       const data = await response.json();
@@ -80,7 +96,9 @@ export function useWebSocket() {
     try {
       await fetchProjectHierarchy();
       
-      const runsListResponse = await fetch(`${getApiBaseUrl()}/api/runs`);
+      const runsListResponse = await fetch(`${getApiBaseUrl()}/api/runs`, {
+        cache: 'no-store'
+      });
       if (!runsListResponse.ok) return;
       
       const runsList = await runsListResponse.json();
@@ -91,16 +109,7 @@ export function useWebSocket() {
       
       const fullRuns = await Promise.all(
         runsList.map(async (run: any) => {
-          try {
-            const response = await fetch(`${getApiBaseUrl()}/api/runs/${run.runId}`);
-            if (response.ok) {
-              const fullRun = await response.json();
-              return transformRunData(fullRun);
-            }
-          } catch (e) {
-            console.error(`Failed to fetch run ${run.runId}:`, e);
-          }
-          return null;
+          return fetchRunById(run.runId);
         })
       );
       
@@ -113,7 +122,23 @@ export function useWebSocket() {
     } catch (error) {
       console.error('Failed to fetch initial runs:', error);
     }
-  }, [setRuns, selectRun, fetchProjectHierarchy]);
+  }, [fetchProjectHierarchy, fetchRunById, selectRun, setRuns]);
+
+  const handleRunCompleted = useCallback(async (runId: string) => {
+    const full = await fetchRunById(runId);
+    if (!full) return;
+
+    const existing = useStore.getState().runs.some((r) => r.runId === runId);
+    if (existing) {
+      updateRun(runId, full);
+    } else {
+      addRun(full);
+    }
+
+    // Keep the Viewer on the latest run by default.
+    selectRun(runId);
+    fetchProjectHierarchy();
+  }, [addRun, fetchProjectHierarchy, fetchRunById, selectRun, updateRun]);
 
   const handleMessage = useCallback((message: any) => {
     switch (message.type) {
@@ -129,18 +154,16 @@ export function useWebSocket() {
           duration: 0,
           documents: []
         }));
+        if (message.runId) {
+          selectRun(message.runId);
+        }
         fetchProjectHierarchy();
         break;
         
       case 'run:completed':
         if (message.runId) {
-          updateRun(message.runId, { 
-            status: message.status,
-            summary: message.summary,
-            duration: message.duration
-          });
+          void handleRunCompleted(message.runId);
         }
-        fetchProjectHierarchy();
         break;
         
       case 'run:updated':
@@ -177,7 +200,7 @@ export function useWebSocket() {
       default:
         console.log('Unknown message type:', message.type);
     }
-  }, [addRun, updateRun, removeRun, addOrUpdateNode, fetchProjectHierarchy]);
+  }, [addOrUpdateNode, addRun, fetchProjectHierarchy, handleRunCompleted, removeRun, updateRun]);
 
   const connect = useCallback(() => {
     const wsUrl = `${getWsBaseUrl()}/ws`;
@@ -190,6 +213,14 @@ export function useWebSocket() {
     ws.onopen = () => {
       console.log('WebSocket connected');
       setConnectionStatus('connected');
+
+      // Subscribe to all project/environment updates so we receive run events.
+      // Without this, the server won't broadcast to this client.
+      try {
+        ws.send(JSON.stringify({ type: 'subscribe' }));
+      } catch {
+        // ignore
+      }
       
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);

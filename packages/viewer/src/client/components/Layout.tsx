@@ -10,7 +10,11 @@ import { GlobalFilter } from "./GlobalFilter"
 export function Layout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true)
   const embedded = isEmbedded()
-  const { audienceMode, setAudienceMode } = useStore()
+  const { audienceMode, setAudienceMode, connectionStatus, runs, selectedRunId, selectRun } = useStore()
+
+  const latestRun = runs[0]
+  const latestIsRunning = latestRun?.status === "running"
+  const hasNewLiveRun = latestIsRunning && latestRun.runId !== selectedRunId
 
   React.useEffect(() => {
     if (isDark) {
@@ -29,6 +33,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <header className="h-16 border-b flex items-center justify-between px-6 shrink-0 bg-card/50 backdrop-blur-md z-10">
           <div className="flex items-center gap-4 flex-1">
             <GlobalFilter className="max-w-2xl w-full" />
+
+            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                Live: {connectionStatus === "connected" ? "Connected" : connectionStatus}
+              </span>
+              {latestIsRunning && (
+                <span className="rounded-full border px-2 py-1 text-foreground">
+                  Run in progress
+                </span>
+              )}
+              {hasNewLiveRun && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => selectRun(latestRun.runId)}
+                >
+                  Switch to live run
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

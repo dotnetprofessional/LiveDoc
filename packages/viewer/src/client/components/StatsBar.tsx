@@ -4,11 +4,12 @@ import { cn } from '../lib/utils';
 interface StatsBarProps {
   summary: Statistics;
   duration?: number;
+  ruleViolations?: number;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-export function StatsBar({ summary, duration, size = 'md', className }: StatsBarProps) {
+export function StatsBar({ summary, duration, ruleViolations, size = 'md', className }: StatsBarProps) {
   const { passed, failed, pending, skipped, total } = summary;
   const pPct = total > 0 ? (passed / total * 100) : 0;
   const fPct = total > 0 ? (failed / total * 100) : 0;
@@ -30,6 +31,12 @@ export function StatsBar({ summary, duration, size = 'md', className }: StatsBar
           <span className="text-xs font-bold text-pending">{pending}</span>
           <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">U</span>
         </div>
+        {typeof ruleViolations === 'number' && (
+          <div className="flex items-center gap-1">
+            <span className="text-xs font-bold text-foreground">{ruleViolations}</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">V</span>
+          </div>
+        )}
         <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden flex">
           <div className="h-full bg-pass" style={{ width: `${pPct}%` }} />
           <div className="h-full bg-fail" style={{ width: `${fPct}%` }} />
@@ -58,6 +65,13 @@ export function StatsBar({ summary, duration, size = 'md', className }: StatsBar
             <span className="text-2xl font-bold text-pending leading-none">{pending}</span>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">pending</span>
           </div>
+
+          {typeof ruleViolations === 'number' && (
+            <div className="flex flex-col">
+              <span className="text-2xl font-bold text-foreground leading-none">{ruleViolations}</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">violations</span>
+            </div>
+          )}
         </div>
 
         <div className="text-right">

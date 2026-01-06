@@ -82,6 +82,12 @@ export const NodeSchema = z.object({
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
   execution: ExecutionResultSchema.optional(),
+  ruleViolations: z.array(z.object({
+    rule: z.string(),
+    message: z.string(),
+    title: z.string().optional(),
+    errorId: z.number().optional(),
+  })).optional(),
   binding: BindingSchema.optional(),
 }).passthrough();
 

@@ -16,15 +16,8 @@ import {
 } from "../model/index";
 import {
     Node,
-    Feature,
     Scenario,
-    ScenarioOutline,
-    Step,
-    Specification,
     Rule,
-    RuleOutline,
-    TestSuite,
-    Test,
     Status,
     Framework,
     generateStabilityId,
@@ -141,6 +134,67 @@ export class LiveDocViewerReporter implements IPostReporter {
         }
     }
 
+    /**
+     * Start a run and return its runId.
+     * Used by Vitest reporters that want to stream updates during execution.
+     */
+    public async startRunSession(rawOptions?: any): Promise<string | null> {
+        // Reuse the same inline override behavior as execute()
+        if (rawOptions?.['viewer-server']) {
+            this.options.server = rawOptions['viewer-server'];
+        }
+        if (rawOptions?.['viewer-project']) {
+            this.options.project = rawOptions['viewer-project'];
+        }
+        if (rawOptions?.['viewer-environment']) {
+            this.options.environment = rawOptions['viewer-environment'];
+        }
+        if (rawOptions?.['viewer-timeout'] !== undefined) {
+            const parsed = Number(rawOptions['viewer-timeout']);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                this.options.timeout = parsed;
+            }
+        }
+
+        try {
+            const runId = await this.startRun();
+            return runId;
+        } catch {
+            return null;
+        }
+    }
+
+    /** Post the full document tree into an existing run (upserts nodes). */
+    public async postResultsToRun(runId: string, results: ExecutionResults): Promise<void> {
+        const pathContext = this.buildPathContext(results);
+
+        for (const feature of results.features) {
+            await this.postFeature(runId, feature, pathContext);
+        }
+
+        for (const spec of (results as any).specifications || []) {
+            await this.postSpecification(runId, spec as SDKSpecification, pathContext);
+        }
+        for (const suite of (results as any).suites || []) {
+            await this.postTestSuite(runId, suite as SDKVitestSuite, pathContext);
+        }
+    }
+
+    /** Add or update a single schema node in an existing run. */
+    public async postNodeToRun(runId: string, parentId: string | undefined, node: Node): Promise<void> {
+        await this.post(`/api/runs/${runId}/nodes`, { parentId, node });
+    }
+
+    /** Patch execution info for a specific node within a run. */
+    public async patchNodeExecution(runId: string, nodeId: string, execution: Partial<Node['execution']>): Promise<void> {
+        await this.post(`/api/runs/${runId}/nodes/${nodeId}/execution`, execution, 'PATCH');
+    }
+
+    /** Complete an existing run using the provided aggregated results. */
+    public async completeRunFromResults(runId: string, results: ExecutionResults): Promise<void> {
+        await this.completeRun(runId, results);
+    }
+
     private buildPathContext(results: ExecutionResults): { rootPath: string } {
         const filenames: string[] = [];
         for (const f of results.features || []) {
@@ -226,13 +280,14 @@ export class LiveDocViewerReporter implements IPostReporter {
             kind: 'Feature'
         });
 
-        const feature: Feature = {
+        const feature: any = {
             id: featureId,
             kind: 'Feature',
             path: fileInfo.filename || undefined,
             title: sdkFeature.title,
             description: sdkFeature.description,
             tags: sdkFeature.tags,
+            ruleViolations: this.mapRuleViolations(sdkFeature),
             execution: {
                 status: this.mapStatus(this.calculateFeatureStatus(sdkFeature)),
                 duration: 0
@@ -271,12 +326,13 @@ export class LiveDocViewerReporter implements IPostReporter {
             parentId
         });
 
-        const scenario: Scenario = {
+        const scenario: any = {
             id: scenarioId,
             kind,
             title: sdkScenario.title,
             description: sdkScenario.description,
             tags: sdkScenario.tags,
+            ruleViolations: this.mapRuleViolations(sdkScenario),
             execution: {
                 status: this.mapStatus(this.calculateScenarioStatus(sdkScenario)),
                 duration: sdkScenario.executionTime || 0
@@ -321,12 +377,13 @@ export class LiveDocViewerReporter implements IPostReporter {
             })) || []
         };
 
-        const outline: ScenarioOutline = {
+        const outline: any = {
             id: outlineId,
             kind: 'ScenarioOutline',
             title: sdkOutline.title,
             description: sdkOutline.description,
             tags: sdkOutline.tags,
+            ruleViolations: this.mapRuleViolations(sdkOutline),
             execution: {
                 status: this.mapStatus(this.calculateOutlineStatus(sdkOutline)),
                 duration: 0
@@ -382,11 +439,12 @@ export class LiveDocViewerReporter implements IPostReporter {
             index
         });
 
-        const step: Step = {
+        const step: any = {
             id: stepId,
             kind: 'Step',
             title: sdkStep.rawTitle || sdkStep.title,
             keyword: sdkStep.type.toLowerCase() as any,
+            ruleViolations: this.mapRuleViolations(sdkStep),
             execution: {
                 status: this.mapStatus(sdkStep.status),
                 duration: sdkStep.duration || 0,
@@ -408,6 +466,72 @@ export class LiveDocViewerReporter implements IPostReporter {
 
     private async postNode(runId: string, parentId: string | undefined, node: Node): Promise<void> {
         await this.post(`/api/runs/${runId}/nodes`, { parentId, node });
+    }
+
+    private mapRuleViolations(entity: any): Array<{ rule: string; message: string; title?: string; errorId?: number }> | undefined {
+        const list = entity?.ruleViolations;
+        if (!Array.isArray(list) || list.length === 0) return undefined;
+        return list.map((v: any) => ({
+            rule: String(v?.rule ?? ''),
+            message: String(v?.message ?? v?.toString?.() ?? ''),
+            title: typeof v?.title === 'string' ? v.title : undefined,
+            errorId: typeof v?.errorId === 'number' ? v.errorId : undefined,
+        })).filter((v: any) => v.rule || v.message);
+    }
+
+    private async post<T>(path: string, body: any, method: 'POST' | 'PATCH' = 'POST'): Promise<T | null> {
+        const url = `${this.options.server}${path}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.options.timeout);
+
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body),
+                signal: controller.signal
+            });
+
+            if (!response.ok) {
+                if (!this.options.silent) {
+                    let errorText = '';
+                    try {
+                        errorText = await response.text();
+                    } catch {
+                        // ignore
+                    }
+                    console.error(`LiveDocViewerReporter: HTTP ${response.status} at ${path}. Error: ${errorText}`);
+                }
+                return null;
+            }
+
+            // Prefer JSON parsing regardless of Content-Type. Our unit tests mock fetch
+            // responses without headers, but with a working response.json().
+            try {
+                return (await (response as any).json()) as T;
+            } catch {
+                // Some endpoints return empty bodies (e.g., PATCH execution). Treat as success.
+                if (method === 'PATCH') return null;
+
+                // Fallback: try to parse from text if available.
+                try {
+                    const text = await (response as any).text();
+                    if (!text) return null;
+                    return JSON.parse(text) as T;
+                } catch {
+                    return null;
+                }
+            }
+        } catch (error) {
+            if (!this.options.silent) {
+                console.error(`LiveDocViewerReporter: Failed to ${method} ${path}:`, error);
+            }
+            return null;
+        } finally {
+            clearTimeout(timeout);
+        }
     }
 
     private mapBinding(example: any): Binding | undefined {
@@ -472,43 +596,6 @@ export class LiveDocViewerReporter implements IPostReporter {
         };
 
         await this.post(`/api/runs/${runId}/complete`, request);
-    }
-
-    // =========================================================================
-    // Helper methods
-    // =========================================================================
-
-    private async post<T>(path: string, body: unknown): Promise<T | null> {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), this.options.timeout);
-
-            const response = await fetch(`${this.options.server}${path}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errorText = await response.text().catch(() => 'No error body');
-                if (!this.options.silent) {
-                    console.error(`LiveDocViewerReporter: HTTP ${response.status} at ${path}. Error: ${errorText}`);
-                }
-                return null;
-            }
-
-            return await response.json() as T;
-        } catch (error) {
-            if (!this.options.silent) {
-                console.error(`LiveDocViewerReporter: Failed to POST ${path}:`, error);
-            }
-            return null;
-        }
     }
 
     private mapStatus(status: SpecStatus): Status {
@@ -681,13 +768,14 @@ export class LiveDocViewerReporter implements IPostReporter {
             kind: 'Specification'
         });
 
-        const spec: Specification = {
+        const spec: any = {
             id: specId,
             kind: 'Specification',
             path: fileInfo.filename || undefined,
             title: sdkSpec.title,
             description: sdkSpec.description,
             tags: sdkSpec.tags,
+            ruleViolations: this.mapRuleViolations(sdkSpec),
             execution: {
                 status: this.mapStatus(this.calculateSpecificationStatus(sdkSpec)),
                 duration: 0
@@ -715,12 +803,13 @@ export class LiveDocViewerReporter implements IPostReporter {
             parentId
         });
 
-        const rule: Rule = {
+        const rule: any = {
             id: ruleId,
             kind: 'Rule',
             title: sdkRule.title,
             description: sdkRule.description,
             tags: sdkRule.tags,
+            ruleViolations: this.mapRuleViolations(sdkRule),
             execution: {
                 status: this.mapStatus(sdkRule.status),
                 duration: sdkRule.executionTime || 0
@@ -746,12 +835,13 @@ export class LiveDocViewerReporter implements IPostReporter {
             execution: { status: 'pending', duration: 0 }
         };
 
-        const outline: RuleOutline = {
+        const outline: any = {
             id: outlineId,
             kind: 'RuleOutline',
             title: sdkOutline.title,
             description: sdkOutline.description,
             tags: sdkOutline.tags,
+            ruleViolations: this.mapRuleViolations(sdkOutline),
             execution: {
                 status: this.mapStatus(this.calculateRuleOutlineStatus(sdkOutline)),
                 duration: 0
@@ -798,11 +888,12 @@ export class LiveDocViewerReporter implements IPostReporter {
             kind: 'Suite'
         });
 
-        const suite: TestSuite = {
+        const suite: any = {
             id: suiteId,
             kind: 'Suite',
             path: fileInfo.filename || undefined,
             title: sdkSuite.title,
+            ruleViolations: this.mapRuleViolations(sdkSuite),
             execution: {
                 status: 'passed', // Will be updated by server
                 duration: 0
@@ -830,10 +921,11 @@ export class LiveDocViewerReporter implements IPostReporter {
             parentId
         });
 
-        const test: Test = {
+        const test: any = {
             id: testId,
             kind: 'Test',
             title: sdkTest.title,
+            ruleViolations: this.mapRuleViolations(sdkTest),
             execution: {
                 status: this.mapStatus(sdkTest.status),
                 duration: sdkTest.duration || 0,
