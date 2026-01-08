@@ -357,6 +357,40 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     return c.json({ success: true });
   });
+
+  // Attach background to a Feature node
+  app.patch('/api/runs/:runId/nodes/:nodeId/background', async (c) => {
+    const runId = c.req.param('runId');
+    const nodeId = c.req.param('nodeId');
+    const body = await c.req.json();
+    
+    console.log('[SERVER] Background patch received:', { runId, nodeId, hasBackground: !!body.background, title: body.background?.title });
+    
+    const run = store.getRun(runId);
+    if (!run) {
+      console.log('[SERVER] Background patch - run not found');
+      return c.json({ error: 'Run not found' }, 404);
+    }
+
+    const node = store.findNode(run, nodeId);
+    if (!node) {
+      console.log('[SERVER] Background patch - node not found');
+      return c.json({ error: 'Node not found' }, 404);
+    }
+
+    // Attach background to the feature
+    (node as any).background = body.background;
+    console.log('[SERVER] Background attached to node:', nodeId);
+    
+    eventEmitter.emit('run:updated', runId);
+
+    if (wsManager) {
+      const event = { type: 'node:updated', runId, nodeId, patch: { background: body.background } } as WebSocketEvent;
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+    
+    return c.json({ success: true });
+  });
   
   // Add feature (Legacy support - maps to addNode)
   app.post('/api/runs/:runId/features', async (c) => {

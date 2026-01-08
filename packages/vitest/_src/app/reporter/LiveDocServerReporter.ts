@@ -7,8 +7,14 @@ import { Exception } from '../model/Exception';
 import { DescriptionParser } from '../parser/Parser';
 import type { File, Task, TaskResultPack } from '@vitest/runner';
 import * as path from 'path';
+import * as fs from 'fs';
 import { generateStabilityId, type Node, type Status, SpecKind } from '@livedoc/schema';
 import { livedoc } from '../livedoc';
+
+function debugLog(msg: string, data?: any) {
+    const line = `[${new Date().toISOString()}] ${msg}${data ? ' ' + JSON.stringify(data) : ''}\n`;
+    fs.appendFileSync('d:/private/LiveDoc/packages/vitest/debug-reporter.log', line);
+}
 
 /**
  * Vitest Reporter that automatically discovers a LiveDoc server and posts results.
@@ -33,9 +39,11 @@ export default class LiveDocServerReporter implements Reporter {
     private rootPath = '';
 
     constructor() {
+        debugLog('Constructor called');
     }
 
     async onInit(ctx: Vitest) {
+        debugLog('onInit called');
         this.project = ctx.config.name || "default";
         this.environment = (ctx.config as any).mode || this.environment;
 
@@ -83,6 +91,7 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     async onCollected(files?: File[]): Promise<void> {
+        debugLog('onCollected called', { streaming: this.streamingEnabled, isAvailable: this.isAvailable, hasViewer: !!this.viewerReporter });
         if (!this.streamingEnabled) return;
         if (!this.isAvailable || !this.serverUrl || !this.viewerReporter) return;
         if (this.runId) return;
@@ -270,10 +279,64 @@ export default class LiveDocServerReporter implements Reporter {
                 return;
             }
 
-            // Scenario / Scenario Outline / Background inside a Feature
+            // Background inside a Feature - attach as background property, not as child
+            debugLog('Checking task', { name, parentNodeId, isBackground: name.startsWith('Background') });
+            if (parentNodeId && name.startsWith('Background')) {
+                debugLog('Processing Background', { parentNodeId });
+                const parsed = this.parseTitleBlock(name.replace('Background:', '').trim());
+                const nodeId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Background, parentId: parentNodeId });
+                
+                // Build step nodes inline for background
+                const stepChildren: any[] = [];
+                let stepIndex = 0;
+                for (const child of this.getTaskChildren(task)) {
+                    if (child.type === 'test') {
+                        const stepName = String((child as any).name || '');
+                        const { keyword, title: stepTitle } = this.parseStepTitle(stepName);
+                        const stepId = generateStabilityId({
+                            project: this.project,
+                            title: stepTitle,
+                            kind: SpecKind.Step,
+                            parentId: nodeId,
+                            keyword,
+                            index: stepIndex++
+                        });
+                        
+                        stepChildren.push({
+                            id: stepId,
+                            kind: SpecKind.Step,
+                            title: stepTitle,
+                            keyword: keyword as any,
+                            execution: { status: 'pending', duration: 0 }
+                        });
+                        
+                        this.taskToNodeId.set((child as any).id, stepId);
+                        this.nodeStatus.set(stepId, 'pending');
+                    }
+                }
+                
+                const backgroundNode: any = {
+                    id: nodeId,
+                    kind: SpecKind.Background,
+                    title: parsed.title,
+                    description: parsed.description,
+                    tags: parsed.tags,
+                    execution: { status: 'pending', duration: 0 },
+                    summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                    children: stepChildren
+                };
+
+                // Post background as a special property of the parent Feature
+                await this.viewerReporter.patchNodeBackground(runId, parentNodeId, backgroundNode);
+                this.taskToNodeId.set((task as any).id, nodeId);
+                this.nodeStatus.set(nodeId, 'pending');
+                return;
+            }
+
+            // Scenario / Scenario Outline inside a Feature
             if (parentNodeId) {
-                if (name.startsWith('Scenario:') || name.startsWith('Background')) {
-                    const parsed = this.parseTitleBlock(name.replace('Scenario:', '').replace('Background:', '').trim());
+                if (name.startsWith('Scenario:')) {
+                    const parsed = this.parseTitleBlock(name.replace('Scenario:', '').trim());
                     const nodeId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Scenario, parentId: parentNodeId });
                     const node: Node = {
                         id: nodeId,
@@ -589,18 +652,48 @@ export default class LiveDocServerReporter implements Reporter {
         feature.tags = parsed.tags;
         feature.filename = filepath;
 
-        for (const child of (task.tasks || [])) {
-            if (child.type === 'suite') {
-                if (child.name.startsWith('Scenario:')) {
-                    feature.scenarios.push(this.buildScenarioFromTask(child, feature));
-                } else if (child.name.startsWith('Scenario Outline:')) {
-                    feature.scenarios.push(this.buildScenarioOutlineFromTask(child, feature));
-                } else if (child.name.startsWith('Background')) {
-                    feature.background = this.buildScenarioFromTask(child, feature);
-                }
+        const childSuites = (task.tasks || []).filter((t: any) => t?.type === 'suite');
+
+        // IMPORTANT: Build Background first (matches LiveDocSpecReporter behavior).
+        const backgroundSuite = childSuites.find((t: any) => typeof t?.name === 'string' && t.name.startsWith('Background:'));
+        if (backgroundSuite) {
+            feature.background = this.buildBackgroundFromTask(backgroundSuite, feature);
+        }
+
+        for (const child of childSuites) {
+            if (child === backgroundSuite) continue;
+            const name = String(child?.name ?? '');
+
+            if (!name.startsWith('Scenario:')) continue;
+
+            // Vitest represents Scenario Outlines as a "Scenario:" suite with nested "Example ..." suites.
+            const exampleSuites = (child.tasks || []).filter((t: any) =>
+                t?.type === 'suite' && typeof t?.name === 'string' && t.name.startsWith('Example ')
+            );
+
+            if (exampleSuites.length > 0) {
+                feature.addScenario(this.buildScenarioOutlineFromNestedStructure(child, feature));
+            } else {
+                feature.addScenario(this.buildScenarioFromTask(child, feature));
             }
         }
         return feature;
+    }
+
+    private buildBackgroundFromTask(task: any, parent: model.Feature): model.Background {
+        const parsed = this.parseTitleBlock(String(task?.name ?? '').replace(/^Background:\s*/i, ''));
+        const background = new model.Background(parent);
+        background.title = parsed.title;
+        background.description = parsed.description;
+        background.tags = parsed.tags;
+
+        for (const child of (task.tasks || [])) {
+            if (child.type === 'test') {
+                background.addStep(this.buildStepFromTask(child, background));
+            }
+        }
+
+        return background;
     }
 
     private buildScenarioFromTask(task: any, parent: model.Feature): model.Scenario {
@@ -612,10 +705,83 @@ export default class LiveDocServerReporter implements Reporter {
 
         for (const child of (task.tasks || [])) {
             if (child.type === 'test') {
-                scenario.steps.push(this.buildStepFromTask(child, scenario));
+                scenario.addStep(this.buildStepFromTask(child, scenario));
             }
         }
         return scenario;
+    }
+
+    private buildScenarioOutlineFromNestedStructure(task: any, parent: model.Feature): model.ScenarioOutline {
+        const parsed = this.parseTitleBlock(String(task?.name ?? '').replace(/^Scenario:\s*/i, ''));
+        const outlineTitle = parsed.title;
+
+        const outline = new model.ScenarioOutline(parent);
+        outline.title = parsed.title;
+        outline.description = parsed.description;
+        outline.tags = parsed.tags;
+
+        const exampleSuites = (task.tasks || []).filter((t: any) =>
+            t?.type === 'suite' && typeof t?.name === 'string' && t.name.startsWith('Example ')
+        );
+
+        const firstExampleSuite = exampleSuites[0];
+        const firstStepTask = (firstExampleSuite?.tasks || []).find((t: any) => t?.type === 'test');
+        const firstMeta = firstStepTask ? this.getLiveDocMetaFromTask(firstStepTask) : undefined;
+
+        // Prefer the authoritative metadata from livedoc.ts for tables/description/tags.
+        const metaTables = firstMeta?.scenarioOutline?.tables;
+        if (Array.isArray(metaTables) && metaTables.length > 0) {
+            outline.tables = this.buildScenarioOutlineTablesFromMeta(metaTables);
+        }
+        if (Array.isArray(firstMeta?.scenarioOutline?.tags)) {
+            outline.tags = firstMeta.scenarioOutline.tags;
+        }
+        if (typeof firstMeta?.scenarioOutline?.description === 'string') {
+            outline.description = firstMeta.scenarioOutline.description;
+        }
+
+        // Build template steps (rawTitle/type) from the first example suite.
+        if (firstExampleSuite?.tasks) {
+            for (const t of firstExampleSuite.tasks) {
+                if (t?.type !== 'test') continue;
+                const meta = this.getLiveDocMetaFromTask(t);
+                if (typeof meta?.step?.rawTitle !== 'string' || typeof meta?.step?.type !== 'string') continue;
+                const step = new model.StepDefinition(outline, '');
+                step.rawTitle = meta.step.rawTitle;
+                step.type = meta.step.type;
+                outline.steps.push(step);
+            }
+        }
+
+        // Build examples
+        for (let i = 0; i < exampleSuites.length; i++) {
+            const suite = exampleSuites[i];
+            const example = new model.ScenarioExample(parent, outline);
+            example.title = `Example ${i + 1}`;
+            example.sequence = i + 1;
+            example.displayTitle = suite?.name ?? example.title;
+
+            const exampleFirstStepTask = (suite?.tasks || []).find((t: any) => t?.type === 'test');
+            const exampleMeta = exampleFirstStepTask ? this.getLiveDocMetaFromTask(exampleFirstStepTask) : undefined;
+            const values = exampleMeta?.scenarioOutline?.example?.values;
+            if (values && typeof values === 'object') {
+                const sanitized = this.sanitizeExampleKeys(values);
+                example.example = sanitized;
+                example.exampleRaw = sanitized;
+            } else {
+                example.example = {} as any;
+                example.exampleRaw = {} as any;
+            }
+
+            for (const stepTask of (suite?.tasks || [])) {
+                if (stepTask?.type !== 'test') continue;
+                example.addStep(this.buildStepFromTask(stepTask, example));
+            }
+
+            outline.examples.push(example);
+        }
+
+        return outline;
     }
 
     private buildScenarioOutlineFromTask(task: any, parent: model.Feature): model.ScenarioOutline {
@@ -642,11 +808,26 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     private buildStepFromTask(task: any, parent: any): model.StepDefinition {
-        const { keyword, title } = this.parseStepTitle(task.name);
+        const name = String(task?.name ?? '');
+        const meta = this.getLiveDocMetaFromTask(task);
+
+        // Prefer the metadata payload emitted by livedoc.ts.
+        // This keeps step keyword/type + template title in sync with the text reporter.
+        const keywordFromMeta = typeof meta?.step?.type === 'string' ? String(meta.step.type) : undefined;
+        const rawTitleFromMeta = typeof meta?.step?.rawTitle === 'string' ? String(meta.step.rawTitle) : undefined;
+
+        const { keyword, title } = keywordFromMeta && rawTitleFromMeta
+            ? { keyword: keywordFromMeta.toLowerCase(), title: this.extractStepTitle(name) }
+            : this.parseStepTitle(name);
 
         const step = new model.StepDefinition(parent, title);
-        step.rawTitle = title;
         step.type = keyword;
+        step.rawTitle = rawTitleFromMeta ?? title;
+        step.displayTitle = name;
+
+        // Reconstruct docString-like blocks + data tables from multiline step names.
+        // This is how LiveDoc transports these across Vitest worker boundaries.
+        this.parseStepContent(name, step);
         
         const state = task.result?.state || 'pending';
         step.status = this.mapStateToStatus(state);
@@ -660,6 +841,136 @@ export default class LiveDocServerReporter implements Reporter {
         }
 
         return step;
+    }
+
+    private getLiveDocMetaFromTask(task: any): any | undefined {
+        const meta = task?.meta as any;
+        const livedocMeta = meta?.livedoc;
+        if (!livedocMeta || typeof livedocMeta !== 'object') return undefined;
+        return livedocMeta;
+    }
+
+    private buildScenarioOutlineTablesFromMeta(metaTables: any[]): model.Table[] {
+        const tables: model.Table[] = [];
+
+        for (const raw of metaTables) {
+            const table = new model.Table();
+            table.name = typeof raw?.name === 'string' ? raw.name : '';
+            table.description = typeof raw?.description === 'string' ? raw.description : '';
+            table.dataTable = Array.isArray(raw?.dataTable) ? raw.dataTable : [];
+            tables.push(table);
+        }
+
+        return tables;
+    }
+
+    private sanitizeExampleKeys(values: unknown): any {
+        if (!values || typeof values !== 'object') return values as any;
+        const output: Record<string, any> = {};
+        for (const [key, value] of Object.entries(values as Record<string, any>)) {
+            output[this.sanitizeName(key)] = value;
+        }
+        return output;
+    }
+
+    private sanitizeName(name: string): string {
+        return name.replace(/[ `'']/g, "");
+    }
+
+    private extractStepTitle(stepName: string): string {
+        // Handle multiline step names by only matching the first line
+        const match = stepName.match(/^(?:Given|When|Then|And|But)\s+(.+?)(?:\n|$)/i);
+        if (match) {
+            return match[1];
+        }
+        const indentedMatch = stepName.match(/^\s+(?:and|but)\s+(.+?)(?:\n|$)/i);
+        if (indentedMatch) {
+            return indentedMatch[1];
+        }
+        // Return only the first line if no match
+        return stepName.split('\n')[0];
+    }
+
+    private parseStepContent(stepName: string, step: model.StepDefinition): void {
+        const lines = stepName.split('\n');
+        if (lines.length <= 1) {
+            return;
+        }
+
+        // Skip the first line (it's the title)
+        const contentLines: string[] = [];
+        const tableLines: string[] = [];
+        let foundTable = false;
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+
+            if (line.startsWith('|') && line.endsWith('|')) {
+                foundTable = true;
+                tableLines.push(line);
+                continue;
+            }
+
+            if (foundTable && line === '') {
+                continue;
+            }
+
+            if (line !== '') {
+                contentLines.push(lines[i]);
+            }
+        }
+
+        if (tableLines.length > 0) {
+            step.dataTable = this.parseDataTableFromLines(tableLines);
+        }
+
+        if (contentLines.length > 0) {
+            let minIndent = Infinity;
+            for (const l of contentLines) {
+                if (l.trim() !== '') {
+                    const indent = l.length - l.trimLeft().length;
+                    if (indent < minIndent) minIndent = indent;
+                }
+            }
+
+            const descLines = contentLines.map((l) => (l.length >= minIndent ? l.substring(minIndent) : l));
+
+            while (descLines.length > 0 && descLines[0].trim() === '') {
+                descLines.shift();
+            }
+            while (descLines.length > 0 && descLines[descLines.length - 1].trim() === '') {
+                descLines.pop();
+            }
+
+            step.description = descLines.join('\n');
+        }
+    }
+
+    private parseDataTableFromLines(lines: string[]): any[] {
+        const table: any[] = [];
+        if (lines.length < 2) return table;
+
+        // Parse header row
+        const headers = lines[0]
+            .split('|')
+            .map((h) => h.trim())
+            .filter((h) => h.length > 0);
+
+        // Parse data rows
+        for (let i = 1; i < lines.length; i++) {
+            const cells = lines[i]
+                .split('|')
+                .map((c) => c.trim())
+                .filter((c) => c.length > 0);
+
+            const row: Record<string, string> = {};
+            for (let j = 0; j < headers.length; j++) {
+                row[headers[j]] = cells[j] ?? '';
+            }
+            table.push(row);
+        }
+
+        return table;
     }
 
     private parseStepTitle(rawTitle: string): { keyword: string; title: string } {

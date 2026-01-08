@@ -16,6 +16,11 @@ function transformRunData(apiRun: any): Run {
       if ((node as any).examples) {
         buildNodeMap((node as any).examples);
       }
+
+      // Feature.background is not part of children, but we still want it in the map.
+      if ((node as any).background) {
+        buildNodeMap([(node as any).background]);
+      }
     }
   };
 

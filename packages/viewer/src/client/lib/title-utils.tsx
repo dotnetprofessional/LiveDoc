@@ -23,6 +23,13 @@ function findMatchingValue(placeholder: string, values: Record<string, string>):
   return undefined;
 }
 
+const HighlightSpan = ({ children }: { children: React.ReactNode }) => (
+  // Simple colored text with quotes, similar to text reporter style
+  <span className="text-amber-500 dark:text-amber-400 font-medium">
+    {children}
+  </span>
+);
+
 // Highlight placeholders like <Customer's Country> in titles
 export function highlightPlaceholders(text: string, values?: Record<string, string>): React.ReactNode {
   const parts = text.split(/(<[^>]+>)/g);
@@ -33,9 +40,9 @@ export function highlightPlaceholders(text: string, values?: Record<string, stri
       const value = values ? findMatchingValue(placeholder, values) : undefined;
       
       return (
-        <span key={index} className="px-1 bg-accent/20 text-accent rounded font-medium">
+        <HighlightSpan key={index}>
           {value !== undefined ? value : part}
-        </span>
+        </HighlightSpan>
       );
     }
     return part;
@@ -49,9 +56,9 @@ export function highlightQuotedValues(text: string, highlightValues?: Record<str
   return parts.map((part, index) => {
     if ((part.startsWith("'") && part.endsWith("'")) || (part.startsWith('"') && part.endsWith('"'))) {
       return (
-        <span key={index} className="px-1 bg-accent/20 text-accent rounded font-medium">
+        <HighlightSpan key={index}>
           {part}
-        </span>
+        </HighlightSpan>
       );
     }
     
@@ -78,9 +85,9 @@ export function highlightExampleValues(text: string, values: Record<string, stri
   return parts.map((part, idx) => {
     if (uniqueValues.includes(part)) {
       return (
-        <span key={idx} className="px-1 bg-accent/20 text-accent rounded font-medium">
+        <HighlightSpan key={idx}>
           {part}
-        </span>
+        </HighlightSpan>
       );
     }
     return part;

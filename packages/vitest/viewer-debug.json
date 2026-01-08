@@ -1,0 +1,42 @@
+﻿Vitest config viewer loaded
+  [33mFeature: [39m[97mBackground statement[39m
+[37m    Background statements are used to define a common given that is[39m
+[37m    applied to each scenario. The background is executed before each scenario[39m
+ 
+    [33mBackground: [39m[97mThis will be executed before each test[39m
+      [32m√[39m [33mgiven[39m [32msomevalue = [36m'30'[39m[32m[39m
+      [32m√[39m   [33mand[39m [32mwe add [36m'70'[39m[32m to somevalue[39m
+      [32m√[39m   [33mand[39m [32mthe stepContext is available so should get [36m'10'[39m[32m from this step[39m
+      [32m√[39m   [33mand[39m [32mafterBackgroundCheck has [36m'10'[39m[32m added to it[39m
+ 
+    [33mScenario: [39m[97mAdd 10 to someValue[39m
+      [32m√[39m [33mwhen[39m [32msomeValue is increased by [36m'10'[39m[32m[39m
+      [32m√[39m [33mthen[39m [32msomeValue should be [36m'110'[39m[32m[39m
+      [32m√[39m   [33mand[39m [32mafterBackgroundCheck should be [36m'10'[39m[32m[39m
+      [32m√[39m   [33mand[39m [32mthe background has been executed [36m'1'[39m[32m times so far[39m
+ 
+    [33mScenario: [39m[97mAdd 20 to someValue[39m
+      [32m√[39m [33mwhen[39m [32msomeValue is increased by [36m'20'[39m[32m[39m
+      [32m√[39m [33mthen[39m [32msomeValue should be [36m'120'[39m[32m[39m
+      [32m√[39m   [33mand[39m [32mafterBackgroundCheck should be [36m'10'[39m[32m[39m
+      [32m√[39m   [33mand[39m [32mthe background has been executed [36m'2'[39m[32m times so far[39m
+ 
+    [33mScenario: [39m[97mAdd 200 to someValue[39m
+      [32m√[39m [33mwhen[39m [32msomeValue is increased by [36m'200'[39m[32m[39m
+      [32m√[39m [33mthen[39m [32msomeValue should be [36m'300'[39m[32m[39m
+      [32m√[39m   [33mand[39m [32mafterBackgroundCheck should be [36m'10'[39m[32m[39m
+      [32m√[39m   [33mand[39m [32mthe background should be executed [36m'3'[39m[32m times[39m
+ 
+  [90m┌──────────────────────[39m[90m┬───────────[39m[90m┬────────────────────────────────[39m[90m┬──────[39m[90m┬──────[39m[90m┬─────────[39m[90m┬──────────[39m[90m┬───────────────────┐[39m
+  [90m│[39m [32mFeature[39m              [90m│[39m [32mScenarios[39m [90m│[39m [32mstatus[39m                         [90m│[39m [32mPass[39m [90m│[39m [32mFail[39m [90m│[39m [32mPending[39m [90m│[39m [32mWarnings[39m [90m│[39m [32mElapsed[39m           [90m│[39m
+  [90m├──────────────────────[39m[90m┼───────────┴────────────────────────────────┴──────┴──────┴─────────┴──────────┴───────────────────┤[39m
+  [90m│[39m [97m/[39m                    [90m│[39m                                                                                                   [90m│[39m
+  [90m├──────────────────────[39m[90m┼───────────[39m[90m┬────────────────────────────────[39m[90m┬──────[39m[90m┬──────[39m[90m┬─────────[39m[90m┬──────────[39m[90m┬───────────────────┤[39m
+  [90m│[39m [90mBackground statement[39m [90m│[39m [90m3[39m         [90m│[39m [90m[32m[7m++++++++++++++++++++++++++++++[27m[39m[90m[39m [90m│[39m [90m16[39m   [90m│[39m [90m0[39m    [90m│[39m [90m0[39m       [90m│[39m [90m0[39m        [90m│[39m [90m3.371600000000001[39m [90m│[39m
+  [90m├──────────────────────[39m[90m┼───────────[39m[90m┼────────────────────────────────[39m[90m┼──────[39m[90m┼──────[39m[90m┼─────────[39m[90m┼──────────[39m[90m┼───────────────────┤[39m
+  [90m│[39m [90m[1mTotals (1)[22m[39m           [90m│[39m [90m[1m3[22m[39m         [90m│[39m [90m[1m[32m[7m++++++++++++++++++++++++++++++[27m[39m[90m[22m[39m [90m│[39m [90m[1m16[22m[39m   [90m│[39m [90m[1m0[22m[39m    [90m│[39m [90m[1m0[22m[39m       [90m│[39m [90m[1m0[22m[39m        [90m│[39m [90m[1m3.371600000000001[22m[39m [90m│[39m
+  [90m└──────────────────────[39m[90m┴───────────[39m[90m┴────────────────────────────────[39m[90m┴──────[39m[90m┴──────[39m[90m┴─────────[39m[90m┴──────────[39m[90m┴───────────────────┘[39m
+LiveDoc Viewer: Connected to http://localhost:3100
+  Project:     vitest
+  Environment: test
+LiveDoc Viewer: Results successfully posted to http://localhost:3100

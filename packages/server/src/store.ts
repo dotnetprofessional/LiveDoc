@@ -364,7 +364,7 @@ export class RunStore {
   /**
    * Find a node in the run by ID
    */
-  private findNode(run: TestRun, nodeId: string): Node | undefined {
+  findNode(run: TestRun, nodeId: string): Node | undefined {
     const search = (nodes: Node[]): Node | undefined => {
       for (const node of nodes) {
         if (node.id === nodeId) return node;

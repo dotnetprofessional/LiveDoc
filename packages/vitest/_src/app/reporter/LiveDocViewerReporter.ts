@@ -191,6 +191,11 @@ export class LiveDocViewerReporter implements IPostReporter {
         await this.post(`/api/runs/${runId}/nodes/${nodeId}/execution`, execution, 'PATCH');
     }
 
+    /** Attach a background to a Feature node. */
+    public async patchNodeBackground(runId: string, parentId: string, background: any): Promise<void> {
+        await this.post(`/api/runs/${runId}/nodes/${parentId}/background`, { background }, 'PATCH');
+    }
+
     /** Complete an existing run using the provided aggregated results. */
     public async completeRunFromResults(runId: string, results: ExecutionResults): Promise<void> {
         await this.completeRun(runId, results);
@@ -281,6 +286,30 @@ export class LiveDocViewerReporter implements IPostReporter {
             kind: SpecKind.Feature
         });
 
+        // Build background object with steps inline if it exists
+        let backgroundNode: any = undefined;
+        if (sdkFeature.background) {
+            const bgId = generateStabilityId({
+                project: this.options.project,
+                title: sdkFeature.background.title,
+                kind: SpecKind.Background,
+                parentId: featureId
+            });
+            backgroundNode = {
+                id: bgId,
+                kind: SpecKind.Background,
+                title: sdkFeature.background.title,
+                description: sdkFeature.background.description,
+                tags: sdkFeature.background.tags,
+                execution: {
+                    status: this.mapStatus(this.calculateScenarioStatus(sdkFeature.background)),
+                    duration: sdkFeature.background.executionTime || 0
+                },
+                summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                children: sdkFeature.background.steps.map((step, i) => this.buildStepNode(bgId, step, i))
+            };
+        }
+
         const feature: any = {
             id: featureId,
             kind: SpecKind.Feature,
@@ -294,15 +323,11 @@ export class LiveDocViewerReporter implements IPostReporter {
                 duration: 0
             },
             summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
-            children: []
+            children: [],
+            background: backgroundNode
         };
 
         await this.postNode(runId, undefined, feature);
-
-        // Post background if exists
-        if (sdkFeature.background) {
-            await this.postScenario(runId, featureId, sdkFeature.background, SpecKind.Background); 
-        }
 
         // Post all scenarios
         for (const sdkScenario of sdkFeature.scenarios) {
@@ -431,6 +456,35 @@ export class LiveDocViewerReporter implements IPostReporter {
     }
 
     private async postStep(runId: string, parentId: string, sdkStep: SDKStepDefinition, index: number): Promise<void> {
+        const step = this.buildStepNode(parentId, sdkStep, index);
+        await this.postNode(runId, parentId, step);
+    }
+
+    private buildStepNode(parentId: string, sdkStep: SDKStepDefinition, index: number): any {
+        const rawDescription = typeof (sdkStep as any)?.description === 'string' ? String((sdkStep as any).description) : '';
+        const trimmedDescription = rawDescription.trim();
+
+        // In the SDK model, doc strings can be available as `docStringRaw` (preferred, what the text reporter prints),
+        // or `docString`. Some pipelines may also store triple-quoted content in `description`.
+        const extractedDocString =
+            trimmedDescription.startsWith('"""') && trimmedDescription.endsWith('"""')
+                ? trimmedDescription.slice(3, -3).trim()
+                : undefined;
+
+        const rawDocString = (() => {
+            const fromRaw = (sdkStep as any)?.docStringRaw;
+            if (typeof fromRaw === 'string' && fromRaw.trim().length > 0) return String(fromRaw);
+
+            const fromDocString = (sdkStep as any)?.docString;
+            if (typeof fromDocString === 'string' && fromDocString.trim().length > 0) return String(fromDocString);
+
+            return undefined;
+        })();
+
+        const mappedDocString = rawDocString ?? extractedDocString;
+
+        const mappedDescription = extractedDocString ? undefined : (trimmedDescription ? rawDescription : undefined);
+
         const stepId = generateStabilityId({
             project: this.options.project,
             title: sdkStep.rawTitle || sdkStep.title,
@@ -440,11 +494,12 @@ export class LiveDocViewerReporter implements IPostReporter {
             index
         });
 
-        const step: any = {
+        return {
             id: stepId,
             kind: SpecKind.Step,
             title: sdkStep.rawTitle || sdkStep.title,
             keyword: sdkStep.type.toLowerCase() as any,
+            description: mappedDescription,
             ruleViolations: this.mapRuleViolations(sdkStep),
             execution: {
                 status: this.mapStatus(sdkStep.status),
@@ -457,12 +512,10 @@ export class LiveDocViewerReporter implements IPostReporter {
                         : undefined
                 } : undefined
             },
-            docString: sdkStep.docString || undefined,
+            docString: mappedDocString,
             dataTable: this.mapDataTableVNext(sdkStep.dataTable),
             values: this.mapTypedValues(sdkStep.values)
         };
-
-        await this.postNode(runId, parentId, step);
     }
 
     private async postNode(runId: string, parentId: string | undefined, node: Node): Promise<void> {

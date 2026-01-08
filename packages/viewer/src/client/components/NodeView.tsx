@@ -1,19 +1,41 @@
-import { Node, Binding } from '@livedoc/schema';
+import { Node, Binding, Feature, Scenario, SpecKind, Status } from '@livedoc/schema';
 import { StepList, TemplateStepList } from './StepList';
-import { ChevronRight, Clock, Tag, FileText, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, BookOpen, Target, Info, Calendar, Globe } from 'lucide-react';
+import { ChevronRight, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, FileText, BookOpen, ScrollText, LayoutList, Home } from 'lucide-react';
 import { useStore } from '../store';
 import { renderTitle } from '../lib/title-utils';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
-import { subtreeHasMatch } from '../lib/filter-utils';
+import { useState, useMemo } from 'react';
+import { subtreeHasMatch, normalizeTag } from '../lib/filter-utils';
 import { Markdown } from './Markdown';
+import { StatusBadge } from './StatusBadge';
+import { buildGroupedNavTree, findNavItemById, NavItem } from '../lib/nav-tree';
+import { ScenarioBlock } from './ScenarioBlock';
 
 interface NodeViewProps {
   node: Node;
+}
+
+function getIconForKind(kind: string) {
+  switch (kind) {
+    case SpecKind.Feature: return BookOpen;
+    case SpecKind.Specification: return ScrollText;
+    case SpecKind.Suite: return LayoutList;
+    default: return FileText;
+  }
+}
+
+function findNavPath(items: NavItem[], targetId: string): NavItem[] | null {
+  for (const item of items) {
+    if (item.id === targetId) return [item];
+    if (item.kind === 'Group') {
+      const found = findNavPath(item.children, targetId);
+      if (found) return [item, ...found];
+    }
+  }
+  return null;
 }
 
 export function NodeView({ node }: NodeViewProps) {
@@ -23,25 +45,99 @@ export function NodeView({ node }: NodeViewProps) {
   const run = getCurrentRun();
   const kind = String((node as any).kind ?? '').toLowerCase();
   const isBusiness = audienceMode === 'business';
+  const isContainer = [SpecKind.Feature, SpecKind.Specification, SpecKind.Suite].some(k => k.toLowerCase() === kind);
+
+  // Build nav tree for breadcrumbs
+  const navTree = useMemo(() => run ? buildGroupedNavTree(run.documents ?? []) : [], [run?.documents]);
+
+  // Given any node (Scenario/Step/etc), find the owning Feature by scanning documents.
+  // Then resolve background either from feature.background OR a Background node under feature.children.
+  const feature = useMemo<Feature | undefined>(() => {
+    if (!run?.documents) return undefined;
+
+    const isFeature = (n: any) => String(n?.kind ?? '').toLowerCase() === SpecKind.Feature.toLowerCase();
+
+    const containsId = (n: any): boolean => {
+      if (!n) return false;
+      if (n.id === node.id) return true;
+
+      const children = (n.children as any[] | undefined) ?? (n.steps as any[] | undefined);
+      if (Array.isArray(children)) {
+        for (const c of children) {
+          if (containsId(c)) return true;
+        }
+      }
+
+      const examples = n.examples as any[] | undefined;
+      if (Array.isArray(examples)) {
+        for (const e of examples) {
+          if (containsId(e)) return true;
+        }
+      }
+
+      const template = (n as any).template;
+      if (template && containsId(template)) return true;
+
+      return false;
+    };
+
+    for (const doc of run.documents) {
+      if (isFeature(doc) && containsId(doc)) return doc as Feature;
+    }
+    return undefined;
+  }, [run?.documents, node.id]);
+
+  const background = useMemo<Scenario | undefined>(() => {
+    if (!feature) return undefined;
+
+    // vNext shape
+    if (feature.background) return feature.background;
+
+    // Legacy/batch shape: Background as first-class child under Feature
+    const bg = (feature as any).children?.find((c: any) =>
+      String(c?.kind ?? '').toLowerCase() === SpecKind.Background.toLowerCase()
+    );
+    return bg as Scenario | undefined;
+  }, [feature]);
+
+  // Get breadcrumbs
+  const breadcrumbs = useMemo(() => {
+    if (feature) {
+      const path = findNavPath(navTree, feature.id);
+      return path || [];
+    }
+    if (isContainer) {
+      const path = findNavPath(navTree, node.id);
+      return path || [];
+    }
+    return [];
+  }, [navTree, feature, node.id, isContainer]);
 
   const summary = 'summary' in node ? (node as any).summary : undefined;
   const children = 'children' in node ? (node as any).children : undefined;
   const examples = 'examples' in node ? (node as any).examples : undefined;
   const templateSteps = 'templateSteps' in node ? (node as any).templateSteps : undefined;
-  const steps = 'steps' in node ? (node as any).steps : undefined;
+  
+  const isLeafContainer = [SpecKind.Scenario, SpecKind.Background, SpecKind.Rule, SpecKind.Test].some(k => k.toLowerCase() === kind);
+  const steps = 'steps' in node ? (node as any).steps : (isLeafContainer ? children : undefined);
+  const showCards = children && !isLeafContainer;
+
+  const kindPrefixTitle = (kindLabel: string, title: string) => `${kindLabel}: ${title}`;
 
   type BindingVariable = { name: string; value: { value: unknown } };
   const getHighlightValues = (binding?: Binding) => {
     if (!binding) return undefined;
     const variables = (binding as any).variables as BindingVariable[] | undefined;
     if (!variables || variables.length === 0) return undefined;
-    return variables.reduce<Record<string, string>>((acc: Record<string, string>, v: BindingVariable) => {
+    return variables.reduce<Record<string, string>>((acc, v) => {
       acc[v.name] = String(v.value?.value);
       return acc;
     }, {});
   };
 
   const highlightValues = getHighlightValues(node.binding);
+
+  const isScenarioView = !!feature && kind === SpecKind.Scenario.toLowerCase();
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -52,125 +148,23 @@ export function NodeView({ node }: NodeViewProps) {
     }
   };
 
-  const renderTags = (tags?: string[]) => {
-    if (!tags || tags.length === 0) return null;
-    return (
-      <div className="flex flex-wrap gap-2 mt-4">
-        {tags.map(tag => (
-          <Badge key={tag} variant="secondary" className="rounded-full px-3 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-muted/50 text-muted-foreground border-none">
-            <Tag className="w-3 h-3 mr-1.5 opacity-50" />
-            {tag}
-          </Badge>
-        ))}
-      </div>
-    );
-  };
+  // Determine the container to display as header (same style as GroupView)
+  const containerNode = feature || (isContainer ? node : undefined);
+  const containerTitle = containerNode?.title || '';
+  const containerDescription = containerNode?.description;
+  const containerTags = containerNode?.tags || [];
+  const containerStatus = containerNode?.execution?.status as Status | undefined;
+  const environment = run?.environment || 'local';
 
-  const renderHeader = () => (
-    <div className="mb-10">
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-primary/5 rounded-xl border border-primary/10">
-              {kind === 'feature' ? <BookOpen className="w-5 h-5 text-primary" /> :
-              kind === 'scenario' || kind === 'outline' ? <Target className="w-5 h-5 text-primary" /> :
-              <FileText className="w-5 h-5 text-primary" />}
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">
-              {kind || node.kind}
-            </span>
-            <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
-            {!isBusiness && (
-              <Badge
-                variant="outline"
-                className="rounded-full text-[10px] font-bold uppercase tracking-widest border-muted-foreground/20 text-muted-foreground/60"
-              >
-                ID: {node.id.split('-')[0]}
-              </Badge>
-            )}
-          </div>
-
-          <div className="flex items-start gap-4">
-            <div className="mt-1 shrink-0">{getStatusIcon(node.execution.status)}</div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground leading-tight">
-              {renderTitle(node.title, highlightValues)}
-            </h1>
-          </div>
-
-          {node.description && (
-            <div className="mt-6 relative">
-              <div className="absolute -left-4 top-0 bottom-0 w-1 bg-primary/10 rounded-full" />
-              <div className="pl-2">
-                 <Markdown content={node.description} className="prose-lg font-medium leading-relaxed" />
-              </div>
-            </div>
-          )}
-
-          {renderTags(node.tags)}
-        </div>
-
-        <div className="flex flex-col items-end gap-4 shrink-0">
-          <Card className="bg-card border-none shadow-lg p-4 min-w-45">
-            <div className="space-y-4">
-              {run && (
-                <>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Last verified</span>
-                    <span className="text-sm font-black flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-primary" />
-                      {new Date(run.timestamp).toLocaleString([], {
-                        year: 'numeric',
-                        month: 'numeric',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Environment</span>
-                    <span className="text-sm font-black flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-primary" />
-                      {run.environment || 'Default'}
-                    </span>
-                  </div>
-                  <Separator className="opacity-50" />
-                </>
-              )}
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duration</span>
-                <span className="text-sm font-black flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  {node.execution.duration}ms
-                </span>
-              </div>
-              {summary && (
-                <>
-                  <Separator className="opacity-50" />
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Results</span>
-                      <span className="text-[10px] font-bold">{summary.total} Total</span>
-                    </div>
-                    <div className="flex gap-1 h-1.5 rounded-full overflow-hidden bg-muted">
-                      <div className="bg-pass h-full" style={{ width: `${(summary.passed / summary.total) * 100}%` }} />
-                      <div className="bg-fail h-full" style={{ width: `${(summary.failed / summary.total) * 100}%` }} />
-                      <div className="bg-pending h-full" style={{ width: `${(summary.pending / summary.total) * 100}%` }} />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
+  const containerTitleWithKind = containerNode
+    ? (containerNode.kind.toLowerCase() === SpecKind.Feature.toLowerCase()
+      ? kindPrefixTitle('Feature', containerTitle)
+      : containerTitle)
+    : '';
 
   const renderExamples = () => {
     if (!examples || examples.length === 0) return null;
 
-    // Get headers from first example
     const headers = Object.keys(examples[0].exampleValues || {});
     if (headers.length === 0) return null;
 
@@ -285,7 +279,7 @@ export function NodeView({ node }: NodeViewProps) {
   };
 
   const renderChildren = () => {
-    if (!children || children.length === 0) return null;
+    if (!showCards || !children || children.length === 0) return null;
 
     const textLower = filterText.trim().toLowerCase();
     const hasText = textLower.length > 0;
@@ -296,88 +290,201 @@ export function NodeView({ node }: NodeViewProps) {
 
     if (visibleChildren.length === 0) return null;
 
-    return (
-      <div className="mt-16 space-y-8">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Layers className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">{isBusiness ? 'Acceptance Criteria' : 'Specifications'}</h2>
-            <p className="text-sm text-muted-foreground font-medium">{isBusiness ? 'What is proven by these scenarios' : 'Nested requirements and scenarios'}</p>
-          </div>
-        </div>
+    const Icon = FileText;
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {visibleChildren.map((child: any) => (
-            <Card 
-              key={child.id}
-              className="group cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-300 border-muted/50 overflow-hidden"
-              onClick={() => navigate('node', child.id)}
-            >
-              <div className="flex items-stretch min-h-16">
-                <div className={cn(
-                  "w-1 shrink-0 transition-colors duration-300",
-                  child.execution.status === 'passed' ? 'bg-pass' : 
-                  child.execution.status === 'failed' ? 'bg-fail' : 'bg-pending'
-                )} />
-                <div className="flex-1 p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="shrink-0">
-                      {getStatusIcon(child.execution.status)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-0.5">
-                        {child.kind}
-                      </div>
-                      <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                        {child.title}
-                      </h3>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                </div>
-              </div>
-            </Card>
-          ))}
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Icon className="w-4 h-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground tracking-tight flex-1">
+            Scenarios
+          </h3>
+          <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+            {visibleChildren.length}
+          </span>
+        </div>
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <div className="divide-y">
+            {visibleChildren.map((child: any) => (
+              <button
+                key={child.id}
+                onClick={() => navigate('node', child.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left group"
+              >
+                <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="flex-1 text-sm font-medium truncate group-hover:text-primary transition-colors">
+                  {child.title}
+                </span>
+                <span className="text-xs text-muted-foreground font-mono shrink-0">
+                  {child.execution?.duration !== undefined && child.execution.duration < 1000 
+                    ? `${Math.floor(child.execution.duration)}ms` 
+                    : child.execution?.duration !== undefined 
+                      ? `${(child.execution.duration / 1000).toFixed(2)}s` 
+                      : ''}
+                </span>
+                <StatusBadge status={child.execution?.status} size="sm" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="max-w-5xl mx-auto pb-20">
-      {renderHeader()}
-      
-      <Separator className="my-10 opacity-50" />
-
-      {steps && steps.length > 0 && (
-        <div className="space-y-8">
+    <div className="space-y-8">
+      {/* ========== HEADER - EXACT SAME STYLE AS GROUPVIEW ========== */}
+      <div className="space-y-2">
+        {/* Breadcrumbs */}
+        <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-2 overflow-hidden">
+          {breadcrumbs.length > 0 ? (
+            breadcrumbs.map((item, index) => {
+              const isLast = index === breadcrumbs.length - 1;
+              const isRoot = item.title === 'Root' && index === 0;
+              
+              return (
+                <div key={item.id} className="flex items-center gap-1 shrink-0">
+                  {index > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
+                  <button 
+                    onClick={() => !isLast && navigate('group', item.id)}
+                    disabled={isLast}
+                    className={cn(
+                      "flex items-center gap-1.5 hover:text-foreground transition-colors truncate px-1 py-0.5 rounded-md hover:bg-muted/50",
+                      isLast && "font-medium text-foreground pointer-events-none bg-transparent hover:bg-transparent"
+                    )}
+                  >
+                    {isRoot ? (
+                      <>
+                        <Home className="w-3.5 h-3.5" />
+                        <span>Root</span>
+                      </>
+                    ) : item.title}
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex items-center gap-1 shrink-0">
+              <button 
+                onClick={() => navigate('group', 'group:/')}
+                className="flex items-center gap-1.5 hover:text-foreground transition-colors px-1 py-0.5 rounded-md hover:bg-muted/50"
+              >
+                <Home className="w-3.5 h-3.5" />
+              </button>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
+              <span className="font-medium text-foreground px-1 py-0.5">{containerTitleWithKind || containerTitle}</span>
+            </div>
+          )}
+        </nav>
+        
+        {/* Title + Status */}
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-2xl font-bold tracking-tight">{containerTitleWithKind || containerTitle}</h1>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Info className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">{isBusiness ? 'Acceptance Criteria' : 'Execution'}</h2>
-              <p className="text-sm text-muted-foreground font-medium">
-                {isBusiness ? 'The behavior this scenario proves' : 'Step-by-step verification'}
-              </p>
-            </div>
+            {environment && <Badge variant="outline" className="text-muted-foreground font-normal border-border bg-muted/20">{environment}</Badge>}
+            {containerStatus && <StatusBadge status={containerStatus} size="lg" showLabel />}
           </div>
-          <Card className="border-none shadow-2xl bg-card overflow-hidden">
-            <CardContent className="pt-10">
-              <StepList
-                steps={steps}
-                highlightValues={highlightValues}
-                showDurations={!isBusiness}
-                showErrorStack={!isBusiness}
-              />
-            </CardContent>
-          </Card>
+        </div>
+        
+        {/* Description */}
+        {containerDescription && (
+          <Markdown content={containerDescription} className="max-w-3xl" />
+        )}
+
+        {/* Tags */}
+        {containerTags.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {containerTags.map(tag => (
+              <Badge key={tag} variant="secondary" className="px-1.5 py-0 text-xs font-normal">
+                {normalizeTag(tag)}
+              </Badge> 
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ========== BACKGROUND ========== */}
+      {background && (
+        <div className="space-y-3">
+          <ScenarioBlock
+            label="Background"
+            title={renderTitle(background.title)}
+            status={(background as any).execution?.status as Status | undefined}
+            description={background.description}
+            tags={(background as any).tags}
+            steps={(((background as any).steps || background.children) ?? []) as any}
+            showDurations={!isBusiness}
+            showErrorStack={!isBusiness}
+            tone="background"
+          />
         </div>
       )}
 
+      {/* ========== SCENARIO SECTION (when viewing a child of a Feature) ========== */}
+      {feature && kind !== 'feature' && (
+        <div className="space-y-3">
+          <ScenarioBlock
+            label="Scenario"
+            title={renderTitle(node.title, highlightValues)}
+            status={node.execution?.status as Status | undefined}
+            description={node.description}
+            tags={node.tags}
+            steps={(steps ?? []) as any}
+            highlightValues={highlightValues}
+            showDurations={!isBusiness}
+            showErrorStack={!isBusiness}
+            tone="scenario"
+          />
+        </div>
+      )}
+
+      {/* ========== FAILURE SUMMARY ========== */}
+      {node.execution.status === 'failed' && node.execution.error && (
+        <Card className="bg-destructive/5 border-destructive/20 shadow-none overflow-hidden">
+          <CardHeader className="bg-destructive/10 border-b border-destructive/10 py-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              <h3 className="text-sm font-bold text-destructive uppercase tracking-widest">Failure Summary</h3>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="text-sm font-medium text-foreground/90 whitespace-pre-wrap font-mono">
+              {node.execution.error.message}
+            </div>
+            {!isBusiness && node.execution.error.stack && (
+              <div className="mt-4">
+                <details className="group">
+                  <summary className="flex items-center gap-2 text-xs font-bold text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors w-fit">
+                    <ChevronRight className="w-4 h-4 transition-transform group-open:rotate-90" />
+                    Full Stack Trace
+                  </summary>
+                  <div className="mt-3 pl-6 border-l-2 border-destructive/10">
+                    <pre className="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap overflow-x-auto max-h-80 scrollbar-thin">
+                      {node.execution.error.stack}
+                    </pre>
+                  </div>
+                </details>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ========== STEPS ========== */}
+      {steps && steps.length > 0 && !isScenarioView && (
+        <StepList
+          steps={steps}
+          highlightValues={highlightValues}
+          showDurations={!isBusiness}
+          showErrorStack={!isBusiness}
+        />
+      )}
+
+      {/* ========== EXAMPLES (Scenario Outline) ========== */}
       {renderExamples()}
+
+      {/* ========== CHILDREN (when viewing a container) ========== */}
       {renderChildren()}
     </div>
   );
