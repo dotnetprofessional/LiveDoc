@@ -512,6 +512,9 @@ export class LiveDocViewerReporter implements IPostReporter {
                         : undefined
                 } : undefined
             },
+            code: typeof (sdkStep as any)?.code === 'string' && String((sdkStep as any).code).trim().length > 0
+                ? String((sdkStep as any).code)
+                : undefined,
             docString: mappedDocString,
             dataTable: this.mapDataTableVNext(sdkStep.dataTable),
             values: this.mapTypedValues(sdkStep.values)

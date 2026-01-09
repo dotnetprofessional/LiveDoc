@@ -184,6 +184,7 @@ export interface Step extends Node {
   keyword: StepKeyword;
   docString?: string;
   dataTable?: DataTable;
+  code?: string;
   
   // The values extracted from the step text (e.g. "Given 5 cucumbers" -> 5)
   values?: TypedValue[]; 

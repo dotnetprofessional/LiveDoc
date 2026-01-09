@@ -7,7 +7,7 @@ import { normalizeTag } from '../lib/filter-utils';
 import { StepList } from './StepList';
 
 export interface ScenarioBlockProps {
-  label: 'Scenario' | 'Background';
+  label: 'Scenario' | 'Scenario Outline' | 'Background';
   title: React.ReactNode;
   status?: Status;
   description?: string;

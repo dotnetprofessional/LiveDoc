@@ -1018,6 +1018,7 @@ function createStepFunction(stepType: string) {
                 step: {
                     rawTitle: stepDefinition.rawTitle,
                     type: stepDefinition.type,
+                    code: fn ? fn.toString() : undefined,
                 },
                 ...(capturedScenario instanceof model.ScenarioExample
                     ? {

@@ -713,7 +713,6 @@ export default class LiveDocServerReporter implements Reporter {
 
     private buildScenarioOutlineFromNestedStructure(task: any, parent: model.Feature): model.ScenarioOutline {
         const parsed = this.parseTitleBlock(String(task?.name ?? '').replace(/^Scenario:\s*/i, ''));
-        const outlineTitle = parsed.title;
 
         const outline = new model.ScenarioOutline(parent);
         outline.title = parsed.title;
@@ -784,29 +783,6 @@ export default class LiveDocServerReporter implements Reporter {
         return outline;
     }
 
-    private buildScenarioOutlineFromTask(task: any, parent: model.Feature): model.ScenarioOutline {
-        const parsed = this.parseTitleBlock(task.name.replace('Scenario Outline:', '').trim());
-        const outline = new model.ScenarioOutline(parent);
-        outline.title = parsed.title;
-        outline.description = parsed.description;
-        outline.tags = parsed.tags;
-
-        for (const child of (task.tasks || [])) {
-            if (child.type === 'suite') {
-                // Each child suite is an example
-                const example = new model.ScenarioExample(parent, outline);
-                example.title = child.name;
-                for (const stepTask of (child.tasks || [])) {
-                    if (stepTask.type === 'test') {
-                        example.steps.push(this.buildStepFromTask(stepTask, example));
-                    }
-                }
-                outline.examples.push(example);
-            }
-        }
-        return outline;
-    }
-
     private buildStepFromTask(task: any, parent: any): model.StepDefinition {
         const name = String(task?.name ?? '');
         const meta = this.getLiveDocMetaFromTask(task);
@@ -825,6 +801,11 @@ export default class LiveDocServerReporter implements Reporter {
         step.rawTitle = rawTitleFromMeta ?? title;
         step.displayTitle = name;
 
+        const codeFromMeta = typeof meta?.step?.code === 'string' ? String(meta.step.code) : undefined;
+        if (codeFromMeta && codeFromMeta.trim().length > 0) {
+            (step as any).code = codeFromMeta;
+        }
+
         // Reconstruct docString-like blocks + data tables from multiline step names.
         // This is how LiveDoc transports these across Vitest worker boundaries.
         this.parseStepContent(name, step);
@@ -835,8 +816,22 @@ export default class LiveDocServerReporter implements Reporter {
 
         if (task.result?.errors?.length > 0) {
             const ex = new Exception();
-            ex.message = task.result.errors[0].message;
-            ex.stackTrace = task.result.errors[0].stack;
+            const err = task.result.errors[0];
+            ex.message = err.message;
+            ex.stackTrace = err.stack;
+
+            // Preserve assertion details when available (used by viewer/text reporter diff formatting)
+            if (typeof (err as any).actual !== 'undefined') {
+                (ex as any).actual = (err as any).actual;
+            }
+            if (typeof (err as any).expected !== 'undefined') {
+                (ex as any).expected = (err as any).expected;
+            }
+
+            // Preserve source code snippet when available (attached by livedoc.ts step handler)
+            if (typeof (err as any).code === 'string' && String((err as any).code).trim().length > 0) {
+                (step as any).code = String((err as any).code);
+            }
             step.exception = ex;
         }
 

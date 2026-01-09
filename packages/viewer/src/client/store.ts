@@ -1,5 +1,31 @@
 import { create } from 'zustand';
 import { Node, Statistics, Status } from '@livedoc/schema';
+import { normalizeTag } from './lib/filter-utils';
+
+function mergeInheritedTags(parent: Node | undefined, node: Node): Node {
+  const parentTags = ((parent as any)?.tags ?? []) as unknown[];
+  const ownTags = ((node as any)?.tags ?? []) as unknown[];
+
+  if (parentTags.length === 0) return node;
+
+  const seen = new Set<string>();
+  const merged: string[] = [];
+
+  const add = (t: unknown) => {
+    const raw = String(t ?? '').trim();
+    if (!raw) return;
+    const norm = normalizeTag(raw).toLowerCase();
+    if (!norm) return;
+    if (seen.has(norm)) return;
+    seen.add(norm);
+    merged.push(raw);
+  };
+
+  for (const t of parentTags) add(t);
+  for (const t of ownTags) add(t);
+
+  return { ...(node as any), tags: merged } as any;
+}
 
 function getInitialAudienceMode(): 'business' | 'developer' {
   try {
@@ -229,7 +255,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (runIndex === -1) return state;
 
     const run = state.runs[runIndex];
-    const newNodeMap = { ...run.nodeMap, [node.id]: node };
+    const parent = parentId ? run.nodeMap[parentId] : undefined;
+    const nodeWithInheritedTags = mergeInheritedTags(parent, node);
+    const newNodeMap = { ...run.nodeMap, [nodeWithInheritedTags.id]: nodeWithInheritedTags };
     let newDocuments = [...run.documents];
 
     if (parentId) {
@@ -256,17 +284,17 @@ export const useStore = create<AppState>((set, get) => ({
       newDocuments = updateNodeInTree(newDocuments);
     } else {
       // No parentId - could be a root node OR an update to an existing node anywhere
-      const existingRootIndex = newDocuments.findIndex(n => n.id === node.id);
+      const existingRootIndex = newDocuments.findIndex(n => n.id === nodeWithInheritedTags.id);
       if (existingRootIndex >= 0) {
-        newDocuments[existingRootIndex] = node;
+        newDocuments[existingRootIndex] = nodeWithInheritedTags;
       } else {
         // Search and update in tree
         let found = false;
         const updateInTree = (nodes: Node[]): Node[] => {
           return nodes.map(n => {
-            if (n.id === node.id) {
+            if (n.id === nodeWithInheritedTags.id) {
               found = true;
-              return node;
+              return nodeWithInheritedTags;
             }
             if ((n as any).children) {
               const updatedChildren = updateInTree((n as any).children);
@@ -283,7 +311,7 @@ export const useStore = create<AppState>((set, get) => ({
           newDocuments = updatedDocuments;
         } else {
           // Truly a new root node
-          newDocuments.push(node);
+          newDocuments.push(nodeWithInheritedTags);
         }
       }
     }

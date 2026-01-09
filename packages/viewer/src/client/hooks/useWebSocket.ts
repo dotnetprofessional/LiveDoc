@@ -2,6 +2,54 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useStore, Run } from '../store';
 import { getApiBaseUrl, getWsBaseUrl } from '../config';
 import { Node } from '@livedoc/schema';
+import { normalizeTag } from '../lib/filter-utils';
+
+function applyInheritedTags(rootNodes: Node[]): void {
+  const getChildren = (node: Node): Node[] => {
+    const children: Node[] = [];
+    const anyNode = node as any;
+    if (Array.isArray(anyNode.children)) children.push(...anyNode.children);
+    if (Array.isArray(anyNode.examples)) children.push(...anyNode.examples);
+    if (anyNode.template) children.push(anyNode.template);
+    if (anyNode.background) children.push(anyNode.background);
+    return children;
+  };
+
+  const stack: Array<{ node: Node; inheritedTags: string[]; inheritedLower: Set<string> }> = rootNodes.map((n) => ({
+    node: n,
+    inheritedTags: [],
+    inheritedLower: new Set<string>(),
+  }));
+
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (!frame) continue;
+
+    const n = frame.node as any;
+
+    const mergedLower = new Set(frame.inheritedLower);
+    const mergedTags: string[] = [...frame.inheritedTags];
+
+    const ownTags = (n.tags ?? []) as unknown[];
+    for (const t of ownTags) {
+      const raw = String(t ?? '').trim();
+      if (!raw) continue;
+      const normalizedLower = normalizeTag(raw).toLowerCase();
+      if (!normalizedLower) continue;
+      if (mergedLower.has(normalizedLower)) continue;
+      mergedLower.add(normalizedLower);
+      mergedTags.push(raw);
+    }
+
+    if (mergedTags.length > 0) {
+      n.tags = mergedTags;
+    }
+
+    for (const child of getChildren(frame.node)) {
+      stack.push({ node: child, inheritedTags: mergedTags, inheritedLower: mergedLower });
+    }
+  }
+}
 
 // Transform API response to match our store structure
 function transformRunData(apiRun: any): Run {
@@ -25,6 +73,7 @@ function transformRunData(apiRun: any): Run {
   };
 
   const documents = apiRun.documents || apiRun.nodes || [];
+  applyInheritedTags(documents);
   buildNodeMap(documents);
 
   return {

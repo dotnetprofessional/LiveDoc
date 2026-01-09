@@ -36,5 +36,8 @@ export function generateStabilityId(params: {
   }
 
   // 3. Child Nodes (Scenario / Rule / Test / etc.)
-  return `${parentId}:${simpleHash(`${kind}:${title}`)}`;
+  // Include `index` when provided to avoid collisions for repeated titles under a parent
+  // (e.g., Scenario Outline examples share the same title).
+  const indexSuffix = typeof index === 'number' ? `:${index}` : '';
+  return `${parentId}:${simpleHash(`${kind}:${title}${indexSuffix}`)}`;
 }

@@ -242,25 +242,33 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
         })()}
 
         {step.execution.error && (
-          <div className="mt-4 p-4 bg-destructive/5 border border-destructive/20 rounded-xl overflow-hidden">
-            <div 
-              className={cn("flex items-start gap-2 text-destructive font-bold text-xs mb-2", showErrorStack && step.execution.error?.stack && "cursor-pointer select-none")}
+          <div className="mt-2 -ml-16 rounded-lg border border-destructive/30 bg-destructive/10 overflow-hidden">
+            <div
+              className={cn(
+                "px-3 py-2",
+                showErrorStack && step.execution.error?.stack && "cursor-pointer select-none"
+              )}
               onClick={() => showErrorStack && step.execution.error?.stack && setIsErrorExpanded(!isErrorExpanded)}
             >
-              <XCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <div className="flex-1">
-                 {step.execution.error.message}
-                 {showErrorStack && step.execution.error.stack && (
-                   <div className="flex items-center gap-1 text-[10px] opacity-70 mt-1 font-normal hover:opacity-100 transition-opacity">
+              <div className="flex items-start gap-2">
+                <XCircle className="w-4 h-4 mt-0.5 shrink-0 text-destructive" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] leading-relaxed font-mono text-foreground/90 whitespace-pre-wrap wrap-break-word">
+                    {step.execution.error.message}
+                  </div>
+
+                  {showErrorStack && step.execution.error.stack && (
+                    <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors w-fit">
                       {isErrorExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                      {isErrorExpanded ? "Hide stack trace" : "Show stack trace"}
-                   </div>
-                 )}
+                      {isErrorExpanded ? 'Hide details' : 'Show details'}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
             {showErrorStack && step.execution.error.stack && isErrorExpanded && (
-              <pre className="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap overflow-x-auto max-h-96 scrollbar-thin mt-3 pt-3 border-t border-destructive/10 animate-in fade-in zoom-in-95 duration-200">
+              <pre className="text-[10px] font-mono text-muted-foreground/80 whitespace-pre-wrap overflow-x-auto max-h-96 scrollbar-thin px-3 py-2 border-t border-destructive/15 animate-in fade-in zoom-in-95 duration-200">
                 {step.execution.error.stack}
               </pre>
             )}

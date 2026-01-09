@@ -35,7 +35,9 @@ feature("Viewer reporter posts valid payloads", () => {
                         },
                         {
                             type: "suite",
-                            name: "Scenario Outline: Tagged Outline\n@outline\nOutline description",
+                            // Vitest represents Scenario Outlines as a "Scenario:" suite with nested "Example ..." suites.
+                            // This matches what livedoc.ts registers.
+                            name: "Scenario: Tagged Outline\n@outline\nOutline description",
                             tasks: [
                                 {
                                     type: "suite",
@@ -168,16 +170,37 @@ feature("Viewer reporter posts valid payloads", () => {
             expect(featureRoot).toBeTruthy();
 
             const scenarioNode = posted.find((p) => p.parentId === featureRoot.id && p.node.kind === "Scenario" && p.node.title === "Tagged Scenario")?.node;
+            if (!scenarioNode) {
+                const featureChildren = posted
+                    .filter((p) => p.parentId === featureRoot.id)
+                    .map((p) => `${p.node.kind}:${p.node.title}`)
+                    .join('\n');
+                throw new Error(`Could not find Scenario 'Tagged Scenario' under Feature '${featureRoot.id}'. Found:\n${featureChildren}`);
+            }
             expect(scenarioNode).toBeTruthy();
             expect(scenarioNode.tags).toEqual(["critical"]);
             expect(scenarioNode.description).toBe("Scenario description");
 
             const outlineNode = posted.find((p) => p.parentId === featureRoot.id && p.node.kind === "ScenarioOutline" && p.node.title === "Tagged Outline")?.node;
+            if (!outlineNode) {
+                const featureChildren = posted
+                    .filter((p) => p.parentId === featureRoot.id)
+                    .map((p) => `${p.node.kind}:${p.node.title}`)
+                    .join('\n');
+                throw new Error(`Could not find ScenarioOutline 'Tagged Outline' under Feature '${featureRoot.id}'. Found:\n${featureChildren}`);
+            }
             expect(outlineNode).toBeTruthy();
             expect(outlineNode.tags).toEqual(["outline"]);
             expect(outlineNode.description).toBe("Outline description");
 
             const stepNode = posted.find((p) => p.parentId === scenarioNode.id && p.node.kind === "Step")?.node;
+            if (!stepNode) {
+                const scenarioChildren = posted
+                    .filter((p) => p.parentId === scenarioNode.id)
+                    .map((p) => `${p.node.kind}:${p.node.title}`)
+                    .join('\n');
+                throw new Error(`Could not find Step under Scenario '${scenarioNode.id}'. Found:\n${scenarioChildren}`);
+            }
             expect(stepNode).toBeTruthy();
             expect(stepNode.keyword).toBe("given");
             expect(stepNode.title).toBe("a precondition");
@@ -186,6 +209,13 @@ feature("Viewer reporter posts valid payloads", () => {
             expect(specRoot).toBeTruthy();
 
             const ruleNode = posted.find((p) => p.parentId === specRoot.id && p.node.kind === "Rule" && p.node.title === "Tagged Rule")?.node;
+            if (!ruleNode) {
+                const specChildren = posted
+                    .filter((p) => p.parentId === specRoot.id)
+                    .map((p) => `${p.node.kind}:${p.node.title}`)
+                    .join('\n');
+                throw new Error(`Could not find Rule 'Tagged Rule' under Specification '${specRoot.id}'. Found:\n${specChildren}`);
+            }
             expect(ruleNode).toBeTruthy();
             expect(ruleNode.tags).toEqual(["rule-tag"]);
             expect(ruleNode.description).toBe("Rule description");
