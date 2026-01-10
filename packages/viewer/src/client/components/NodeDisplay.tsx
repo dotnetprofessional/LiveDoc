@@ -118,7 +118,7 @@ export function NodeDisplay({ node, variant, size = 'lg', showStats = true, onCl
         {node.tags.map(tag => (
           <Badge key={tag} variant="secondary" className="rounded-full px-3 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-muted/50 text-muted-foreground border-none">
             <Tag className="w-3 h-3 mr-1.5 opacity-50" />
-            {tag}
+        {String(tag ?? '').replace(/^@/, '')}
           </Badge>
         ))}
       </div>

@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, Tag, X } from 'lucide-react';
 import { Node } from '@livedoc/schema';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
-import { normalizeTag, subtreeHasMatch } from '../lib/filter-utils';
+import { formatTagLabel, normalizeTag, subtreeHasMatch } from '../lib/filter-utils';
 import { StatusBadge } from './StatusBadge';
 import { isContainerKind } from '../lib/nav-tree';
 
@@ -39,6 +39,8 @@ export function GlobalFilter({ className }: { className?: string }) {
   const { getCurrentRun, filterText, filterTags, setFilterText, setFilterTags, navigate } = useStore();
   const run = getCurrentRun();
   const documents = run?.documents ?? [];
+
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const knownTags = React.useMemo(() => collectKnownTags(documents), [documents]);
 
@@ -169,7 +171,8 @@ export function GlobalFilter({ className }: { className?: string }) {
                 key={tag}
                 className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] text-foreground"
               >
-                {tag}
+                <Tag className="w-3 h-3 opacity-60" />
+                {formatTagLabel(tag)}
                 <button
                   type="button"
                   className="text-muted-foreground hover:text-foreground transition-colors"
@@ -181,6 +184,7 @@ export function GlobalFilter({ className }: { className?: string }) {
               </span>
             ))}
             <input
+              ref={inputRef}
               type="text"
               placeholder="Filter… (type @ to add tag)"
               value={inputValue}
@@ -254,7 +258,10 @@ export function GlobalFilter({ className }: { className?: string }) {
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => commitTagToken(tag)}
                   >
-                    {tag}
+                    <span className="inline-flex items-center gap-2">
+                      <Tag className="w-3.5 h-3.5 opacity-60" />
+                      <span>{formatTagLabel(tag)}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -276,6 +283,9 @@ export function GlobalFilter({ className }: { className?: string }) {
                   onMouseDown={(e) => {
                     e.preventDefault();
                     navigate('node', String((node as any).id));
+                    setTagPickerOpen(false);
+                    setHasFocus(false);
+                    window.setTimeout(() => inputRef.current?.blur(), 0);
                   }}
                 >
                   <StatusBadge status={(node as any).execution?.status} size="sm" />

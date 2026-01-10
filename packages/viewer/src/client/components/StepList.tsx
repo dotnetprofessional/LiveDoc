@@ -1,9 +1,63 @@
 import { Step, Status, TypedValue } from '@livedoc/schema';
-import { renderTitle, highlightPlaceholders } from '../lib/title-utils';
+import { renderTitle, highlightExampleValues, highlightPlaceholders } from '../lib/title-utils';
 import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Markdown } from './Markdown';
 import { useState } from 'react';
+
+function tryParseJson(input: string): unknown | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+  // Cheap pre-check to avoid treating normal text as JSON.
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return undefined;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return undefined;
+  }
+}
+
+function renderJsonHighlighted(jsonText: string): React.ReactNode {
+  // Tokenize a pretty-printed JSON string.
+  const parts = jsonText.split(/(\s+|"(?:\\.|[^"\\])*"\s*:|"(?:\\.|[^"\\])*"|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[\{\}\[\]\,\:])/g);
+
+  return parts
+    .filter((p) => p !== undefined && p !== '')
+    .map((p, i) => {
+      if (p === 'true' || p === 'false' || p === 'null') {
+        return <span key={i} className="text-muted-foreground">{p}</span>;
+      }
+
+      if (/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(p)) {
+        return <span key={i} className="text-foreground/80">{p}</span>;
+      }
+
+      if (/^"(?:\\.|[^"\\])*"\s*:$/.test(p)) {
+        // Key (render key vs ':' separately so the key stands out)
+        const keyPart = p.replace(/\s*:\s*$/, '');
+        const colonPart = p.slice(keyPart.length);
+
+        return (
+          <span key={i}>
+            <span className="text-primary font-medium">{keyPart}</span>
+            <span className="text-muted-foreground">{colonPart}</span>
+          </span>
+        );
+      }
+
+      if (/^"(?:\\.|[^"\\])*"$/.test(p)) {
+        // String value
+        return <span key={i} className="text-foreground/90">{p}</span>;
+      }
+
+      if (/^[\{\}\[\]\,\:]$/.test(p)) {
+        return <span key={i} className="text-muted-foreground/80">{p}</span>;
+      }
+
+      // whitespace or anything else
+      return <span key={i}>{p}</span>;
+    });
+}
 
 type NormalizedCell = {
   text: string;
@@ -110,11 +164,29 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
   const keyword = step.keyword?.toLowerCase() || '';
   const isContinuation = ['and', 'but'].includes(keyword);
 
+  const status = (step as any)?.execution?.status as Status | undefined;
+  const duration = typeof (step as any)?.execution?.duration === 'number' ? (step as any).execution.duration as number : 0;
+
+  const parsedJson = step.docString ? tryParseJson(step.docString) : undefined;
+  const formattedDocString = parsedJson ? JSON.stringify(parsedJson, null, 2) : step.docString;
+
+  const renderedDocString: React.ReactNode = (() => {
+    if (!formattedDocString) return null;
+    if (parsedJson) return renderJsonHighlighted(formattedDocString);
+
+    // IMPORTANT: docstrings do NOT support “quoted value” parsing/highlighting.
+    // We only highlight concrete bound example values (e.g. given/when/then) when present.
+    if (highlightValues && Object.keys(highlightValues).length > 0) {
+      return highlightExampleValues(String(formattedDocString), highlightValues);
+    }
+    return String(formattedDocString);
+  })();
+
   return (
     <div className="group relative flex items-start gap-2 py-1 -mx-2 px-2 rounded-lg hover:bg-muted/30 transition-colors">
       {/* 1. Status Column (Fixed Width) */}
       <div className="shrink-0 w-5 flex justify-center pt-0.5">
-        {showStatus && getStatusIcon(step.execution.status)}
+        {showStatus && getStatusIcon(status ?? 'pending')}
       </div>
 
       {/* 2. Keyword Column (Fixed Width, Right Aligned) */}
@@ -135,10 +207,10 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
              {renderTitle(step.title, highlightValues)}
            </div>
            
-           {showDurations && step.execution.duration > 0 && (
+           {showDurations && duration > 0 && (
             <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Clock className="w-3 h-3" />
-              {step.execution.duration}ms
+              {duration}ms
             </span>
           )}
         </div>
@@ -150,11 +222,12 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
         )}
 
         {step.docString && (
-          <div className="mt-3">
+          // Hang-align docstring under the keyword column (not under the statement)
+          <div className="mt-3 -ml-14">
             <div className="relative">
               <div className="absolute -left-3 top-0 bottom-0 w-1 bg-primary/10 rounded-full" />
               <pre className="text-xs font-mono text-muted-foreground bg-muted/30 rounded-xl p-4 whitespace-pre-wrap overflow-x-auto border border-border/50 shadow-inner">
-                {step.docString}
+                {renderedDocString}
               </pre>
             </div>
           </div>

@@ -360,6 +360,83 @@ export class RunStore {
   getRun(runId: string): TestRun | undefined {
     return this.runs.get(runId);
   }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private looksLikeNodeArray(value: unknown): value is Array<{ id: string }> {
+    if (!Array.isArray(value)) return false;
+    return value.some(v => this.isPlainObject(v) && typeof (v as any).id === 'string');
+  }
+
+  private mergeNodeArrayById<T extends { id: string }>(
+    existing: T[] | undefined,
+    incoming: T[] | undefined
+  ): T[] | undefined {
+    if (!incoming) return existing;
+    if (!existing) return incoming;
+
+    const byId = new Map<string, T>();
+    for (const item of existing) byId.set(item.id, item);
+
+    const incomingIds = new Set<string>();
+    for (const item of incoming) {
+      incomingIds.add(item.id);
+      const prev = byId.get(item.id);
+      byId.set(item.id, (prev ? (this.mergeNode(prev, item) as T) : item));
+    }
+
+    const result: T[] = [];
+    for (const item of existing) {
+      const merged = byId.get(item.id);
+      if (merged) result.push(merged);
+    }
+    for (const item of incoming) {
+      if (!existing.some(e => e.id === item.id)) {
+        const merged = byId.get(item.id);
+        if (merged) result.push(merged);
+      }
+    }
+
+    return result;
+  }
+
+  private mergeNode(existing: any, incoming: any): any {
+    if (incoming === undefined || incoming === null) return existing;
+    if (existing === undefined || existing === null) return incoming;
+
+    // Arrays: preserve existing when incoming is empty/partial for node-shaped arrays.
+    if (Array.isArray(existing) || Array.isArray(incoming)) {
+      if (this.looksLikeNodeArray(existing) || this.looksLikeNodeArray(incoming)) {
+        return this.mergeNodeArrayById(existing as any, incoming as any);
+      }
+      // For non-node arrays, incoming wins when provided.
+      return Array.isArray(incoming) ? incoming : existing;
+    }
+
+    // Primitives: incoming wins.
+    if (!this.isPlainObject(existing) || !this.isPlainObject(incoming)) {
+      return incoming;
+    }
+
+    const merged: Record<string, unknown> = { ...existing, ...incoming };
+
+    const keys = new Set<string>([...Object.keys(existing), ...Object.keys(incoming)]);
+    for (const key of keys) {
+      const existingValue = (existing as any)[key];
+      const incomingValue = (incoming as any)[key];
+
+      if (incomingValue === undefined) {
+        merged[key] = existingValue;
+        continue;
+      }
+
+      merged[key] = this.mergeNode(existingValue, incomingValue);
+    }
+
+    return merged;
+  }
   
   /**
    * Find a node in the run by ID
@@ -402,7 +479,7 @@ export class RunStore {
       // Root document
       const existingIndex = run.documents.findIndex(d => d.id === node.id);
       if (existingIndex >= 0) {
-        run.documents[existingIndex] = node as any;
+        run.documents[existingIndex] = this.mergeNode(run.documents[existingIndex] as any, node as any) as any;
       } else {
         run.documents.push(node as any);
       }
@@ -413,7 +490,7 @@ export class RunStore {
           const children = (parent as any).children as Node[];
           const existingIndex = children.findIndex(c => c.id === node.id);
           if (existingIndex >= 0) {
-            children[existingIndex] = node;
+            children[existingIndex] = this.mergeNode(children[existingIndex] as any, node as any) as any;
           } else {
             children.push(node);
           }
@@ -421,7 +498,7 @@ export class RunStore {
           const examples = (parent as any).examples as Node[];
           const existingIndex = examples.findIndex(e => e.id === node.id);
           if (existingIndex >= 0) {
-            examples[existingIndex] = node;
+            examples[existingIndex] = this.mergeNode(examples[existingIndex] as any, node as any) as any;
           } else {
             examples.push(node);
           }
@@ -517,6 +594,20 @@ export class RunStore {
     if (node) {
       Object.assign(node.execution, execution);
       this.updateStatistics(run);
+      this.scheduleSaveRun(run);
+    }
+  }
+
+  /**
+   * Update a node's fields
+   */
+  updateNode(runId: string, nodeId: string, patch: Partial<Node>): void {
+    const run = this.runs.get(runId);
+    if (!run) return;
+
+    const node = this.findNode(run, nodeId);
+    if (node) {
+      Object.assign(node, patch);
       this.scheduleSaveRun(run);
     }
   }

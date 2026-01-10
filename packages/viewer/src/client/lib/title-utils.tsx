@@ -79,7 +79,14 @@ export function highlightExampleValues(text: string, values: Record<string, stri
 
   if (uniqueValues.length === 0) return text;
 
-  const pattern = new RegExp(`(${uniqueValues.map(escapeRegExp).join('|')})`, 'g');
+  // Use word boundaries for alphanumeric values to avoid excessive "greedy" highlighting
+  // e.g. highlighting "1" inside "100" or random words in a code block.
+  const patterns = uniqueValues.map(v => {
+    const escaped = escapeRegExp(v);
+    return /^[a-zA-Z0-9_]+$/.test(v) ? `\\b${escaped}\\b` : escaped;
+  });
+
+  const pattern = new RegExp(`(${patterns.join('|')})`, 'g');
   const parts = text.split(pattern);
 
   return parts.map((part, idx) => {

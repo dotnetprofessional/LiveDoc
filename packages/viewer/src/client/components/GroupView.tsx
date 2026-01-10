@@ -4,10 +4,11 @@ import { Run, useStore } from '../store';
 import { buildGroupedNavTree, findNavItemById, NavItem, isContainerKind } from '../lib/nav-tree';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '../lib/utils';
-import { subtreeHasMatch, normalizeTag } from '../lib/filter-utils';
+import { subtreeHasMatch } from '../lib/filter-utils';
 import { Badge } from './ui/badge';
 import { Node, Status, SpecKind } from '@livedoc/schema';
 import { Markdown } from './Markdown';
+import { TagChips } from './TagChips';
 
 type ListItem = 
   | { type: 'navItem'; item: NavItem }
@@ -171,6 +172,11 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
     return findNavPath(navTree, groupId) || [];
   }, [navTree, groupId]);
 
+  const breadcrumbsToRender = useMemo(() => {
+    // On list/container pages, the last breadcrumb is the current page. Omit it.
+    return breadcrumbs.length > 1 ? breadcrumbs.slice(0, -1) : breadcrumbs;
+  }, [breadcrumbs]);
+
   if (!viewData) {
     return (
         <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
@@ -196,20 +202,18 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
     <div className="space-y-8">
       <div className="space-y-2">
         <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-2 overflow-hidden">
-             {breadcrumbs.length > 0 ? (
-                 breadcrumbs.map((item, index) => {
-                    const isLast = index === breadcrumbs.length - 1;
+           {breadcrumbsToRender.length > 0 ? (
+             breadcrumbsToRender.map((item, index) => {
                     const isRoot = item.title === 'Root' && index === 0;
                     
                     return (
                         <div key={item.id} className="flex items-center gap-1 shrink-0">
                             {index > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
                             <button 
-                                onClick={() => !isLast && navigate('group', item.id)}
-                                disabled={isLast}
+                    onClick={() => navigate('group', item.id)}
                                 className={cn(
                                     "flex items-center gap-1.5 hover:text-foreground transition-colors truncate px-1 py-0.5 rounded-md hover:bg-muted/50",
-                                    isLast && "font-medium text-foreground pointer-events-none bg-transparent hover:bg-transparent"
+                      ""
                                 )}
                             >
                                 {isRoot ? <Home className="w-3.5 h-3.5" /> : item.title}
@@ -244,15 +248,7 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
              <Markdown content={description} className="max-w-3xl" />
         )}
 
-        {tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
-                {tags.map(tag => (
-                   <Badge key={tag} variant="secondary" className="px-1.5 py-0 text-xs font-normal">
-                      {normalizeTag(tag)}
-                   </Badge> 
-                ))}
-            </div>
-        )}
+        <TagChips tags={tags} className="pt-1" />
       </div>
 
       <div className="space-y-8">
@@ -357,15 +353,11 @@ function GroupRow({ child, navigate, filterText, hideKindLabel }: { child: ListI
                     )}
                     <span className="font-medium truncate text-foreground">{title}</span>
                 </div>
-                {tags.length > 0 && (
-                   <div className="flex gap-1.5 mt-1.5 overflow-hidden">
-                      {tags.map(t => (
-                          <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-secondary text-secondary-foreground">
-                              {t}
-                          </span>
-                      ))}
-                   </div>
-                )}
+                <TagChips
+                  tags={tags}
+                  className="mt-1.5 overflow-hidden"
+                  chipClassName="text-[10px] font-medium px-1.5 py-0.5"
+                />
             </div>
 
             <div className="flex items-center gap-4 shrink-0 text-muted-foreground">

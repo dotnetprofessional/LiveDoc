@@ -8,7 +8,7 @@ import { DescriptionParser } from '../parser/Parser';
 import type { File, Task, TaskResultPack } from '@vitest/runner';
 import * as path from 'path';
 import * as fs from 'fs';
-import { generateStabilityId, type Node, type Status, SpecKind } from '@livedoc/schema';
+import { generateStabilityId, type Node, type Status, SpecKind, type ExampleTable, type TypedValue } from '@livedoc/schema';
 import { livedoc } from '../livedoc';
 
 function debugLog(msg: string, data?: any) {
@@ -91,11 +91,15 @@ export default class LiveDocServerReporter implements Reporter {
     }
 
     async onCollected(files?: File[]): Promise<void> {
-        debugLog('onCollected called', { streaming: this.streamingEnabled, isAvailable: this.isAvailable, hasViewer: !!this.viewerReporter });
-        if (!this.streamingEnabled) return;
-        if (!this.isAvailable || !this.serverUrl || !this.viewerReporter) return;
-        if (this.runId) return;
-        if (!files || files.length === 0) return;
+        debugLog('onCollected called ENTRY', { 
+            streaming: this.streamingEnabled, 
+            isAvailable: this.isAvailable, 
+            serverUrl: this.serverUrl,
+            hasViewer: !!this.viewerReporter,
+            filesCount: files?.length,
+            runId: this.runId
+        });
+        if (!files || files.length === 0) { debugLog('onCollected: no files'); return; }
 
         try {
             this.rootPath = this.findCommonRootPath(
@@ -106,6 +110,17 @@ export default class LiveDocServerReporter implements Reporter {
                     .map((p) => p.replace(/\\/g, '/'))
             );
 
+            // Always index the task tree for model building at the end
+            for (const file of files) {
+                for (const t of (file.tasks || [])) {
+                    this.indexTaskTree(t);
+                }
+            }
+
+            if (!this.streamingEnabled) { debugLog('onCollected: streaming disabled (skipping initial post)'); return; }
+            if (!this.isAvailable || !this.serverUrl || !this.viewerReporter) { debugLog('onCollected: not available'); return; }
+            if (this.runId) { debugLog('onCollected: already has runId'); return; }
+
             const runId = await this.viewerReporter.startRunSession();
             if (!runId) return;
             this.runId = runId;
@@ -113,9 +128,6 @@ export default class LiveDocServerReporter implements Reporter {
             // Post initial node tree in pending state.
             for (const file of files) {
                 const filepath = ((file as any).filepath || '') as string;
-                for (const t of (file.tasks || [])) {
-                    this.indexTaskTree(t);
-                }
                 for (const t of (file.tasks || [])) {
                     await this.postInitialNodesForTask(runId, t, filepath);
                 }
@@ -335,89 +347,133 @@ export default class LiveDocServerReporter implements Reporter {
 
             // Scenario / Scenario Outline inside a Feature
             if (parentNodeId) {
-                if (name.startsWith('Scenario:')) {
-                    const parsed = this.parseTitleBlock(name.replace('Scenario:', '').trim());
-                    const nodeId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Scenario, parentId: parentNodeId });
-                    const node: Node = {
-                        id: nodeId,
-                        kind: SpecKind.Scenario,
-                        title: parsed.title,
-                        description: parsed.description,
-                        tags: parsed.tags,
-                        execution: { status: 'pending', duration: 0 },
-                        summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
-                        children: []
-                    } as any;
+                const isScenarioPrefix = name.startsWith('Scenario:');
+                const isOutlinePrefix = name.startsWith('Scenario Outline:');
 
-                    await this.viewerReporter.postNodeToRun(runId, parentNodeId, node);
-                    this.recordChild(parentNodeId, nodeId);
-                    this.taskToNodeId.set((task as any).id, nodeId);
-                    this.nodeStatus.set(nodeId, 'pending');
+                if (isScenarioPrefix || isOutlinePrefix) {
+                    const cleanTitle = name.replace(/^Scenario( Outline)?:\s*/i, '').trim();
+                    const parsed = this.parseTitleBlock(cleanTitle);
 
-                    let stepIndex = 0;
-                    for (const child of this.getTaskChildren(task)) {
-                        if (child.type === 'test') {
-                            await this.postStepNode(runId, child, nodeId, stepIndex++);
+                    const exampleSuites = this.getTaskChildren(task).filter((t: any) =>
+                        t.type === 'suite' && typeof t.name === 'string' && t.name.startsWith('Example ')
+                    ) as Task[];
+
+                    if (exampleSuites.length > 0) {
+                        // It's a Scenario Outline
+                        const outlineId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.ScenarioOutline, parentId: parentNodeId });
+
+                        // Build template steps from direct test tasks (discovery run) or fallback to first example
+                        const templateChildren: any[] = [];
+                        const directTemplateTasks = this.getTaskChildren(task).filter((t: any) => t.type === 'test');
+                        const templateTasksToUse = directTemplateTasks.length > 0 ? directTemplateTasks : this.getTaskChildren(exampleSuites[0]);
+
+                        let stepIdx = 0;
+                        for (const stepTask of templateTasksToUse) {
+                            if (stepTask.type !== 'test') continue;
+                            const meta = this.getLiveDocMetaFromTask(stepTask);
+                            const parsedStep = this.parseStepDetails(stepTask);
+
+                            // Construct step node with more rich data (docString, dataTable, values)
+                            templateChildren.push({
+                                id: `${outlineId}:template:step:${stepIdx}`,
+                                kind: SpecKind.Step,
+                                title: parsedStep.title,
+                                keyword: parsedStep.keyword as any,
+                                docString: parsedStep.docString,
+                                docStringRaw: parsedStep.docStringRaw,
+                                dataTable: this.mapDataTableVNext(parsedStep.dataTable),
+                                values: this.mapTypedValues(meta?.step?.values),
+                                code: meta?.step?.code,
+                                execution: { status: 'pending', duration: 0 },
+                            });
+                            stepIdx++;
                         }
-                    }
-                    return;
-                }
 
-                if (name.startsWith('Scenario Outline:')) {
-                    // For streaming, represent outline as a container; children example suites will be mapped to Scenario nodes.
-                    const parsed = this.parseTitleBlock(name.replace('Scenario Outline:', '').trim());
-                    const outlineId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.ScenarioOutline, parentId: parentNodeId });
-                    const outline: any = {
-                        id: outlineId,
-                        kind: SpecKind.ScenarioOutline,
-                        title: parsed.title,
-                        description: parsed.description,
-                        tags: parsed.tags,
-                        execution: { status: 'pending', duration: 0 },
-                        summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
-                        template: {
-                            id: `${outlineId}:template`,
-                            kind: SpecKind.Scenario,
+                        // Prefer the authoritative metadata from livedoc.ts for tables/description/tags if available on first example.
+                        const firstStepTask = directTemplateTasks[0] || (this.getTaskChildren(exampleSuites[0] || {}) || []).find((t: any) => t?.type === 'test');
+                        const firstMeta = firstStepTask ? this.getLiveDocMetaFromTask(firstStepTask) : undefined;
+                        const metaTables = firstMeta?.scenarioOutline?.tables;
+                        const tables = (Array.isArray(metaTables) && metaTables.length > 0)
+                            ? this.mapScenarioOutlineTables(metaTables, outlineId)
+                            : [];
+
+                        const outline: any = {
+                            id: outlineId,
+                            kind: SpecKind.ScenarioOutline,
                             title: parsed.title,
+                            description: firstMeta?.scenarioOutline?.description ?? parsed.description,
+                            tags: firstMeta?.scenarioOutline?.tags ?? parsed.tags,
                             execution: { status: 'pending', duration: 0 },
                             summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
-                            children: []
-                        },
-                        examples: [],
-                        tables: []
-                    };
-
-                    await this.viewerReporter.postNodeToRun(runId, parentNodeId, outline);
-                    this.recordChild(parentNodeId, outlineId);
-                    this.taskToNodeId.set((task as any).id, outlineId);
-                    this.nodeStatus.set(outlineId, 'pending');
-
-                    const exampleSuites = this.getTaskChildren(task).filter((t: any) => t.type === 'suite') as Task[];
-                    for (let i = 0; i < exampleSuites.length; i++) {
-                        const exampleSuite = exampleSuites[i];
-                        const exampleId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Scenario, parentId: outlineId, index: i });
-                        const exampleNode: any = {
-                            id: exampleId,
-                            kind: SpecKind.Scenario,
-                            title: parsed.title,
-                            execution: { status: 'pending', duration: 0 },
-                            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
-                            children: []
+                            template: {
+                                id: `${outlineId}:template`,
+                                kind: SpecKind.Scenario,
+                                title: parsed.title,
+                                execution: { status: 'pending', duration: 0 },
+                                summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                                children: templateChildren
+                            },
+                            examples: [],
+                            tables
                         };
 
-                        await this.viewerReporter.postNodeToRun(runId, outlineId, exampleNode);
-                        this.recordChild(outlineId, exampleId);
-                        this.taskToNodeId.set((exampleSuite as any).id, exampleId);
-                        this.nodeStatus.set(exampleId, 'pending');
+                        await this.viewerReporter.postNodeToRun(runId, parentNodeId, outline);
+                        this.recordChild(parentNodeId, outlineId);
+                        this.taskToNodeId.set((task as any).id, outlineId);
+                        this.nodeStatus.set(outlineId, 'pending');
 
-                        let stepIndex = 0;
-                        for (const child of this.getTaskChildren(exampleSuite)) {
-                            if (child.type === 'test') {
-                                await this.postStepNode(runId, child, exampleId, stepIndex++);
+                        for (let i = 0; i < exampleSuites.length; i++) {
+                            const exampleSuite = exampleSuites[i];
+                            const exampleId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Scenario, parentId: outlineId, index: i });
+                            const exampleNode: any = {
+                                id: exampleId,
+                                kind: SpecKind.Scenario,
+                                title: parsed.title,
+                                execution: { status: 'pending', duration: 0 },
+                                summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                                children: []
+                            };
+
+                            await this.viewerReporter.postNodeToRun(runId, outlineId, exampleNode);
+                            this.recordChild(outlineId, exampleId);
+                            this.taskToNodeId.set((exampleSuite as any).id, exampleId);
+                            this.nodeStatus.set(exampleId, 'pending');
+
+                            let stepIndex = 0;
+                            for (const child of this.getTaskChildren(exampleSuite)) {
+                                if (child.type === 'test') {
+                                    await this.postStepNode(runId, child, exampleId, stepIndex++);
+                                }
                             }
                         }
+                        return;
+                    } else {
+                        // Regular Scenario
+                        const nodeId = generateStabilityId({ project: this.project, title: parsed.title, kind: SpecKind.Scenario, parentId: parentNodeId });
+                        const node: Node = {
+                            id: nodeId,
+                            kind: SpecKind.Scenario,
+                            title: parsed.title,
+                            description: parsed.description,
+                            tags: parsed.tags,
+                            execution: { status: 'pending', duration: 0 },
+                            summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+                            children: []
+                        } as any;
+
+                        await this.viewerReporter.postNodeToRun(runId, parentNodeId, node);
+                        this.recordChild(parentNodeId, nodeId);
+                        this.taskToNodeId.set((task as any).id, nodeId);
+                        this.nodeStatus.set(nodeId, 'pending');
+
+                        let stepIndex = 0;
+                        for (const child of this.getTaskChildren(task)) {
+                            if (child.type === 'test') {
+                                await this.postStepNode(runId, child, nodeId, stepIndex++);
+                            }
+                        }
+                        return;
                     }
-                    return;
                 }
             }
 
@@ -487,22 +543,28 @@ export default class LiveDocServerReporter implements Reporter {
 
     private async postStepNode(runId: string, task: Task, scenarioId: string, index: number): Promise<void> {
         if (!this.viewerReporter) return;
-        const name = String((task as any).name || '');
-        const { keyword, title } = this.parseStepTitle(name);
+        const meta = this.getLiveDocMetaFromTask(task);
+        const parsedStep = this.parseStepDetails(task);
+
         const stepId = generateStabilityId({
             project: this.project,
-            title,
+            title: parsedStep.title,
             kind: SpecKind.Step,
             parentId: scenarioId,
-            keyword,
+            keyword: parsedStep.keyword,
             index
         });
 
         const node: any = {
             id: stepId,
             kind: SpecKind.Step,
-            title,
-            keyword: keyword as any,
+            title: parsedStep.title,
+            keyword: parsedStep.keyword as any,
+            docString: (parsedStep as any).materializedDocString || parsedStep.docString,
+            docStringRaw: parsedStep.docStringRaw,
+            dataTable: this.mapDataTableVNext(parsedStep.dataTable),
+            values: this.mapTypedValues(meta?.step?.values),
+            code: meta?.step?.code,
             execution: { status: 'pending', duration: 0 }
         };
 
@@ -624,7 +686,7 @@ export default class LiveDocServerReporter implements Reporter {
             const file = testModule.task || testModule;
             const filepath = (file as any).filepath || "";
 
-            for (const task of (file.tasks || [])) {
+            for (const task of (file as any).tasks || []) {
                 if (task.type === 'suite') {
                     if (task.name.startsWith('Feature:')) {
                         features.push(this.buildFeatureFromTask(task, filepath));
@@ -739,15 +801,28 @@ export default class LiveDocServerReporter implements Reporter {
             outline.description = firstMeta.scenarioOutline.description;
         }
 
-        // Build template steps (rawTitle/type) from the first example suite.
+        // Build template steps (rawTitle/type/docString/dataTable/values/code) from the first example suite.
         if (firstExampleSuite?.tasks) {
             for (const t of firstExampleSuite.tasks) {
                 if (t?.type !== 'test') continue;
+                const parsedStep = this.parseStepDetails(t);
                 const meta = this.getLiveDocMetaFromTask(t);
-                if (typeof meta?.step?.rawTitle !== 'string' || typeof meta?.step?.type !== 'string') continue;
-                const step = new model.StepDefinition(outline, '');
-                step.rawTitle = meta.step.rawTitle;
-                step.type = meta.step.type;
+
+                const step = new model.StepDefinition(outline, parsedStep.title);
+                step.rawTitle = parsedStep.title;
+                step.type = parsedStep.keyword;
+                step.docString = parsedStep.docString || "";
+                step.docStringRaw = parsedStep.docStringRaw || "";
+                
+                if (parsedStep.dataTable) {
+                    step.dataTable = parsedStep.dataTable;
+                }
+                if (Array.isArray(meta?.step?.values)) {
+                    step.values = meta.step.values;
+                }
+                if (typeof meta?.step?.code === 'string') {
+                    (step as any).code = meta.step.code;
+                }
                 outline.steps.push(step);
             }
         }
@@ -787,19 +862,21 @@ export default class LiveDocServerReporter implements Reporter {
         const name = String(task?.name ?? '');
         const meta = this.getLiveDocMetaFromTask(task);
 
-        // Prefer the metadata payload emitted by livedoc.ts.
-        // This keeps step keyword/type + template title in sync with the text reporter.
-        const keywordFromMeta = typeof meta?.step?.type === 'string' ? String(meta.step.type) : undefined;
-        const rawTitleFromMeta = typeof meta?.step?.rawTitle === 'string' ? String(meta.step.rawTitle) : undefined;
+        const parsedStep = this.parseStepDetails(task);
 
-        const { keyword, title } = keywordFromMeta && rawTitleFromMeta
-            ? { keyword: keywordFromMeta.toLowerCase(), title: this.extractStepTitle(name) }
-            : this.parseStepTitle(name);
-
-        const step = new model.StepDefinition(parent, title);
-        step.type = keyword;
-        step.rawTitle = rawTitleFromMeta ?? title;
+        const step = new model.StepDefinition(parent, parsedStep.title);
+        step.type = parsedStep.keyword;
+        step.rawTitle = parsedStep.title;
         step.displayTitle = name;
+
+        if (parsedStep.docString) {
+            step.docStringRaw = parsedStep.docStringRaw || parsedStep.docString;
+            step.docString = parsedStep.docString;
+        }
+
+        if (parsedStep.dataTable) {
+            step.dataTable = parsedStep.dataTable;
+        }
 
         const codeFromMeta = typeof meta?.step?.code === 'string' ? String(meta.step.code) : undefined;
         if (codeFromMeta && codeFromMeta.trim().length > 0) {
@@ -870,20 +947,6 @@ export default class LiveDocServerReporter implements Reporter {
 
     private sanitizeName(name: string): string {
         return name.replace(/[ `'']/g, "");
-    }
-
-    private extractStepTitle(stepName: string): string {
-        // Handle multiline step names by only matching the first line
-        const match = stepName.match(/^(?:Given|When|Then|And|But)\s+(.+?)(?:\n|$)/i);
-        if (match) {
-            return match[1];
-        }
-        const indentedMatch = stepName.match(/^\s+(?:and|but)\s+(.+?)(?:\n|$)/i);
-        if (indentedMatch) {
-            return indentedMatch[1];
-        }
-        // Return only the first line if no match
-        return stepName.split('\n')[0];
     }
 
     private parseStepContent(stepName: string, step: model.StepDefinition): void {
@@ -968,6 +1031,81 @@ export default class LiveDocServerReporter implements Reporter {
         return table;
     }
 
+    private parseStepDetails(task: any): { 
+        keyword: string; 
+        title: string; 
+        docString?: string; 
+        docStringRaw?: string; 
+        materializedDocString?: string; 
+        dataTable?: any[] 
+    } {
+        const meta = this.getLiveDocMetaFromTask(task);
+        const name = String(task.name || '');
+
+        const keywordFromMeta = typeof meta?.step?.type === 'string' ? String(meta.step.type).toLowerCase() : undefined;
+        const rawTitleFromMeta = typeof meta?.step?.rawTitle === 'string' ? String(meta.step.rawTitle) : undefined;
+        const docStringFromMeta = typeof (meta as any)?.step?.docString === 'string' ? String((meta as any).step.docString) : undefined;
+        const docStringRawFromMeta = typeof (meta as any)?.step?.docStringRaw === 'string' ? String((meta as any).step.docStringRaw) : undefined;
+        const dataTableFromMeta = (meta as any)?.step?.dataTable;
+        const materializedDocStringFromMeta = (meta as any)?.step?.materializedDocString;
+
+        let keyword: string = '';
+        let title: string = '';
+        let docString: string | undefined = docStringFromMeta;
+        let docStringRaw: string | undefined = docStringRawFromMeta;
+        let materializedDocString: string | undefined = materializedDocStringFromMeta;
+        let dataTable: any[] | undefined = dataTableFromMeta;
+
+        if (keywordFromMeta && rawTitleFromMeta) {
+            keyword = keywordFromMeta;
+            title = rawTitleFromMeta;
+        } else {
+            // Fallback to parsing the name
+            const lines = name.split('\n');
+            const firstLine = lines[0].trim();
+            
+            // Try to extract keyword and title from first line
+            const match = firstLine.match(/^(Given|When|Then|And|But)\s+(.+)$/i);
+            if (match) {
+                keyword = match[1].toLowerCase();
+                title = match[2];
+            } else {
+                // Secondary match for indented and/but
+                const indentedMatch = firstLine.match(/^(?:and|but)\s+(.+)$/i);
+                if (indentedMatch) {
+                    keyword = firstLine.split(' ')[0].toLowerCase();
+                    title = indentedMatch[1];
+                } else {
+                    const parts = firstLine.split(' ');
+                    keyword = parts[0].toLowerCase();
+                    title = parts.slice(1).join(' ');
+                }
+            }
+        }
+
+        // Fallback to extracting DocString from full name if not found in meta or meta step was incomplete
+        if (!docString) {
+            // More robust docstring extraction: match content between """ markers, including first line with markers
+            const docStringMatch = name.match(/("""[\s\S]*?""")/);
+            if (docStringMatch) {
+                docStringRaw = docStringMatch[1].trim();
+                // Extract content between markers
+                const markerStart = docStringRaw.indexOf('"""');
+                const markerEnd = docStringRaw.lastIndexOf('"""');
+                if (markerEnd > markerStart + 3) {
+                    docString = docStringRaw.substring(markerStart + 3, markerEnd).trim();
+                }
+            }
+        }
+
+        // If materializedDocString wasn't provided in meta, use docString as default
+        if (!materializedDocString) {
+            materializedDocString = docString;
+        }
+
+        return { keyword, title, docString, docStringRaw, materializedDocString, dataTable };
+    }
+
     private parseStepTitle(rawTitle: string): { keyword: string; title: string } {
         const text = String(rawTitle || '').trim();
 
@@ -1029,6 +1167,46 @@ export default class LiveDocServerReporter implements Reporter {
             }
         }
         return suite;
+    }
+
+    private mapDataTableVNext(dataTable: any[] | undefined): ExampleTable | undefined {
+        if (!Array.isArray(dataTable) || dataTable.length < 1) return undefined;
+
+        const headers = dataTable[0];
+        const rows = dataTable.slice(1).map((r, i) => ({
+            rowId: `unknown:row:${i}`,
+            values: Array.isArray(r) ? r.map((cell: any) => ({
+                value: cell,
+                type: 'string' as const
+            })) : []
+        }));
+
+        return {
+            name: '',
+            description: '',
+            headers,
+            rows
+        };
+    }
+
+    private mapTypedValues(values: any[] | undefined): TypedValue[] {
+        if (!Array.isArray(values)) return [];
+        return values.map((v) => ({
+            value: v,
+            type: typeof v as any
+        }));
+    }
+
+    private mapScenarioOutlineTables(metaTables: any[], outlineId: string): ExampleTable[] {
+        return metaTables.map((t, i) => ({
+            name: t.name,
+            description: t.description,
+            headers: t.dataTable?.[0] || [],
+            rows: (t.dataTable?.slice(1) || []).map((row: any, j: number) => ({
+                rowId: `${outlineId}:table:${i}:row:${j + 1}`,
+                values: Array.isArray(row) ? row.map((v: any) => ({ value: v, type: 'string' })) : []
+            }))
+        }));
     }
 
     private mapStateToStatus(state: string): SpecStatus {

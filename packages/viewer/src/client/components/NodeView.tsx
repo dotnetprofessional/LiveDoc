@@ -1,6 +1,6 @@
 import { Node, Binding, Feature, Scenario, SpecKind, Status, TypedValue } from '@livedoc/schema';
 import { StepList } from './StepList';
-import { ChevronRight, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, FileText, BookOpen, ScrollText, LayoutList, Home } from 'lucide-react';
+import { ChevronRight, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, FileText, BookOpen, ScrollText, LayoutList, Home, Tag } from 'lucide-react';
 import { useStore } from '../store';
 import { renderTitle } from '../lib/title-utils';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
-import { subtreeHasMatch, normalizeTag } from '../lib/filter-utils';
+import { subtreeHasMatch, formatTagLabel } from '../lib/filter-utils';
 import { Markdown } from './Markdown';
 import { StatusBadge } from './StatusBadge';
 import { buildGroupedNavTree, findNavItemById, NavItem } from '../lib/nav-tree';
@@ -243,10 +243,14 @@ export function NodeView({ node }: NodeViewProps) {
 
   const renderOutline = () => {
     if (!isOutline) return null;
-    if (!template || !examples || !Array.isArray(examples)) return null;
+    if (!template) return null;
 
-    const templateSteps = Array.isArray((template as any).children) ? ((template as any).children as any[]) : [];
-    const exampleNodes = examples as any[];
+    const templateSteps = Array.isArray((template as any).children)
+      ? ((template as any).children as any[])
+      : Array.isArray((template as any).steps)
+        ? ((template as any).steps as any[])
+        : [];
+    const exampleNodes = Array.isArray(examples) ? (examples as any[]) : [];
 
     const normalizeKey = (s: string) => String(s ?? '').replace(/['\s_\-]/g, '').toLowerCase();
 
@@ -267,9 +271,7 @@ export function NodeView({ node }: NodeViewProps) {
       return '';
     };
 
-    const primaryTable = Array.isArray((node as any).tables) && (node as any).tables.length > 0
-      ? (node as any).tables[0]
-      : undefined;
+    const allTables = Array.isArray((node as any).tables) ? ((node as any).tables as any[]) : [];
 
     type OutlineRow = {
       id: string;
@@ -278,10 +280,21 @@ export function NodeView({ node }: NodeViewProps) {
       steps?: any[];
     };
 
-    const rows: OutlineRow[] = (() => {
-      if (primaryTable && Array.isArray(primaryTable.headers) && Array.isArray(primaryTable.rows)) {
-        const headers = (primaryTable.headers as unknown[]).map((h) => String(h ?? ''));
-        const tableRows = (primaryTable.rows as any[]).map((r: any) => {
+    const executed = exampleNodes.map((ex) => {
+      const values = bindingToValues(ex?.binding);
+      const rowId = String(ex?.binding?.rowId ?? '');
+      return { ex, values, rowId };
+    });
+
+    const executedByRowId = new Map<string, { ex: any; values: Record<string, string> }>();
+    for (const e of executed) {
+      if (e.rowId) executedByRowId.set(e.rowId, { ex: e.ex, values: e.values });
+    }
+
+    const buildRowsForTable = (table: any | undefined): { headers: string[]; rows: OutlineRow[] } => {
+      if (table && Array.isArray(table.headers) && Array.isArray(table.rows) && table.headers.length > 0) {
+        const headers = (table.headers as unknown[]).map((h) => String(h ?? '')).filter(Boolean);
+        const tableRows = (table.rows as any[]).map((r: any) => {
           const id = String(r?.rowId ?? '');
           const vals = Array.isArray(r?.values) ? (r.values as TypedValue[]) : [];
           const values = headers.reduce<Record<string, string>>((acc, h, idx) => {
@@ -291,49 +304,35 @@ export function NodeView({ node }: NodeViewProps) {
           return { id: id || `row:${Math.random().toString(36).slice(2)}`, values };
         });
 
-        // Try to attach execution results by matching binding values.
-        const executed = exampleNodes.map((ex) => {
-          const values = bindingToValues(ex?.binding);
-          return { ex, values };
-        });
+        return {
+          headers,
+          rows: tableRows.map((row) => {
+            const matchByRowId = executedByRowId.get(row.id);
+            if (matchByRowId) {
+              const steps = Array.isArray(matchByRowId.ex?.children)
+                ? (matchByRowId.ex.children as any[])
+                : Array.isArray(matchByRowId.ex?.steps)
+                  ? (matchByRowId.ex.steps as any[])
+                  : [];
+              return { ...row, execution: matchByRowId.ex?.execution, steps };
+            }
 
-        return tableRows.map((row) => {
-          const match = executed.find(({ ex, values }) => {
-            // Prefer explicit rowId match if present
-            const rowId = String(ex?.binding?.rowId ?? '');
-            if (rowId && rowId === row.id) return true;
+            const matchByValues = executed.find(({ ex, values }) =>
+              headers.every((h) => valuesForHeader(values, h) === (row.values[h] ?? ''))
+            );
+            if (!matchByValues) return { ...row };
 
-            // Otherwise match by value equality across all headers
-            return headers.every((h) => valuesForHeader(values, h) === (row.values[h] ?? ''));
-          });
-
-          if (!match) return { ...row };
-          const steps = Array.isArray(match.ex?.children) ? (match.ex.children as any[]) : [];
-          return {
-            ...row,
-            execution: match.ex?.execution,
-            steps,
-          };
-        });
+            const steps = Array.isArray(matchByValues.ex?.children)
+              ? (matchByValues.ex.children as any[])
+              : Array.isArray(matchByValues.ex?.steps)
+                ? (matchByValues.ex.steps as any[])
+                : [];
+            return { ...row, execution: matchByValues.ex?.execution, steps };
+          })
+        };
       }
 
       // Fallback: derive rows from executed examples only.
-      return exampleNodes.map((example: any) => {
-        const values = bindingToValues(example?.binding);
-        const steps = Array.isArray(example?.children) ? (example.children as any[]) : [];
-        return {
-          id: String(example?.id ?? ''),
-          values,
-          execution: example?.execution,
-          steps,
-        };
-      });
-    })();
-
-    const headers = (() => {
-      if (primaryTable && Array.isArray(primaryTable.headers) && primaryTable.headers.length > 0) {
-        return (primaryTable.headers as unknown[]).map((h) => String(h ?? '')).filter(Boolean);
-      }
       const ordered: string[] = [];
       const seen = new Set<string>();
       for (const ex of exampleNodes) {
@@ -345,10 +344,42 @@ export function NodeView({ node }: NodeViewProps) {
           ordered.push(name);
         }
       }
-      return ordered;
-    })();
 
-    const selectedRow = selectedExampleId ? rows.find((r) => r.id === selectedExampleId) : undefined;
+      const headers = ordered;
+      const rows = exampleNodes.map((example: any) => {
+        const values = bindingToValues(example?.binding);
+        const steps = Array.isArray(example?.children)
+          ? (example.children as any[])
+          : Array.isArray(example?.steps)
+            ? (example.steps as any[])
+            : [];
+        return {
+          id: String(example?.binding?.rowId ?? example?.id ?? ''),
+          values,
+          execution: example?.execution,
+          steps,
+        };
+      });
+
+      return { headers, rows };
+    };
+
+    const exampleTables = (allTables.length > 0
+      ? allTables
+      : [undefined]
+    ).map((t) => {
+      const { headers, rows } = buildRowsForTable(t);
+      return {
+        name: typeof t?.name === 'string' && String(t.name).trim().length > 0 ? String(t.name) : 'Examples',
+        description: typeof t?.description === 'string' ? String(t.description) : undefined,
+        headers,
+        rows,
+      };
+    });
+
+    const allRows = exampleTables.flatMap((t) => t.rows);
+
+    const selectedRow = selectedExampleId ? allRows.find((r) => r.id === selectedExampleId) : undefined;
     const selectedValues = selectedRow?.values;
     const selectedSteps = selectedRow?.steps;
     const hasSelectedExecution = !!selectedRow?.execution;
@@ -391,70 +422,85 @@ export function NodeView({ node }: NodeViewProps) {
           />
         )}
 
-        {headers.length > 0 && (
-          <div className="space-y-3">
+        {exampleTables.length > 0 && exampleTables.some((t) => t.headers.length > 0) && (
+          <div className="space-y-5">
             <div className="flex items-center gap-2 px-1">
               <Layers className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-sm font-semibold text-foreground tracking-tight flex-1">Examples</h3>
               <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {rows.length}
+                {allRows.length}
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-xl border bg-card">
-              <table className="min-w-full text-xs border-collapse">
-                <thead>
-                  <tr className="bg-muted/40 border-b border-border/60">
-                    <th className="w-10 px-3 py-2 text-center font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50">#</th>
-                    <th className="w-12 px-3 py-2 text-center font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50">Status</th>
-                    {headers.map(h => (
-                      <th key={h} className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50 last:border-r-0">
-                        {h}
-                      </th>
-                    ))}
-                    <th className="w-20 px-3 py-2 text-right font-bold text-muted-foreground uppercase tracking-widest">Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, idx: number) => {
-                    const duration = row.execution?.duration as number | undefined;
-                    const isSelected = selectedExampleId === row.id;
+            {exampleTables.map((table) => (
+              <div key={table.name} className="space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <h4 className="text-sm font-semibold text-foreground/90 flex-1">Examples: {table.name}</h4>
+                  <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    {table.rows.length}
+                  </span>
+                </div>
 
-                    return (
-                      <tr
-                        key={row.id}
-                        className={cn(
-                          "border-b border-border/50 last:border-b-0 transition-colors cursor-pointer group",
-                          isSelected
-                            ? "bg-primary/15 ring-1 ring-inset ring-primary/35"
-                            : "hover:bg-muted/30"
-                        )}
-                        onClick={() => setSelectedExampleId(isSelected ? null : row.id)}
-                      >
-                        <td className="px-3 py-2 text-center font-mono text-[10px] text-muted-foreground border-r border-border/50">{idx + 1}</td>
-                        <td className="px-3 py-2 text-center border-r border-border/50">
-                          <div className="flex justify-center">
-                            {row.execution?.status ? getStatusIcon(row.execution.status) : getStatusIcon('unknown')}
-                          </div>
-                        </td>
-                        {headers.map(h => (
-                          <td key={h} className="px-3 py-2 text-foreground/80 border-r border-border/50 last:border-r-0 font-mono text-[11px]">
-                            {row.values[h] ?? ''}
-                          </td>
+                {table.description && table.description.trim().length > 0 && (
+                  <Markdown content={table.description} className="max-w-3xl" />
+                )}
+
+                <div className="overflow-hidden rounded-xl border bg-card">
+                  <table className="min-w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-muted/40 border-b border-border/60">
+                        <th className="w-10 px-3 py-2 text-center font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50">#</th>
+                        <th className="w-12 px-3 py-2 text-center font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50">Status</th>
+                        {table.headers.map(h => (
+                          <th key={h} className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50 last:border-r-0">
+                            {h}
+                          </th>
                         ))}
-                        <td className="px-3 py-2 text-right font-mono text-[10px] text-muted-foreground">
-                          {duration === undefined || duration <= 0
-                            ? ''
-                            : duration < 1000
-                              ? `${Math.floor(duration)}ms`
-                              : `${(duration / 1000).toFixed(2)}s`}
-                        </td>
+                        <th className="w-20 px-3 py-2 text-right font-bold text-muted-foreground uppercase tracking-widest">Duration</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {table.rows.map((row, idx: number) => {
+                        const duration = row.execution?.duration as number | undefined;
+                        const isSelected = selectedExampleId === row.id;
+
+                        return (
+                          <tr
+                            key={row.id}
+                            className={cn(
+                              "border-b border-border/50 last:border-b-0 transition-colors cursor-pointer group",
+                              isSelected
+                                ? "bg-primary/15 ring-1 ring-inset ring-primary/35"
+                                : "hover:bg-muted/30"
+                            )}
+                            onClick={() => setSelectedExampleId(isSelected ? null : row.id)}
+                          >
+                            <td className="px-3 py-2 text-center font-mono text-[10px] text-muted-foreground border-r border-border/50">{idx + 1}</td>
+                            <td className="px-3 py-2 text-center border-r border-border/50">
+                              <div className="flex justify-center">
+                                {row.execution?.status ? getStatusIcon(row.execution.status) : getStatusIcon('unknown')}
+                              </div>
+                            </td>
+                            {table.headers.map(h => (
+                              <td key={h} className="px-3 py-2 text-foreground/80 border-r border-border/50 last:border-r-0 font-mono text-[11px]">
+                                {row.values[h] ?? ''}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2 text-right font-mono text-[10px] text-muted-foreground">
+                              {duration === undefined || duration <= 0
+                                ? ''
+                                : duration < 1000
+                                  ? `${Math.floor(duration)}ms`
+                                  : `${(duration / 1000).toFixed(2)}s`}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -540,20 +586,23 @@ export function NodeView({ node }: NodeViewProps) {
       <div className="space-y-2">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-2 overflow-hidden">
-          {breadcrumbs.length > 0 ? (
-            breadcrumbs.map((item, index) => {
-              const isLast = index === breadcrumbs.length - 1;
+          {breadcrumbs.length > 0 ? (() => {
+            // Container pages (Feature/Specification/Suite) should not show a non-clickable final crumb.
+            // Scenario pages should include the owning Feature (clickable), but not the current Scenario.
+            const crumbs = isContainer ? breadcrumbs.slice(0, -1) : breadcrumbs;
+            if (crumbs.length === 0) return null;
+
+            return crumbs.map((item, index) => {
               const isRoot = item.title === 'Root' && index === 0;
               
               return (
                 <div key={item.id} className="flex items-center gap-1 shrink-0">
                   {index > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
                   <button 
-                    onClick={() => !isLast && navigate('group', item.id)}
-                    disabled={isLast}
+                    onClick={() => navigate('group', item.id)}
                     className={cn(
                       "flex items-center gap-1.5 hover:text-foreground transition-colors truncate px-1 py-0.5 rounded-md hover:bg-muted/50",
-                      isLast && "font-medium text-foreground pointer-events-none bg-transparent hover:bg-transparent"
+                      ""
                     )}
                   >
                     {isRoot ? (
@@ -565,8 +614,8 @@ export function NodeView({ node }: NodeViewProps) {
                   </button>
                 </div>
               );
-            })
-          ) : (
+            });
+          })() : (
             <div className="flex items-center gap-1 shrink-0">
               <button 
                 onClick={() => navigate('group', 'group:/')}
@@ -599,7 +648,8 @@ export function NodeView({ node }: NodeViewProps) {
           <div className="flex flex-wrap gap-2 pt-1">
             {containerTags.map(tag => (
               <Badge key={tag} variant="secondary" className="px-1.5 py-0 text-xs font-normal">
-                {normalizeTag(tag)}
+                <Tag className="w-3 h-3 mr-1 opacity-60" />
+                {formatTagLabel(tag)}
               </Badge> 
             ))}
           </div>

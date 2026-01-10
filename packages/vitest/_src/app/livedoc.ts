@@ -960,7 +960,7 @@ export const ruleOutline = Object.assign(
  * Helper to create step functions
  */
 function createStepFunction(stepType: string) {
-    return function (title: string, fn?: (ctx: any) => void | Promise<void>, passedParam?: object | Function) {
+    return function (title: string, fn?: (ctx: any) => void | Promise<void>, passedParam?: object | Function, internalOptions?: { docStringRaw?: string, dataTable?: any[] }) {
         const filename = getFilenameFromStack(2);
 
         // If no feature, this step is at the top level - give helpful error
@@ -974,6 +974,25 @@ function createStepFunction(stepType: string) {
 
         const stepDefinition = parser.createStep(stepType, title, passedParam);
         
+        // Apply passed params during registration so they are available for discovery/metadata
+        // For Scenario Outlines, this ensures the example metadata is available to the reporter immediately.
+        // For regular scenarios, we skip this to preserve {{placeholders}} for late-binding during execution.
+        if (currentScenario instanceof model.ScenarioExample || currentScenario instanceof model.ScenarioOutline) {
+            parser.applyPassedParams(stepDefinition);
+        }
+
+        // If internal options are provided (from Scenario Outline re-execution), override the parsed values
+        // This ensures templates correctly see the raw docString/dataTable even if the re-execution title is bound/truncated.
+        if (internalOptions) {
+            if (typeof internalOptions.docStringRaw === 'string') {
+                stepDefinition.docStringRaw = internalOptions.docStringRaw;
+                stepDefinition.docString = internalOptions.docStringRaw;
+            }
+            if (Array.isArray(internalOptions.dataTable)) {
+                stepDefinition.dataTable = internalOptions.dataTable;
+            }
+        }
+
         // If this step is in a pending context (explicitly skipped with .skip), mark it as pending
         // Note: filter-based exclusions (isFilteredContext) should keep steps as 'unknown'
         if (isPendingContext && !isFilteredContext) {
@@ -992,7 +1011,21 @@ function createStepFunction(stepType: string) {
             currentScenario.addStep(stepDefinition);
             // For Scenario Outlines, add to outline on first example
             if (currentScenario instanceof model.ScenarioExample && currentScenario.sequence === 1) {
-                currentScenario.scenarioOutline.steps.push(stepDefinition);
+                // Pull blueprint metadata (DocString/DataTable) from parser-generated blueprints if available.
+                // This ensures steps registered via title-only given() calls still carry their Gherkin data.
+                const outline = currentScenario.scenarioOutline;
+                const index = currentScenario.steps.length - 1;
+                const blueprint = outline.blueprintSteps[index];
+                if (blueprint && (blueprint.rawTitle === stepDefinition.rawTitle || blueprint.title === stepDefinition.title)) {
+                    if (blueprint.docStringRaw && !stepDefinition.docStringRaw) {
+                        stepDefinition.docStringRaw = blueprint.docStringRaw;
+                        stepDefinition.docString = blueprint.docString;
+                    }
+                    if (blueprint.dataTable && !stepDefinition.dataTable) {
+                        stepDefinition.dataTable = blueprint.dataTable;
+                    }
+                }
+                outline.steps.push(stepDefinition);
             }
         } else {
             throw new model.ParserException(
@@ -1012,25 +1045,51 @@ function createStepFunction(stepType: string) {
             backgroundStepsMap.set(capturedFeature, featureSteps);
         }
 
+        // If we're in an example of a Scenario Outline, try to find the template step
+        // so we can include its raw docstring and data table in the metadata.
+        let templateStep: model.StepDefinition | undefined = undefined;
+        if (capturedScenario instanceof model.ScenarioExample) {
+            const index = capturedScenario.steps.indexOf(stepDefinition);
+            // Safety check: if index is -1 or beyond range, we'll fall back to stepDefinition itself
+            if (index >= 0 && capturedScenario.scenarioOutline.steps[index]) {
+                templateStep = capturedScenario.scenarioOutline.steps[index];
+            }
+        }
+
         const taskMeta: Record<string, unknown> = {
             livedoc: {
                 kind: "step",
                 step: {
                     rawTitle: stepDefinition.rawTitle,
                     type: stepDefinition.type,
+                    keyword: stepDefinition.type,
+                    // Template version for discovery/template nodes
+                    docString: (templateStep ? templateStep.docString : stepDefinition.docString) || "",
+                    docStringRaw: (templateStep ? templateStep.docStringRaw : stepDefinition.docStringRaw) || "",
+                    // Explicit materialized version for example results
+                    materializedDocString: capturedScenario instanceof model.ScenarioExample
+                        ? materializePlaceholders(templateStep?.docString || stepDefinition.docString || "", capturedScenario.example as Record<string, unknown>)
+                        : (stepDefinition.docString || ""),
+                    dataTable: templateStep ? templateStep.dataTable : stepDefinition.dataTable,
+                    values: stepDefinition.values,
+                    params: stepDefinition.params,
                     code: fn ? fn.toString() : undefined,
                 },
-                ...(capturedScenario instanceof model.ScenarioExample
+                ...((capturedScenario instanceof model.ScenarioExample || capturedScenario instanceof model.ScenarioOutline)
                     ? {
                           scenarioOutline: {
-                              title: capturedScenario.scenarioOutline?.title,
-                              description: capturedScenario.scenarioOutline?.description ?? "",
-                              tables: capturedScenario.scenarioOutline?.tables ?? [],
-                              tags: capturedScenario.scenarioOutline?.tags ?? [],
-                              example: {
-                                  sequence: capturedScenario.sequence,
-                                  values: capturedScenario.example ?? {},
-                              },
+                              title: (capturedScenario instanceof model.ScenarioOutline ? capturedScenario : (capturedScenario as any).scenarioOutline).title,
+                              description: (capturedScenario instanceof model.ScenarioOutline ? capturedScenario : (capturedScenario as any).scenarioOutline).description ?? "",
+                              tables: (capturedScenario instanceof model.ScenarioOutline ? capturedScenario : (capturedScenario as any).scenarioOutline).tables ?? [],
+                              tags: (capturedScenario instanceof model.ScenarioOutline ? capturedScenario : (capturedScenario as any).scenarioOutline).tags ?? [],
+                              ...(capturedScenario instanceof model.ScenarioExample
+                                  ? {
+                                        example: {
+                                            sequence: capturedScenario.sequence,
+                                            values: capturedScenario.example ?? {},
+                                        },
+                                    }
+                                  : {}),
                           },
                       }
                     : {}),
@@ -1918,6 +1977,7 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
         step.type = data.type || '';
         step.description = data.description || '';
         step.docString = data.docString || '';
+        step.docStringRaw = data.docStringRaw || data.docString || '';
         step.dataTable = data.dataTable || [];
         step.values = data.values || [];
         step.valuesRaw = data.valuesRaw || [];

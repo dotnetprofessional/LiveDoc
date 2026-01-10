@@ -191,6 +191,11 @@ export class LiveDocViewerReporter implements IPostReporter {
         await this.post(`/api/runs/${runId}/nodes/${nodeId}/execution`, execution, 'PATCH');
     }
 
+    /** Patch arbitrary fields of a node. */
+    public async patchNode(runId: string, nodeId: string, patch: any): Promise<void> {
+        await this.post(`/api/runs/${runId}/nodes/${nodeId}`, patch, 'PATCH');
+    }
+
     /** Attach a background to a Feature node. */
     public async patchNodeBackground(runId: string, parentId: string, background: any): Promise<void> {
         await this.post(`/api/runs/${runId}/nodes/${parentId}/background`, { background }, 'PATCH');
@@ -387,20 +392,64 @@ export class LiveDocViewerReporter implements IPostReporter {
             parentId
         });
 
+        const outlineTables = this.mapScenarioOutlineTablesVNext((sdkOutline as any).tables, outlineId);
+
+        const normalizeKey = (s: string) => String(s ?? '').replace(/['\s_\-]/g, '').toLowerCase();
+
+        const tryFindRowIdForExample = (exampleValues: Record<string, unknown> | undefined): string | undefined => {
+            if (!exampleValues) return undefined;
+            for (const table of outlineTables) {
+                const headers = table.headers ?? [];
+                for (const row of table.rows ?? []) {
+                    const matchesAll = headers.every((h, idx) => {
+                        const rowVal = row.values?.[idx]?.value;
+                        const key = Object.keys(exampleValues).find((k) => normalizeKey(k) === normalizeKey(h));
+                        const exVal = key ? (exampleValues as any)[key] : undefined;
+                        return String(rowVal ?? '') === String(exVal ?? '');
+                    });
+                    if (matchesAll) return row.rowId;
+                }
+            }
+            return undefined;
+        };
+
         // Template scenario
+        const firstExampleSteps: any[] = Array.isArray((sdkOutline.examples as any)?.[0]?.steps)
+            ? (((sdkOutline.examples as any)[0].steps) as any[])
+            : [];
+
         const templateScenario: Scenario = {
             id: `${outlineId}:template`,
             kind: SpecKind.Scenario,
             title: sdkOutline.title,
             execution: { status: 'pending', duration: 0 },
             summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
-            children: sdkOutline.examples[0]?.steps.map((s, i) => ({
-                id: `${outlineId}:template:step:${i}`,
-                kind: SpecKind.Step,
-                title: s.rawTitle || s.title,
-                keyword: s.type.toLowerCase() as any,
-                execution: { status: 'pending', duration: 0 }
-            })) || []
+            children: (sdkOutline.steps || []).map((s: any, i: number) => {
+                // Some pipelines (notably dynamic execution reconstruction) may omit template step docstrings,
+                // while executed example steps still carry docStringRaw. If template docstrings are missing,
+                // borrow the unbound docStringRaw from the first example so the viewer can show the templated version.
+                const hasAnyDocString =
+                    (typeof (s as any)?.docStringRaw === 'string' && String((s as any).docStringRaw).trim().length > 0)
+                    || (typeof (s as any)?.docString === 'string' && String((s as any).docString).trim().length > 0)
+                    || (typeof (s as any)?.description === 'string' && String((s as any).description).trim().length > 0);
+
+                const exStep = firstExampleSteps[i];
+                const fallbackRaw = typeof (exStep as any)?.docStringRaw === 'string' && String((exStep as any).docStringRaw).trim().length > 0
+                    ? String((exStep as any).docStringRaw)
+                    : undefined;
+
+                const enriched = (!hasAnyDocString && fallbackRaw)
+                    ? ({ ...s, docStringRaw: fallbackRaw } as any)
+                    : s;
+
+                const node = this.buildStepNode(`${outlineId}:template`, enriched, i, { preferRawDocString: true });
+                // Template steps are not executed; keep them pending even if SDK step has a status.
+                return {
+                    ...node,
+                    id: `${outlineId}:template:step:${i}`,
+                    execution: { status: 'pending', duration: 0, error: undefined }
+                };
+            })
         };
 
         const outline: any = {
@@ -417,7 +466,7 @@ export class LiveDocViewerReporter implements IPostReporter {
             summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
             template: templateScenario,
             examples: [],
-            tables: [] // TODO: Map tables if available in SDK
+            tables: outlineTables
         };
 
         await this.postNode(runId, parentId, outline);
@@ -437,7 +486,15 @@ export class LiveDocViewerReporter implements IPostReporter {
                 id: exampleId,
                 kind: SpecKind.Scenario,
                 title: sdkOutline.title,
-                binding: this.mapBinding(sdkExample.example || sdkExample.exampleRaw),
+                binding: (() => {
+                    const raw = (sdkExample as any).example || (sdkExample as any).exampleRaw;
+                    const binding = this.mapBinding(raw);
+
+                    // Attach rowId if we can resolve it from outline tables. Helps UI map executions to rows.
+                    const rowId = tryFindRowIdForExample(raw as any);
+                    if (binding && rowId) (binding as any).rowId = rowId;
+                    return binding;
+                })(),
                 execution: {
                     status: this.mapStatus(this.calculateScenarioStatus(sdkExample)),
                     duration: sdkExample.executionTime || 0
@@ -460,7 +517,12 @@ export class LiveDocViewerReporter implements IPostReporter {
         await this.postNode(runId, parentId, step);
     }
 
-    private buildStepNode(parentId: string, sdkStep: SDKStepDefinition, index: number): any {
+    private buildStepNode(
+        parentId: string,
+        sdkStep: SDKStepDefinition,
+        index: number,
+        options?: { preferRawDocString?: boolean }
+    ): any {
         const rawDescription = typeof (sdkStep as any)?.description === 'string' ? String((sdkStep as any).description) : '';
         const trimmedDescription = rawDescription.trim();
 
@@ -474,14 +536,30 @@ export class LiveDocViewerReporter implements IPostReporter {
         const rawDocString = (() => {
             const fromRaw = (sdkStep as any)?.docStringRaw;
             if (typeof fromRaw === 'string' && fromRaw.trim().length > 0) return String(fromRaw);
-
-            const fromDocString = (sdkStep as any)?.docString;
-            if (typeof fromDocString === 'string' && fromDocString.trim().length > 0) return String(fromDocString);
-
             return undefined;
         })();
 
-        const mappedDocString = rawDocString ?? extractedDocString;
+        const boundDocString = (() => {
+            const fromDocString = (sdkStep as any)?.docString;
+            if (typeof fromDocString === 'string' && fromDocString.trim().length > 0) return String(fromDocString);
+            return undefined;
+        })();
+
+        const preferRaw = options?.preferRawDocString;
+        const isExecuted = sdkStep.status === SpecStatus.pass || sdkStep.status === SpecStatus.fail;
+
+        const mappedDocString = (() => {
+            // 1) Explicit override
+            if (preferRaw === true) return rawDocString ?? extractedDocString ?? boundDocString;
+            if (preferRaw === false) return boundDocString ?? extractedDocString ?? rawDocString;
+
+            // 2) Default heuristic:
+            // - executed steps should show bound docString (so docstrings with <placeholders> are replaced)
+            // - template/pending steps should show raw docString (so we see the templated version)
+            return isExecuted
+                ? (boundDocString ?? extractedDocString ?? rawDocString)
+                : (rawDocString ?? extractedDocString ?? boundDocString);
+        })();
 
         const mappedDescription = extractedDocString ? undefined : (trimmedDescription ? rawDescription : undefined);
 
@@ -640,6 +718,38 @@ export class LiveDocViewerReporter implements IPostReporter {
             headers,
             rows
         };
+    }
+
+    private mapScenarioOutlineTablesVNext(sdkTables: any[] | undefined, outlineId: string): ExampleTable[] {
+        if (!Array.isArray(sdkTables) || sdkTables.length === 0) return [];
+
+        const mapped: ExampleTable[] = [];
+
+        for (let tableIndex = 0; tableIndex < sdkTables.length; tableIndex++) {
+            const t = sdkTables[tableIndex] as any;
+            const raw = t?.dataTable as any[] | undefined;
+
+            if (!Array.isArray(raw) || raw.length < 2) continue;
+
+            const headers = (raw[0] as any[]).map((h) => String(h ?? ''));
+            const rows: Row[] = [];
+            for (let rowIndex = 1; rowIndex < raw.length; rowIndex++) {
+                const sdkRow = raw[rowIndex] as any[];
+                rows.push({
+                    rowId: `${outlineId}:table:${tableIndex}:row:${rowIndex}`,
+                    values: (sdkRow ?? []).map((v) => this.toTypedValue(v))
+                });
+            }
+
+            mapped.push({
+                name: String(t?.name ?? 'Examples'),
+                description: typeof t?.description === 'string' ? String(t.description) : undefined,
+                headers,
+                rows
+            });
+        }
+
+        return mapped;
     }
 
     private async completeRun(runId: string, results: ExecutionResults): Promise<void> {

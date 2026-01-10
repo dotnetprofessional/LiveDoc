@@ -195,6 +195,82 @@ feature(`RunStore Data Management
         });
     });
 
+    scenario("Updating a node preserves existing template step docString", () => {
+        let outline: any;
+
+        given("a run with a scenarioOutline 'outline-1' with template step 't-step-1' docString 'Template <value>' exists", () => {
+            store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+            store.addNode("run-1", undefined, {
+                id: "feature-1",
+                kind: "feature",
+                title: "Feature",
+                tags: [],
+                children: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+            } as any);
+
+            store.addNode("run-1", "feature-1", {
+                id: "outline-1",
+                kind: "scenarioOutline",
+                title: "Outline",
+                tags: [],
+                template: {
+                    id: "template-1",
+                    kind: "scenario",
+                    title: "Template",
+                    tags: [],
+                    children: [
+                        {
+                            id: "t-step-1",
+                            kind: "step",
+                            title: "a step",
+                            keyword: "given",
+                            docString: {
+                                content: "Template <value>",
+                                mediaType: "text/plain"
+                            }
+                        }
+                    ]
+                },
+                examples: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+            } as any);
+        });
+
+        when("the same scenarioOutline 'outline-1' is updated with the template step 't-step-1' missing docString", () => {
+            store.addNode("run-1", "feature-1", {
+                id: "outline-1",
+                kind: "scenarioOutline",
+                title: "Outline",
+                tags: [],
+                template: {
+                    id: "template-1",
+                    kind: "scenario",
+                    title: "Template",
+                    tags: [],
+                    children: [
+                        {
+                            id: "t-step-1",
+                            kind: "step",
+                            title: "a step",
+                            keyword: "given"
+                        }
+                    ]
+                },
+                examples: [],
+                statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
+            } as any);
+
+            const run = store.getRun("run-1");
+            const feature = run?.documents[0] as any;
+            outline = feature.children[0];
+        });
+
+        Then("the template step 't-step-1' should still have docString 'Template <value>'", (ctx) => {
+            expect(outline?.template?.children?.[0]?.docString?.content).toBe(ctx.step.values[1]);
+        });
+    });
+
     scenario("Completing a run", () => {
         let run: ReturnType<typeof store.getRun>;
 

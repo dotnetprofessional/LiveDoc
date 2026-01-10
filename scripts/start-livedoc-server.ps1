@@ -75,7 +75,7 @@ if (-not (Test-Path $serverDir)) {
 
 # If already healthy, don’t restart unless explicitly asked.
 $health = Test-LiveDocHealth -hostName $HostName -p $Port -timeoutSec $HealthTimeoutSec
-if ($health) {
+if ($health -and -not $KillStale -and -not $KillAll) {
     Write-Host "LiveDoc server already running at http://$HostName`:$Port (status=$($health.status))." -ForegroundColor Green
     Write-Host "Use -KillStale to restart if you need a fresh session." -ForegroundColor DarkGray
     return

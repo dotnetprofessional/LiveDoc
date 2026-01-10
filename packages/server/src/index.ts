@@ -358,6 +358,29 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     return c.json({ success: true });
   });
 
+  // Patch node fields
+  app.patch('/api/runs/:runId/nodes/:nodeId', async (c) => {
+    const runId = c.req.param('runId');
+    const nodeId = c.req.param('nodeId');
+    const body = await c.req.json();
+    
+    const run = store.getRun(runId);
+    if (!run) {
+      return c.json({ error: 'Run not found' }, 404);
+    }
+
+    store.updateNode(runId, nodeId, body);
+    
+    eventEmitter.emit('run:updated', runId);
+
+    if (wsManager) {
+      const event: WebSocketEvent = { type: 'node:updated', runId, nodeId, patch: body };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+    
+    return c.json({ success: true });
+  });
+
   // Attach background to a Feature node
   app.patch('/api/runs/:runId/nodes/:nodeId/background', async (c) => {
     const runId = c.req.param('runId');

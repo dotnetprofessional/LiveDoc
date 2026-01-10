@@ -73,6 +73,7 @@ export class StepDefinition extends LiveDocTest<Scenario> {
         return {
             ...super.toJSON(),
             rawTitle: this.rawTitle,
+            docStringRaw: this.docStringRaw,
             docString: this.docString,
             type: this.type,
             description: this.description,

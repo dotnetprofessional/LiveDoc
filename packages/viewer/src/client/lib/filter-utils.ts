@@ -6,6 +6,11 @@ export function normalizeTag(tag: string): string {
   return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
 }
 
+export function formatTagLabel(tag: string): string {
+  const normalized = normalizeTag(String(tag ?? ''));
+  return normalized.startsWith('@') ? normalized.slice(1) : normalized;
+}
+
 function getNodeChildrenForTraversal(node: Node): Node[] {
   const children: Node[] = [];
   const anyNode = node as any;

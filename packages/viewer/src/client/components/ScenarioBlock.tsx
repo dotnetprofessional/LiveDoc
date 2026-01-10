@@ -3,8 +3,9 @@ import { Card, CardContent } from './ui/card';
 import { StatusBadge } from './StatusBadge';
 import { Markdown } from './Markdown';
 import { Badge } from './ui/badge';
-import { normalizeTag } from '../lib/filter-utils';
+import { formatTagLabel } from '../lib/filter-utils';
 import { StepList } from './StepList';
+import { Tag } from 'lucide-react';
 
 export interface ScenarioBlockProps {
   label: 'Scenario' | 'Scenario Outline' | 'Background';
@@ -53,7 +54,8 @@ export function ScenarioBlock({
             <div className="flex flex-wrap gap-2 mb-4">
               {tags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="px-1.5 py-0 text-xs font-normal">
-                  {normalizeTag(tag)}
+                  <Tag className="w-3 h-3 mr-1 opacity-60" />
+                  {formatTagLabel(tag)}
                 </Badge>
               ))}
             </div>

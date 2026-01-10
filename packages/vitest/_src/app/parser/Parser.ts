@@ -94,9 +94,43 @@ export class LiveDocGrammarParser {
         scenarioOutline.tags = parser.tags;
         scenarioOutline.tables = parser.tables;
 
+        // Parse steps from the description and add as blueprints
+        const textReader = new TextBlockReader(description);
+        // Skip title line
+        textReader.next();
+        
+        while (textReader.next()) {
+            const line = textReader.line!.trim();
+            const stepMatch = line.match(/^(Given|When|Then|And|But)\s+(.+)$/i);
+            if (stepMatch) {
+                const stepType = stepMatch[1].toLowerCase();
+                const stepTitle = stepMatch[2];
+                // Use existing createStep logic but for blueprint
+                const blueprintStep = this.createStep(stepType, line.substring(line.indexOf(stepMatch[1]) + stepMatch[1].length).trim(), null);
+                
+                // Read until next step or Example keyword to find docstrings/tables
+                while (textReader.next()) {
+                    const nextLine = textReader.line!.trim();
+                    if (nextLine.match(/^(Given|When|Then|And|But|Examples:)/i)) {
+                        // Back up one line so the main loop can process it
+                        (textReader as any).currentIndex--;
+                        break;
+                    }
+                    if (nextLine.startsWith('"""')) {
+                        blueprintStep.docStringRaw = parser.parseDocString(textReader);
+                        blueprintStep.docString = blueprintStep.docStringRaw;
+                    } else if (nextLine.startsWith('|') && nextLine.endsWith('|')) {
+                        blueprintStep.dataTable = parser.parseDataTable(textReader);
+                    }
+                }
+                scenarioOutline.blueprintSteps.push(blueprintStep);
+            }
+        }
+
         this.addExamplesAsScenarios(scenarioOutline, parser);
 
         feature.scenarios.push(scenarioOutline);
+
 
         // Validate we have a description
         if (!parser.title) {
@@ -432,7 +466,7 @@ export class DescriptionParser {
         return table;
     }
 
-    private parseDataTable(textReader: TextBlockReader): DataTableRow[] {
+    public parseDataTable(textReader: TextBlockReader): DataTableRow[] {
         let line = textReader.line!.trim();
         const dataTable: DataTableRow[] = [];
 
@@ -455,7 +489,7 @@ export class DescriptionParser {
         return dataTable;
     }
 
-    private parseDocString(textReader: TextBlockReader): string {
+    public parseDocString(textReader: TextBlockReader): string {
         const docLines: string[] = [];
         const docStringStartIndex = textReader.line!.indexOf('"');
         
