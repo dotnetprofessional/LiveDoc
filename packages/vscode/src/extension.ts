@@ -5,7 +5,6 @@ import { createServer, LiveDocServer } from "@livedoc/server";
 import { LiveDocWebSocketClient } from "./WebSocketClient";
 import { ViewerPanel } from "./viewer/ViewerPanel";
 import { NodeTreeViewItem } from "./ExecutionResultOutline/NodeTreeViewItem";
-import { Node } from "@livedoc/schema";
 import * as os from 'os';
 import * as path from 'path';
 

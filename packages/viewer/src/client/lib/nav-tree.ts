@@ -1,6 +1,6 @@
-import { Node } from '@livedoc/schema';
+import type { Statistics, Status, TestCase } from '@livedoc/schema';
 
-export type ContainerKind = 'Feature' | 'Specification' | 'Suite';
+export type ContainerKind = 'Feature' | 'Specification' | 'Container';
 export type NavKind = 'Group' | ContainerKind;
 
 export type NavItem =
@@ -15,29 +15,31 @@ export type NavItem =
       kind: ContainerKind;
       id: string;
       title: string;
-      node: Node;
+      node: TestCase;
       children: NavItem[];
       status?: string;
     };
 
 export function isContainerKind(kind: string): kind is ContainerKind {
-  return kind === 'Feature' || kind === 'Specification' || kind === 'Suite';
+  return kind === 'Feature' || kind === 'Specification' || kind === 'Container';
 }
 
-function getContainerChildren(node: Node): Node[] {
-  if (node.kind !== 'Suite') return [];
-  const anyNode = node as any;
-  const suiteChildren = (Array.isArray(anyNode.children) ? anyNode.children : []) as Node[];
-  return suiteChildren.filter((child) => child && child.kind === 'Suite');
-}
-
-function getNodePathSegments(node: Node): string[] {
+function getNodePathSegments(node: TestCase): string[] {
   const raw = String((node as any).path ?? '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
   if (!raw) return [];
   const parts = raw.split('/').filter(Boolean);
   // If it looks like a file path, use directories as groups.
   if (parts.length <= 1) return [];
   return parts.slice(0, -1);
+}
+
+function computeTestCaseStatus(stats: Statistics | undefined): Status | undefined {
+  if (!stats) return undefined;
+  if (stats.failed > 0) return 'failed';
+  if (stats.pending > 0) return 'pending';
+  if (stats.total > 0 && stats.skipped === stats.total) return 'skipped';
+  if (stats.total > 0 && stats.passed === stats.total) return 'passed';
+  return stats.total > 0 ? 'pending' : 'pending';
 }
 
 function statusRank(status: string): number {
@@ -77,7 +79,7 @@ function rollupStatus(statuses: Array<string | undefined>): string | undefined {
 
 function computeNavStatus(item: NavItem): string | undefined {
   if (item.kind !== 'Group') {
-    return (item.node.execution?.status as unknown as string | undefined) ?? undefined;
+    return computeTestCaseStatus((item.node as any).statistics as Statistics | undefined);
   }
   const statuses: Array<string | undefined> = [];
   const stack = [...item.children];
@@ -87,7 +89,7 @@ function computeNavStatus(item: NavItem): string | undefined {
     if (child.kind === 'Group') {
       stack.push(...child.children);
     } else {
-      statuses.push((child.node.execution?.status as unknown as string | undefined) ?? undefined);
+      statuses.push(computeTestCaseStatus((child.node as any).statistics as Statistics | undefined));
     }
   }
   return rollupStatus(statuses);
@@ -104,7 +106,7 @@ function sortNavItems(items: NavItem[]): NavItem[] {
   return copy;
 }
 
-export function buildGroupedNavTree(documents: Node[]): NavItem[] {
+export function buildGroupedNavTree(documents: TestCase[]): NavItem[] {
   const rootGroup: NavItem & { kind: 'Group' } = {
     kind: 'Group',
     id: 'group:/',
@@ -132,7 +134,8 @@ export function buildGroupedNavTree(documents: Node[]): NavItem[] {
   };
 
   for (const node of documents) {
-    if (!isContainerKind(node.kind)) continue;
+    const kind = String((node as any).style ?? '');
+    if (!isContainerKind(kind)) continue;
 
     const pathSegments = getNodePathSegments(node);
     let parentChildren = rootGroup.children;
@@ -144,15 +147,12 @@ export function buildGroupedNavTree(documents: Node[]): NavItem[] {
     }
 
     const navNode: NavItem = {
-      kind: node.kind as ContainerKind,
+      kind: kind as ContainerKind,
       id: node.id,
       title: node.title,
       node,
       children: [],
     };
-
-    // Intentionally do not surface nested Suite containers in the nav.
-    // They often represent describe/group blocks within the same test file and create duplicates.
 
     parentChildren.push(navNode);
   }

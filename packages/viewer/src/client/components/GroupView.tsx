@@ -1,30 +1,32 @@
 import { Folder, FileText, BookOpen, ScrollText, LayoutList, Clock, ChevronRight, Home } from 'lucide-react';
 import { useMemo } from 'react';
 import { Run, useStore } from '../store';
-import { buildGroupedNavTree, findNavItemById, NavItem, isContainerKind } from '../lib/nav-tree';
+import { buildGroupedNavTree, findNavItemById, NavItem } from '../lib/nav-tree';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '../lib/utils';
 import { subtreeHasMatch } from '../lib/filter-utils';
 import { Badge } from './ui/badge';
-import { Node, Status, SpecKind } from '@livedoc/schema';
+import type { AnyTest, Status, TestCase } from '@livedoc/schema';
 import { Markdown } from './Markdown';
 import { TagChips } from './TagChips';
 
 type ListItem = 
   | { type: 'navItem'; item: NavItem }
-  | { type: 'node'; node: Node };
+  | { type: 'node'; node: AnyTest };
 
 function getIconForKind(kind: string) {
   switch (kind) {
     case 'Group': return Folder;
-    case SpecKind.Feature: return BookOpen;
-    case SpecKind.Specification: return ScrollText;
-    case SpecKind.Suite: return LayoutList;
-    case SpecKind.Scenario: 
-    case SpecKind.ScenarioOutline:
-    case SpecKind.Rule:
-    case SpecKind.RuleOutline: 
-    case SpecKind.Test: return FileText;
+    case 'Feature': return BookOpen;
+    case 'Specification': return ScrollText;
+    case 'Container': return LayoutList;
+    case 'Scenario':
+    case 'ScenarioOutline':
+    case 'Rule':
+    case 'RuleOutline':
+    case 'Test':
+    case 'Step':
+      return FileText;
     default: return FileText;
   }
 }
@@ -50,7 +52,8 @@ function findNavPath(items: NavItem[], targetId: string): NavItem[] | null {
 export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
   const { navigate, filterText, filterTags } = useStore();
 
-  const navTree = useMemo(() => buildGroupedNavTree(run.documents ?? []), [run.documents]);
+  const documents = run.run.documents ?? [];
+  const navTree = useMemo(() => buildGroupedNavTree(documents), [documents]);
   
   // 1. Resolve what we are viewing
   const viewData = useMemo(() => {
@@ -62,22 +65,21 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
       }
     }
     
-    // Check if it's a container node
-    const node = run.nodeMap[groupId];
-    if (node && isContainerKind(node.kind)) {
-      return { kind: 'container' as const, node };
+    // Check if it's a container node (TestCase)
+    const testCase = documents.find((d) => d.id === groupId);
+    if (testCase) {
+      return { kind: 'container' as const, node: testCase };
     }
 
     // Fallback: check nav tree anyway
     const item = findNavItemById(navTree, groupId);
     if (item) {
-        if (item.kind === 'Group') return { kind: 'folder' as const, item };
-        const fullNode = run.nodeMap[item.id] || item.node;
-        return { kind: 'container' as const, node: fullNode };
+          if (item.kind === 'Group') return { kind: 'folder' as const, item };
+          return { kind: 'container' as const, node: item.node };
     }
     
     return undefined;
-  }, [groupId, navTree, run.nodeMap]);
+        }, [groupId, navTree, documents]);
 
   // 2. Derive list items
   const children = useMemo<ListItem[]>(() => {
@@ -89,34 +91,10 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
         .filter(child => child.kind !== 'Group')
         .map(child => ({ type: 'navItem', item: child }));
     } else {
-      // Container
-      const node = viewData.node as any;
-      let childNodes: Node[] = [];
-      
-      if (node.kind === SpecKind.Feature) {
-        // Scenarios, ScenarioOutlines
-        const arr = Array.isArray(node.children) ? node.children : [];
-        childNodes = arr.filter((c: Node) => {
-          // Filter out Backgrounds (explicit kind or heuristic via empty title)
-          if (c.kind === SpecKind.Background) return false;
-          // In case the reporter hasn't been updated or older run data
-          if (c.kind === SpecKind.Scenario && (!c.title || c.title.trim().length === 0)) return false;
-
-          return c.kind === SpecKind.Scenario || c.kind === SpecKind.ScenarioOutline;
-        });
-      } else if (node.kind === SpecKind.Specification) {
-        // Rules
-        const arr = Array.isArray(node.children) ? node.children : [];
-        childNodes = arr.filter((c: Node) => c.kind === SpecKind.Rule || c.kind === SpecKind.RuleOutline);
-      } else if (node.kind === SpecKind.Suite) {
-        // Nested suites and tests
-        const arr = Array.isArray(node.children) ? node.children : [];
-        childNodes = arr;
-      } else {
-        childNodes = Array.isArray(node.children) ? node.children : [];
-      }
-
-      return childNodes.map(child => ({ type: 'node', node: child }));
+      // Container (TestCase)
+      const testCase = viewData.node as TestCase;
+      const tests = (testCase.tests ?? []) as AnyTest[];
+      return tests.map((t) => ({ type: 'node', node: t }));
     }
   }, [viewData]);
 
@@ -145,10 +123,10 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
   const groupedChildren = useMemo(() => {
     const groups: Record<string, ListItem[]> = {};
     for (const child of filteredChildren) {
-        let kind = child.type === 'navItem' ? child.item.kind : child.node.kind;
+        let kind = child.type === 'navItem' ? child.item.kind : String(child.node.kind);
         // Group variations together
-        if (kind === SpecKind.ScenarioOutline) kind = SpecKind.Scenario;
-        if (kind === SpecKind.RuleOutline) kind = SpecKind.Rule;
+        if (kind === 'ScenarioOutline') kind = 'Scenario';
+        if (kind === 'RuleOutline') kind = 'Rule';
         
         if (!groups[kind]) groups[kind] = [];
         groups[kind].push(child);
@@ -157,7 +135,7 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
   }, [filteredChildren]);
 
   const sortedGroupKeys = useMemo(() => {
-    const order = [SpecKind.Feature, SpecKind.Specification, SpecKind.Suite, SpecKind.Scenario, SpecKind.Rule, SpecKind.Test] as string[];
+    const order = ['Feature', 'Specification', 'Container', 'Scenario', 'Rule', 'Test'] as string[];
     return Object.keys(groupedChildren).sort((a, b) => {
         const idxA = order.indexOf(a);
         const idxB = order.indexOf(b);
@@ -193,10 +171,15 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
   if (viewData.kind === 'folder') {
       status = viewData.item.status as Status;
   } else {
-      status = viewData.node.execution?.status;
+      const tc = viewData.node as TestCase;
+      if ((tc.statistics?.failed ?? 0) > 0) status = 'failed';
+      else if ((tc.statistics?.pending ?? 0) > 0) status = 'pending';
+      else if ((tc.statistics?.skipped ?? 0) > 0 && (tc.statistics?.total ?? 0) === (tc.statistics?.skipped ?? 0)) status = 'skipped';
+      else if ((tc.statistics?.passed ?? 0) > 0 && (tc.statistics?.total ?? 0) === (tc.statistics?.passed ?? 0)) status = 'passed';
+      else status = 'pending';
   }
 
-  const environment = run.environment || 'local';
+    const environment = run.run.environment || 'local';
 
   return (
     <div className="space-y-8">
@@ -278,7 +261,6 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
                                             key={key} 
                                             child={child} 
                                             navigate={navigate} 
-                                            filterText={filterText}
                                             hideKindLabel={true}
                                             />;
                                 })}
@@ -293,7 +275,7 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
   );
 }
 
-function GroupRow({ child, navigate, filterText, hideKindLabel }: { child: ListItem, navigate: any, filterText: string, hideKindLabel?: boolean }) {
+function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigate: any, hideKindLabel?: boolean }) {
     let title = '';
     let kind = '';
     let status: Status | undefined;
@@ -305,26 +287,19 @@ function GroupRow({ child, navigate, filterText, hideKindLabel }: { child: ListI
         title = child.item.title;
         kind = child.item.kind;
         status = child.item.status as Status;
-        if (child.item.kind === 'Group') {
-            onClick = () => navigate('group', child.item.id);
-        } else {
-            onClick = () => navigate('group', child.item.id);
-            duration = child.item.node.execution?.duration;
-            tags = child.item.node.tags || [];
-        }
+    onClick = () => navigate('group', child.item.id);
+    if (child.item.kind !== 'Group') {
+      tags = child.item.node.tags || [];
+    }
     } else {
         // Node
         title = child.node.title;
-        kind = child.node.kind;
+    kind = String(child.node.kind);
         status = child.node.execution?.status;
         duration = child.node.execution?.duration;
         tags = child.node.tags || [];
-        
-        if (isContainerKind(kind)) {
-            onClick = () => navigate('group', child.node.id);
-        } else {
-            onClick = () => navigate('node', child.node.id);
-        }
+
+    onClick = () => navigate('node', child.node.id);
     }
 
     const Icon = getIconForKind(kind);

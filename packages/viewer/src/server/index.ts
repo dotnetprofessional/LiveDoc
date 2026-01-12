@@ -42,6 +42,11 @@ export async function startViewerServer(options: ViewerServerOptions = {}) {
   
   const app = server.getApp();
   const store = server.getRunStore();
+  const dataDir =
+    (store as any).getDataDir?.() ??
+    (store as any).dataDir ??
+    options.dataDir ??
+    path.join(process.cwd(), '.livedoc', 'data');
   
   // =========================================================================
   // Static Files (SPA) - Add these routes to the existing Hono app
@@ -102,7 +107,7 @@ export async function startViewerServer(options: ViewerServerOptions = {}) {
   Server:    http://${host}:${actualPort}
   WebSocket: ws://${host}:${actualPort}/ws
   API:       http://${host}:${actualPort}/api
-  Data:      ${store.getDataDir()}
+  Data:      ${dataDir}
 
   Endpoints:
     GET    /api/health                Health check

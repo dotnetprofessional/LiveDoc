@@ -1,9 +1,9 @@
-import { Node, Binding, Feature, Scenario, SpecKind, Status, TypedValue } from '@livedoc/schema';
+import type { AnyTest, DataTable, ExecutionResult, Statistics, Status, StepTest, TestCase, TypedValue } from '@livedoc/schema';
 import { StepList } from './StepList';
-import { ChevronRight, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, FileText, BookOpen, ScrollText, LayoutList, Home, Tag } from 'lucide-react';
+import { ChevronRight, CheckCircle2, XCircle, AlertCircle, HelpCircle, Layers, FileText, Home, Tag } from 'lucide-react';
 import { useStore } from '../store';
 import { renderTitle } from '../lib/title-utils';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader } from './ui/card';
 import { Badge } from './ui/badge';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,20 +11,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { subtreeHasMatch, formatTagLabel } from '../lib/filter-utils';
 import { Markdown } from './Markdown';
 import { StatusBadge } from './StatusBadge';
-import { buildGroupedNavTree, findNavItemById, NavItem } from '../lib/nav-tree';
+import { buildGroupedNavTree, NavItem } from '../lib/nav-tree';
 import { ScenarioBlock } from './ScenarioBlock';
 
 interface NodeViewProps {
-  node: Node;
-}
-
-function getIconForKind(kind: string) {
-  switch (kind) {
-    case SpecKind.Feature: return BookOpen;
-    case SpecKind.Specification: return ScrollText;
-    case SpecKind.Suite: return LayoutList;
-    default: return FileText;
-  }
+  node: TestCase | AnyTest;
 }
 
 function findNavPath(items: NavItem[], targetId: string): NavItem[] | null {
@@ -46,27 +37,36 @@ export function NodeView({ node }: NodeViewProps) {
     setSelectedExampleId(null);
   }, [node.id]);
 
-  const run = getCurrentRun();
-  const kind = String((node as any).kind ?? '').toLowerCase();
+  const runState = getCurrentRun();
+  const run = runState?.run;
+  const kind = String((node as any).kind ?? (node as any).style ?? '').toLowerCase();
   const isBusiness = audienceMode === 'business';
-  const isContainer = [SpecKind.Feature, SpecKind.Specification, SpecKind.Suite].some(k => k.toLowerCase() === kind);
-  const isOutline = [SpecKind.ScenarioOutline, SpecKind.RuleOutline].some(k => k.toLowerCase() === kind);
+
+  const isTestCaseNode = (n: TestCase | AnyTest): n is TestCase => {
+    return (n as any)?.style !== undefined && Array.isArray((n as any)?.tests);
+  };
+
+  const isContainer = isTestCaseNode(node);
+  const isOutline = kind === 'scenariooutline' || kind === 'ruleoutline';
 
   // Build nav tree for breadcrumbs
   const navTree = useMemo(() => run ? buildGroupedNavTree(run.documents ?? []) : [], [run?.documents]);
 
   // Given any node (Scenario/Step/etc), find the owning Feature by scanning documents.
   // Then resolve background either from feature.background OR a Background node under feature.children.
-  const feature = useMemo<Feature | undefined>(() => {
+  const feature = useMemo<TestCase | undefined>(() => {
     if (!run?.documents) return undefined;
 
-    const isFeature = (n: any) => String(n?.kind ?? '').toLowerCase() === SpecKind.Feature.toLowerCase();
+    const isFeature = (n: any) => String(n?.style ?? n?.kind ?? '').toLowerCase() === 'feature';
 
     const containsId = (n: any): boolean => {
       if (!n) return false;
       if (n.id === node.id) return true;
 
-      const children = (n.children as any[] | undefined) ?? (n.steps as any[] | undefined);
+      const children =
+        (n.tests as any[] | undefined) ??
+        (n.children as any[] | undefined) ??
+        (n.steps as any[] | undefined);
       if (Array.isArray(children)) {
         for (const c of children) {
           if (containsId(c)) return true;
@@ -87,22 +87,22 @@ export function NodeView({ node }: NodeViewProps) {
     };
 
     for (const doc of run.documents) {
-      if (isFeature(doc) && containsId(doc)) return doc as Feature;
+      if (isFeature(doc) && containsId(doc)) return doc as TestCase;
     }
     return undefined;
   }, [run?.documents, node.id]);
 
-  const background = useMemo<Scenario | undefined>(() => {
+  const background = useMemo<AnyTest | undefined>(() => {
     if (!feature) return undefined;
 
     // vNext shape
-    if (feature.background) return feature.background;
+    if ((feature as any).background) return (feature as any).background as AnyTest;
 
     // Legacy/batch shape: Background as first-class child under Feature
     const bg = (feature as any).children?.find((c: any) =>
-      String(c?.kind ?? '').toLowerCase() === SpecKind.Background.toLowerCase()
+      String(c?.kind ?? '').toLowerCase() === 'background'
     );
-    return bg as Scenario | undefined;
+    return bg as AnyTest | undefined;
   }, [feature]);
 
   // Get breadcrumbs
@@ -118,14 +118,22 @@ export function NodeView({ node }: NodeViewProps) {
     return [];
   }, [navTree, feature, node.id, isContainer]);
 
-  const summary = 'summary' in node ? (node as any).summary : undefined;
-  const children = 'children' in node ? (node as any).children : undefined;
-  const examples = 'examples' in node ? (node as any).examples : undefined;
-  const template = 'template' in node ? (node as any).template : undefined;
-  
-  const isLeafContainer = [SpecKind.Scenario, SpecKind.Background, SpecKind.Rule, SpecKind.Test].some(k => k.toLowerCase() === kind);
-  const steps = 'steps' in node ? (node as any).steps : (isLeafContainer ? children : undefined);
-  const showCards = children && !isLeafContainer;
+  const children = isTestCaseNode(node)
+    ? ((node.tests ?? []) as AnyTest[])
+    : ('children' in (node as any) ? (node as any).children : undefined);
+  const examples = 'examples' in (node as any) ? (node as any).examples : undefined;
+  const template = 'template' in (node as any) ? (node as any).template : undefined;
+
+  const isLeafContainer = ['scenario', 'background', 'rule', 'test'].includes(kind);
+  const steps = Array.isArray((node as any).steps)
+    ? ((node as any).steps as AnyTest[])
+    : (isLeafContainer ? (children as AnyTest[] | undefined) : undefined);
+
+  const stepTests = useMemo(() => {
+    const arr = (steps ?? []) as AnyTest[];
+    return arr.filter((t): t is StepTest => typeof (t as any)?.keyword === 'string');
+  }, [steps]);
+  const showCards = Array.isArray(children) && !isLeafContainer;
 
   const kindPrefixTitle = (kindLabel: string, title: string) => `${kindLabel}: ${title}`;
 
@@ -137,19 +145,9 @@ export function NodeView({ node }: NodeViewProps) {
     return String(v.value);
   };
 
-  const getHighlightValues = (binding?: Binding) => {
-    if (!binding) return undefined;
-    const variables = (binding.variables ?? []) as Array<{ name: string; value: TypedValue }>;
-    if (variables.length === 0) return undefined;
-    return variables.reduce<Record<string, string>>((acc, v) => {
-      acc[v.name] = formatTypedValue(v.value);
-      return acc;
-    }, {});
-  };
+  const highlightValues = undefined;
 
-  const highlightValues = getHighlightValues(node.binding);
-
-  const isScenarioView = !!feature && kind === SpecKind.Scenario.toLowerCase();
+  const isScenarioView = !!feature && kind === 'scenario';
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -229,32 +227,47 @@ export function NodeView({ node }: NodeViewProps) {
 
   // Determine the container to display as header (same style as GroupView)
   const containerNode = feature || (isContainer ? node : undefined);
-  const containerTitle = containerNode?.title || '';
-  const containerDescription = containerNode?.description;
-  const containerTags = containerNode?.tags || [];
-  const containerStatus = containerNode?.execution?.status as Status | undefined;
+  const containerTitle = (containerNode as any)?.title || '';
+  const containerDescription = (containerNode as any)?.description;
+  const containerTags = (((containerNode as any)?.tags ?? []) as string[]) || [];
+
+  const statusFromStats = (stats: Statistics | undefined): Status | undefined => {
+    if (!stats) return undefined;
+    if (stats.failed > 0) return 'failed';
+    if (stats.pending > 0) return 'pending';
+    if (stats.total > 0 && stats.skipped === stats.total) return 'skipped';
+    if (stats.total > 0 && stats.passed === stats.total) return 'passed';
+    return 'pending';
+  };
+
+  const containerStatus = statusFromStats((containerNode as any)?.statistics as Statistics | undefined);
   const environment = run?.environment || 'local';
 
   const containerTitleWithKind = containerNode
-    ? (containerNode.kind.toLowerCase() === SpecKind.Feature.toLowerCase()
+    ? (String((containerNode as any).style ?? (containerNode as any).kind ?? '').toLowerCase() === 'feature'
       ? kindPrefixTitle('Feature', containerTitle)
       : containerTitle)
     : '';
 
   const renderOutline = () => {
     if (!isOutline) return null;
-    if (!template) return null;
 
-    const templateSteps = Array.isArray((template as any).children)
-      ? ((template as any).children as any[])
-      : Array.isArray((template as any).steps)
-        ? ((template as any).steps as any[])
-        : [];
+    const templateSteps = (() => {
+      if (template) {
+        if (Array.isArray((template as any).children)) return ((template as any).children as any[]);
+        if (Array.isArray((template as any).steps)) return ((template as any).steps as any[]);
+      }
+
+      const v3Steps = (node as any).steps;
+      if (Array.isArray(v3Steps)) return v3Steps as any[];
+      return [];
+    })();
+
     const exampleNodes = Array.isArray(examples) ? (examples as any[]) : [];
 
     const normalizeKey = (s: string) => String(s ?? '').replace(/['\s_\-]/g, '').toLowerCase();
 
-    const bindingToValues = (binding: Binding | undefined): Record<string, string> => {
+    const bindingToValues = (binding: any | undefined): Record<string, string> => {
       const variables = (binding?.variables ?? []) as Array<{ name: string; value: TypedValue }>;
       return variables.reduce<Record<string, string>>((acc, v) => {
         acc[v.name] = formatTypedValue(v.value);
@@ -271,7 +284,43 @@ export function NodeView({ node }: NodeViewProps) {
       return '';
     };
 
-    const allTables = Array.isArray((node as any).tables) ? ((node as any).tables as any[]) : [];
+    const looksLikeDataTables = (arr: unknown): arr is DataTable[] => {
+      if (!Array.isArray(arr)) return false;
+      const first = (arr as any[])[0];
+      return !!first && Array.isArray(first.headers) && Array.isArray(first.rows);
+    };
+
+    const v3ExampleTables = looksLikeDataTables((node as any).examples) ? ((node as any).examples as DataTable[]) : undefined;
+    const allTables = v3ExampleTables
+      ? (v3ExampleTables as any[])
+      : Array.isArray((node as any).tables)
+        ? ((node as any).tables as any[])
+        : [];
+
+    const v3ExampleResults = Array.isArray((node as any).exampleResults)
+      ? (((node as any).exampleResults as Array<{ testId: string; result: ExecutionResult }>) ?? [])
+      : [];
+
+    const v3ResultsByKey = (() => {
+      const m = new Map<string, ExecutionResult>();
+      for (const entry of v3ExampleResults) {
+        const rowId = Number(entry?.result?.rowId);
+        if (!Number.isFinite(rowId)) continue;
+        m.set(`${rowId}|${String(entry.testId)}`, entry.result);
+      }
+      return m;
+    })();
+
+    const aggregateStatus = (statuses: Status[]): Status => {
+      const s = new Set(statuses);
+      if (s.has('failed') || s.has('timedOut')) return 'failed';
+      if (s.has('cancelled')) return 'cancelled';
+      if (s.has('running')) return 'running';
+      if (s.has('pending')) return 'pending';
+      if (s.has('skipped')) return 'skipped';
+      if (s.has('passed')) return 'passed';
+      return 'pending';
+    };
 
     type OutlineRow = {
       id: string;
@@ -292,6 +341,49 @@ export function NodeView({ node }: NodeViewProps) {
     }
 
     const buildRowsForTable = (table: any | undefined): { headers: string[]; rows: OutlineRow[] } => {
+      // v3 mode: table comes from `examples` (DataTable) and execution comes from exampleResults.
+      if (v3ExampleTables && table && Array.isArray(table.headers) && Array.isArray(table.rows) && table.headers.length > 0) {
+        const headers = (table.headers as unknown[]).map((h) => String(h ?? '')).filter(Boolean);
+
+        const rows: OutlineRow[] = (table.rows as any[]).map((r: any) => {
+          const rowIdNum = Number(r?.rowId);
+          const rowId = Number.isFinite(rowIdNum) ? rowIdNum : NaN;
+          const id = Number.isFinite(rowId) ? String(rowId) : `row:${Math.random().toString(36).slice(2)}`;
+
+          const vals = Array.isArray(r?.values) ? (r.values as TypedValue[]) : [];
+          const values = headers.reduce<Record<string, string>>((acc, h, idx) => {
+            acc[h] = formatTypedValue(vals[idx]);
+            return acc;
+          }, {});
+
+          if (!Number.isFinite(rowId)) return { id, values };
+
+          const patchedSteps = (templateSteps as any[]).map((s: any) => {
+            const result = v3ResultsByKey.get(`${rowId}|${String(s?.id ?? '')}`);
+            return result ? { ...s, execution: result } : s;
+          });
+
+          const stepExecutions: ExecutionResult[] = (templateSteps as any[])
+            .map((s: any) => v3ResultsByKey.get(`${rowId}|${String(s?.id ?? '')}`))
+            .filter((x): x is ExecutionResult => !!x);
+
+          const rowStatus = stepExecutions.length > 0
+            ? aggregateStatus(stepExecutions.map((r) => r.status))
+            : undefined;
+
+          const rowDuration = stepExecutions.reduce((sum, r) => sum + (Number(r.duration) || 0), 0);
+          const rowError = stepExecutions.find((r) => r.status === 'failed' && r.error)?.error;
+
+          const execution = rowStatus
+            ? ({ status: rowStatus, duration: rowDuration, error: rowError } as ExecutionResult)
+            : undefined;
+
+          return { id, values, execution, steps: patchedSteps };
+        });
+
+        return { headers, rows };
+      }
+
       if (table && Array.isArray(table.headers) && Array.isArray(table.rows) && table.headers.length > 0) {
         const headers = (table.headers as unknown[]).map((h) => String(h ?? '')).filter(Boolean);
         const tableRows = (table.rows as any[]).map((r: any) => {
@@ -317,7 +409,7 @@ export function NodeView({ node }: NodeViewProps) {
               return { ...row, execution: matchByRowId.ex?.execution, steps };
             }
 
-            const matchByValues = executed.find(({ ex, values }) =>
+            const matchByValues = executed.find(({ values }) =>
               headers.every((h) => valuesForHeader(values, h) === (row.values[h] ?? ''))
             );
             if (!matchByValues) return { ...row };
@@ -370,7 +462,7 @@ export function NodeView({ node }: NodeViewProps) {
     ).map((t) => {
       const { headers, rows } = buildRowsForTable(t);
       return {
-        name: typeof t?.name === 'string' && String(t.name).trim().length > 0 ? String(t.name) : 'Examples',
+        name: typeof t?.name === 'string' && String(t.name).trim().length > 0 ? String(t.name) : undefined,
         description: typeof t?.description === 'string' ? String(t.description) : undefined,
         headers,
         rows,
@@ -411,12 +503,17 @@ export function NodeView({ node }: NodeViewProps) {
     })();
 
     return (
-      <div className={cn(hasOutlineDescription ? 'mt-6' : 'mt-3', 'space-y-6')}>
+      <div
+        className={cn(
+          hasOutlineDescription ? 'mt-6 space-y-6' : 'mt-2 space-y-4'
+        )}
+      >
         {templateSteps.length > 0 && (
           <StepList
             steps={hasSelectedExecution && selectedSteps ? (selectedSteps as any) : (templateSteps as any)}
             showStatus={hasSelectedExecution}
             highlightValues={selectedValues}
+            bindValues={selectedValues}
             showDurations={hasSelectedExecution && !isBusiness}
             showErrorStack={false}
           />
@@ -432,14 +529,18 @@ export function NodeView({ node }: NodeViewProps) {
               </span>
             </div>
 
-            {exampleTables.map((table) => (
-              <div key={table.name} className="space-y-2">
-                <div className="flex items-center gap-2 px-1">
-                  <h4 className="text-sm font-semibold text-foreground/90 flex-1">Examples: {table.name}</h4>
-                  <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    {table.rows.length}
-                  </span>
-                </div>
+            {exampleTables.map((table, tableIndex) => (
+              <div key={`${tableIndex}:${table.name ?? ''}`} className="space-y-2">
+                {(exampleTables.length > 1 || (table.name && table.name.trim().length > 0)) && (
+                  <div className="flex items-center gap-2 px-1">
+                    <h4 className="text-sm font-semibold text-foreground/90 flex-1">
+                      {table.name ? `Examples: ${table.name}` : 'Examples'}
+                    </h4>
+                    <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                      {table.rows.length}
+                    </span>
+                  </div>
+                )}
 
                 {table.description && table.description.trim().length > 0 && (
                   <Markdown content={table.description} className="max-w-3xl" />
@@ -478,7 +579,7 @@ export function NodeView({ node }: NodeViewProps) {
                             <td className="px-3 py-2 text-center font-mono text-[10px] text-muted-foreground border-r border-border/50">{idx + 1}</td>
                             <td className="px-3 py-2 text-center border-r border-border/50">
                               <div className="flex justify-center">
-                                {row.execution?.status ? getStatusIcon(row.execution.status) : getStatusIcon('unknown')}
+                                {row.execution?.status ? getStatusIcon(row.execution.status) : getStatusIcon('pending')}
                               </div>
                             </td>
                             {table.headers.map(h => (
@@ -665,7 +766,7 @@ export function NodeView({ node }: NodeViewProps) {
             status={(background as any).execution?.status as Status | undefined}
             description={background.description}
             tags={(background as any).tags}
-            steps={(((background as any).steps || background.children) ?? []) as any}
+            steps={(((background as any).steps || (background as any).children) ?? []) as StepTest[]}
             showDurations={!isBusiness}
             showErrorStack={!isBusiness}
             tone="background"
@@ -674,15 +775,15 @@ export function NodeView({ node }: NodeViewProps) {
       )}
 
       {/* ========== SCENARIO SECTION (when viewing a child of a Feature) ========== */}
-      {feature && kind !== 'feature' && kind !== SpecKind.ScenarioOutline.toLowerCase() && (
+      {feature && !isTestCaseNode(node) && kind === 'scenario' && (
         <div className="space-y-3">
           <ScenarioBlock
             label="Scenario"
             title={renderTitle(node.title, highlightValues)}
-            status={node.execution?.status as Status | undefined}
+            status={(node as any).execution?.status as Status | undefined}
             description={node.description}
             tags={node.tags}
-            steps={(steps ?? []) as any}
+            steps={stepTests}
             highlightValues={highlightValues}
             showDurations={!isBusiness}
             showErrorStack={!isBusiness}
@@ -692,12 +793,12 @@ export function NodeView({ node }: NodeViewProps) {
       )}
 
       {/* ========== SCENARIO OUTLINE SECTION ========== */}
-      {feature && kind === SpecKind.ScenarioOutline.toLowerCase() && (
+      {feature && !isTestCaseNode(node) && kind === 'scenariooutline' && (
         <div className="space-y-3">
           <ScenarioBlock
             label="Scenario Outline"
             title={renderTitle(node.title)}
-            status={node.execution?.status as Status | undefined}
+            status={(node as any).execution?.status as Status | undefined}
             description={node.description}
             tags={node.tags}
             steps={[]}
@@ -709,7 +810,7 @@ export function NodeView({ node }: NodeViewProps) {
       )}
 
       {/* ========== FAILURE SUMMARY ========== */}
-      {!isOutline && node.execution.status === 'failed' && node.execution.error && (
+      {!isTestCaseNode(node) && !isOutline && (node as any).execution?.status === 'failed' && (node as any).execution?.error && (
         <Card className="bg-destructive/5 border-destructive/20 shadow-none overflow-hidden">
           <CardHeader className="bg-destructive/10 border-b border-destructive/10 py-3">
             <div className="flex items-center gap-2">
@@ -719,9 +820,9 @@ export function NodeView({ node }: NodeViewProps) {
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-sm font-medium text-foreground/90 whitespace-pre-wrap font-mono">
-              {node.execution.error.message}
+              {(node as any).execution.error.message}
             </div>
-            {!isBusiness && node.execution.error.stack && (
+            {!isBusiness && (node as any).execution.error.stack && (
               <div className="mt-4">
                 <details className="group">
                   <summary className="flex items-center gap-2 text-xs font-bold text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors w-fit">
@@ -730,7 +831,7 @@ export function NodeView({ node }: NodeViewProps) {
                   </summary>
                   <div className="mt-3 pl-6 border-l-2 border-destructive/10">
                     <pre className="text-[10px] font-mono text-muted-foreground/70 whitespace-pre-wrap overflow-x-auto max-h-80 scrollbar-thin">
-                      {node.execution.error.stack}
+                      {(node as any).execution.error.stack}
                     </pre>
                   </div>
                 </details>
@@ -743,7 +844,7 @@ export function NodeView({ node }: NodeViewProps) {
       {/* ========== STEPS ========== */}
       {steps && steps.length > 0 && !isScenarioView && !isOutline && (
         <StepList
-          steps={steps}
+          steps={stepTests}
           highlightValues={highlightValues}
           showDurations={!isBusiness}
           showErrorStack={!isBusiness}

@@ -4,9 +4,9 @@ import { feature, scenario, given, when, Then as then, and } from "../../app/liv
 import * as model from "../../app/model/index";
 import { LiveDocViewerReporter } from "../../app/reporter/LiveDocViewerReporter";
 
-feature(`Viewer reporter includes Node.path on root documents`, () => {
-    scenario(`Posting results includes path for Feature, Specification, and Suite root nodes`, () => {
-        let postedNodes: any[] = [];
+feature(`Viewer reporter includes TestCase.path on root documents`, () => {
+    scenario(`Posting results includes path for Feature, Specification, and Container root documents`, () => {
+        let postedTestCases: any[] = [];
 
         let featureTitle = "";
         let featureFilename = "";
@@ -47,24 +47,24 @@ feature(`Viewer reporter includes Node.path on root documents`, () => {
             (results as any).suites = [sdkSuite];
 
             const originalFetch = globalThis.fetch;
-            postedNodes = [];
+            postedTestCases = [];
 
             (globalThis as any).fetch = async (url: any, init?: any) => {
                 const urlString = String(url);
 
-                if (urlString.includes("/api/runs/start")) {
+                if (urlString.includes("/api/v3/runs/start")) {
                     return {
                         ok: true,
                         status: 200,
-                        json: async () => ({ runId: "run-1", websocketUrl: "" }),
+                        json: async () => ({ protocolVersion: "3.0", runId: "run-1", websocketUrl: "" }),
                         text: async () => "",
                     } as any;
                 }
 
-                if (urlString.includes("/api/runs/run-1/nodes")) {
+                if (urlString.includes("/api/v3/runs/run-1/testcases")) {
                     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-                    if (body?.node) {
-                        postedNodes.push(body);
+                    if (body?.testCase) {
+                        postedTestCases.push(body.testCase);
                     }
                     return {
                         ok: true,
@@ -74,7 +74,7 @@ feature(`Viewer reporter includes Node.path on root documents`, () => {
                     } as any;
                 }
 
-                if (urlString.includes("/api/runs/run-1/complete")) {
+                if (urlString.includes("/api/v3/runs/run-1/complete")) {
                     return {
                         ok: true,
                         status: 200,
@@ -107,32 +107,26 @@ feature(`Viewer reporter includes Node.path on root documents`, () => {
 
         then(`the posted Feature node has path 'features/Login.Spec.ts'`, (ctx) => {
             const expectedPath = String(ctx.step.values[0]);
-            const featureNode = postedNodes
-                .map((p) => p.node)
-                .find((n) => n && n.kind === "Feature" && n.title === featureTitle);
+            const featureDoc = postedTestCases.find((n) => n && n.style === "Feature" && n.title === featureTitle);
 
-            featureNode.should.exist;
-            featureNode.path.should.equal(expectedPath);
+            featureDoc.should.exist;
+            featureDoc.path.should.equal(expectedPath);
         });
 
         and(`the posted Specification node has path 'specs/Calc.Spec.ts'`, (ctx) => {
             const expectedPath = String(ctx.step.values[0]);
-            const specNode = postedNodes
-                .map((p) => p.node)
-                .find((n) => n && n.kind === "Specification" && n.title === specTitle);
+            const specDoc = postedTestCases.find((n) => n && n.style === "Specification" && n.title === specTitle);
 
-            specNode.should.exist;
-            specNode.path.should.equal(expectedPath);
+            specDoc.should.exist;
+            specDoc.path.should.equal(expectedPath);
         });
 
-        and(`the posted Suite node has path 'suites/Pure.Spec.ts'`, (ctx) => {
+        and(`the posted Container document has path 'suites/Pure.Spec.ts'`, (ctx) => {
             const expectedPath = String(ctx.step.values[0]);
-            const suiteNode = postedNodes
-                .map((p) => p.node)
-                .find((n) => n && n.kind === "Suite" && n.title === suiteTitle);
+            const suiteDoc = postedTestCases.find((n) => n && n.style === "Container" && n.title === suiteTitle);
 
-            suiteNode.should.exist;
-            suiteNode.path.should.equal(expectedPath);
+            suiteDoc.should.exist;
+            suiteDoc.path.should.equal(expectedPath);
         });
     });
 });

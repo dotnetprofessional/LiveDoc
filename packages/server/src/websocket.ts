@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
-import type { WebSocketEvent, WebSocketClientMessage } from './schema.js';
+import type { V3WebSocketEvent, WebSocketClientMessage } from './schema.js';
 
 interface ClientSubscription {
   ws: WebSocket;
@@ -82,7 +82,7 @@ export class WebSocketManager {
   /**
    * Broadcast an event to all subscribed clients
    */
-  broadcast(event: WebSocketEvent, runId: string, project?: string, environment?: string): void {
+  broadcast(event: V3WebSocketEvent, runId: string, project?: string, environment?: string): void {
     const projectKey = project && environment ? `${project}/${environment}` : undefined;
     
     for (const [ws, client] of this.clients.entries()) {

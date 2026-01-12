@@ -104,9 +104,8 @@ export class LiveDocGrammarParser {
             const stepMatch = line.match(/^(Given|When|Then|And|But)\s+(.+)$/i);
             if (stepMatch) {
                 const stepType = stepMatch[1].toLowerCase();
-                const stepTitle = stepMatch[2];
                 // Use existing createStep logic but for blueprint
-                const blueprintStep = this.createStep(stepType, line.substring(line.indexOf(stepMatch[1]) + stepMatch[1].length).trim(), null);
+                const blueprintStep = this.createStep(stepType, line.substring(line.indexOf(stepMatch[1]) + stepMatch[1].length).trim(), undefined);
                 
                 // Read until next step or Example keyword to find docstrings/tables
                 while (textReader.next()) {

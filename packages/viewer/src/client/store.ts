@@ -1,31 +1,5 @@
 import { create } from 'zustand';
-import { Node, Statistics, Status } from '@livedoc/schema';
-import { normalizeTag } from './lib/filter-utils';
-
-function mergeInheritedTags(parent: Node | undefined, node: Node): Node {
-  const parentTags = ((parent as any)?.tags ?? []) as unknown[];
-  const ownTags = ((node as any)?.tags ?? []) as unknown[];
-
-  if (parentTags.length === 0) return node;
-
-  const seen = new Set<string>();
-  const merged: string[] = [];
-
-  const add = (t: unknown) => {
-    const raw = String(t ?? '').trim();
-    if (!raw) return;
-    const norm = normalizeTag(raw).toLowerCase();
-    if (!norm) return;
-    if (seen.has(norm)) return;
-    seen.add(norm);
-    merged.push(raw);
-  };
-
-  for (const t of parentTags) add(t);
-  for (const t of ownTags) add(t);
-
-  return { ...(node as any), tags: merged } as any;
-}
+import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV3 } from '@livedoc/schema';
 
 function getInitialAudienceMode(): 'business' | 'developer' {
   try {
@@ -38,16 +12,9 @@ function getInitialAudienceMode(): 'business' | 'developer' {
 }
 
 export interface Run {
-  runId: string;
-  project?: string;
-  environment?: string;
-  framework?: string;
-  timestamp: number;
-  status: Status;
-  summary: Statistics;
-  duration: number;
-  documents: Node[];
-  nodeMap: Record<string, Node>;
+  run: TestRunV3;
+  /** Index for fast lookup by id (TestCase/Test/Step/etc) */
+  itemById: Record<string, TestCase | AnyTest>;
 }
 
 // Project hierarchy for navigation
@@ -132,11 +99,125 @@ interface AppState {
   setFilterTags: (tags: string[]) => void;
   
   // Real-time updates
-  addOrUpdateNode: (runId: string, parentId: string | undefined, node: Node) => void;
+  upsertTestCase: (runId: string, testCase: TestCase) => void;
+  upsertTest: (runId: string, testCaseId: string, test: AnyTest) => void;
+  patchTestExecution: (runId: string, testId: string, patch: { execution: Partial<ExecutionResult> }) => void;
+  upsertOutlineExampleResults: (runId: string, outlineId: string, results: Array<{ testId: string; result: ExecutionResult }>) => void;
   
   // Computed selectors
   getCurrentRun: () => Run | undefined;
-  getCurrentNode: () => Node | undefined;
+  getCurrentNode: () => TestCase | AnyTest | undefined;
+}
+
+function buildItemIndex(run: TestRunV3): Record<string, TestCase | AnyTest> {
+  const itemById: Record<string, TestCase | AnyTest> = {};
+
+  const addTest = (test: AnyTest) => {
+    itemById[test.id] = test;
+
+    if (String((test as any)?.kind) === 'Scenario' && Array.isArray((test as any).steps)) {
+      for (const step of (test as any).steps as AnyTest[]) addTest(step);
+    }
+
+    const kind = String((test as any)?.kind);
+    if ((kind === 'ScenarioOutline' || kind === 'RuleOutline') && Array.isArray((test as any).steps)) {
+      for (const step of (test as any).steps as AnyTest[]) addTest(step);
+    }
+  };
+
+  for (const doc of run.documents ?? []) {
+    itemById[doc.id] = doc;
+    if (doc.background) addTest(doc.background);
+    for (const t of doc.tests ?? []) addTest(t);
+  }
+
+  return itemById;
+}
+
+export function makeRunState(run: TestRunV3): Run {
+  return { run, itemById: buildItemIndex(run) };
+}
+
+function mergeExecution(existing: ExecutionResult, patch: Partial<ExecutionResult>): ExecutionResult {
+  const out: any = { ...existing };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) continue;
+    if (v === null) {
+      delete out[k];
+      continue;
+    }
+    out[k] = v;
+  }
+  return out as ExecutionResult;
+}
+
+function findTestCaseOwnerId(run: TestRunV3, itemId: string): string | undefined {
+  for (const doc of run.documents ?? []) {
+    if (doc.id === itemId) return doc.id;
+
+    const stack: AnyTest[] = [];
+    if (doc.background) stack.push(doc.background);
+    stack.push(...(doc.tests ?? []));
+
+    while (stack.length > 0) {
+      const t = stack.pop();
+      if (!t) continue;
+      if (t.id === itemId) return doc.id;
+
+      if (String((t as any)?.kind) === 'Scenario' && Array.isArray((t as any).steps)) {
+        stack.push(...((t as any).steps as AnyTest[]));
+      }
+
+      const kind = String((t as any)?.kind);
+      if ((kind === 'ScenarioOutline' || kind === 'RuleOutline') && Array.isArray((t as any).steps)) {
+        stack.push(...((t as any).steps as AnyTest[]));
+      }
+    }
+  }
+  return undefined;
+}
+
+function replaceTestInTestCase(testCase: TestCase, test: AnyTest): TestCase {
+  const existing = testCase.tests ?? [];
+  const replaced = existing.map((t) => (t.id === test.id ? test : t));
+  if (!replaced.some((t) => t.id === test.id)) replaced.push(test);
+  return { ...testCase, tests: replaced };
+}
+
+function patchAnyTestExecution(test: AnyTest, testId: string, patch: Partial<ExecutionResult>): AnyTest {
+  if (test.id === testId) {
+    const existingExecution = (test as any).execution as ExecutionResult | undefined;
+    const base: ExecutionResult = existingExecution ?? { status: 'pending', duration: 0 };
+    return { ...(test as any), execution: mergeExecution(base, patch) } as AnyTest;
+  }
+
+  if (String((test as any)?.kind) === 'Scenario' && Array.isArray((test as any).steps)) {
+    return { ...(test as any), steps: ((test as any).steps as AnyTest[]).map((s) => patchAnyTestExecution(s, testId, patch)) } as AnyTest;
+  }
+
+  const kind = String((test as any)?.kind);
+  if ((kind === 'ScenarioOutline' || kind === 'RuleOutline') && Array.isArray((test as any).steps)) {
+    return { ...(test as any), steps: ((test as any).steps as AnyTest[]).map((s) => patchAnyTestExecution(s, testId, patch)) } as AnyTest;
+  }
+
+  return test;
+}
+
+function patchOutlineExampleResults(test: AnyTest, outlineId: string, results: Array<{ testId: string; result: ExecutionResult }>): AnyTest {
+  if (test.id === outlineId) {
+    return { ...(test as any), exampleResults: results } as AnyTest;
+  }
+
+  if (String((test as any)?.kind) === 'Scenario' && Array.isArray((test as any).steps)) {
+    return { ...(test as any), steps: ((test as any).steps as AnyTest[]).map((s) => patchOutlineExampleResults(s, outlineId, results)) } as AnyTest;
+  }
+
+  const kind = String((test as any)?.kind);
+  if ((kind === 'ScenarioOutline' || kind === 'RuleOutline') && Array.isArray((test as any).steps)) {
+    return { ...(test as any), steps: ((test as any).steps as AnyTest[]).map((s) => patchOutlineExampleResults(s, outlineId, results)) } as AnyTest;
+  }
+
+  return test;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -162,21 +243,27 @@ export const useStore = create<AppState>((set, get) => ({
   addRun: (run) => set((state) => ({
     runs: [run, ...state.runs],
     // Auto-select if first run
-    selectedRunId: state.selectedRunId ?? run.runId,
+    selectedRunId: state.selectedRunId ?? run.run.runId,
   })),
   
   updateRun: (runId, updates) => set((state) => ({
     runs: state.runs.map((r) =>
-      r.runId === runId ? { ...r, ...updates } : r
+      r.run.runId === runId
+        ? (
+            updates.run
+              ? { ...r, ...updates, itemById: buildItemIndex(updates.run as TestRunV3) }
+              : { ...r, ...updates }
+          )
+        : r
     ),
   })),
   
   removeRun: (runId) => set((state) => {
-    const newRuns = state.runs.filter(r => r.runId !== runId);
+    const newRuns = state.runs.filter(r => r.run.runId !== runId);
     // If we removed the selected run, select another
     let newSelectedRunId = state.selectedRunId;
     if (state.selectedRunId === runId) {
-      newSelectedRunId = newRuns.length > 0 ? newRuns[0].runId : null;
+      newSelectedRunId = newRuns.length > 0 ? newRuns[0].run.runId : null;
     }
     return { 
       runs: newRuns,
@@ -250,92 +337,91 @@ export const useStore = create<AppState>((set, get) => ({
   setFilterTags: (tags) => set({ filterTags: tags }),
   
   // Real-time update handlers
-  addOrUpdateNode: (runId, parentId, node) => set((state) => {
-    const runIndex = state.runs.findIndex(r => r.runId === runId);
+  upsertTestCase: (runId, testCase) => set((state) => {
+    const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
     if (runIndex === -1) return state;
 
-    const run = state.runs[runIndex];
-    const parent = parentId ? run.nodeMap[parentId] : undefined;
-    const nodeWithInheritedTags = mergeInheritedTags(parent, node);
-    const newNodeMap = { ...run.nodeMap, [nodeWithInheritedTags.id]: nodeWithInheritedTags };
-    let newDocuments = [...run.documents];
+    const existing = state.runs[runIndex];
+    const docs = existing.run.documents ?? [];
+    const nextDocs = docs.some((d) => d.id === testCase.id)
+      ? docs.map((d) => (d.id === testCase.id ? testCase : d))
+      : [...docs, testCase];
 
-    if (parentId) {
-      // Child node - we know the parent, so update it directly
-      const updateNodeInTree = (nodes: Node[]): Node[] => {
-        return nodes.map(n => {
-          if (n.id === parentId) {
-            const children = (n as any).children || [];
-            const existingIndex = children.findIndex((c: Node) => c.id === node.id);
-            const newChildren = [...children];
-            if (existingIndex >= 0) {
-              newChildren[existingIndex] = node;
-            } else {
-              newChildren.push(node);
-            }
-            return { ...n, children: newChildren };
-          }
-          if ((n as any).children) {
-            return { ...n, children: updateNodeInTree((n as any).children) };
-          }
-          return n;
-        });
-      };
-      newDocuments = updateNodeInTree(newDocuments);
-    } else {
-      // No parentId - could be a root node OR an update to an existing node anywhere
-      const existingRootIndex = newDocuments.findIndex(n => n.id === nodeWithInheritedTags.id);
-      if (existingRootIndex >= 0) {
-        newDocuments[existingRootIndex] = nodeWithInheritedTags;
-      } else {
-        // Search and update in tree
-        let found = false;
-        const updateInTree = (nodes: Node[]): Node[] => {
-          return nodes.map(n => {
-            if (n.id === nodeWithInheritedTags.id) {
-              found = true;
-              return nodeWithInheritedTags;
-            }
-            if ((n as any).children) {
-              const updatedChildren = updateInTree((n as any).children);
-              if (found) {
-                return { ...n, children: updatedChildren };
-              }
-            }
-            return n;
-          });
-        };
-        
-        const updatedDocuments = updateInTree(newDocuments);
-        if (found) {
-          newDocuments = updatedDocuments;
-        } else {
-          // Truly a new root node
-          newDocuments.push(nodeWithInheritedTags);
-        }
-      }
-    }
+    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
+    const newRuns = [...state.runs];
+    newRuns[runIndex] = makeRunState(nextRun);
+    return { runs: newRuns };
+  }),
+
+  upsertTest: (runId, testCaseId, test) => set((state) => {
+    const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
+    if (runIndex === -1) return state;
+
+    const existing = state.runs[runIndex];
+    const nextDocs = (existing.run.documents ?? []).map((d) => (d.id === testCaseId ? replaceTestInTestCase(d, test) : d));
+    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
 
     const newRuns = [...state.runs];
-    newRuns[runIndex] = {
-      ...run,
-      documents: newDocuments,
-      nodeMap: newNodeMap
-    };
+    newRuns[runIndex] = makeRunState(nextRun);
+    return { runs: newRuns };
+  }),
 
+  patchTestExecution: (runId, testId, patch) => set((state) => {
+    const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
+    if (runIndex === -1) return state;
+
+    const existing = state.runs[runIndex];
+    const ownerId = findTestCaseOwnerId(existing.run, testId);
+    if (!ownerId) return state;
+
+    const nextDocs = (existing.run.documents ?? []).map((doc) => {
+      if (doc.id !== ownerId) return doc;
+      return {
+        ...doc,
+        background: doc.background ? patchAnyTestExecution(doc.background, testId, patch.execution) : undefined,
+        tests: (doc.tests ?? []).map((t) => patchAnyTestExecution(t, testId, patch.execution)),
+      };
+    });
+
+    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
+    const newRuns = [...state.runs];
+    newRuns[runIndex] = makeRunState(nextRun);
+    return { runs: newRuns };
+  }),
+
+  upsertOutlineExampleResults: (runId, outlineId, results) => set((state) => {
+    const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
+    if (runIndex === -1) return state;
+
+    const existing = state.runs[runIndex];
+    const ownerId = findTestCaseOwnerId(existing.run, outlineId);
+    if (!ownerId) return state;
+
+    const nextDocs = (existing.run.documents ?? []).map((doc) => {
+      if (doc.id !== ownerId) return doc;
+      return {
+        ...doc,
+        background: doc.background ? patchOutlineExampleResults(doc.background, outlineId, results) : undefined,
+        tests: (doc.tests ?? []).map((t) => patchOutlineExampleResults(t, outlineId, results)),
+      };
+    });
+
+    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
+    const newRuns = [...state.runs];
+    newRuns[runIndex] = makeRunState(nextRun);
     return { runs: newRuns };
   }),
   
   // Computed selectors
   getCurrentRun: () => {
     const state = get();
-    return state.runs.find((r) => r.runId === state.selectedRunId);
+    return state.runs.find((r) => r.run.runId === state.selectedRunId);
   },
   
   getCurrentNode: () => {
     const state = get();
     const run = get().getCurrentRun();
     if (!run || !state.selectedNodeId) return undefined;
-    return run.nodeMap[state.selectedNodeId];
+    return run.itemById[state.selectedNodeId];
   },
 }));

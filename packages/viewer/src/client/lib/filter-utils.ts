@@ -1,4 +1,4 @@
-import { Node } from '@livedoc/schema';
+import type { AnyTest, TestCase } from '@livedoc/schema';
 
 export function normalizeTag(tag: string): string {
   const trimmed = tag.trim();
@@ -11,17 +11,34 @@ export function formatTagLabel(tag: string): string {
   return normalized.startsWith('@') ? normalized.slice(1) : normalized;
 }
 
-function getNodeChildrenForTraversal(node: Node): Node[] {
-  const children: Node[] = [];
-  const anyNode = node as any;
-  if (Array.isArray(anyNode.children)) children.push(...anyNode.children);
-  if (Array.isArray(anyNode.examples)) children.push(...anyNode.examples);
-  if (anyNode.template) children.push(anyNode.template);
-  if (anyNode.background) children.push(anyNode.background);
-  return children;
+type Item = TestCase | AnyTest;
+
+function getItemChildrenForTraversal(item: Item): Item[] {
+  const anyItem = item as any;
+
+  // TestCase
+  if (Array.isArray(anyItem.tests) || anyItem.background) {
+    const children: Item[] = [];
+    if (anyItem.background) children.push(anyItem.background as AnyTest);
+    if (Array.isArray(anyItem.tests)) children.push(...(anyItem.tests as AnyTest[]));
+    return children;
+  }
+
+  // Scenario
+  if (String(anyItem.kind) === 'Scenario' && Array.isArray(anyItem.steps)) {
+    return anyItem.steps as AnyTest[];
+  }
+
+  // Outlines have template steps too
+  const kind = String(anyItem.kind);
+  if ((kind === 'ScenarioOutline' || kind === 'RuleOutline') && Array.isArray(anyItem.steps)) {
+    return anyItem.steps as AnyTest[];
+  }
+
+  return [];
 }
 
-export function subtreeHasMatch(node: Node, textQueryLower: string, tagTokens: string[]): boolean {
+export function subtreeHasMatch(node: Item, textQueryLower: string, tagTokens: string[]): boolean {
   const requiresText = textQueryLower.length > 0;
   const requiresTags = tagTokens.length > 0;
 
@@ -39,7 +56,7 @@ export function subtreeHasMatch(node: Node, textQueryLower: string, tagTokens: s
 
     if (titleOk && tagsOk) return true;
 
-    for (const child of getNodeChildrenForTraversal(n)) stack.push(child);
+    for (const child of getItemChildrenForTraversal(n)) stack.push(child);
   }
 
   return false;

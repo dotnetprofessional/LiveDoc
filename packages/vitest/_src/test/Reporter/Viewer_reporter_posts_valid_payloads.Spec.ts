@@ -1,14 +1,14 @@
 require('chai').should();
 
 import { expect } from "vitest";
-import { NodeSchema } from "@livedoc/schema";
+import { V3UpsertTestCaseRequestSchema } from "@livedoc/schema";
 import LiveDocServerReporter from "../../app/reporter/LiveDocServerReporter";
 import { LiveDocViewerReporter } from "../../app/reporter/LiveDocViewerReporter";
 import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 
 feature("Viewer reporter posts valid payloads", () => {
     scenario("Posting results produces schema-valid nodes including tags and path", () => {
-        let posted: Array<{ parentId?: string; node: any }> = [];
+        let posted: Array<{ testCase: any }> = [];
         let testModules: any[] = [];
 
         given(
@@ -97,22 +97,22 @@ feature("Viewer reporter posts valid payloads", () => {
             (globalThis as any).fetch = async (url: any, init?: any) => {
                 const urlString = String(url);
 
-                if (urlString.includes("/api/runs/start")) {
+                if (urlString.includes("/api/v3/runs/start")) {
                     return {
                         ok: true,
                         status: 200,
-                        json: async () => ({ runId: "run-1", websocketUrl: "" }),
+                        json: async () => ({ protocolVersion: "3.0", runId: "run-1", websocketUrl: "" }),
                         text: async () => ""
                     };
                 }
 
-                if (urlString.includes("/api/runs/run-1/nodes")) {
+                if (urlString.includes("/api/v3/runs/run-1/testcases")) {
                     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-                    posted.push({ parentId: body?.parentId, node: body?.node });
+                    posted.push({ testCase: body?.testCase });
                     return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" };
                 }
 
-                if (urlString.includes("/api/runs/run-1/complete")) {
+                if (urlString.includes("/api/v3/runs/run-1/complete")) {
                     return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" };
                 }
 
@@ -134,91 +134,63 @@ feature("Viewer reporter posts valid payloads", () => {
         });
 
         then(
-            "all posted nodes validate against NodeSchema and include expected tags and paths for root documents",
+            "all posted testcases validate against V3UpsertTestCaseRequestSchema and include expected tags and paths for root documents",
             () => {
                 expect(posted.length).toBeGreaterThan(0);
 
                 for (const p of posted) {
-                    const parsed = NodeSchema.safeParse(p.node);
+                    const parsed = V3UpsertTestCaseRequestSchema.safeParse({ testCase: p.testCase });
                     if (!parsed.success) {
                         throw new Error(`Invalid node payload: ${JSON.stringify(parsed.error.format(), null, 2)}`);
                     }
                 }
 
-                const roots = posted.filter((p) => !p.parentId).map((p) => p.node);
+                const roots = posted.map((p) => p.testCase);
 
-                const featureNode = roots.find((n) => n.kind === "Feature" && n.title === "Tagged Feature");
-                expect(featureNode).toBeTruthy();
-                expect(String(featureNode.path)).toMatch(/(?:^|\/|\\)features\/(?:Tags\.Spec\.ts)$/);
-                expect(featureNode.tags).toEqual(["smoke", "fast"]);
-                expect(featureNode.description).toBe("Feature description");
+                const featureDoc = roots.find((n) => n.style === "Feature" && n.title === "Tagged Feature");
+                expect(featureDoc).toBeTruthy();
+                expect(String(featureDoc.path)).toMatch(/(?:^|\/|\\)features\/(?:Tags\.Spec\.ts)$/);
+                expect(featureDoc.tags).toEqual(["smoke", "fast"]);
+                expect(featureDoc.description).toBe("Feature description");
 
-                const specNode = roots.find((n) => n.kind === "Specification" && n.title === "Tagged Spec");
-                expect(specNode).toBeTruthy();
-                expect(String(specNode.path)).toMatch(/(?:^|\/|\\)specs\/(?:SpecTags\.Spec\.ts)$/);
-                expect(specNode.tags).toEqual(["spec-tag"]);
-                expect(specNode.description).toBe("Spec description");
+                const specDoc = roots.find((n) => n.style === "Specification" && n.title === "Tagged Spec");
+                expect(specDoc).toBeTruthy();
+                expect(String(specDoc.path)).toMatch(/(?:^|\/|\\)specs\/(?:SpecTags\.Spec\.ts)$/);
+                expect(specDoc.tags).toEqual(["spec-tag"]);
+                expect(specDoc.description).toBe("Spec description");
 
-                const suiteNode = roots.find((n) => n.kind === "Suite" && n.title === "Pure Suite");
-                expect(suiteNode).toBeTruthy();
-                expect(String(suiteNode.path)).toMatch(/(?:^|\/|\\)suites\/(?:Pure\.Spec\.ts)$/);
+                const suiteDoc = roots.find((n) => n.style === "Container" && n.title === "Pure Suite");
+                expect(suiteDoc).toBeTruthy();
+                expect(String(suiteDoc.path)).toMatch(/(?:^|\/|\\)suites\/(?:Pure\.Spec\.ts)$/);
             }
         );
 
-        and("the Scenario, ScenarioOutline, Rule, and Step nodes include expected tags and keyword", () => {
-            const featureRoot = posted.find((p) => !p.parentId && p.node.kind === "Feature" && p.node.title === "Tagged Feature")?.node;
-            expect(featureRoot).toBeTruthy();
+        and("the Scenario, ScenarioOutline, Rule, and Step tests include expected tags and keyword", () => {
+            const featureDoc = posted.map((p) => p.testCase).find((n) => n.style === "Feature" && n.title === "Tagged Feature");
+            expect(featureDoc).toBeTruthy();
 
-            const scenarioNode = posted.find((p) => p.parentId === featureRoot.id && p.node.kind === "Scenario" && p.node.title === "Tagged Scenario")?.node;
-            if (!scenarioNode) {
-                const featureChildren = posted
-                    .filter((p) => p.parentId === featureRoot.id)
-                    .map((p) => `${p.node.kind}:${p.node.title}`)
-                    .join('\n');
-                throw new Error(`Could not find Scenario 'Tagged Scenario' under Feature '${featureRoot.id}'. Found:\n${featureChildren}`);
-            }
-            expect(scenarioNode).toBeTruthy();
-            expect(scenarioNode.tags).toEqual(["critical"]);
-            expect(scenarioNode.description).toBe("Scenario description");
+            const scenarioTest = featureDoc.tests.find((t: any) => t.kind === "Scenario" && t.title === "Tagged Scenario");
+            expect(scenarioTest).toBeTruthy();
+            expect(scenarioTest.tags).toEqual(["critical"]);
+            expect(scenarioTest.description).toBe("Scenario description");
 
-            const outlineNode = posted.find((p) => p.parentId === featureRoot.id && p.node.kind === "ScenarioOutline" && p.node.title === "Tagged Outline")?.node;
-            if (!outlineNode) {
-                const featureChildren = posted
-                    .filter((p) => p.parentId === featureRoot.id)
-                    .map((p) => `${p.node.kind}:${p.node.title}`)
-                    .join('\n');
-                throw new Error(`Could not find ScenarioOutline 'Tagged Outline' under Feature '${featureRoot.id}'. Found:\n${featureChildren}`);
-            }
-            expect(outlineNode).toBeTruthy();
-            expect(outlineNode.tags).toEqual(["outline"]);
-            expect(outlineNode.description).toBe("Outline description");
+            const outlineTest = featureDoc.tests.find((t: any) => t.kind === "ScenarioOutline" && t.title === "Tagged Outline");
+            expect(outlineTest).toBeTruthy();
+            expect(outlineTest.tags).toEqual(["outline"]);
+            expect(outlineTest.description).toBe("Outline description");
 
-            const stepNode = posted.find((p) => p.parentId === scenarioNode.id && p.node.kind === "Step")?.node;
-            if (!stepNode) {
-                const scenarioChildren = posted
-                    .filter((p) => p.parentId === scenarioNode.id)
-                    .map((p) => `${p.node.kind}:${p.node.title}`)
-                    .join('\n');
-                throw new Error(`Could not find Step under Scenario '${scenarioNode.id}'. Found:\n${scenarioChildren}`);
-            }
-            expect(stepNode).toBeTruthy();
-            expect(stepNode.keyword).toBe("given");
-            expect(stepNode.title).toBe("a precondition");
+            const stepTest = scenarioTest.steps?.[0];
+            expect(stepTest).toBeTruthy();
+            expect(stepTest.keyword).toBe("given");
+            expect(stepTest.title).toBe("a precondition");
 
-            const specRoot = posted.find((p) => !p.parentId && p.node.kind === "Specification" && p.node.title === "Tagged Spec")?.node;
-            expect(specRoot).toBeTruthy();
+            const specDoc = posted.map((p) => p.testCase).find((n) => n.style === "Specification" && n.title === "Tagged Spec");
+            expect(specDoc).toBeTruthy();
 
-            const ruleNode = posted.find((p) => p.parentId === specRoot.id && p.node.kind === "Rule" && p.node.title === "Tagged Rule")?.node;
-            if (!ruleNode) {
-                const specChildren = posted
-                    .filter((p) => p.parentId === specRoot.id)
-                    .map((p) => `${p.node.kind}:${p.node.title}`)
-                    .join('\n');
-                throw new Error(`Could not find Rule 'Tagged Rule' under Specification '${specRoot.id}'. Found:\n${specChildren}`);
-            }
-            expect(ruleNode).toBeTruthy();
-            expect(ruleNode.tags).toEqual(["rule-tag"]);
-            expect(ruleNode.description).toBe("Rule description");
+            const ruleTest = specDoc.tests.find((t: any) => t.kind === "Rule" && t.title === "Tagged Rule");
+            expect(ruleTest).toBeTruthy();
+            expect(ruleTest.tags).toEqual(["rule-tag"]);
+            expect(ruleTest.description).toBe("Rule description");
         });
     });
 });

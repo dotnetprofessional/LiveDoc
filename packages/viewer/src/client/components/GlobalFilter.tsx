@@ -1,25 +1,25 @@
 import * as React from 'react';
 import { Search, Tag, X } from 'lucide-react';
-import { Node } from '@livedoc/schema';
+import type { AnyTest, TestCase } from '@livedoc/schema';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { formatTagLabel, normalizeTag, subtreeHasMatch } from '../lib/filter-utils';
 import { StatusBadge } from './StatusBadge';
-import { isContainerKind } from '../lib/nav-tree';
 
-function getNodeChildrenForTraversal(node: Node): Node[] {
-  const children: Node[] = [];
+function getNodeChildrenForTraversal(node: TestCase | AnyTest): Array<TestCase | AnyTest> {
+  const children: Array<TestCase | AnyTest> = [];
   const anyNode = node as any;
-  if (Array.isArray(anyNode.children)) children.push(...anyNode.children);
+  if (anyNode.background) children.push(anyNode.background);
+  if (Array.isArray(anyNode.tests)) children.push(...anyNode.tests);
+  if (Array.isArray(anyNode.steps)) children.push(...anyNode.steps);
   if (Array.isArray(anyNode.examples)) children.push(...anyNode.examples);
   if (anyNode.template) children.push(anyNode.template);
-  if (anyNode.background) children.push(anyNode.background);
   return children;
 }
 
-function collectKnownTags(nodes: Node[]): string[] {
+function collectKnownTags(nodes: TestCase[]): string[] {
   const set = new Set<string>();
-  const stack = [...nodes];
+  const stack: Array<TestCase | AnyTest> = [...nodes];
   while (stack.length > 0) {
     const n = stack.pop();
     if (!n) continue;
@@ -38,7 +38,7 @@ function collectKnownTags(nodes: Node[]): string[] {
 export function GlobalFilter({ className }: { className?: string }) {
   const { getCurrentRun, filterText, filterTags, setFilterText, setFilterTags, navigate } = useStore();
   const run = getCurrentRun();
-  const documents = run?.documents ?? [];
+  const documents = run?.run.documents ?? [];
 
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -148,11 +148,10 @@ export function GlobalFilter({ className }: { className?: string }) {
     const hasTags = filterTags.length > 0;
     if (!hasText && !hasTags) return [];
 
-    const nodeMap = (run as any).nodeMap as Record<string, any> | undefined;
-    const allNodes = nodeMap ? Object.values(nodeMap) : [];
+    const allItems = Object.values(run.itemById ?? {}) as any[];
 
-    return allNodes
-      .filter((n) => n && isContainerKind(String(n.kind ?? '')))
+    return allItems
+      .filter((n) => n && typeof n === 'object' && typeof (n as any).kind === 'string')
       .filter((n) => subtreeHasMatch(n as any, textLower, filterTags))
       .slice(0, 8);
   }, [filterTags, filterText, run]);

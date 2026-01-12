@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from 'path';
-import { Node, Container, Outline, Status, Statistics } from "@livedoc/schema";
+import type { AnyTest, Status, Statistics, TestCase } from "@livedoc/schema";
 
 export enum ScenarioStatus {
     unknown = 0,
@@ -43,45 +43,67 @@ export class NodeTreeViewItem extends vscode.TreeItem {
     };
 
     constructor(
-        public readonly node: Node,
+        public readonly node: TestCase | AnyTest,
         public readonly collapsibleState: vscode.TreeItemCollapsibleState,
         protected readonly extensionPath: string,
         public readonly command?: vscode.Command
     ) {
         super(NodeTreeViewItem.getLabel(node), collapsibleState);
-        
-        this.contextValue = node.kind.toLowerCase();
-        this.tooltip = new vscode.MarkdownString(node.description || node.title);
-        
-        if ('summary' in node) {
-            const container = node as Container;
-            const status = container.summary.failed > 0 ? ScenarioStatus.fail : 
-                          container.summary.passed > 0 ? ScenarioStatus.pass : 
-                          ScenarioStatus.pending;
-            this.annotateNode(status);
-            
-            const total = container.summary.total;
-            if (total > 0) {
-                this.description = `(${total})`;
-            }
+
+        this.contextValue = this.getContextValue(node);
+        this.tooltip = new vscode.MarkdownString((node as any).description || node.title);
+
+        if (this.isTestCase(node)) {
+            this.annotateNode(toScenarioStatusFromStats(node.statistics));
+            const total = node.statistics?.total ?? 0;
+            if (total > 0) this.description = `(${total})`;
         } else {
             this.annotateNode(toScenarioStatus(node.execution.status));
         }
     }
 
-    private static getLabel(node: Node): string {
+    private static getLabel(node: TestCase | AnyTest): string {
         const title = node.title.split('\n')[0];
-        switch (node.kind) {
-            case 'Feature': return `Feature: ${title}`;
-            case 'Scenario': return `Scenario: ${title}`;
-            case 'ScenarioOutline': return `Outline: ${title}`;
-            case 'Specification': return `Spec: ${title}`;
-            case 'Rule': return `Rule: ${title}`;
-            case 'Step': return title; // Steps usually have keyword in title or we can add it
-            case 'Suite': return title;
-            case 'Test': return title;
-            default: return title;
+
+        if ((node as any).style) {
+            const doc = node as TestCase;
+            switch (doc.style) {
+                case 'Feature':
+                    return `Feature: ${title}`;
+                case 'Specification':
+                    return `Spec: ${title}`;
+                case 'Container':
+                    return title;
+                default:
+                    return title;
+            }
         }
+
+        const test = node as AnyTest;
+        switch (test.kind) {
+            case 'Scenario':
+                return `Scenario: ${title}`;
+            case 'ScenarioOutline':
+                return `Outline: ${title}`;
+            case 'Rule':
+                return `Rule: ${title}`;
+            case 'RuleOutline':
+                return `Rule Outline: ${title}`;
+            case 'Step':
+                return title;
+            case 'Test':
+            default:
+                return title;
+        }
+    }
+
+    private isTestCase(node: TestCase | AnyTest): node is TestCase {
+        return (node as any)?.style !== undefined;
+    }
+
+    private getContextValue(node: TestCase | AnyTest): string {
+        if (this.isTestCase(node)) return String(node.style || 'document').toLowerCase();
+        return String((node as AnyTest).kind || 'test').toLowerCase();
     }
 
     protected annotateNode(status: ScenarioStatus) {

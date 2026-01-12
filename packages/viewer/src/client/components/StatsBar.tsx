@@ -2,7 +2,7 @@ import { Statistics } from '@livedoc/schema';
 import { cn } from '../lib/utils';
 
 interface StatsBarProps {
-  summary: Statistics;
+  summary?: Statistics;
   duration?: number;
   ruleViolations?: number;
   size?: 'sm' | 'md' | 'lg';
@@ -10,7 +10,8 @@ interface StatsBarProps {
 }
 
 export function StatsBar({ summary, duration, ruleViolations, size = 'md', className }: StatsBarProps) {
-  const { passed, failed, pending, skipped, total } = summary;
+  const safeSummary: Statistics = summary ?? { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
+  const { passed, failed, pending, skipped, total } = safeSummary;
   const pPct = total > 0 ? (passed / total * 100) : 0;
   const fPct = total > 0 ? (failed / total * 100) : 0;
   const pendPct = total > 0 ? (pending / total * 100) : 0;

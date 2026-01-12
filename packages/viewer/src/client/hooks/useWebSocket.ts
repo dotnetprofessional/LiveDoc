@@ -1,94 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useStore, Run } from '../store';
+import { makeRunState, useStore, Run } from '../store';
 import { getApiBaseUrl, getWsBaseUrl } from '../config';
-import { Node } from '@livedoc/schema';
-import { normalizeTag } from '../lib/filter-utils';
-
-function applyInheritedTags(rootNodes: Node[]): void {
-  const getChildren = (node: Node): Node[] => {
-    const children: Node[] = [];
-    const anyNode = node as any;
-    if (Array.isArray(anyNode.children)) children.push(...anyNode.children);
-    if (Array.isArray(anyNode.examples)) children.push(...anyNode.examples);
-    if (anyNode.template) children.push(anyNode.template);
-    if (anyNode.background) children.push(anyNode.background);
-    return children;
-  };
-
-  const stack: Array<{ node: Node; inheritedTags: string[]; inheritedLower: Set<string> }> = rootNodes.map((n) => ({
-    node: n,
-    inheritedTags: [],
-    inheritedLower: new Set<string>(),
-  }));
-
-  while (stack.length > 0) {
-    const frame = stack.pop();
-    if (!frame) continue;
-
-    const n = frame.node as any;
-
-    const mergedLower = new Set(frame.inheritedLower);
-    const mergedTags: string[] = [...frame.inheritedTags];
-
-    const ownTags = (n.tags ?? []) as unknown[];
-    for (const t of ownTags) {
-      const raw = String(t ?? '').trim();
-      if (!raw) continue;
-      const normalizedLower = normalizeTag(raw).toLowerCase();
-      if (!normalizedLower) continue;
-      if (mergedLower.has(normalizedLower)) continue;
-      mergedLower.add(normalizedLower);
-      mergedTags.push(raw);
-    }
-
-    if (mergedTags.length > 0) {
-      n.tags = mergedTags;
-    }
-
-    for (const child of getChildren(frame.node)) {
-      stack.push({ node: child, inheritedTags: mergedTags, inheritedLower: mergedLower });
-    }
-  }
-}
-
-// Transform API response to match our store structure
-function transformRunData(apiRun: any): Run {
-  const nodeMap: Record<string, Node> = {};
-  
-  const buildNodeMap = (nodes: Node[]) => {
-    for (const node of nodes) {
-      nodeMap[node.id] = node;
-      if ((node as any).children) {
-        buildNodeMap((node as any).children);
-      }
-      if ((node as any).examples) {
-        buildNodeMap((node as any).examples);
-      }
-
-      // Feature.background is not part of children, but we still want it in the map.
-      if ((node as any).background) {
-        buildNodeMap([(node as any).background]);
-      }
-    }
-  };
-
-  const documents = apiRun.documents || apiRun.nodes || [];
-  applyInheritedTags(documents);
-  buildNodeMap(documents);
-
-  return {
-    runId: apiRun.runId,
-    project: apiRun.project || 'Test Results',
-    environment: apiRun.environment || 'default',
-    framework: apiRun.framework || 'vitest',
-    timestamp: new Date(apiRun.timestamp).getTime(),
-    status: apiRun.status || 'pending',
-    summary: apiRun.summary || apiRun.stats || { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
-    duration: apiRun.duration || 0,
-    documents,
-    nodeMap
-  };
-}
+import type { V3WebSocketEvent, TestRunV3 } from '@livedoc/schema';
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
@@ -102,17 +15,20 @@ export function useWebSocket() {
     removeRun, 
     selectRun, 
     setProjectHierarchy,
-    addOrUpdateNode
+    upsertTestCase,
+    upsertTest,
+    patchTestExecution,
+    upsertOutlineExampleResults
   } = useStore();
 
   const fetchRunById = useCallback(async (runId: string): Promise<Run | null> => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/runs/${runId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v3/runs/${runId}`, {
         cache: 'no-store'
       });
       if (!response.ok) return null;
-      const fullRun = await response.json();
-      return transformRunData(fullRun);
+      const fullRun = (await response.json()) as TestRunV3;
+      return makeRunState(fullRun);
     } catch (e) {
       console.error(`Failed to fetch run ${runId}:`, e);
       return null;
@@ -122,7 +38,7 @@ export function useWebSocket() {
   // Fetch project hierarchy for navigation
   const fetchProjectHierarchy = useCallback(async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/hierarchy`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v3/hierarchy`, {
         cache: 'no-store'
       });
       if (!response.ok) return;
@@ -133,7 +49,9 @@ export function useWebSocket() {
           name: project.name,
           environments: project.environments.map((env: any) => ({
             name: env.name,
-            latestRun: env.latestRun ? transformRunData(env.latestRun) : undefined,
+            latestRun: (env.latestRun && String(env.latestRun.protocolVersion ?? '') === '3.0')
+              ? makeRunState(env.latestRun as TestRunV3)
+              : undefined,
             historyCount: env.historyCount,
             history: env.history || [],
           })),
@@ -150,19 +68,23 @@ export function useWebSocket() {
     try {
       await fetchProjectHierarchy();
       
-      const runsListResponse = await fetch(`${getApiBaseUrl()}/api/runs`, {
+      const runsListResponse = await fetch(`${getApiBaseUrl()}/api/v3/runs`, {
         cache: 'no-store'
       });
       if (!runsListResponse.ok) return;
       
       const runsList = await runsListResponse.json();
-      if (!runsList || runsList.length === 0) {
+      const v3RunsList = Array.isArray(runsList)
+        ? runsList.filter((r: any) => String(r?.protocolVersion ?? '') === '3.0')
+        : [];
+
+      if (v3RunsList.length === 0) {
         setRuns([]);
         return;
       }
       
       const fullRuns = await Promise.all(
-        runsList.map(async (run: any) => {
+        v3RunsList.map(async (run: any) => {
           return fetchRunById(run.runId);
         })
       );
@@ -171,7 +93,7 @@ export function useWebSocket() {
       setRuns(validRuns);
       
       if (validRuns.length > 0) {
-        selectRun(validRuns[0].runId);
+        selectRun(validRuns[0].run.runId);
       }
     } catch (error) {
       console.error('Failed to fetch initial runs:', error);
@@ -182,7 +104,7 @@ export function useWebSocket() {
     const full = await fetchRunById(runId);
     if (!full) return;
 
-    const existing = useStore.getState().runs.some((r) => r.runId === runId);
+    const existing = useStore.getState().runs.some((r) => r.run.runId === runId);
     if (existing) {
       updateRun(runId, full);
     } else {
@@ -195,66 +117,76 @@ export function useWebSocket() {
   }, [addRun, fetchProjectHierarchy, fetchRunById, selectRun, updateRun]);
 
   const handleMessage = useCallback((message: any) => {
-    switch (message.type) {
-      case 'run:started':
-        addRun(transformRunData({
-          runId: message.runId,
-          project: message.project,
-          environment: message.environment,
-          framework: message.framework,
-          timestamp: message.timestamp,
+    const type = String(message?.type ?? '');
+
+    switch (type) {
+      case 'run:v3:started': {
+        const evt = message as V3WebSocketEvent & { type: 'run:v3:started' };
+        if (!evt.runId) return;
+
+        const run: TestRunV3 = {
+          protocolVersion: '3.0',
+          runId: evt.runId,
+          project: evt.project ?? 'Test Results',
+          environment: evt.environment ?? 'default',
+          framework: evt.framework ?? 'vitest',
+          timestamp: evt.timestamp ?? new Date().toISOString(),
           status: 'running',
-          summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
           duration: 0,
-          documents: []
-        }));
-        if (message.runId) {
-          selectRun(message.runId);
-        }
+          summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+          documents: [],
+        };
+
+        addRun(makeRunState(run));
+        selectRun(evt.runId);
         fetchProjectHierarchy();
         break;
-        
-      case 'run:completed':
-        if (message.runId) {
-          void handleRunCompleted(message.runId);
-        }
-        break;
-        
-      case 'run:updated':
-        if (message.runId && message.patch) {
-          updateRun(message.runId, message.patch);
-        }
-        break;
+      }
 
-      case 'run:deleted':
-        if (message.runId) {
-          removeRun(message.runId);
-          fetchProjectHierarchy();
-        }
+      case 'testcase:upsert': {
+        const evt = message as V3WebSocketEvent & { type: 'testcase:upsert' };
+        if (evt.runId && evt.testCase) upsertTestCase(evt.runId, evt.testCase as any);
         break;
-        
-      case 'node:added':
-        if (message.runId && message.node) {
-          addOrUpdateNode(message.runId, message.parentId, message.node);
-        }
-        break;
+      }
 
-      case 'node:updated':
-        if (message.runId && message.nodeId && message.patch) {
-          // For now, we'll just update the node in the map if it exists
-          // A more robust solution would be to update it in the tree as well
-          const run = useStore.getState().runs.find(r => r.runId === message.runId);
-          if (run && run.nodeMap[message.nodeId]) {
-            const updatedNode = { ...run.nodeMap[message.nodeId], ...message.patch };
-            addOrUpdateNode(message.runId, undefined, updatedNode);
-          }
+      case 'test:upsert': {
+        const evt = message as V3WebSocketEvent & { type: 'test:upsert' };
+        if (evt.runId && evt.testCaseId && evt.test) upsertTest(evt.runId, evt.testCaseId, evt.test as any);
+        break;
+      }
+
+      case 'test:execution': {
+        const evt = message as V3WebSocketEvent & { type: 'test:execution' };
+        if (evt.runId && evt.testId && evt.patch?.execution) {
+          patchTestExecution(evt.runId, evt.testId, { execution: evt.patch.execution as any });
         }
+        break;
+      }
+
+      case 'outline:exampleResults': {
+        const evt = message as V3WebSocketEvent & { type: 'outline:exampleResults' };
+        if (evt.runId && evt.outlineId && Array.isArray(evt.results)) {
+          upsertOutlineExampleResults(evt.runId, evt.outlineId, evt.results as any);
+        }
+        break;
+      }
+
+      case 'run:v3:completed': {
+        const evt = message as V3WebSocketEvent & { type: 'run:v3:completed' };
+        if (evt.runId) {
+          void handleRunCompleted(evt.runId);
+        }
+        break;
+      }
+
+      case 'pong':
         break;
 
       default:
-        console.log('Unknown message type:', message.type);
+        // Ignore unknown messages (future-proof)
+        break;
     }
-  }, [addOrUpdateNode, addRun, fetchProjectHierarchy, handleRunCompleted, removeRun, updateRun]);
+  }, [addRun, fetchProjectHierarchy, handleRunCompleted, patchTestExecution, removeRun, selectRun, upsertOutlineExampleResults, upsertTest, upsertTestCase]);
 
   const connect = useCallback(() => {
     const wsUrl = `${getWsBaseUrl()}/ws`;

@@ -14,8 +14,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { audienceMode, setAudienceMode, connectionStatus, runs, selectedRunId, selectRun } = useStore()
 
   const latestRun = runs[0]
-  const latestIsRunning = latestRun?.status === "running"
-  const hasNewLiveRun = latestIsRunning && latestRun.runId !== selectedRunId
+  const latestIsRunning = latestRun?.run.status === "running"
+  const hasNewLiveRun = latestIsRunning && latestRun.run.runId !== selectedRunId
 
   const connectionLabel =
     connectionStatus === 'connected'
@@ -67,7 +67,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   variant="outline"
                   size="sm"
                   className="h-8"
-                  onClick={() => selectRun(latestRun.runId)}
+                  onClick={() => selectRun(latestRun.run.runId)}
                 >
                   Switch to live run
                 </Button>

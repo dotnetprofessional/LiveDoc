@@ -1,63 +1,9 @@
-import { Step, Status, TypedValue } from '@livedoc/schema';
-import { renderTitle, highlightExampleValues, highlightPlaceholders } from '../lib/title-utils';
+import type { DataTable, StepTest, Status, TypedValue } from '@livedoc/schema';
+import { bindPlaceholdersInText, renderTitle, highlightPlaceholders } from '../lib/title-utils';
 import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Markdown } from './Markdown';
 import { useState } from 'react';
-
-function tryParseJson(input: string): unknown | undefined {
-  const trimmed = input.trim();
-  if (!trimmed) return undefined;
-  // Cheap pre-check to avoid treating normal text as JSON.
-  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return undefined;
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return undefined;
-  }
-}
-
-function renderJsonHighlighted(jsonText: string): React.ReactNode {
-  // Tokenize a pretty-printed JSON string.
-  const parts = jsonText.split(/(\s+|"(?:\\.|[^"\\])*"\s*:|"(?:\\.|[^"\\])*"|\btrue\b|\bfalse\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[\{\}\[\]\,\:])/g);
-
-  return parts
-    .filter((p) => p !== undefined && p !== '')
-    .map((p, i) => {
-      if (p === 'true' || p === 'false' || p === 'null') {
-        return <span key={i} className="text-muted-foreground">{p}</span>;
-      }
-
-      if (/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(p)) {
-        return <span key={i} className="text-foreground/80">{p}</span>;
-      }
-
-      if (/^"(?:\\.|[^"\\])*"\s*:$/.test(p)) {
-        // Key (render key vs ':' separately so the key stands out)
-        const keyPart = p.replace(/\s*:\s*$/, '');
-        const colonPart = p.slice(keyPart.length);
-
-        return (
-          <span key={i}>
-            <span className="text-primary font-medium">{keyPart}</span>
-            <span className="text-muted-foreground">{colonPart}</span>
-          </span>
-        );
-      }
-
-      if (/^"(?:\\.|[^"\\])*"$/.test(p)) {
-        // String value
-        return <span key={i} className="text-foreground/90">{p}</span>;
-      }
-
-      if (/^[\{\}\[\]\,\:]$/.test(p)) {
-        return <span key={i} className="text-muted-foreground/80">{p}</span>;
-      }
-
-      // whitespace or anything else
-      return <span key={i}>{p}</span>;
-    });
-}
 
 type NormalizedCell = {
   text: string;
@@ -110,35 +56,38 @@ function shouldRenderTwoColumnVerticalTable(table: NormalizedDataTable): boolean
 }
 
 interface StepListProps {
-  steps: Step[];
+  steps: StepTest[];
   showStatus?: boolean;
   /** Optional example values to highlight in rendered titles (ScenarioOutline / RuleOutline examples) */
   highlightValues?: Record<string, string>;
+  /** Optional example values to bind into descriptions on selection (ScenarioOutline / RuleOutline) */
+  bindValues?: Record<string, string>;
   /** Hide per-step durations (Business mode default) */
   showDurations?: boolean;
   /** Show stack traces for failures (Developer mode default) */
   showErrorStack?: boolean;
 }
 
-export function StepList({ steps, showStatus = true, highlightValues, showDurations = true, showErrorStack = true }: StepListProps) {
+export function StepList({ steps, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true }: StepListProps) {
   return (
     <div className="space-y-0">
       {steps.map((step, index) => (
-        <StepItem key={index} step={step} showStatus={showStatus} highlightValues={highlightValues} showDurations={showDurations} showErrorStack={showErrorStack} />
+        <StepItem key={index} step={step} showStatus={showStatus} highlightValues={highlightValues} bindValues={bindValues} showDurations={showDurations} showErrorStack={showErrorStack} />
       ))}
     </div>
   );
 }
 
 interface StepItemProps {
-  step: Step;
+  step: StepTest;
   showStatus?: boolean;
   highlightValues?: Record<string, string>;
+  bindValues?: Record<string, string>;
   showDurations?: boolean;
   showErrorStack?: boolean;
 }
 
-function StepItem({ step, showStatus = true, highlightValues, showDurations = true, showErrorStack = true }: StepItemProps) {
+function StepItem({ step, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true }: StepItemProps) {
   const [isErrorExpanded, setIsErrorExpanded] = useState(false);
 
   const typeColors: Record<string, string> = {
@@ -149,7 +98,6 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
     but: 'text-destructive/60',
   };
 
-  const keywordLabel = (step.keyword?.[0]?.toUpperCase() ?? '') + (step.keyword?.slice(1) ?? '');
 
   const getStatusIcon = (status: Status) => {
     switch (status) {
@@ -160,27 +108,18 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
     }
   };
 
-  const normalizedTable = normalizeDataTable(step.dataTable);
+  const normalizedTable = normalizeDataTable(((step as any).dataTable as DataTable | undefined) ?? step.dataTables?.[0]);
   const keyword = step.keyword?.toLowerCase() || '';
   const isContinuation = ['and', 'but'].includes(keyword);
 
   const status = (step as any)?.execution?.status as Status | undefined;
   const duration = typeof (step as any)?.execution?.duration === 'number' ? (step as any).execution.duration as number : 0;
 
-  const parsedJson = step.docString ? tryParseJson(step.docString) : undefined;
-  const formattedDocString = parsedJson ? JSON.stringify(parsedJson, null, 2) : step.docString;
-
-  const renderedDocString: React.ReactNode = (() => {
-    if (!formattedDocString) return null;
-    if (parsedJson) return renderJsonHighlighted(formattedDocString);
-
-    // IMPORTANT: docstrings do NOT support “quoted value” parsing/highlighting.
-    // We only highlight concrete bound example values (e.g. given/when/then) when present.
-    if (highlightValues && Object.keys(highlightValues).length > 0) {
-      return highlightExampleValues(String(formattedDocString), highlightValues);
-    }
-    return String(formattedDocString);
-  })();
+  const description = typeof step.description === 'string' ? step.description : undefined;
+  const boundDescription =
+    description && bindValues && Object.keys(bindValues).length > 0
+      ? bindPlaceholdersInText(description, bindValues)
+      : description;
 
   return (
     <div className="group relative flex items-start gap-2 py-1 -mx-2 px-2 rounded-lg hover:bg-muted/30 transition-colors">
@@ -215,21 +154,13 @@ function StepItem({ step, showStatus = true, highlightValues, showDurations = tr
           )}
         </div>
 
-        {step.description && (
+        {boundDescription && (
           <div className="mt-2 pl-4 border-l-2 border-muted">
-             <Markdown content={step.description} className="text-sm text-muted-foreground/80 italic leading-relaxed" />
-          </div>
-        )}
-
-        {step.docString && (
-          // Hang-align docstring under the keyword column (not under the statement)
-          <div className="mt-3 -ml-14">
-            <div className="relative">
-              <div className="absolute -left-3 top-0 bottom-0 w-1 bg-primary/10 rounded-full" />
-              <pre className="text-xs font-mono text-muted-foreground bg-muted/30 rounded-xl p-4 whitespace-pre-wrap overflow-x-auto border border-border/50 shadow-inner">
-                {renderedDocString}
-              </pre>
-            </div>
+             <Markdown
+               content={boundDescription}
+               highlightValues={bindValues && Object.keys(bindValues).length > 0 ? bindValues : undefined}
+               className="text-sm text-muted-foreground/80 italic leading-relaxed"
+             />
           </div>
         )}
 

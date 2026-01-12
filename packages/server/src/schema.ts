@@ -30,3 +30,12 @@ export interface ReporterConfig {
   fallbackToFile?: boolean; // If server unavailable
   apiToken?: string;        // Optional auth
 }
+
+// =============================================================================
+// WebSocket Client Messages
+// =============================================================================
+
+export type WebSocketClientMessage =
+  | { type: 'subscribe'; runId?: string; project?: string; environment?: string }
+  | { type: 'unsubscribe'; runId?: string; project?: string; environment?: string }
+  | { type: 'ping' };

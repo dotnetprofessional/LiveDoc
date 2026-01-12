@@ -8,14 +8,29 @@ import { EventEmitter } from 'events';
 import { WebSocketManager } from './websocket.js';
 import { RunStore, runStore } from './store.js';
 import type {
-  TestRun,
-  Node,
-  WebSocketEvent,
   ServerConfig,
-  Status,
-  Framework
+  TestRunV3,
+  TestCase,
+  AnyTest,
+  V3WebSocketEvent,
+  V3StartRunRequest,
+  V3StartRunResponse,
+  V3UpsertTestCaseRequest,
+  V3UpsertTestRequest,
+  V3UpsertScenarioStepsRequest,
+  V3PatchExecutionRequest,
+  V3UpsertOutlineExampleResultsRequest,
+  V3CompleteRunRequest
 } from './schema.js';
-import { NodeSchema } from './schema.js';
+import {
+  V3StartRunRequestSchema,
+  V3UpsertTestCaseRequestSchema,
+  V3UpsertTestRequestSchema,
+  V3UpsertScenarioStepsRequestSchema,
+  V3PatchExecutionRequestSchema,
+  V3UpsertOutlineExampleResultsRequestSchema,
+  V3CompleteRunRequestSchema,
+} from './schema.js';
 
 // Re-export all schema types
 export * from './schema.js';
@@ -151,7 +166,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // Enable CORS
   app.use('*', cors({
     origin: '*',
-    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'X-LiveDoc-Token']
   }));
   
@@ -234,15 +249,6 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     
     const deleted = await store.deleteRun(runId);
     
-    if (deleted && wsManager) {
-      // Broadcast deletion
-      const event: WebSocketEvent = { 
-        type: 'run:deleted', 
-        runId 
-      };
-      wsManager.broadcast(event, runId, run.project, run.environment);
-    }
-    
     if (deleted) {
       return c.json({ success: true });
     }
@@ -276,7 +282,244 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     }
     return c.json(run);
   });
+
+  // =========================================================================
+  // v3 API Routes (Reporter Model v3)
+  // =========================================================================
+
+  // Read endpoints (used by Viewer/clients)
+  app.get('/api/v3/hierarchy', (c) => {
+    const hierarchy = store.getProjectHierarchy();
+    return c.json({ projects: hierarchy });
+  });
+
+  app.get('/api/v3/runs', (c) => {
+    const runs = store.getAllRuns();
+    return c.json(
+      runs.map((r) => ({
+        protocolVersion: r.protocolVersion,
+        runId: r.runId,
+        project: r.project,
+        environment: r.environment,
+        framework: r.framework,
+        status: r.status,
+        timestamp: r.timestamp,
+      }))
+    );
+  });
+
+  app.get('/api/v3/runs/:runId', (c) => {
+    const runId = c.req.param('runId');
+    const run = store.getRun(runId);
+    if (!run) {
+      return c.json({ error: 'Run not found' }, 404);
+    }
+    return c.json(run);
+  });
+
+  app.get('/api/v3/projects/:project/:environment/latest', (c) => {
+    const project = c.req.param('project');
+    const environment = c.req.param('environment');
+    const run = store.getLatestRun(project, environment);
+    if (!run) {
+      return c.json({ error: 'No runs found' }, 404);
+    }
+    return c.json(run);
+  });
+
+  app.post('/api/v3/runs/start', async (c) => {
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3StartRunRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V3StartRunRequest = parsed.data;
+    const runId = generateId();
+    const timestamp = body.timestamp || new Date().toISOString();
+
+    const run = store.createRun(runId, body.project, body.environment, body.framework, timestamp);
+
+    eventEmitter.emit('run:v3:started', runId);
+
+    if (wsManager) {
+      const event: V3WebSocketEvent = {
+        type: 'run:v3:started',
+        runId,
+        project: run.project,
+        environment: run.environment,
+        framework: run.framework,
+        timestamp: run.timestamp,
+      };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    const response: V3StartRunResponse = {
+      protocolVersion: '3.0',
+      runId,
+      websocketUrl: `/ws`,
+    };
+
+    return c.json(response, 201);
+  });
+
+  app.post('/api/v3/runs/:runId/testcases', async (c) => {
+    const runId = c.req.param('runId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3UpsertTestCaseRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V3UpsertTestCaseRequest = parsed.data;
+    store.upsertTestCase(runId, body.testCase as TestCase);
+
+    if (wsManager) {
+      const event: V3WebSocketEvent = { type: 'testcase:upsert', runId, testCase: body.testCase };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    return c.json({ success: true });
+  });
+
+  app.post('/api/v3/runs/:runId/tests', async (c) => {
+    const runId = c.req.param('runId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3UpsertTestRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V3UpsertTestRequest = parsed.data;
+    store.upsertTest(runId, body.testCaseId, body.test as AnyTest);
+
+    if (wsManager) {
+      const event: V3WebSocketEvent = {
+        type: 'test:upsert',
+        runId,
+        testCaseId: body.testCaseId,
+        test: body.test,
+      };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    return c.json({ success: true });
+  });
+
+  app.put('/api/v3/runs/:runId/scenarios/:scenarioId/steps', async (c) => {
+    const runId = c.req.param('runId');
+    const scenarioId = c.req.param('scenarioId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3UpsertScenarioStepsRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V3UpsertScenarioStepsRequest = parsed.data;
+    store.replaceScenarioSteps(runId, scenarioId, body.steps as AnyTest[]);
+
+    // Steps are part of the scenario model; producers are expected to upsert the scenario itself,
+    // so we don't emit an extra event here.
+    return c.json({ success: true });
+  });
+
+  app.patch('/api/v3/runs/:runId/tests/:testId/execution', async (c) => {
+    const runId = c.req.param('runId');
+    const testId = c.req.param('testId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3PatchExecutionRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const patch: V3PatchExecutionRequest = parsed.data;
+    store.patchTestExecution(runId, testId, patch);
+
+    if (wsManager) {
+      const event: V3WebSocketEvent = {
+        type: 'test:execution',
+        runId,
+        testId,
+        patch: { execution: patch },
+      };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    return c.json({ success: true });
+  });
+
+  app.post('/api/v3/runs/:runId/outlines/:outlineId/example-results', async (c) => {
+    const runId = c.req.param('runId');
+    const outlineId = c.req.param('outlineId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3UpsertOutlineExampleResultsRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V3UpsertOutlineExampleResultsRequest = parsed.data;
+    store.upsertOutlineExampleResults(runId, outlineId, body.results);
+
+    if (wsManager) {
+      const event: V3WebSocketEvent = {
+        type: 'outline:exampleResults',
+        runId,
+        outlineId,
+        results: body.results,
+      };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    return c.json({ success: true });
+  });
+
+  app.post('/api/v3/runs/:runId/complete', async (c) => {
+    const runId = c.req.param('runId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3CompleteRunRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V3CompleteRunRequest = parsed.data;
+    store.completeRun(runId, body.status, body.duration, body.summary);
+
+    eventEmitter.emit('run:v3:completed', runId);
+
+    if (wsManager) {
+      const event: V3WebSocketEvent = {
+        type: 'run:v3:completed',
+        runId,
+        status: body.status,
+        duration: body.duration,
+        summary: body.summary ?? run.summary,
+      };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    return c.json({ success: true });
+  });
   
+  /* LEGACY_V2_ROUTES (removed during v3 migration)
+
   // Start a new run
   app.post('/api/runs/start', async (c) => {
     const body = await c.req.json<{ project: string; environment: string; framework: string; timestamp?: string }>();
@@ -628,6 +871,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // =========================================================================
   // HTTP Request Handler
   // =========================================================================
+  */
   
   httpServer.on('request', async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -640,7 +884,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     }
     
     let body: string | undefined;
-    if (req.method === 'POST' || req.method === 'PUT') {
+    if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
       const chunks: Buffer[] = [];
       for await (const chunk of req) {
         chunks.push(chunk);

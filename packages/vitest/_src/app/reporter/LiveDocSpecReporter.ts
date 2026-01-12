@@ -496,7 +496,17 @@ export default class LiveDocSpecReporter implements Reporter {
         
         step.displayTitle = name;
         
-        // Parse description and dataTable from multiline step name
+        // Prefer transported raw docString/dataTable from meta to avoid accidentally
+        // using materialized (example-bound) multiline titles as the source of truth.
+        if (typeof (meta as any)?.step?.docStringRaw === 'string') {
+            step.docStringRaw = String((meta as any).step.docStringRaw);
+        }
+        if (Array.isArray((meta as any)?.step?.dataTable)) {
+            step.dataTable = (meta as any).step.dataTable;
+        }
+
+        // Parse prose description and any fallback rich content from multiline step name.
+        // This intentionally ignores DocString blocks (""" ... """) to keep descriptions raw.
         this.parseStepContent(name, step);
         
         // Set status based on test result
@@ -561,23 +571,47 @@ export default class LiveDocSpecReporter implements Reporter {
         const contentLines: string[] = [];
         let i = 1;
         
-        // Look for table or description
+        // Look for docString blocks, table or description.
         let foundTable = false;
         const tableLines: string[] = [];
+        let inDocString = false;
+        const docStringLines: string[] = [];
         
         while (i < lines.length) {
-            const line = lines[i].trim();
-            
-            if (line.startsWith('|') && line.endsWith('|')) {
-                foundTable = true;
-                tableLines.push(line);
-            } else if (foundTable && line === '') {
-                // Empty line after table - continue to check for description
-            } else if (line !== '') {
-                contentLines.push(lines[i]); // Keep original indentation for description
+            const rawLine = lines[i];
+            const trimmed = rawLine.trim();
+
+            // DocString fences toggle collection. Ignore the fence lines themselves.
+            if (trimmed === '"""') {
+                inDocString = !inDocString;
+                i++;
+                continue;
             }
-            
+
+            if (inDocString) {
+                docStringLines.push(rawLine);
+                i++;
+                continue;
+            }
+
+            if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                foundTable = true;
+                tableLines.push(trimmed);
+            } else if (foundTable && trimmed === '') {
+                // Empty line after table - continue to check for description
+            } else if (trimmed !== '') {
+                contentLines.push(rawLine); // Keep original indentation for description
+            }
+
             i++;
+        }
+
+        // If we didn't get raw docString from meta, fall back to parsing it from the title.
+        if (!(typeof (step as any).docStringRaw === 'string' && String((step as any).docStringRaw).trim().length > 0)) {
+            const rawDocString = docStringLines.join('\n').trim();
+            if (rawDocString.length > 0) {
+                (step as any).docStringRaw = rawDocString;
+            }
         }
         
         // Parse data table if found

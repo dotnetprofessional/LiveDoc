@@ -1,14 +1,14 @@
 require('chai').should();
 
 import { expect } from "vitest";
-import { NodeSchema } from "@livedoc/schema";
+import { V3UpsertTestCaseRequestSchema } from "@livedoc/schema";
 import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 import * as model from "../../app/model/index";
 import { LiveDocViewerReporter } from "../../app/reporter/LiveDocViewerReporter";
 
 feature("Viewer reporter includes rich ScenarioOutline data", () => {
     scenario("Posting a ScenarioOutline includes tables and rich step fields", () => {
-        let posted: Array<{ parentId?: string; node: any }> = [];
+        let postedTestCases: any[] = [];
 
         let results: model.ExecutionResults;
 
@@ -128,27 +128,27 @@ feature("Viewer reporter includes rich ScenarioOutline data", () => {
 
         when("posting the execution results to the viewer server", async () => {
             const originalFetch = globalThis.fetch;
-            posted = [];
+            postedTestCases = [];
 
             (globalThis as any).fetch = async (url: any, init?: any) => {
                 const urlString = String(url);
 
-                if (urlString.includes("/api/runs/start")) {
+                if (urlString.includes("/api/v3/runs/start")) {
                     return {
                         ok: true,
                         status: 200,
-                        json: async () => ({ runId: "run-1", websocketUrl: "" }),
+                        json: async () => ({ protocolVersion: "3.0", runId: "run-1", websocketUrl: "" }),
                         text: async () => "",
                     } as any;
                 }
 
-                if (urlString.includes("/api/runs/run-1/nodes")) {
+                if (urlString.includes("/api/v3/runs/run-1/testcases")) {
                     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-                    posted.push({ parentId: body?.parentId, node: body?.node });
+                    if (body?.testCase) postedTestCases.push(body.testCase);
                     return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" } as any;
                 }
 
-                if (urlString.includes("/api/runs/run-1/complete")) {
+                if (urlString.includes("/api/v3/runs/run-1/complete")) {
                     return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" } as any;
                 }
 
@@ -169,13 +169,13 @@ feature("Viewer reporter includes rich ScenarioOutline data", () => {
             }
         });
 
-        then("all posted nodes validate against NodeSchema", () => {
-            expect(posted.length).toBeGreaterThan(0);
+        then("all posted testcases validate against V3UpsertTestCaseRequestSchema", () => {
+            expect(postedTestCases.length).toBeGreaterThan(0);
 
-            for (const p of posted) {
-                const parsed = NodeSchema.safeParse(p.node);
+            for (const tc of postedTestCases) {
+                const parsed = V3UpsertTestCaseRequestSchema.safeParse({ testCase: tc });
                 if (!parsed.success) {
-                    throw new Error(`Invalid node payload: ${JSON.stringify(parsed.error.format(), null, 2)}`);
+                    throw new Error(`Invalid testcase payload: ${JSON.stringify(parsed.error.format(), null, 2)}`);
                 }
             }
         });
@@ -183,146 +183,209 @@ feature("Viewer reporter includes rich ScenarioOutline data", () => {
         and("the posted ScenarioOutline includes '2' example tables named 'Australian Cows' and 'New Zealand Cows'", (ctx) => {
             const [expectedCount, expectedName1, expectedName2] = ctx.step.values;
 
-            const outlineNode = posted.map((p) => p.node).find((n) => n?.kind === "ScenarioOutline" && n?.title === "scenarios can have multiple data tables");
-            outlineNode.should.exist;
+            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Rich Outline Feature");
+            featureDoc.should.exist;
 
-            expect(Array.isArray(outlineNode.tables)).toBe(true);
-            expect(outlineNode.tables.length).toBe(Number(expectedCount));
-            expect(outlineNode.tables.map((t: any) => t.name)).toEqual([String(expectedName1), String(expectedName2)]);
+            const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "scenarios can have multiple data tables");
+            outlineTest.should.exist;
+
+            expect(Array.isArray(outlineTest.examples)).toBe(true);
+            expect(outlineTest.examples.length).toBe(Number(expectedCount));
+            expect(outlineTest.examples.map((t: any) => t.name)).toEqual([String(expectedName1), String(expectedName2)]);
         });
 
-        and("the ScenarioOutline tables include stable rowIds for table '0' row '1'", (ctx) => {
-            const [tableIndex, rowIndex] = ctx.step.values;
+        and("the ScenarioOutline example rows include a numeric rowId for table '0' row '0'", (ctx) => {
+            const [tableIndex, rowIndex0] = ctx.step.values;
 
-            const outlineNode = posted.map((p) => p.node).find((n) => n?.kind === "ScenarioOutline" && n?.title === "scenarios can have multiple data tables");
-            outlineNode.should.exist;
+            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Rich Outline Feature");
+            featureDoc.should.exist;
 
-            const expectedRowIdPrefix = `${outlineNode.id}:table:${Number(tableIndex)}:row:${Number(rowIndex)}`;
-            const firstRowId = outlineNode.tables?.[Number(tableIndex)]?.rows?.[Number(rowIndex) - 1]?.rowId;
-            expect(firstRowId).toBe(expectedRowIdPrefix);
+            const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "scenarios can have multiple data tables");
+            outlineTest.should.exist;
+
+            const table = outlineTest.examples?.[Number(tableIndex)];
+            table.should.exist;
+
+            expect(typeof table.rows?.[Number(rowIndex0)]?.rowId).toBe("number");
         });
 
-        and(`the ScenarioOutline template step includes the rich fields
+        and(`the ScenarioOutline template step includes docString and dataTables
         """
         {
             "keyword": "given",
             "title": "the cow weighs <weight> kg",
             "docString": "template docstring",
             "dataTable": [["k", "v"], ["a", "b"]],
-            "values": [1, true],
-            "code": "// template code"
+            "values": [1, true]
         }
         """
         `, (ctx) => {
             const expected = ctx.step.docStringAsEntity as any;
 
-            const outlineNode = posted.map((p) => p.node).find((n) => n?.kind === "ScenarioOutline" && n?.title === "scenarios can have multiple data tables");
-            outlineNode.should.exist;
+            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Rich Outline Feature");
+            featureDoc.should.exist;
 
-            const templateStep = outlineNode.template?.children?.[0];
+            const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "scenarios can have multiple data tables");
+            outlineTest.should.exist;
+
+            const templateStep = outlineTest.steps?.[0];
             templateStep.should.exist;
 
             expect(templateStep.keyword).toBe(expected.keyword);
             expect(templateStep.title).toBe(expected.title);
-            expect(templateStep.docString).toBe(expected.docString);
-            expect(templateStep.code).toBe(expected.code);
+            expect(templateStep.description).toBe(`"""\n${expected.docString}\n"""`);
 
-            expect(templateStep.dataTable?.headers).toEqual(expected.dataTable[0]);
-            expect(templateStep.dataTable?.rows?.[0]?.values?.map((v: any) => v.value)).toEqual(expected.dataTable[1]);
-            expect(templateStep.values?.map((v: any) => v.value)).toEqual(expected.values);
+            const stepDataTable = (templateStep.dataTables || []).find((t: any) => !t.name);
+            stepDataTable.should.exist;
+            expect(stepDataTable.headers).toEqual(expected.dataTable[0]);
+            expect(stepDataTable.rows?.[0]?.values?.map((v: any) => v.value)).toEqual(expected.dataTable[1]);
+
+            const stepValuesTable = (templateStep.dataTables || []).find((t: any) => t.name === "values");
+            stepValuesTable.should.exist;
+            expect(stepValuesTable.rows?.[0]?.values?.map((v: any) => v.value)).toEqual(expected.values);
         });
+    });
 
-        and(`the posted example Scenario node includes a binding.rowId that maps to the matching Examples table row
+    scenario("ScenarioOutline template steps use example-step docString when template step docString is missing", () => {
+        let postedTestCases: any[] = [];
+
+        let results: model.ExecutionResults;
+
+        given(`an ExecutionResults with a ScenarioOutline whose template step has no docString but example step has docString 'example docstring'
         """
         {
-            "weight": "450",
-            "energy": "26500",
-            "protein": "215"
+            "feature": {
+                "title": "Outline DocString Backfill Feature",
+                "filename": "D:/repo/root/features/OutlineDocStringBackfill.Spec.ts"
+            },
+            "outline": {
+                "title": "outline template docstring should be backfilled",
+                "tables": [
+                    {
+                        "dataTable": [
+                            ["a"],
+                            ["1"]
+                        ]
+                    }
+                ],
+                "templateStep": {
+                    "type": "given",
+                    "title": "the following feature"
+                },
+                "exampleStep": {
+                    "type": "given",
+                    "title": "the following feature",
+                    "docStringRaw": "example docstring"
+                }
+            }
         }
         """
         `, (ctx) => {
-            const expectedExample = ctx.step.docStringAsEntity as any;
+            const spec = ctx.step.docStringAsEntity as any;
 
-            const outlineNode = posted.map((p) => p.node).find((n) => n?.kind === "ScenarioOutline" && n?.title === "scenarios can have multiple data tables");
-            outlineNode.should.exist;
+            results = new model.ExecutionResults();
 
-            const exampleNode = posted
-                .filter((p) => p.parentId === outlineNode.id)
-                .map((p) => p.node)
-                .find((n) => n?.kind === "Scenario" && n?.binding?.variables?.length);
-            exampleNode.should.exist;
+            const sdkFeature = new model.Feature();
+            sdkFeature.title = String(spec.feature.title);
+            sdkFeature.filename = String(spec.feature.filename);
+            sdkFeature.tags = [];
 
-            const expectedRowId = `${outlineNode.id}:table:0:row:1`;
-            expect(exampleNode.binding.rowId).toBe(expectedRowId);
+            const sdkOutline = new model.ScenarioOutline(sdkFeature);
+            sdkOutline.title = String(spec.outline.title);
+            sdkOutline.description = "";
+            sdkOutline.tags = [];
 
-            const variables = Object.fromEntries(exampleNode.binding.variables.map((v: any) => [v.name, String(v.value?.value ?? "")]));
-            expect(variables).toEqual({
-                weight: String(expectedExample.weight),
-                energy: String(expectedExample.energy),
-                protein: String(expectedExample.protein)
-            });
+            const table = new model.Table();
+            table.name = "";
+            table.description = "";
+            table.dataTable = spec.outline.tables[0].dataTable;
+            sdkOutline.tables.push(table);
+
+            const templateStep = new model.StepDefinition(sdkOutline, String(spec.outline.templateStep.title));
+            templateStep.type = String(spec.outline.templateStep.type);
+            templateStep.rawTitle = String(spec.outline.templateStep.title);
+            templateStep.docStringRaw = "";
+            templateStep.docString = "";
+            templateStep.setStatus(model.SpecStatus.pending, 0);
+            sdkOutline.addStep(templateStep);
+
+            const sdkExample = new model.ScenarioExample(sdkFeature, sdkOutline);
+            sdkExample.title = sdkOutline.title;
+            sdkExample.description = "";
+            sdkExample.tags = [];
+            sdkExample.sequence = 1;
+            sdkExample.example = { a: "1" };
+            sdkExample.exampleRaw = { a: "1" };
+
+            const exampleStep = new model.StepDefinition(sdkExample, String(spec.outline.exampleStep.title));
+            exampleStep.type = String(spec.outline.exampleStep.type);
+            exampleStep.rawTitle = String(spec.outline.exampleStep.title);
+            exampleStep.docStringRaw = String(spec.outline.exampleStep.docStringRaw);
+            exampleStep.docString = "";
+            exampleStep.setStatus(model.SpecStatus.pass, 1);
+            sdkExample.addStep(exampleStep);
+
+            sdkOutline.examples = [sdkExample];
+            sdkFeature.addScenario(sdkOutline);
+            results.addFeature(sdkFeature);
         });
 
-        and(`the posted example step includes the rich fields
-        """
-        {
-            "keyword": "given",
-            "docString": "example docstring (bound)",
-            "dataTable": [["x", "y"], ["1", "2"]],
-            "values": [2, false],
-            "code": "// example code"
-        }
-        """
-        `, (ctx) => {
-            const expected = ctx.step.docStringAsEntity as any;
+        when("posting the execution results to the viewer server", async () => {
+            const originalFetch = globalThis.fetch;
+            postedTestCases = [];
 
-            const outlineNode = posted.map((p) => p.node).find((n) => n?.kind === "ScenarioOutline" && n?.title === "scenarios can have multiple data tables");
-            outlineNode.should.exist;
+            (globalThis as any).fetch = async (url: any, init?: any) => {
+                const urlString = String(url);
 
-            const exampleNode = posted
-                .filter((p) => p.parentId === outlineNode.id)
-                .map((p) => p.node)
-                .find((n) => n?.kind === "Scenario" && n?.binding?.variables?.length);
-            exampleNode.should.exist;
+                if (urlString.includes("/api/v3/runs/start")) {
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({ protocolVersion: "3.0", runId: "run-2", websocketUrl: "" }),
+                        text: async () => "",
+                    } as any;
+                }
 
-            const stepNode = posted.find((p) => p.parentId === exampleNode.id && p.node?.kind === "Step")?.node;
-            stepNode.should.exist;
+                if (urlString.includes("/api/v3/runs/run-2/testcases")) {
+                    const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+                    if (body?.testCase) postedTestCases.push(body.testCase);
+                    return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" } as any;
+                }
 
-            expect(stepNode.keyword).toBe(expected.keyword);
-            expect(stepNode.docString).toBe(expected.docString);
-            expect(stepNode.code).toBe(expected.code);
+                if (urlString.includes("/api/v3/runs/run-2/complete")) {
+                    return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" } as any;
+                }
 
-            expect(stepNode.dataTable?.headers).toEqual(expected.dataTable[0]);
-            expect(stepNode.dataTable?.rows?.[0]?.values?.map((v: any) => v.value)).toEqual(expected.dataTable[1]);
-            expect(stepNode.values?.map((v: any) => v.value)).toEqual(expected.values);
+                return { ok: true, status: 200, json: async () => ({}), text: async () => "" } as any;
+            };
+
+            try {
+                const viewerReporter = new LiveDocViewerReporter({
+                    server: "http://localhost:3100",
+                    project: "vitest",
+                    environment: "local",
+                    silent: true,
+                });
+
+                await viewerReporter.execute(results);
+            } finally {
+                globalThis.fetch = originalFetch;
+            }
         });
 
-        and(`template steps prefer the templated docStringRaw even if executed steps have a bound docString
-        """
-        {
-            "templateDocString": "template docstring",
-            "executedDocString": "example docstring (bound)"
-        }
-        """
-        `, (ctx) => {
-            const expected = ctx.step.docStringAsEntity as any;
+        then("the posted ScenarioOutline template step includes description 'example docstring' and remains pending", () => {
+            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Outline DocString Backfill Feature");
+            featureDoc.should.exist;
 
-            const outlineNode = posted.map((p) => p.node).find((n) => n?.kind === "ScenarioOutline" && n?.title === "scenarios can have multiple data tables");
-            outlineNode.should.exist;
+            const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "outline template docstring should be backfilled");
+            outlineTest.should.exist;
 
-            const templateStep = outlineNode.template?.children?.[0];
+            const templateStep = outlineTest.steps?.[0];
             templateStep.should.exist;
-            expect(templateStep.docString).toBe(expected.templateDocString);
 
-            const exampleNode = posted
-                .filter((p) => p.parentId === outlineNode.id)
-                .map((p) => p.node)
-                .find((n) => n?.kind === "Scenario" && n?.binding?.variables?.length);
-            exampleNode.should.exist;
-
-            const executedStep = posted.find((p) => p.parentId === exampleNode.id && p.node?.kind === "Step")?.node;
-            executedStep.should.exist;
-            expect(executedStep.docString).toBe(expected.executedDocString);
+            expect(templateStep.title).toBe("the following feature");
+            expect(templateStep.description).toBe(`"""\nexample docstring\n"""`);
+            expect(templateStep.execution?.status).toBe("pending");
         });
     });
 });

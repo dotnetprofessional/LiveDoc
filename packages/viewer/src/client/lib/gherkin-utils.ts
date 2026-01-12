@@ -1,16 +1,14 @@
-import { Scenario, ScenarioOutline, Step } from '@livedoc/schema';
-
 export interface GroupedScenarios {
-  regularScenarios: Scenario[];
+  regularScenarios: unknown[];
   outlines: {
     id: string;
     title: string;
     description?: string;
-    templateSteps: Step[];
-    examples: Scenario[];
+    templateSteps: unknown[];
+    examples: unknown[];
     tags?: string[];
   }[];
-  background?: Scenario;
+  background?: unknown;
 }
 
 /**
@@ -19,8 +17,8 @@ export interface GroupedScenarios {
  * Note: In the current schema, Feature.background is a separate property; this helper keeps
  * a `background` field for back-compat with older UI code paths.
  */
-export function groupScenarios(nodes: Array<Scenario | ScenarioOutline>, background?: Scenario): GroupedScenarios {
-  const regularScenarios: Scenario[] = [];
+export function groupScenarios(nodes: Array<any>, background?: any): GroupedScenarios {
+  const regularScenarios: unknown[] = [];
   const outlines: GroupedScenarios['outlines'] = [];
 
   for (const node of nodes) {
@@ -44,8 +42,13 @@ export function groupScenarios(nodes: Array<Scenario | ScenarioOutline>, backgro
   return { regularScenarios, outlines, background };
 }
 
-export function getOutlineTemplateSteps(outline: ScenarioOutline): Step[] {
-  const template = outline.template;
-  const children = (template as any).children;
-  return Array.isArray(children) ? (children as Step[]) : [];
+export function getOutlineTemplateSteps(outline: any): unknown[] {
+  const template = outline?.template;
+  const steps = template?.steps;
+  if (Array.isArray(steps)) return steps;
+
+  const children = template?.children;
+  if (Array.isArray(children)) return children;
+
+  return [];
 }

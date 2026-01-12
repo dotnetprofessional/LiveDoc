@@ -1,4 +1,4 @@
-import { Status, Step } from '@livedoc/schema';
+import type { Status, StepTest } from '@livedoc/schema';
 import { Card, CardContent } from './ui/card';
 import { StatusBadge } from './StatusBadge';
 import { Markdown } from './Markdown';
@@ -13,7 +13,7 @@ export interface ScenarioBlockProps {
   status?: Status;
   description?: string;
   tags?: string[];
-  steps?: Step[];
+  steps?: StepTest[];
   highlightValues?: Record<string, string>;
   showDurations: boolean;
   showErrorStack: boolean;

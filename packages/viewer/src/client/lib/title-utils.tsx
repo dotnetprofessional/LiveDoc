@@ -4,7 +4,7 @@ export function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function findMatchingValue(placeholder: string, values: Record<string, string>): string | undefined {
+export function findMatchingValue(placeholder: string, values: Record<string, string>): string | undefined {
   // Direct match first
   if (values[placeholder] !== undefined) {
     return values[placeholder];
@@ -21,6 +21,24 @@ function findMatchingValue(placeholder: string, values: Record<string, string>):
   }
   
   return undefined;
+}
+
+export function bindPlaceholdersInText(text: string, values: Record<string, string>): string {
+  if (!values || Object.keys(values).length === 0) return text;
+
+  return text.replace(/<([^>\n]+)>/g, (match, inner: string) => {
+    const rawKey = String(inner ?? '').trim();
+    if (!rawKey) return match;
+
+    // Support <name:value> by first matching on the "name" portion.
+    const key = rawKey.split(':')[0].trim();
+
+    const value =
+      findMatchingValue(key, values) ??
+      (key !== rawKey ? findMatchingValue(rawKey, values) : undefined);
+
+    return value !== undefined ? String(value) : match;
+  });
 }
 
 const HighlightSpan = ({ children }: { children: React.ReactNode }) => (

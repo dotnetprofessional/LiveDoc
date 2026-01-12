@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useStore } from '../store';
 import { StatusBadge } from './StatusBadge';
-import { Node } from '@livedoc/schema';
+import type { AnyTest, TestCase } from '@livedoc/schema';
 import { 
   ChevronRight, 
   ChevronDown, 
@@ -22,8 +22,10 @@ function getContainerIcon(kind: ContainerKind) {
       return FileText;
     case 'Specification':
       return FileText;
-    case 'Suite':
+    case 'Container':
       return Folder;
+    default:
+      return FileText;
   }
 }
 
@@ -46,7 +48,7 @@ export function Sidebar() {
 
   const currentRun = getCurrentRun();
 
-  const documents = currentRun?.documents ?? [];
+  const documents = currentRun?.run.documents ?? [];
   const navTree = React.useMemo(() => buildGroupedNavTree(documents), [documents]);
 
   const navTreeForSidebar = React.useMemo(() => {
@@ -68,10 +70,10 @@ export function Sidebar() {
     const hasText = textQueryLower.length > 0;
     const hasTags = filterTags.length > 0;
 
-    const nodeMatchesText = (node: Node) => subtreeHasMatch(node, textQueryLower, []);
-    const nodeMatchesTags = (node: Node) => subtreeHasMatch(node, '', filterTags);
+    const nodeMatchesText = (node: TestCase | AnyTest) => subtreeHasMatch(node as any, textQueryLower, []);
+    const nodeMatchesTags = (node: TestCase | AnyTest) => subtreeHasMatch(node as any, '', filterTags);
 
-    const groupHasNodeMatch = (group: NavItem & { kind: 'Group' }, predicate: (n: Node) => boolean): boolean => {
+    const groupHasNodeMatch = (group: NavItem & { kind: 'Group' }, predicate: (n: TestCase | AnyTest) => boolean): boolean => {
       const stack: NavItem[] = [...group.children];
       while (stack.length > 0) {
         const item = stack.pop();
@@ -207,7 +209,7 @@ export function Sidebar() {
           <div className="mt-1 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Environment</span>
-              <span className="text-xs font-medium">{currentRun?.environment ?? 'default'}</span>
+              <span className="text-xs font-medium">{currentRun?.run.environment ?? 'default'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Run</span>
@@ -216,11 +218,11 @@ export function Sidebar() {
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</span>
               <div className="flex items-center gap-2">
-                {currentRun?.status === 'running' && (
+                {currentRun?.run.status === 'running' && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-hidden="true" />
                 )}
-                {currentRun?.status ? (
-                  <StatusBadge status={currentRun.status} size="xs" />
+                {currentRun?.run.status ? (
+                  <StatusBadge status={currentRun.run.status} size="xs" />
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}

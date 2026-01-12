@@ -16,8 +16,8 @@ export function useVsCodeMessage() {
                 let targetRunId: string | undefined;
                 
                 for (const run of runs) {
-                    if (run.nodeMap[message.nodeId]) {
-                        targetRunId = run.runId;
+                        if (run.itemById[message.nodeId]) {
+                            targetRunId = run.run.runId;
                         break;
                     }
                 }
@@ -30,8 +30,8 @@ export function useVsCodeMessage() {
                 // Back-compat for legacy navigation
                 let targetRunId: string | undefined;
                 for (const run of runs) {
-                    if (run.nodeMap[message.featureId]) {
-                        targetRunId = run.runId;
+                        if (run.itemById[message.featureId]) {
+                            targetRunId = run.run.runId;
                         break;
                     }
                 }

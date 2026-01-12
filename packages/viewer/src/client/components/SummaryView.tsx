@@ -5,11 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { StatusBadge } from './StatusBadge';
-import { Clock, Calendar, Globe, Zap, Folder, ArrowRight, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { cn } from '../lib/utils';
+import { Clock, Calendar, Globe, Zap, ArrowRight } from 'lucide-react';
 import { subtreeHasMatch } from '../lib/filter-utils';
-import { buildGroupedNavTree, NavItem } from '../lib/nav-tree';
+import { NavItem } from '../lib/nav-tree';
 
 interface SummaryViewProps {
   run: Run;
@@ -19,28 +17,13 @@ export function SummaryView({ run }: SummaryViewProps) {
   const { navigate, filterText, filterTags } = useStore();
 
   const acceptableSlowMs = 1000;
+
+  const runModel = run.run;
+  const documents = runModel.documents ?? [];
   
-  const summary = run.summary;
-  const duration = run.duration;
-  const status = run.status;
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05
-      }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
-  };
-
-  const navTree = buildGroupedNavTree(run.documents ?? []);
-  const rootGroup = navTree.find((i) => i.kind === 'Group' && i.id === 'group:/') as (NavItem & { kind: 'Group' }) | undefined;
+  const summary = runModel.summary;
+  const duration = runModel.duration;
+  const status = runModel.status;
 
   const textLower = filterText.trim().toLowerCase();
   const hasText = textLower.length > 0;
@@ -60,7 +43,7 @@ export function SummaryView({ run }: SummaryViewProps) {
 
   const rootContainerByNodeId = (() => {
     const map = new Map<string, any>();
-    const docs = run.documents ?? [];
+    const docs = documents;
 
     const getChildren = (node: any): any[] => {
       const out: any[] = [];
@@ -90,8 +73,11 @@ export function SummaryView({ run }: SummaryViewProps) {
     const hasText = textLower.length > 0;
     const hasTags = filterTags.length > 0;
 
-    const nodes = Object.values((run as any).nodeMap ?? {}) as any[];
-    const tests = nodes.filter((n) => String(n?.kind ?? '') === 'Test');
+    const nodes = Object.values(run.itemById ?? {}) as any[];
+    const tests = nodes.filter((n) => {
+      const kind = String(n?.kind ?? '');
+      return kind === 'Test' || kind === 'Scenario' || kind === 'ScenarioOutline' || kind === 'Rule' || kind === 'RuleOutline';
+    });
 
     const byContainerForSlow = new Map<string, { container: any; maxDuration: number; slowestTest: any }>();
     for (const t of tests) {
@@ -137,14 +123,12 @@ export function SummaryView({ run }: SummaryViewProps) {
   })();
 
   const failingContainers = (() => {
-    const docs = run.documents ?? [];
-    const failed = docs.filter((n) => String((n as any).execution?.status ?? '') === 'failed');
-    const filtered = (!hasText && !hasTags) ? failed : failed.filter((n) => subtreeHasMatch(n as any, textLower, filterTags));
-    return filtered;
+    const failed = documents.filter((d) => (d.statistics?.failed ?? 0) > 0);
+    return (!hasText && !hasTags) ? failed : failed.filter((d) => subtreeHasMatch(d as any, textLower, filterTags));
   })();
 
   const ruleViolationItems = (() => {
-    const nodes = Object.values((run as any).nodeMap ?? {}) as any[];
+    const nodes = Object.values(run.itemById ?? {}) as any[];
     const withViolations = nodes
       .map((n) => {
         const violations = (n as any)?.ruleViolations;
@@ -179,16 +163,16 @@ export function SummaryView({ run }: SummaryViewProps) {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="outline" className="rounded-full px-3 py-1 border-primary/20 bg-primary/5 text-primary font-bold tracking-wider uppercase text-[10px]">
-              {run.framework || 'LiveDoc'}
+              {runModel.framework || 'LiveDoc'}
             </Badge>
             <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
             <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              Last verified {new Date(run.timestamp).toLocaleString()}
+              Last verified {new Date(runModel.timestamp).toLocaleString()}
             </span>
           </div>
           <h1 className="text-4xl font-black tracking-tight text-foreground sm:text-5xl">
-            {run.project || 'Test Results'}
+            {runModel.project || 'Test Results'}
           </h1>
           <p className="text-muted-foreground mt-3 max-w-2xl text-lg font-medium leading-relaxed">
             Latest execution health and organization overview.
@@ -234,11 +218,11 @@ export function SummaryView({ run }: SummaryViewProps) {
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">Target</span>
-              <Badge variant="secondary" className="font-bold">{run.environment || 'Default'}</Badge>
+              <Badge variant="secondary" className="font-bold">{runModel.environment || 'Default'}</Badge>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">Last verified</span>
-              <span className="text-sm font-bold">{new Date(run.timestamp).toLocaleTimeString()}</span>
+              <span className="text-sm font-bold">{new Date(runModel.timestamp).toLocaleTimeString()}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">Duration</span>

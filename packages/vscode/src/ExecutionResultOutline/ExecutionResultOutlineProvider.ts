@@ -1,5 +1,5 @@
-import { WebSocketEvent } from "@livedoc/server";
-import { Node, TestRun, Container, Outline } from "@livedoc/schema";
+import type { V3WebSocketEvent } from "@livedoc/server";
+import type { AnyTest, TestCase, TestRunV3 } from "@livedoc/schema";
 
 import * as vscode from "vscode";
 
@@ -15,7 +15,7 @@ export interface TestSuite {
 }
 
 export interface IExecutionModel extends TestSuite {
-    latestRun?: TestRun;
+    latestRun?: TestRunV3;
 }
 
 /**
@@ -36,21 +36,19 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         this.refresh();
     }
 
-    public handleEvent(event: WebSocketEvent) {
+    public handleEvent(event: V3WebSocketEvent) {
         console.log(`LiveDoc: WebSocket event received: ${event.type}`);
         switch (event.type) {
-            case "run:started":
+            case "run:v3:started":
                 this.isRunning = true;
                 this.refresh();
                 break;
-            case "run:completed":
+            case "run:v3:completed":
                 this.isRunning = false;
                 this.refresh();
                 break;
-            case "node:added":
-            case "node:updated":
-            case "node:removed":
-                // Refresh to get latest state
+            default:
+                // For now, treat all v3 events as a signal to refresh.
                 this.refresh();
                 break;
         }
@@ -110,7 +108,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
             if (selected) {
                 const { run, project, environment } = selected;
-                const testRun = run as TestRun;
+                const testRun = run as TestRunV3;
                 console.log(`LiveDoc: Data received, documents: ${testRun.documents?.length}`);
 
                 const suite: IExecutionModel = {
@@ -167,7 +165,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
                     return configForSuiteMatch.latestRun.documents.map(doc => 
                         new NodeTreeViewItem(
                             doc, 
-                            (doc as any).children?.length > 0 || (doc as any).examples?.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+                            (doc.tests?.length ?? 0) > 0 || !!doc.background ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
                             this.extensionPath
                         )
                     );
@@ -176,18 +174,12 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
             if (element instanceof NodeTreeViewItem) {
                 const node = element.node;
-                let children: Node[] = [];
-                
-                if ("children" in node) {
-                    children = (node as Container).children;
-                } else if ("examples" in node) {
-                    children = (node as Outline<any, any>).examples;
-                }
+                const children = this.getV3Children(node);
 
-                return children.map(child => 
+                return children.map(child =>
                     new NodeTreeViewItem(
                         child,
-                        (child as any).children?.length > 0 || (child as any).examples?.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+                        this.getV3HasChildren(child) ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
                         this.extensionPath,
                         {
                             command: "livedoc.viewItem",
@@ -199,5 +191,38 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
             }
         }
         return results;
+    }
+
+    private getV3Children(node: TestCase | AnyTest): Array<TestCase | AnyTest> {
+        if (this.isV3TestCase(node)) {
+            const children: Array<TestCase | AnyTest> = [];
+            if (node.background) children.push(node.background);
+            children.push(...(node.tests ?? []));
+            return children;
+        }
+
+        switch (node.kind) {
+            case 'Scenario':
+            case 'ScenarioOutline':
+                return (node as any).steps ?? [];
+            default:
+                return [];
+        }
+    }
+
+    private getV3HasChildren(node: TestCase | AnyTest): boolean {
+        if (this.isV3TestCase(node)) return (node.tests?.length ?? 0) > 0 || !!node.background;
+
+        switch (node.kind) {
+            case 'Scenario':
+            case 'ScenarioOutline':
+                return ((node as any).steps?.length ?? 0) > 0;
+            default:
+                return false;
+        }
+    }
+
+    private isV3TestCase(node: TestCase | AnyTest): node is TestCase {
+        return (node as any)?.style !== undefined && Array.isArray((node as any)?.tests);
     }
 }
