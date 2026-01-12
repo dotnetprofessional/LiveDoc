@@ -93,14 +93,7 @@ export function NodeView({ node }: NodeViewProps) {
   const background = useMemo<AnyTest | undefined>(() => {
     if (!feature) return undefined;
 
-    // vNext shape
-    if ((feature as any).background) return (feature as any).background as AnyTest;
-
-    // Legacy/batch shape: Background as first-class child under Feature
-    const bg = (feature as any).children?.find((c: any) =>
-      String(c?.kind ?? '').toLowerCase() === 'background'
-    );
-    return bg as AnyTest | undefined;
+    return feature.background as AnyTest | undefined;
   }, [feature]);
 
   // Get breadcrumbs

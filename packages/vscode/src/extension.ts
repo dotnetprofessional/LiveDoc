@@ -61,12 +61,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     return;
                 }
 
-                const payload = item as { id?: string; featureId?: string; scenarioId?: string } | undefined;
-                if (payload?.id) {
-                    ViewerPanel.currentPanel.navigateTo(payload.id);
-                } else if (payload?.featureId) {
-                    ViewerPanel.currentPanel.navigateTo(payload.scenarioId || payload.featureId);
-                }
+                const payload = item as { id?: string } | undefined;
+                if (payload?.id) ViewerPanel.currentPanel.navigateTo(payload.id);
             }
         })
     );

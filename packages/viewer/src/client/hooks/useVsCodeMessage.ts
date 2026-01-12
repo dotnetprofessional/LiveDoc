@@ -11,37 +11,22 @@ export function useVsCodeMessage() {
 
       switch (message.command) {
         case 'navigate':
-            if (message.nodeId) {
-                // Find run containing this node
-                let targetRunId: string | undefined;
-                
-                for (const run of runs) {
-                        if (run.itemById[message.nodeId]) {
-                            targetRunId = run.run.runId;
-                        break;
-                    }
-                }
-                
-                if (targetRunId) {
-                    selectRun(targetRunId);
-                    navigate('node', message.nodeId);
-                }
-            } else if (message.featureId) {
-                // Back-compat for legacy navigation
-                let targetRunId: string | undefined;
-                for (const run of runs) {
-                        if (run.itemById[message.featureId]) {
-                            targetRunId = run.run.runId;
-                        break;
-                    }
-                }
-                
-                if (targetRunId) {
-                    selectRun(targetRunId);
-                    navigate('node', message.scenarioId || message.featureId);
-                }
+          if (!message.nodeId) break;
+
+          // Find run containing this node
+          let targetRunId: string | undefined;
+          for (const run of runs) {
+            if (run.itemById[message.nodeId]) {
+              targetRunId = run.run.runId;
+              break;
             }
-            break;
+          }
+
+          if (targetRunId) {
+            selectRun(targetRunId);
+            navigate('node', message.nodeId);
+          }
+          break;
       }
     };
 
