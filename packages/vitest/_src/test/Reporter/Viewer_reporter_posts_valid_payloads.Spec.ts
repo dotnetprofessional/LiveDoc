@@ -165,6 +165,26 @@ feature("Viewer reporter posts valid payloads", () => {
             }
         );
 
+        and(
+            "the posted Container document includes the Test 'a plain vitest test' with status 'passed' and statistics total '1' passed '1' pending '0'",
+            (ctx) => {
+                const [testTitle, expectedStatus, expectedTotal, expectedPassed, expectedPending] = ctx.step.values;
+
+                const roots = posted.map((p) => p.testCase);
+                const suiteDoc = roots.find((n) => n.style === "Container" && n.title === "Pure Suite");
+                expect(suiteDoc).toBeTruthy();
+
+                const suiteTests = (suiteDoc as any).tests || [];
+                const plainTest = suiteTests.find((t: any) => t.kind === "Test" && t.title === String(testTitle));
+                expect(plainTest).toBeTruthy();
+                expect(plainTest.execution?.status).toBe(String(expectedStatus));
+
+                expect((suiteDoc as any).statistics?.total).toBe(expectedTotal);
+                expect((suiteDoc as any).statistics?.passed).toBe(expectedPassed);
+                expect((suiteDoc as any).statistics?.pending).toBe(expectedPending);
+            }
+        );
+
         and("the Scenario, ScenarioOutline, Rule, and Step tests include expected tags and keyword", () => {
             const featureDoc = posted.map((p) => p.testCase).find((n) => n.style === "Feature" && n.title === "Tagged Feature");
             expect(featureDoc).toBeTruthy();

@@ -313,20 +313,67 @@ export class LiveDocViewerReporter implements IPostReporter {
       kind: 'Container',
     });
 
-    const test: AnyTest = {
-      id: `${testCaseId}:root`,
-      kind: 'Test',
-      title: suite.title,
-      execution: { status: 'pending', duration: 0 },
+    const flattenSuiteTests = (root: SDKVitestSuite): Array<{ title: string; status: SpecStatus; duration: number }> => {
+      const out: Array<{ title: string; status: SpecStatus; duration: number }> = [];
+
+      const visit = (s: SDKVitestSuite, prefix: string) => {
+        const tests = Array.isArray((s as any).tests) ? ((s as any).tests as any[]) : [];
+        for (const t of tests) {
+          const rawTitle = typeof t?.title === 'string' ? t.title : '';
+          const title = prefix ? `${prefix} > ${rawTitle}` : rawTitle;
+          const status = (t?.status ?? SpecStatus.unknown) as SpecStatus;
+          const duration = Number(t?.duration ?? 0) || 0;
+          if (title.trim().length > 0) {
+            out.push({ title, status, duration });
+          }
+        }
+
+        const children = Array.isArray((s as any).children) ? ((s as any).children as SDKVitestSuite[]) : [];
+        for (const child of children) {
+          const childTitle = typeof (child as any)?.title === 'string' ? String((child as any).title) : '';
+          const nextPrefix = prefix ? `${prefix} > ${childTitle}` : childTitle;
+          visit(child, nextPrefix);
+        }
+      };
+
+      visit(root, '');
+      return out;
     };
+
+    const flattened = flattenSuiteTests(suite);
+    const tests: AnyTest[] = flattened.map((t) => {
+      const id = generateStabilityId({
+        project: this.options.project,
+        title: t.title,
+        kind: 'Test',
+        parentId: testCaseId,
+      });
+
+      return {
+        id,
+        kind: 'Test',
+        title: t.title,
+        execution: { status: this.mapStatus(t.status), duration: t.duration },
+      } as AnyTest;
+    });
+
+    // Preserve legacy behavior (visible container) when a suite has no runnable tests.
+    const ensuredTests = tests.length > 0
+      ? tests
+      : ([{
+          id: `${testCaseId}:root`,
+          kind: 'Test',
+          title: suite.title,
+          execution: { status: 'pending', duration: 0 },
+        }] as AnyTest[]);
 
     return {
       id: testCaseId,
       style: 'Container',
       path: fileInfo.filename || undefined,
       title: suite.title,
-      tests: [test],
-      statistics: this.computeStatisticsFromTests([test]),
+      tests: ensuredTests,
+      statistics: this.computeStatisticsFromTests(ensuredTests),
       ruleViolations: this.mapRuleViolations(suite),
     };
   }

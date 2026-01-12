@@ -87,7 +87,7 @@ specification(`String Operations
 // =============================================================================
 
 specification("Data-driven Rules", () => {
-    ruleOutline(`Validating email formats
+    ruleOutline(`Validating email formats: <email> should be <valid>
         Examples:
         | email             | valid |
         | test@example.com  | true  |

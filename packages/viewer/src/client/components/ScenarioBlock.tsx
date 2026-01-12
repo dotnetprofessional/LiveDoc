@@ -8,7 +8,7 @@ import { StepList } from './StepList';
 import { Tag } from 'lucide-react';
 
 export interface ScenarioBlockProps {
-  label: 'Scenario' | 'Scenario Outline' | 'Background';
+  label: 'Scenario' | 'Scenario Outline' | 'Background' | 'Rule' | 'Rule Outline';
   title: React.ReactNode;
   status?: Status;
   description?: string;
