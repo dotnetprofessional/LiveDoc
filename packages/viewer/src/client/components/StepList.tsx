@@ -155,7 +155,7 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
         </div>
 
         {boundDescription && (
-          <div className="mt-2 pl-4 border-l-2 border-muted">
+          <div className="mt-2 -ml-16 pl-4 border-l-2 border-muted">
              <Markdown
                content={boundDescription}
                highlightValues={bindValues && Object.keys(bindValues).length > 0 ? bindValues : undefined}

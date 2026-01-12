@@ -24,6 +24,8 @@ export function NodeDisplay({ node, variant, size = 'lg', showStats = true, onCl
   const kindLabel = String((node as any).kind ?? (node as any).style ?? 'Item');
   const Icon = FileText;
 
+  const isScenarioLike = /scenario|background/i.test(kindLabel);
+
   const isBusiness = audienceMode === 'business';
   const summary = (node as any).statistics ?? (node as any).summary;
   
@@ -154,7 +156,7 @@ export function NodeDisplay({ node, variant, size = 'lg', showStats = true, onCl
   const titleSize = size === 'lg' ? 'text-3xl md:text-4xl' : size === 'md' ? 'text-2xl md:text-3xl' : 'text-xl';
 
   return (
-    <div className={cn("mb-10", size === 'lg' ? "" : "opacity-90")}>
+    <div className={cn(isScenarioLike ? "mb-4" : "mb-10", size === 'lg' ? "" : "opacity-90")}>
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-3">

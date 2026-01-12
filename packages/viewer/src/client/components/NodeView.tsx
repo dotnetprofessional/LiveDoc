@@ -231,6 +231,10 @@ export function NodeView({ node }: NodeViewProps) {
   const containerDescription = (containerNode as any)?.description;
   const containerTags = (((containerNode as any)?.tags ?? []) as string[]) || [];
 
+  const hasContainerMeta =
+    (typeof containerDescription === 'string' && containerDescription.trim().length > 0) ||
+    containerTags.length > 0;
+
   const statusFromStats = (stats: Statistics | undefined): Status | undefined => {
     if (!stats) return undefined;
     if (stats.failed > 0) return 'failed';
@@ -505,7 +509,7 @@ export function NodeView({ node }: NodeViewProps) {
     return (
       <div
         className={cn(
-          hasOutlineDescription ? 'mt-6 space-y-6' : 'mt-2 space-y-4'
+          hasOutlineDescription ? 'mt-4 space-y-5' : 'mt-1 space-y-3'
         )}
       >
         {templateSteps.length > 0 && (
@@ -682,7 +686,7 @@ export function NodeView({ node }: NodeViewProps) {
   };
 
   return (
-    <div className="space-y-8">
+    <div className={cn(hasContainerMeta ? 'space-y-6' : 'space-y-4')}>
       {/* ========== HEADER - EXACT SAME STYLE AS GROUPVIEW ========== */}
       <div className="space-y-2">
         {/* Breadcrumbs */}
@@ -794,7 +798,7 @@ export function NodeView({ node }: NodeViewProps) {
 
       {/* ========== SCENARIO OUTLINE SECTION ========== */}
       {feature && !isTestCaseNode(node) && kind === 'scenariooutline' && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <ScenarioBlock
             label="Scenario Outline"
             title={renderTitle(node.title)}
@@ -806,6 +810,8 @@ export function NodeView({ node }: NodeViewProps) {
             showErrorStack={!isBusiness}
             tone="scenario"
           />
+
+          {renderOutline()}
         </div>
       )}
 
@@ -852,7 +858,7 @@ export function NodeView({ node }: NodeViewProps) {
       )}
 
       {/* ========== OUTLINES (ScenarioOutline / RuleOutline) ========== */}
-      {renderOutline()}
+      {kind === 'ruleoutline' ? renderOutline() : null}
 
       {/* ========== CHILDREN (when viewing a container) ========== */}
       {renderChildren()}
