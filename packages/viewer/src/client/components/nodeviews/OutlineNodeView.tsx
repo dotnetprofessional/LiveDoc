@@ -231,6 +231,22 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
       return s.startsWith('file:///') ? s.slice('file:///'.length) : s;
     };
 
+    const toDisplayText = (value: unknown): string | undefined => {
+      if (value === undefined || value === null) return undefined;
+      if (typeof value === 'string') {
+        const s = value.trim();
+        return s.length > 0 ? s : undefined;
+      }
+      if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+      try {
+        const json = JSON.stringify(value, null, 2);
+        return json && json.trim().length > 0 ? json : String(value);
+      } catch {
+        const s = String(value);
+        return s.trim().length > 0 ? s : undefined;
+      }
+    };
+
     const extractFilenameFromStack = (stack: string | undefined) => {
       if (!stack) return undefined;
       const text = normalizeFileUrl(stack);
@@ -258,11 +274,12 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
                 <tbody>
                   {[
                     ['Message', error.message],
-                    ['Code', (error as any).code as string | undefined],
+                    ['Code', (error as any).code],
                     ['Stack trace', error.stack],
-                    ['Filename', (error as any).filename as string | undefined ?? extractFilenameFromStack(error.stack)],
-                    ['Diff', error.diff]
+                    ['Filename', (error as any).filename ?? extractFilenameFromStack(error.stack)],
+                    ['Diff', error.diff],
                   ]
+                    .map(([k, v]) => [k, toDisplayText(v)] as const)
                     .filter(([, v]) => typeof v === 'string' && v.trim().length > 0)
                     .map(([k, v]) => (
                       <tr key={k} className="border-b border-border/50 last:border-b-0">
@@ -399,8 +416,8 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
               {renderExceptionDetails(
                 {
                   ...selectedFailureError,
-                  code: selectedFailureMeta.code,
-                  filename: selectedFailureMeta.filename,
+                  code: selectedFailureMeta.code ?? (selectedFailureError as any).code,
+                  filename: selectedFailureMeta.filename ?? (selectedFailureError as any).filename,
                 } as any,
                 'Exception Details'
               )}

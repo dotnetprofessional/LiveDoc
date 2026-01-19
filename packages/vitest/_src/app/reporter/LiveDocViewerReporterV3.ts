@@ -575,6 +575,13 @@ export class LiveDocViewerReporter implements IPostReporter {
 
     const dataTables = this.mapStepRichDataToDataTables(sdkStep);
 
+    const stepCode = (() => {
+      const raw = (sdkStep as any)?.code;
+      if (typeof raw !== 'string') return undefined;
+      const trimmed = raw.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    })();
+
     const stepId = generateStabilityId({
       project: this.options.project,
       title: sdkStep.rawTitle || sdkStep.title,
@@ -590,10 +597,11 @@ export class LiveDocViewerReporter implements IPostReporter {
       keyword,
       title: sdkStep.rawTitle || sdkStep.title,
       description: mappedDescription,
+      code: stepCode,
       dataTables: dataTables.length ? dataTables : undefined,
       execution: this.stepExecution(sdkStep),
       ruleViolations: this.mapRuleViolations(sdkStep),
-    };
+    } as any;
   }
 
   private mapStepRichDataToDataTables(
@@ -662,15 +670,23 @@ export class LiveDocViewerReporter implements IPostReporter {
   private stepExecution(step: SDKStepDefinition): ExecutionResult {
     const status = this.mapStatus(step.status);
 
+    const codeFromStep = (() => {
+      const raw = (step as any)?.code;
+      if (typeof raw !== 'string') return undefined;
+      const trimmed = raw.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    })();
+
     const error =
       step.status === SpecStatus.fail && (step as any).exception
         ? {
             message: (step as any).exception.message || 'Unknown error',
             stack: (step as any).exception.stackTrace,
             code:
-              (step as any).exception.expected && (step as any).exception.actual
+              codeFromStep ??
+              ((step as any).exception.expected && (step as any).exception.actual
                 ? `Expected: ${(step as any).exception.expected}\nActual: ${(step as any).exception.actual}`
-                : undefined,
+                : undefined),
           }
         : undefined;
 
