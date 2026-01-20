@@ -30,10 +30,18 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined> = this._onDidChangeTreeData.event;
     private config: LiveDocConfig;
     private isRunning = false;
+    private refreshInProgress = false;
+    private refreshRequested = false;
+    private refreshTimer: NodeJS.Timeout | undefined;
 
     constructor(private rootPath: string, private extensionPath: string, private serverPort: number) {
         this.config = { testSuites: [] };
-        this.refresh();
+        this.requestRefresh();
+    }
+
+    public setServerPort(serverPort: number) {
+        this.serverPort = serverPort;
+        this.requestRefresh();
     }
 
     public handleEvent(event: V3WebSocketEvent) {
@@ -41,17 +49,29 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         switch (event.type) {
             case "run:v3:started":
                 this.isRunning = true;
-                this.refresh();
+                this.requestRefresh();
                 break;
             case "run:v3:completed":
                 this.isRunning = false;
-                this.refresh();
+                this.requestRefresh();
                 break;
             default:
                 // For now, treat all v3 events as a signal to refresh.
-                this.refresh();
+                this.requestRefresh();
                 break;
         }
+    }
+
+    /**
+     * Debounced, serialized refresh to avoid overlapping fetches producing duplicate suites.
+     */
+    private requestRefresh() {
+        this.refreshRequested = true;
+        if (this.refreshTimer) return;
+        this.refreshTimer = setTimeout(() => {
+            this.refreshTimer = undefined;
+            void this.refresh();
+        }, 150);
     }
 
     private async fetchData() {
@@ -124,8 +144,21 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     }
 
     public async refresh(): Promise<void> {
-        await this.fetchData();
-        this._onDidChangeTreeData.fire(undefined);
+        if (this.refreshInProgress) {
+            this.refreshRequested = true;
+            return;
+        }
+
+        this.refreshInProgress = true;
+        try {
+            do {
+                this.refreshRequested = false;
+                await this.fetchData();
+                this._onDidChangeTreeData.fire(undefined);
+            } while (this.refreshRequested);
+        } finally {
+            this.refreshInProgress = false;
+        }
     }
 
     public getTreeItem(element: vscode.TreeItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
@@ -196,27 +229,32 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     private getV3Children(node: TestCase | AnyTest): Array<TestCase | AnyTest> {
         if (this.isV3TestCase(node)) {
             const children: Array<TestCase | AnyTest> = [];
-            if (node.background) children.push(node.background);
             children.push(...(node.tests ?? []));
             return children;
         }
 
         switch (node.kind) {
+            // For the VS Code Explorer UX, stop at Scenario/Outline (match viewer explorer).
+            // Steps/examples are shown in the viewer, not nested in the tree.
             case 'Scenario':
             case 'ScenarioOutline':
-                return (node as any).steps ?? [];
+            case 'Rule':
+            case 'RuleOutline':
+                return [];
             default:
                 return [];
         }
     }
 
     private getV3HasChildren(node: TestCase | AnyTest): boolean {
-        if (this.isV3TestCase(node)) return (node.tests?.length ?? 0) > 0 || !!node.background;
+        if (this.isV3TestCase(node)) return (node.tests?.length ?? 0) > 0;
 
         switch (node.kind) {
             case 'Scenario':
             case 'ScenarioOutline':
-                return ((node as any).steps?.length ?? 0) > 0;
+            case 'Rule':
+            case 'RuleOutline':
+                return false;
             default:
                 return false;
         }

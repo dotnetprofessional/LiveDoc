@@ -113,6 +113,11 @@
                     "default": "local",
                     "description": "Run server locally or connect to remote server"
                 },
+                "livedoc.server.dataDir": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Optional data directory for the LiveDoc server. Leave empty for an ephemeral per-session temp directory. Relative paths are resolved from the workspace folder. Supports ${workspaceFolder}."
+                },
                 "livedoc.server.remoteUrl": {
                     "type": "string",
                     "default": "",

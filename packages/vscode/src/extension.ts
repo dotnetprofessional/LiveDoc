@@ -7,42 +7,44 @@ import { ViewerPanel } from "./viewer/ViewerPanel";
 import { NodeTreeViewItem } from "./ExecutionResultOutline/NodeTreeViewItem";
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 
 let server: LiveDocServer | null = null;
 let wsClient: LiveDocWebSocketClient | null = null;
+let outputChannel: vscode.OutputChannel | null = null;
+let activePort = 3100;
+
+let executionResultsProvider: ExecutionResultOutlineProvider | null = null;
+let treeProviderDisposable: vscode.Disposable | null = null;
+
+type LiveDocServerRuntimeConfig = {
+    port: number;
+    autoStart: boolean;
+    dataDir: string;
+};
+
+let lastRuntimeConfigKey: string | null = null;
+let applyConfigTimer: NodeJS.Timeout | undefined;
 
 export async function activate(context: vscode.ExtensionContext) {
-    // Start LiveDoc Server
-    const outputChannel = vscode.window.createOutputChannel('LiveDoc Server');
-    let activePort = 3100;
-    try {
-        const config = vscode.workspace.getConfiguration('livedoc');
-        const port = config.get<number>('server.port', 3100);
-        activePort = port;
-        const autoStart = config.get<boolean>('server.autoStart', true);
+    outputChannel = vscode.window.createOutputChannel('LiveDoc Server');
+    context.subscriptions.push(outputChannel);
 
-        if (autoStart) {
-            server = createServer({ 
-                port,
-                // Interim mitigation: use a per-process temp data directory so we always start fresh.
-                dataDir: path.join(os.tmpdir(), 'livedoc-vscode', String(process.pid)),
-                logger: (msg) => outputChannel.appendLine(msg)
-            });
-            activePort = await server.listen(port);
-            outputChannel.appendLine(`LiveDoc server started on port ${activePort}`);
-        }
-    } catch (error: any) {
-        outputChannel.appendLine(`Failed to start server: ${error.message}`);
-        vscode.window.showWarningMessage('LiveDoc server failed to start. Some features may be unavailable.');
-    }
+    ensureTreeView(context);
+    await applyRuntimeConfig(context);
 
-    // Connect to WebSocket
-    const wsUrl = `ws://localhost:${activePort}/ws`;
-    wsClient = new LiveDocWebSocketClient(wsUrl, outputChannel);
-    wsClient.connect();
-    context.subscriptions.push({ dispose: () => wsClient?.dispose() });
+    // React to settings changes without requiring an extension reload.
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (!e.affectsConfiguration('livedoc.server')) return;
+            if (applyConfigTimer) clearTimeout(applyConfigTimer);
+            applyConfigTimer = setTimeout(() => {
+                applyConfigTimer = undefined;
+                void applyRuntimeConfig(context);
+            }, 150);
+        })
+    );
 
-    activateTreeView(context, server, activePort, wsClient);
     activateTableFormatter(context);
 
     context.subscriptions.push(
@@ -70,28 +72,110 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export async function deactivate() {
     deactivateTableFormatter();
-    if (wsClient) {
-        wsClient.dispose();
+    await stopRuntime();
+}
+
+function ensureTreeView(context: vscode.ExtensionContext) {
+    if (executionResultsProvider) return;
+
+    const rootPath = vscode.workspace.rootPath;
+    executionResultsProvider = new ExecutionResultOutlineProvider(rootPath || "", context.extensionPath, activePort);
+    treeProviderDisposable = vscode.window.registerTreeDataProvider('livedoc', executionResultsProvider);
+    context.subscriptions.push(treeProviderDisposable);
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('livedoc.refreshEntry', () => executionResultsProvider?.refresh())
+    );
+}
+
+function resolveDataDir(configuredDataDirRaw: string): string {
+    const raw = (configuredDataDirRaw || '').trim();
+    if (!raw) {
+        // Default: ephemeral per-session data directory.
+        return path.join(os.tmpdir(), 'livedoc-vscode', String(process.pid));
     }
-    if (server) {
-        await server.stop();
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const expanded = workspaceFolder
+        ? raw.replace(/\$\{workspaceFolder\}/g, workspaceFolder)
+        : raw;
+
+    return path.isAbsolute(expanded)
+        ? expanded
+        : path.resolve(workspaceFolder ?? process.cwd(), expanded);
+}
+
+function getRuntimeConfig(): LiveDocServerRuntimeConfig {
+    const config = vscode.workspace.getConfiguration('livedoc');
+    const port = config.get<number>('server.port', 3100);
+    const autoStart = config.get<boolean>('server.autoStart', true);
+    const dataDir = resolveDataDir(config.get<string>('server.dataDir', '') || '');
+    return { port, autoStart, dataDir };
+}
+
+function runtimeKey(cfg: LiveDocServerRuntimeConfig): string {
+    return JSON.stringify(cfg);
+}
+
+async function applyRuntimeConfig(context: vscode.ExtensionContext) {
+    const cfg = getRuntimeConfig();
+    const key = runtimeKey(cfg);
+    if (lastRuntimeConfigKey === key) return;
+    lastRuntimeConfigKey = key;
+
+    // Restart the embedded server to pick up changes (especially dataDir).
+    await stopRuntime();
+
+    activePort = cfg.port;
+    if (executionResultsProvider) executionResultsProvider.setServerPort(activePort);
+
+    if (!cfg.autoStart) {
+        outputChannel?.appendLine('LiveDoc server autoStart=false; server not started.');
+        return;
+    }
+
+    try {
+        try {
+            fs.mkdirSync(cfg.dataDir, { recursive: true });
+        } catch (e: any) {
+            outputChannel?.appendLine(`Failed to create dataDir '${cfg.dataDir}': ${e?.message ?? String(e)}`);
+        }
+
+        server = createServer({
+            port: cfg.port,
+            dataDir: cfg.dataDir,
+            logger: (msg) => outputChannel?.appendLine(msg)
+        });
+        activePort = await server.listen(cfg.port);
+        outputChannel?.appendLine(`LiveDoc server started on port ${activePort}`);
+
+        // Connect WebSocket to the (re)started server.
+        const wsUrl = `ws://localhost:${activePort}/ws`;
+        wsClient = new LiveDocWebSocketClient(wsUrl, outputChannel ?? vscode.window.createOutputChannel('LiveDoc Server'));
+        wsClient.onEvent((event) => executionResultsProvider?.handleEvent(event));
+        wsClient.connect();
+
+        // Ensure the client is disposed on extension shutdown.
+        context.subscriptions.push({ dispose: () => wsClient?.dispose() });
+
+        if (executionResultsProvider) executionResultsProvider.setServerPort(activePort);
+    } catch (error: any) {
+        outputChannel?.appendLine(`Failed to start server: ${error?.message ?? String(error)}`);
+        vscode.window.showWarningMessage('LiveDoc server failed to start. Some features may be unavailable.');
     }
 }
 
-function activateTreeView(context: vscode.ExtensionContext, server: LiveDocServer | null, port: number, wsClient: LiveDocWebSocketClient) {
-    const rootPath = vscode.workspace.rootPath;
-    const executionResultsProvider = new ExecutionResultOutlineProvider(rootPath || "", context.extensionPath, port);
-
-    wsClient.onEvent((event) => {
-        executionResultsProvider.handleEvent(event);
-    });
-
-    vscode.window.registerTreeDataProvider('livedoc', executionResultsProvider);
-    
-    try {
-        vscode.commands.registerCommand('livedoc.refreshEntry', () => executionResultsProvider.refresh());
-    } catch (e) {
-        console.warn("LiveDoc commands already registered");
+async function stopRuntime() {
+    if (wsClient) {
+        wsClient.dispose();
+        wsClient = null;
+    }
+    if (server) {
+        try {
+            await server.stop();
+        } finally {
+            server = null;
+        }
     }
 }
 
