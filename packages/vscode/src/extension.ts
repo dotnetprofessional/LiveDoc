@@ -21,6 +21,7 @@ type LiveDocServerRuntimeConfig = {
     port: number;
     autoStart: boolean;
     dataDir: string;
+    dataDirNote?: string;
 };
 
 let lastRuntimeConfigKey: string | null = null;
@@ -31,17 +32,24 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(outputChannel);
 
     ensureTreeView(context);
+    syncExplorerLayoutContext();
     await applyRuntimeConfig(context);
 
     // React to settings changes without requiring an extension reload.
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration((e) => {
-            if (!e.affectsConfiguration('livedoc.server')) return;
-            if (applyConfigTimer) clearTimeout(applyConfigTimer);
-            applyConfigTimer = setTimeout(() => {
-                applyConfigTimer = undefined;
-                void applyRuntimeConfig(context);
-            }, 150);
+            if (e.affectsConfiguration('livedoc.treeView.layout')) {
+                syncExplorerLayoutContext();
+                void executionResultsProvider?.refresh();
+            }
+
+            if (e.affectsConfiguration('livedoc.server')) {
+                if (applyConfigTimer) clearTimeout(applyConfigTimer);
+                applyConfigTimer = setTimeout(() => {
+                    applyConfigTimer = undefined;
+                    void applyRuntimeConfig(context);
+                }, 150);
+            }
         })
     );
 
@@ -68,6 +76,24 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('livedoc.setExplorerLayoutTree', async () => {
+            const cfg = vscode.workspace.getConfiguration('livedoc');
+            await cfg.update('treeView.layout', 'tree', vscode.ConfigurationTarget.Workspace);
+            syncExplorerLayoutContext();
+            void executionResultsProvider?.refresh();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('livedoc.setExplorerLayoutFlat', async () => {
+            const cfg = vscode.workspace.getConfiguration('livedoc');
+            await cfg.update('treeView.layout', 'flat', vscode.ConfigurationTarget.Workspace);
+            syncExplorerLayoutContext();
+            void executionResultsProvider?.refresh();
+        })
+    );
 }
 
 export async function deactivate() {
@@ -88,11 +114,21 @@ function ensureTreeView(context: vscode.ExtensionContext) {
     );
 }
 
-function resolveDataDir(configuredDataDirRaw: string): string {
+function getExplorerLayout(): 'tree' | 'flat' {
+    const cfg = vscode.workspace.getConfiguration('livedoc');
+    const v = cfg.get<'tree' | 'flat'>('treeView.layout', 'tree');
+    return v === 'flat' ? 'flat' : 'tree';
+}
+
+function syncExplorerLayoutContext() {
+    void vscode.commands.executeCommand('setContext', 'livedoc.explorerLayout', getExplorerLayout());
+}
+
+function resolveDataDir(configuredDataDirRaw: string): { dataDir: string; note?: string } {
     const raw = (configuredDataDirRaw || '').trim();
     if (!raw) {
         // Default: ephemeral per-session data directory.
-        return path.join(os.tmpdir(), 'livedoc-vscode', String(process.pid));
+        return { dataDir: path.join(os.tmpdir(), 'livedoc-vscode', String(process.pid)) };
     }
 
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -100,17 +136,51 @@ function resolveDataDir(configuredDataDirRaw: string): string {
         ? raw.replace(/\$\{workspaceFolder\}/g, workspaceFolder)
         : raw;
 
-    return path.isAbsolute(expanded)
+    const resolved = path.isAbsolute(expanded)
         ? expanded
         : path.resolve(workspaceFolder ?? process.cwd(), expanded);
+
+    const looksLikeDataRoot = (dir: string): boolean => {
+        try {
+            if (!fs.existsSync(dir)) return false;
+            const projectDirs = fs
+                .readdirSync(dir, { withFileTypes: true })
+                .filter((d) => d.isDirectory())
+                .slice(0, 25);
+            for (const proj of projectDirs) {
+                const projPath = path.join(dir, proj.name);
+                const envDirs = fs
+                    .readdirSync(projPath, { withFileTypes: true })
+                    .filter((d) => d.isDirectory())
+                    .slice(0, 25);
+                for (const env of envDirs) {
+                    const lastRun = path.join(projPath, env.name, 'lastrun.json');
+                    if (fs.existsSync(lastRun)) return true;
+                }
+            }
+            return false;
+        } catch {
+            return false;
+        }
+    };
+
+    // If user points at '.livedoc', auto-use '.livedoc/data' when it contains runs.
+    if (!looksLikeDataRoot(resolved)) {
+        const dataSub = path.join(resolved, 'data');
+        if (looksLikeDataRoot(dataSub)) {
+            return { dataDir: dataSub, note: `Using '${dataSub}' (detected existing runs under a 'data' subfolder).` };
+        }
+    }
+
+    return { dataDir: resolved };
 }
 
 function getRuntimeConfig(): LiveDocServerRuntimeConfig {
     const config = vscode.workspace.getConfiguration('livedoc');
     const port = config.get<number>('server.port', 3100);
     const autoStart = config.get<boolean>('server.autoStart', true);
-    const dataDir = resolveDataDir(config.get<string>('server.dataDir', '') || '');
-    return { port, autoStart, dataDir };
+    const resolved = resolveDataDir(config.get<string>('server.dataDir', '') || '');
+    return { port, autoStart, dataDir: resolved.dataDir, dataDirNote: resolved.note };
 }
 
 function runtimeKey(cfg: LiveDocServerRuntimeConfig): string {
@@ -135,6 +205,8 @@ async function applyRuntimeConfig(context: vscode.ExtensionContext) {
     }
 
     try {
+        if (cfg.dataDirNote) outputChannel?.appendLine(cfg.dataDirNote);
+        outputChannel?.appendLine(`LiveDoc dataDir: ${cfg.dataDir}`);
         try {
             fs.mkdirSync(cfg.dataDir, { recursive: true });
         } catch (e: any) {

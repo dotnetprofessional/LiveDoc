@@ -27,7 +27,8 @@
         "onLanguage:typescriptreact",
         "onLanguage:javascriptreact",
         "onLanguage:javascript",
-        "onLanguage:plaintext"
+        "onLanguage:plaintext",
+        "onStartupFinished"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -44,9 +45,31 @@
                 "command": "livedoc.viewItem",
                 "title": "Open in Viewer",
                 "icon": "$(eye)"
+            },
+            {
+                "command": "livedoc.setExplorerLayoutTree",
+                "title": "LiveDoc Explorer: Tree Layout",
+                "icon": "$(list-tree)"
+            },
+            {
+                "command": "livedoc.setExplorerLayoutFlat",
+                "title": "LiveDoc Explorer: Flat Layout",
+                "icon": "$(list-flat)"
             }
         ],
         "menus": {
+            "view/title": [
+                {
+                    "command": "livedoc.setExplorerLayoutTree",
+                    "when": "view == livedoc && livedoc.explorerLayout != 'tree'",
+                    "group": "navigation"
+                },
+                {
+                    "command": "livedoc.setExplorerLayoutFlat",
+                    "when": "view == livedoc && livedoc.explorerLayout != 'flat'",
+                    "group": "navigation"
+                }
+            ],
             "view/item/context": [
                 {
                     "command": "livedoc.viewItem",
@@ -116,7 +139,7 @@
                 "livedoc.server.dataDir": {
                     "type": "string",
                     "default": "",
-                    "description": "Optional data directory for the LiveDoc server. Leave empty for an ephemeral per-session temp directory. Relative paths are resolved from the workspace folder. Supports ${workspaceFolder}."
+                    "description": "Optional data directory for the LiveDoc server (should contain project/environment folders with lastrun.json/history). Leave empty for an ephemeral per-session temp directory. Relative paths are resolved from the workspace folder. Supports ${workspaceFolder}. If you point this at a '.livedoc' folder and '.livedoc/data' contains runs, the extension will auto-use the 'data' subfolder."
                 },
                 "livedoc.server.remoteUrl": {
                     "type": "string",
@@ -127,6 +150,15 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Auto-refresh tree when results change"
+                },
+                "livedoc.treeView.layout": {
+                    "type": "string",
+                    "enum": [
+                        "tree",
+                        "flat"
+                    ],
+                    "default": "tree",
+                    "description": "LiveDoc Explorer layout: tree uses the document path to build a folder hierarchy; flat lists documents directly."
                 },
                 "livedoc.treeView.showPassedSteps": {
                     "type": "boolean",

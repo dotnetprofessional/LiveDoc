@@ -1,9 +1,9 @@
 import type { DataTable, StepTest, Status, TypedValue } from '@livedoc/schema';
 import { bindPlaceholdersInText, renderTitle, highlightPlaceholders } from '../lib/title-utils';
-import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, ChevronRight, ChevronDown } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Markdown } from './Markdown';
-import { useState } from 'react';
+import { ErrorDisplay } from './ErrorDisplay';
 
 type NormalizedCell = {
   text: string;
@@ -88,7 +88,6 @@ interface StepItemProps {
 }
 
 function StepItem({ step, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true }: StepItemProps) {
-  const [isErrorExpanded, setIsErrorExpanded] = useState(false);
 
   const typeColors: Record<string, string> = {
     given: 'text-given',
@@ -246,37 +245,12 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
         })()}
 
         {step.execution.error && (
-          <div className="mt-2 -ml-16 rounded-lg border border-destructive/30 bg-destructive/10 overflow-hidden">
-            <div
-              className={cn(
-                "px-3 py-2",
-                showErrorStack && step.execution.error?.stack && "cursor-pointer select-none"
-              )}
-              onClick={() => showErrorStack && step.execution.error?.stack && setIsErrorExpanded(!isErrorExpanded)}
-            >
-              <div className="flex items-start gap-2">
-                <XCircle className="w-4 h-4 mt-0.5 shrink-0 text-destructive" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] leading-relaxed font-mono text-foreground/90 whitespace-pre-wrap wrap-break-word">
-                    {step.execution.error.message}
-                  </div>
-
-                  {showErrorStack && step.execution.error.stack && (
-                    <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors w-fit">
-                      {isErrorExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                      {isErrorExpanded ? 'Hide details' : 'Show details'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            {showErrorStack && step.execution.error.stack && isErrorExpanded && (
-              <pre className="text-[10px] font-mono text-muted-foreground/80 whitespace-pre-wrap overflow-x-auto max-h-96 scrollbar-thin px-3 py-2 border-t border-destructive/15 animate-in fade-in zoom-in-95 duration-200">
-                {step.execution.error.stack}
-              </pre>
-            )}
-          </div>
+          <ErrorDisplay
+            error={step.execution.error}
+            variant="inline"
+            isBusiness={!showErrorStack}
+            className="mt-2 -ml-16"
+          />
         )}
       </div>
     </div>

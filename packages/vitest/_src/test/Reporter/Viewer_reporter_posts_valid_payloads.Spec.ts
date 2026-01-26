@@ -12,7 +12,7 @@ feature("Viewer reporter posts valid payloads", () => {
         let testModules: any[] = [];
 
         given(
-            "a Vitest run with a Feature at 'D:/repo/root/features/Tags.Spec.ts' tagged @smoke fast with a Scenario tagged @critical, a ScenarioOutline tagged @outline, a Specification at 'D:/repo/root/specs/SpecTags.Spec.ts' tagged @spec-tag, and a Suite at 'D:/repo/root/suites/Pure.Spec.ts'",
+            "a Vitest run with a Feature at 'D:/repo/root/features/Tags.Spec.ts' tagged @smoke fast with a Scenario tagged @critical, a ScenarioOutline tagged @outline, a Specification at 'D:/repo/root/specs/SpecTags.Spec.ts' tagged @spec-tag containing a Rule tagged @rule-tag and a RuleOutline tagged @outline-tag with Examples x=1 and x=2, and a Suite at 'D:/repo/root/suites/Pure.Spec.ts'",
             (ctx) => {
                 const featureFile = String(ctx.step.values[0]);
                 const specFile = String(ctx.step.values[1]);
@@ -63,6 +63,74 @@ feature("Viewer reporter posts valid payloads", () => {
                             type: "test",
                             name: "Rule: Tagged Rule\n@rule-tag\nRule description",
                             result: { state: "pass", duration: 1 }
+                        },
+                        {
+                            type: "suite",
+                            name: "Rule Outline: Tagged RuleOutline",
+                            tasks: [
+                                {
+                                    type: "test",
+                                    name: "Example 1: Tagged RuleOutline",
+                                    meta: {
+                                        livedoc: {
+                                            kind: "ruleExample",
+                                            ruleOutline: {
+                                                title: "Tagged RuleOutline",
+                                                description: "Outline description",
+                                                tags: ["outline-tag"],
+                                                tables: [
+                                                    {
+                                                        name: "",
+                                                        description: "",
+                                                        dataTable: [
+                                                            ["x"],
+                                                            ["1"],
+                                                            ["2"]
+                                                        ]
+                                                    }
+                                                ],
+                                                example: {
+                                                    sequence: 1,
+                                                    values: { x: 1 },
+                                                    valuesRaw: { x: "1" }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    result: { state: "pass", duration: 1 }
+                                },
+                                {
+                                    type: "test",
+                                    name: "Example 2: Tagged RuleOutline",
+                                    meta: {
+                                        livedoc: {
+                                            kind: "ruleExample",
+                                            ruleOutline: {
+                                                title: "Tagged RuleOutline",
+                                                description: "Outline description",
+                                                tags: ["outline-tag"],
+                                                tables: [
+                                                    {
+                                                        name: "",
+                                                        description: "",
+                                                        dataTable: [
+                                                            ["x"],
+                                                            ["1"],
+                                                            ["2"]
+                                                        ]
+                                                    }
+                                                ],
+                                                example: {
+                                                    sequence: 2,
+                                                    values: { x: 2 },
+                                                    valuesRaw: { x: "2" }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    result: { state: "pass", duration: 1 }
+                                }
+                            ]
                         }
                     ]
                 };
@@ -185,7 +253,7 @@ feature("Viewer reporter posts valid payloads", () => {
             }
         );
 
-        and("the Scenario, ScenarioOutline, Rule, and Step tests include expected tags and keyword", () => {
+        and("the Scenario, ScenarioOutline, Rule, RuleOutline, and Step tests include expected tags and keyword", () => {
             const featureDoc = posted.map((p) => p.testCase).find((n) => n.style === "Feature" && n.title === "Tagged Feature");
             expect(featureDoc).toBeTruthy();
 
@@ -211,6 +279,16 @@ feature("Viewer reporter posts valid payloads", () => {
             expect(ruleTest).toBeTruthy();
             expect(ruleTest.tags).toEqual(["rule-tag"]);
             expect(ruleTest.description).toBe("Rule description");
+
+            const ruleOutlineTest = specDoc.tests.find((t: any) => t.kind === "RuleOutline" && t.title === "Tagged RuleOutline");
+            expect(ruleOutlineTest).toBeTruthy();
+            expect(ruleOutlineTest.tags).toEqual(["outline-tag"]);
+            expect(ruleOutlineTest.description).toBe("Outline description");
+            expect(Array.isArray(ruleOutlineTest.examples)).toBe(true);
+            expect(ruleOutlineTest.examples?.[0]?.headers).toEqual(["x"]);
+            expect(ruleOutlineTest.statistics?.total).toBe(2);
+            expect(ruleOutlineTest.statistics?.passed).toBe(2);
+            expect(ruleOutlineTest.exampleResults?.length).toBe(2);
         });
     });
 });

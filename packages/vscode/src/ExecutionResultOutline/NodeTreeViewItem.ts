@@ -59,6 +59,14 @@ export class NodeTreeViewItem extends vscode.TreeItem {
             if (total > 0) this.description = `(${total})`;
         } else {
             this.annotateNode(toScenarioStatus(node.execution.status));
+
+            // Outlines are expandable; show example count to make it obvious.
+            if (node.kind === 'ScenarioOutline' || node.kind === 'RuleOutline') {
+                const total = (node as any)?.statistics?.total;
+                if (typeof total === 'number' && total > 0) {
+                    this.description = `(${total})`;
+                }
+            }
         }
     }
 

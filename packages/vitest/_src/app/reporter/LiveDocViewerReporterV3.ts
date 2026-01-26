@@ -313,8 +313,8 @@ export class LiveDocViewerReporter implements IPostReporter {
       kind: 'Container',
     });
 
-    const flattenSuiteTests = (root: SDKVitestSuite): Array<{ title: string; status: SpecStatus; duration: number }> => {
-      const out: Array<{ title: string; status: SpecStatus; duration: number }> = [];
+    const flattenSuiteTests = (root: SDKVitestSuite): Array<{ title: string; status: SpecStatus; duration: number; code?: string; exception?: { message: string; stackTrace?: string; expected?: string; actual?: string } }> => {
+      const out: Array<{ title: string; status: SpecStatus; duration: number; code?: string; exception?: { message: string; stackTrace?: string; expected?: string; actual?: string } }> = [];
 
       const visit = (s: SDKVitestSuite, prefix: string) => {
         const tests = Array.isArray((s as any).tests) ? ((s as any).tests as any[]) : [];
@@ -323,8 +323,17 @@ export class LiveDocViewerReporter implements IPostReporter {
           const title = prefix ? `${prefix} > ${rawTitle}` : rawTitle;
           const status = (t?.status ?? SpecStatus.unknown) as SpecStatus;
           const duration = Number(t?.duration ?? 0) || 0;
+          const code = typeof t?.code === 'string' && t.code.trim().length > 0 ? t.code.trim() : undefined;
+          const exception = t?.exception?.message
+            ? {
+                message: String(t.exception.message),
+                stackTrace: typeof t.exception.stackTrace === 'string' ? t.exception.stackTrace : undefined,
+                expected: typeof t.exception.expected === 'string' ? t.exception.expected : undefined,
+                actual: typeof t.exception.actual === 'string' ? t.exception.actual : undefined,
+              }
+            : undefined;
           if (title.trim().length > 0) {
-            out.push({ title, status, duration });
+            out.push({ title, status, duration, code, exception });
           }
         }
 
@@ -349,11 +358,22 @@ export class LiveDocViewerReporter implements IPostReporter {
         parentId: testCaseId,
       });
 
+      const status = this.mapStatus(t.status);
+      const error = (status === 'failed' || status === 'timedOut') && t.exception?.message
+        ? {
+            message: t.exception.message,
+            stack: t.exception.stackTrace,
+            code: t.code ?? (t.exception.expected && t.exception.actual
+              ? `Expected: ${t.exception.expected}\nActual: ${t.exception.actual}`
+              : undefined),
+          }
+        : undefined;
+
       return {
         id,
         kind: 'Test',
         title: t.title,
-        execution: { status: this.mapStatus(t.status), duration: t.duration },
+        execution: { status, duration: t.duration, error },
       } as AnyTest;
     });
 
@@ -509,13 +529,48 @@ export class LiveDocViewerReporter implements IPostReporter {
       parentId,
     });
 
+    const status = this.mapStatus((sdkRule as any).status ?? SpecStatus.pending);
+    const duration = (sdkRule as any).executionTime || 0;
+
+    // Build error from sdkRule.error or sdkRule.exception (parity with stepExecution)
+    const error = (() => {
+      if (status !== 'failed' && status !== 'timedOut') return undefined;
+
+      const err = (sdkRule as any).error;
+      const exc = (sdkRule as any).exception;
+      const codeFromRule = typeof (sdkRule as any).code === 'string' && (sdkRule as any).code.trim().length > 0
+        ? (sdkRule as any).code.trim()
+        : undefined;
+
+      if (err?.message) {
+        return {
+          message: String(err.message),
+          stack: typeof err.stack === 'string' ? err.stack : undefined,
+          code: codeFromRule,
+        };
+      }
+
+      if (exc?.message) {
+        const expectedActualCode = exc.expected && exc.actual
+          ? `Expected: ${exc.expected}\nActual: ${exc.actual}`
+          : undefined;
+        return {
+          message: String(exc.message),
+          stack: typeof exc.stackTrace === 'string' ? exc.stackTrace : undefined,
+          code: codeFromRule ?? expectedActualCode,
+        };
+      }
+
+      return undefined;
+    })();
+
     return {
       id: ruleId,
       kind: 'Rule',
       title: sdkRule.title,
       description: sdkRule.description,
       tags: sdkRule.tags,
-      execution: { status: this.mapStatus((sdkRule as any).status ?? SpecStatus.pending), duration: (sdkRule as any).executionTime || 0 },
+      execution: { status, duration, error },
       ruleViolations: this.mapRuleViolations(sdkRule),
     } as any;
   }

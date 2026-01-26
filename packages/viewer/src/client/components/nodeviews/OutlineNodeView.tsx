@@ -1,5 +1,5 @@
 import type { DataTable, ExecutionResult, Status, TypedValue } from '@livedoc/schema';
-import { AlertCircle, CheckCircle2, HelpCircle, Layers, XCircle } from 'lucide-react';
+import { CheckCircle2, HelpCircle, Layers, XCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../../lib/utils';
@@ -8,6 +8,7 @@ import { Markdown } from '../Markdown';
 import { StepList } from '../StepList';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { ScenarioBlock } from '../ScenarioBlock';
+import { ErrorDisplay } from '../ErrorDisplay';
 
 export interface OutlineNodeViewProps {
   label: 'Scenario Outline' | 'Rule Outline';
@@ -225,80 +226,6 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     }
   };
 
-  const renderExceptionDetails = (error: { message: string; stack?: string; diff?: string }, title: string) => {
-    const normalizeFileUrl = (raw: string) => {
-      const s = String(raw ?? '');
-      return s.startsWith('file:///') ? s.slice('file:///'.length) : s;
-    };
-
-    const toDisplayText = (value: unknown): string | undefined => {
-      if (value === undefined || value === null) return undefined;
-      if (typeof value === 'string') {
-        const s = value.trim();
-        return s.length > 0 ? s : undefined;
-      }
-      if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
-      try {
-        const json = JSON.stringify(value, null, 2);
-        return json && json.trim().length > 0 ? json : String(value);
-      } catch {
-        const s = String(value);
-        return s.trim().length > 0 ? s : undefined;
-      }
-    };
-
-    const extractFilenameFromStack = (stack: string | undefined) => {
-      if (!stack) return undefined;
-      const text = normalizeFileUrl(stack);
-      const match = text.match(/(?:^|\n)\s*(?:at\s+)?(file:\/\/\/)?([A-Za-z]:\/[\^\s)]+?|\/[\^\s)]+?):\d+:\d+/);
-      const filename = match?.[2];
-      return filename ? filename.trim() : undefined;
-    };
-
-    return (
-      <Card className="bg-destructive/10 border-destructive/30 shadow-none overflow-hidden border-l-4 border-l-destructive">
-        <CardHeader className="bg-destructive/15 border-b border-destructive/15 py-3">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-destructive" />
-            <h3 className="text-sm font-bold text-destructive uppercase tracking-widest">{title}</h3>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-5">
-          {isBusiness ? (
-            <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2">
-              <div className="text-sm font-medium text-foreground/90 whitespace-pre-wrap font-mono">{error.message}</div>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-destructive/20 bg-card">
-              <table className="min-w-full text-xs border-collapse">
-                <tbody>
-                  {[
-                    ['Message', error.message],
-                    ['Code', (error as any).code],
-                    ['Stack trace', error.stack],
-                    ['Filename', (error as any).filename ?? extractFilenameFromStack(error.stack)],
-                    ['Diff', error.diff],
-                  ]
-                    .map(([k, v]) => [k, toDisplayText(v)] as const)
-                    .filter(([, v]) => typeof v === 'string' && v.trim().length > 0)
-                    .map(([k, v]) => (
-                      <tr key={k} className="border-b border-border/50 last:border-b-0">
-                        <td className="w-36 px-3 py-2 align-top font-bold text-muted-foreground uppercase tracking-widest text-[10px] bg-muted/20 border-r border-border/50">
-                          {k}
-                        </td>
-                        <td className="px-3 py-2 align-top">
-                          <pre className="text-[11px] leading-relaxed font-mono text-foreground/90 whitespace-pre-wrap overflow-x-auto max-h-80 scrollbar-thin">{String(v)}</pre>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <div className="space-y-2">
@@ -413,14 +340,16 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
         <AnimatePresence>
           {selectedRow && selectedRow.execution?.status === 'failed' && selectedFailureError && (
             <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
-              {renderExceptionDetails(
-                {
+              <ErrorDisplay
+                error={{
                   ...selectedFailureError,
                   code: selectedFailureMeta.code ?? (selectedFailureError as any).code,
                   filename: selectedFailureMeta.filename ?? (selectedFailureError as any).filename,
-                } as any,
-                'Exception Details'
-              )}
+                }}
+                title="Exception Details"
+                isBusiness={isBusiness}
+                variant="card"
+              />
             </motion.div>
           )}
         </AnimatePresence>

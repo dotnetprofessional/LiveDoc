@@ -41,6 +41,22 @@ export default class LiveDocServerReporter implements Reporter {
     async onInit(ctx: Vitest) {
         this.project = ctx.config.name || "default";
         this.environment = (ctx.config as any).mode || this.environment;
+
+        // Highest priority: allow explicitly wiring the server via environment.
+        // This is useful when port-file discovery isn't available (e.g., different process/user).
+        const envServerUrl = process.env.LIVEDOC_SERVER_URL || process.env.LIVEDOC_PUBLISH_SERVER;
+        if (envServerUrl) {
+            this.serverUrl = envServerUrl;
+            this.isAvailable = true;
+
+            this.viewerReporter = new LiveDocViewerReporter({
+                server: this.serverUrl,
+                project: this.project,
+                environment: this.environment,
+                silent: true
+            });
+            return;
+        }
         
         // Prefer explicit publish server if configured (keeps server+viewer in sync).
         if (livedoc.options.publish.enabled && livedoc.options.publish.server) {
@@ -554,16 +570,154 @@ export default class LiveDocServerReporter implements Reporter {
         spec.tags = parsed.tags;
         (spec as any).filename = filepath;
 
-        for (const child of (task.tasks || [])) {
-            if (child.type === 'test' && child.name.startsWith('Rule:')) {
-                const ruleParsed = this.parseTitleBlock(child.name.replace('Rule:', '').trim());
+        const children = task.tasks || [];
+        for (const child of children) {
+            // Simple rule is a test task.
+            if (child.type === 'test' && typeof child.name === 'string' && child.name.startsWith('Rule:')) {
+                const meta = this.getLiveDocMetaFromTask(child);
+                const ruleMeta = meta?.kind === 'rule' ? meta.rule : undefined;
+
+                const ruleParsed = ruleMeta
+                    ? {
+                        title: String(ruleMeta.title ?? ''),
+                        description: String(ruleMeta.description ?? ''),
+                        tags: Array.isArray(ruleMeta.tags) ? ruleMeta.tags.map(String) : [],
+                    }
+                    : this.parseTitleBlock(child.name.replace('Rule:', '').trim());
+
                 const rule = new model.Rule(spec);
                 rule.title = ruleParsed.title;
                 rule.description = ruleParsed.description;
                 rule.tags = ruleParsed.tags;
-                rule.status = this.mapStateToStatus(child.result?.state);
-                rule.executionTime = child.result?.duration || 0;
-                spec.rules.push(rule);
+
+                const state = child.result?.state || 'pending';
+                const duration = child.result?.duration || 0;
+                rule.status = this.mapStateToStatus(state);
+                rule.executionTime = duration;
+
+                if (child.result?.errors?.length > 0) {
+                    const err = child.result.errors[0];
+                    rule.error = new Error(err.message);
+                    rule.exception.message = err.message;
+                    rule.exception.stackTrace = err.stack;
+                }
+
+                // Use addRule to assign ids/sequence like the parser does.
+                spec.addRule(rule);
+                continue;
+            }
+
+            // RuleOutline is a suite with example test tasks.
+            if (child.type === 'suite' && typeof child.name === 'string' && child.name.startsWith('Rule Outline:')) {
+                const suiteName = String(child.name);
+                const exampleTasks = (child.tasks || []).filter((t: any) => t?.type === 'test');
+                const firstMeta = exampleTasks.length > 0 ? this.getLiveDocMetaFromTask(exampleTasks[0]) : undefined;
+                const outlineMeta = firstMeta?.kind === 'ruleExample' ? firstMeta.ruleOutline : undefined;
+
+                const outline = new model.RuleOutline(spec);
+                outline.title = typeof outlineMeta?.title === 'string'
+                    ? outlineMeta.title
+                    : suiteName.replace(/^Rule Outline:\s*/i, '').trim();
+                outline.description = typeof outlineMeta?.description === 'string' ? outlineMeta.description : '';
+                outline.tags = Array.isArray(outlineMeta?.tags) ? outlineMeta.tags.map(String) : [];
+
+                const metaTables = Array.isArray(outlineMeta?.tables) ? outlineMeta.tables : [];
+                if (metaTables.length > 0) {
+                    outline.tables = this.buildScenarioOutlineTablesFromMeta(metaTables);
+                }
+
+                // Build a stable row-order array (aligns with V3 mapping logic which uses index order).
+                const flatRowsRaw: Array<Record<string, unknown>> = [];
+                for (const t of metaTables) {
+                    const dt = Array.isArray(t?.dataTable) ? t.dataTable : [];
+                    if (dt.length < 2) continue;
+                    const headers = Array.isArray(dt[0]) ? dt[0].map((h: any) => String(h)) : [];
+                    for (const row of dt.slice(1)) {
+                        const values = Array.isArray(row) ? row : [];
+                        const obj: Record<string, unknown> = {};
+                        for (let i = 0; i < headers.length; i++) {
+                            const key = this.sanitizeName(headers[i]);
+                            obj[key] = values[i];
+                        }
+                        flatRowsRaw.push(obj);
+                    }
+                }
+
+                const examplesBySequence = new Map<number, model.RuleExample>();
+
+                for (const exTask of exampleTasks) {
+                    const meta = this.getLiveDocMetaFromTask(exTask);
+                    if (meta?.kind !== 'ruleExample') continue;
+                    const ro = meta.ruleOutline;
+                    const ex = ro?.example;
+                    if (!ex) continue;
+
+                    const sequence = Number(ex.sequence);
+                    if (!Number.isFinite(sequence) || sequence <= 0) continue;
+
+                    const example = new model.RuleExample(spec, outline);
+                    example.sequence = sequence;
+
+                    const taskName = String(exTask?.name ?? '');
+                    example.title = taskName.replace(/^Example\s+\d+\s*:\s*/i, '').trim() || outline.title;
+                    example.description = outline.description;
+                    example.tags = outline.tags;
+
+                    const values = this.sanitizeExampleKeys(ex.values ?? {});
+                    const valuesRaw = this.sanitizeExampleKeys(ex.valuesRaw ?? ex.values ?? {});
+                    example.example = values;
+                    example.exampleRaw = valuesRaw;
+
+                    const state = exTask.result?.state || 'pending';
+                    const duration = exTask.result?.duration || 0;
+                    example.status = this.mapStateToStatus(state);
+                    example.executionTime = duration;
+
+                    if (exTask.result?.errors?.length > 0) {
+                        const err = exTask.result.errors[0];
+                        example.error = new Error(err.message);
+                        example.exception.message = err.message;
+                        example.exception.stackTrace = err.stack;
+                    }
+
+                    examplesBySequence.set(sequence, example);
+                }
+
+                const totalRows = flatRowsRaw.length;
+                const maxSeq = Math.max(0, ...Array.from(examplesBySequence.keys()));
+                const count = Math.max(totalRows, maxSeq);
+
+                for (let seq = 1; seq <= count; seq++) {
+                    const found = examplesBySequence.get(seq);
+                    if (found) {
+                        outline.examples.push(found);
+                        continue;
+                    }
+
+                    // Placeholder for missing execution data (keeps row alignment stable).
+                    const placeholder = new model.RuleExample(spec, outline);
+                    placeholder.sequence = seq;
+                    placeholder.title = outline.title;
+                    placeholder.description = outline.description;
+                    placeholder.tags = outline.tags;
+                    placeholder.exampleRaw = flatRowsRaw[seq - 1] ?? {};
+                    placeholder.example = flatRowsRaw[seq - 1] ?? {};
+                    placeholder.status = model.SpecStatus.pending;
+                    placeholder.executionTime = 0;
+                    outline.examples.push(placeholder);
+                }
+
+                outline.executionTime = outline.examples.reduce((sum, e: any) => sum + (Number(e?.executionTime ?? 0) || 0), 0);
+                outline.status = (() => {
+                    const statuses = outline.examples.map((e: any) => e?.status).filter(Boolean);
+                    if (statuses.some((s: any) => s === model.SpecStatus.fail)) return model.SpecStatus.fail;
+                    if (statuses.some((s: any) => s === model.SpecStatus.pending)) return model.SpecStatus.pending;
+                    if (statuses.length > 0 && statuses.every((s: any) => s === model.SpecStatus.pass)) return model.SpecStatus.pass;
+                    return model.SpecStatus.unknown;
+                })();
+
+                spec.addRule(outline);
+                continue;
             }
         }
         return spec;

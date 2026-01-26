@@ -14,6 +14,31 @@ type ListItem =
   | { type: 'navItem'; item: NavItem }
   | { type: 'node'; node: AnyTest };
 
+/**
+ * Determines whether a test item should allow drill-down navigation.
+ * - Scenarios and Outlines always have sub-content to display
+ * - Rules and standard Tests only allow drill-down if failed (to view exception details)
+ */
+function shouldAllowDrillDown(kind: string, status: Status | undefined): boolean {
+  // Outlines always have drill-down (examples as sub-tests)
+  if (kind === 'ScenarioOutline' || kind === 'RuleOutline') {
+    return true;
+  }
+
+  // Scenarios always have drill-down (GTW steps to display)
+  if (kind === 'Scenario') {
+    return true;
+  }
+
+  // Rules and standard Tests: only allow drill-down if failed (to see exception)
+  if (kind === 'Rule' || kind === 'Test') {
+    return status === 'failed' || status === 'timedOut';
+  }
+
+  // Default: allow drill-down for containers and unknown types
+  return true;
+}
+
 function getIconForKind(kind: string) {
   switch (kind) {
     case 'Group': return Folder;
@@ -281,38 +306,47 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
     let status: Status | undefined;
     let duration: number | undefined;
     let tags: string[] = [];
-    let onClick = () => {};
+    let nodeId = '';
+    let navType: 'group' | 'node' = 'node';
 
     if (child.type === 'navItem') {
         title = child.item.title;
         kind = child.item.kind;
         status = child.item.status as Status;
-    onClick = () => navigate('group', child.item.id);
-    if (child.item.kind !== 'Group') {
-      tags = child.item.node.tags || [];
-    }
+        nodeId = child.item.id;
+        navType = 'group';
+        if (child.item.kind !== 'Group') {
+          tags = child.item.node.tags || [];
+        }
     } else {
         // Node
         title = child.node.title;
-    kind = String(child.node.kind);
+        kind = String(child.node.kind);
         status = child.node.execution?.status;
         duration = child.node.execution?.duration;
         tags = child.node.tags || [];
-
-    onClick = () => navigate('node', child.node.id);
+        nodeId = child.node.id;
+        navType = 'node';
     }
+
+    const canDrillDown = shouldAllowDrillDown(kind, status);
+    const onClick = canDrillDown ? () => navigate(navType, nodeId) : undefined;
 
     const Icon = getIconForKind(kind);
     const durationText = formatDuration(duration);
 
     return (
-        <button
-          type="button"
+        <div
           className={cn(
-            'w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors group',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+            'w-full text-left px-4 py-3 flex items-center gap-3 transition-colors group',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            canDrillDown && 'hover:bg-muted/50 cursor-pointer',
+            !canDrillDown && 'cursor-default'
           )}
           onClick={onClick}
+          role={canDrillDown ? 'button' : undefined}
+          tabIndex={canDrillDown ? 0 : undefined}
+          onKeyDown={canDrillDown ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); } : undefined}
         >
             <div className={cn("p-2 rounded-lg bg-muted/40 group-hover:bg-background transition-colors", 
                 status === 'failed' && "bg-destructive/10 text-destructive",
@@ -344,7 +378,11 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
                 )}
                 
                 {status && <StatusBadge status={status} size="xs" />}
+                
+                {canDrillDown && (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                )}
             </div>
-        </button>
+        </div>
     );
 }

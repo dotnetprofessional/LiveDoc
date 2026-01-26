@@ -2,6 +2,8 @@ import type { AnyTest } from '@livedoc/schema';
 import { ChevronRight, FileText } from 'lucide-react';
 import { StatusBadge } from '../StatusBadge';
 import { subtreeHasMatch } from '../../lib/filter-utils';
+import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 
 export interface ChildrenListProps {
   children: AnyTest[] | undefined;
@@ -10,6 +12,34 @@ export interface ChildrenListProps {
   filterTags: string[];
   navigate: (kind: 'group' | 'node', id: string) => void;
   isSpecificationContainer: boolean;
+}
+
+/**
+ * Determines whether a test item should show a drill-down chevron.
+ * - Scenarios and Outlines always have sub-content to display
+ * - Rules and standard Tests only show chevron if failed (to view exception details)
+ */
+function shouldShowChevron(child: AnyTest): boolean {
+  const kind = (child as any).kind as string | undefined;
+  const status = (child as any).execution?.status as string | undefined;
+
+  // Outlines always have drill-down (examples as sub-tests)
+  if (kind === 'ScenarioOutline' || kind === 'RuleOutline') {
+    return true;
+  }
+
+  // Scenarios always have drill-down (GTW steps to display)
+  if (kind === 'Scenario') {
+    return true;
+  }
+
+  // Rules and standard Tests: only show chevron if failed (to see exception)
+  if (kind === 'Rule' || kind === 'Test') {
+    return status === 'failed' || status === 'timedOut';
+  }
+
+  // Default: allow drill-down for unknown types (safety fallback)
+  return true;
 }
 
 export function ChildrenList({
@@ -34,6 +64,16 @@ export function ChildrenList({
   const Icon = FileText;
   const childrenLabel = isSpecificationContainer ? 'Rules' : 'Scenarios';
 
+  const getOutlineCount = (child: any): number | undefined => {
+    const statsTotal = child?.statistics?.total;
+    if (typeof statsTotal === 'number' && statsTotal > 0) return statsTotal;
+
+    const examples = Array.isArray(child?.examples) ? child.examples : [];
+    if (examples.length === 0) return undefined;
+    const total = examples.reduce((sum: number, t: any) => sum + (Array.isArray(t?.rows) ? t.rows.length : 0), 0);
+    return total > 0 ? total : undefined;
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 px-1">
@@ -45,16 +85,35 @@ export function ChildrenList({
       </div>
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="divide-y">
-          {visibleChildren.map((child: any) => (
-            <button
+          {visibleChildren.map((child: any) => {
+            const canDrillDown = shouldShowChevron(child);
+            return (
+            <div
               key={child.id}
-              onClick={() => navigate('node', child.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left group"
+              onClick={canDrillDown ? () => navigate('node', child.id) : undefined}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 transition-colors text-left group",
+                canDrillDown && "hover:bg-muted/50 cursor-pointer",
+                !canDrillDown && "cursor-default"
+              )}
+              role={canDrillDown ? "button" : undefined}
+              tabIndex={canDrillDown ? 0 : undefined}
+              onKeyDown={canDrillDown ? (e) => { if (e.key === 'Enter' || e.key === ' ') navigate('node', child.id); } : undefined}
             >
               <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
               <span className="flex-1 text-sm font-medium truncate group-hover:text-primary transition-colors">
                 {child.title}
               </span>
+
+              {(child?.kind === 'ScenarioOutline' || child?.kind === 'RuleOutline') && (
+                <Badge variant="secondary" className="shrink-0 text-[10px] font-semibold">
+                  Outline{(() => {
+                    const count = getOutlineCount(child);
+                    return typeof count === 'number' ? ` (${count})` : '';
+                  })()}
+                </Badge>
+              )}
+
               <span className="text-xs text-muted-foreground font-mono shrink-0">
                 {child.execution?.duration !== undefined && child.execution.duration < 1000
                   ? `${Math.floor(child.execution.duration)}ms`
@@ -63,9 +122,12 @@ export function ChildrenList({
                     : ''}
               </span>
               <StatusBadge status={child.execution?.status} size="sm" />
-              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-            </button>
-          ))}
+              {canDrillDown && (
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+              )}
+            </div>
+          );
+          })}
         </div>
       </div>
     </div>
