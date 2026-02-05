@@ -1,4 +1,5 @@
 import type { Statistics, Status, TestCase } from '@livedoc/schema';
+import { statusFromStats } from './status-utils';
 
 export type ContainerKind = 'Feature' | 'Specification' | 'Container';
 export type NavKind = 'Group' | ContainerKind;
@@ -31,15 +32,6 @@ function getNodePathSegments(node: TestCase): string[] {
   // If it looks like a file path, use directories as groups.
   if (parts.length <= 1) return [];
   return parts.slice(0, -1);
-}
-
-function computeTestCaseStatus(stats: Statistics | undefined): Status | undefined {
-  if (!stats) return undefined;
-  if (stats.failed > 0) return 'failed';
-  if (stats.pending > 0) return 'pending';
-  if (stats.total > 0 && stats.skipped === stats.total) return 'skipped';
-  if (stats.total > 0 && stats.passed === stats.total) return 'passed';
-  return stats.total > 0 ? 'pending' : 'pending';
 }
 
 function statusRank(status: string): number {
@@ -79,7 +71,7 @@ function rollupStatus(statuses: Array<string | undefined>): string | undefined {
 
 function computeNavStatus(item: NavItem): string | undefined {
   if (item.kind !== 'Group') {
-    return computeTestCaseStatus((item.node as any).statistics as Statistics | undefined);
+    return statusFromStats((item.node as any).statistics as Statistics | undefined);
   }
   const statuses: Array<string | undefined> = [];
   const stack = [...item.children];
@@ -89,7 +81,7 @@ function computeNavStatus(item: NavItem): string | undefined {
     if (child.kind === 'Group') {
       stack.push(...child.children);
     } else {
-      statuses.push(computeTestCaseStatus((child.node as any).statistics as Statistics | undefined));
+      statuses.push(statusFromStats((child.node as any).statistics as Statistics | undefined));
     }
   }
   return rollupStatus(statuses);
@@ -179,4 +171,19 @@ export function findNavItemById(items: NavItem[], id: string): NavItem | undefin
     if (item.children.length > 0) stack.push(...item.children);
   }
   return undefined;
+}
+
+/**
+ * Finds the path of nav items from root to the target item.
+ * Returns null if not found.
+ */
+export function findNavPath(items: NavItem[], targetId: string): NavItem[] | null {
+  for (const item of items) {
+    if (item.id === targetId) return [item];
+    if (item.kind === 'Group') {
+      const found = findNavPath(item.children, targetId);
+      if (found) return [item, ...found];
+    }
+  }
+  return null;
 }

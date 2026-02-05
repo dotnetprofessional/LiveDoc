@@ -244,7 +244,7 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
           );
         })()}
 
-        {step.execution.error && (
+        {step.execution?.error && (
           <ErrorDisplay
             error={step.execution.error}
             variant="inline"

@@ -82,7 +82,6 @@ interface AppState {
   setProjectHierarchy: (hierarchy: ProjectNode[]) => void;
   
   selectRun: (runId: string | null) => void;
-  selectNode: (nodeId: string | null) => void;
   
   // Navigation actions
   navigate: (type: ViewType, id?: string) => void;
@@ -265,10 +264,20 @@ export const useStore = create<AppState>((set, get) => ({
     if (state.selectedRunId === runId) {
       newSelectedRunId = newRuns.length > 0 ? newRuns[0].run.runId : null;
     }
+    // Clean up expandedItems for the removed run to prevent memory leak
+    const removedRun = state.runs.find(r => r.run.runId === runId);
+    let newExpandedItems = state.expandedItems;
+    if (removedRun) {
+      const idsToRemove = new Set(Object.keys(removedRun.itemById));
+      if (idsToRemove.size > 0) {
+        newExpandedItems = new Set([...state.expandedItems].filter(id => !idsToRemove.has(id)));
+      }
+    }
     return { 
       runs: newRuns,
       selectedRunId: newSelectedRunId,
-      currentView: newSelectedRunId ? state.currentView : { type: 'summary' }
+      currentView: newSelectedRunId ? state.currentView : { type: 'summary' },
+      expandedItems: newExpandedItems,
     };
   }),
   
@@ -279,10 +288,6 @@ export const useStore = create<AppState>((set, get) => ({
     selectedRunId: runId,
     selectedNodeId: null,
     currentView: { type: 'summary' },
-  }),
-  
-  selectNode: (nodeId) => set({
-    selectedNodeId: nodeId,
   }),
   
   // Navigation actions
@@ -420,7 +425,7 @@ export const useStore = create<AppState>((set, get) => ({
   
   getCurrentNode: () => {
     const state = get();
-    const run = get().getCurrentRun();
+    const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
     if (!run || !state.selectedNodeId) return undefined;
     return run.itemById[state.selectedNodeId];
   },

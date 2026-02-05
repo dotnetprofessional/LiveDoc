@@ -8,6 +8,7 @@ import { StatusBadge } from './StatusBadge';
 import { Clock, Calendar, Globe, Zap, ArrowRight } from 'lucide-react';
 import { subtreeHasMatch } from '../lib/filter-utils';
 import { NavItem } from '../lib/nav-tree';
+import { formatDuration } from '../lib/status-utils';
 
 interface SummaryViewProps {
   run: Run;
@@ -406,10 +407,4 @@ export function SummaryView({ run }: SummaryViewProps) {
       ) : null}
     </div>
   );
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined) return '-';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
 }

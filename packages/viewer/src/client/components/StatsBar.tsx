@@ -1,5 +1,7 @@
 import { Statistics } from '@livedoc/schema';
 import { cn } from '../lib/utils';
+import { StatusProgressBar } from './ProgressBar';
+import { formatDuration } from '../lib/status-utils';
 
 interface StatsBarProps {
   summary?: Statistics;
@@ -12,10 +14,6 @@ interface StatsBarProps {
 export function StatsBar({ summary, duration, ruleViolations, size = 'md', className }: StatsBarProps) {
   const safeSummary: Statistics = summary ?? { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
   const { passed, failed, pending, skipped, total } = safeSummary;
-  const pPct = total > 0 ? (passed / total * 100) : 0;
-  const fPct = total > 0 ? (failed / total * 100) : 0;
-  const pendPct = total > 0 ? (pending / total * 100) : 0;
-  const skipPct = total > 0 ? (skipped / total * 100) : 0;
 
   if (size === 'sm') {
     return (
@@ -38,12 +36,14 @@ export function StatsBar({ summary, duration, ruleViolations, size = 'md', class
             <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">V</span>
           </div>
         )}
-        <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden flex">
-          <div className="h-full bg-pass" style={{ width: `${pPct}%` }} />
-          <div className="h-full bg-fail" style={{ width: `${fPct}%` }} />
-          <div className="h-full bg-pending" style={{ width: `${pendPct}%` }} />
-          <div className="h-full bg-muted-foreground/30" style={{ width: `${skipPct}%` }} />
-        </div>
+        <StatusProgressBar
+          passed={passed}
+          failed={failed}
+          pending={pending}
+          skipped={skipped}
+          size="sm"
+          className="w-16"
+        />
       </div>
     );
   }
@@ -81,24 +81,14 @@ export function StatsBar({ summary, duration, ruleViolations, size = 'md', class
         </div>
       </div>
 
-      <div className="relative h-3 bg-muted rounded-full overflow-hidden flex shadow-inner">
-        <div 
-          className="h-full bg-pass transition-all duration-700 ease-in-out" 
-          style={{ width: `${pPct}%` }} 
-        />
-        <div 
-          className="h-full bg-fail transition-all duration-700 ease-in-out" 
-          style={{ width: `${fPct}%` }} 
-        />
-        <div 
-          className="h-full bg-pending transition-all duration-700 ease-in-out" 
-          style={{ width: `${pendPct}%` }} 
-        />
-        <div 
-          className="h-full bg-muted-foreground/20 transition-all duration-700 ease-in-out" 
-          style={{ width: `${skipPct}%` }} 
-        />
-      </div>
+      <StatusProgressBar
+        passed={passed}
+        failed={failed}
+        pending={pending}
+        skipped={skipped}
+        size="lg"
+        className="shadow-inner"
+      />
       
       {duration !== undefined && (
         <div className="flex justify-end">
@@ -109,10 +99,4 @@ export function StatsBar({ summary, duration, ruleViolations, size = 'md', class
       )}
     </div>
   );
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined) return '-';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
 }

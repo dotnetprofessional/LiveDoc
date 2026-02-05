@@ -1,7 +1,7 @@
 import { Folder, FileText, BookOpen, ScrollText, LayoutList, Clock, ChevronRight, Home } from 'lucide-react';
 import { useMemo } from 'react';
 import { Run, useStore } from '../store';
-import { buildGroupedNavTree, findNavItemById, NavItem } from '../lib/nav-tree';
+import { buildGroupedNavTree, findNavItemById, findNavPath, NavItem } from '../lib/nav-tree';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '../lib/utils';
 import { subtreeHasMatch } from '../lib/filter-utils';
@@ -9,35 +9,11 @@ import { Badge } from './ui/badge';
 import type { AnyTest, Status, TestCase } from '@livedoc/schema';
 import { Markdown } from './Markdown';
 import { TagChips } from './TagChips';
+import { shouldAllowDrillDown, formatDuration } from '../lib/status-utils';
 
 type ListItem = 
   | { type: 'navItem'; item: NavItem }
   | { type: 'node'; node: AnyTest };
-
-/**
- * Determines whether a test item should allow drill-down navigation.
- * - Scenarios and Outlines always have sub-content to display
- * - Rules and standard Tests only allow drill-down if failed (to view exception details)
- */
-function shouldAllowDrillDown(kind: string, status: Status | undefined): boolean {
-  // Outlines always have drill-down (examples as sub-tests)
-  if (kind === 'ScenarioOutline' || kind === 'RuleOutline') {
-    return true;
-  }
-
-  // Scenarios always have drill-down (GTW steps to display)
-  if (kind === 'Scenario') {
-    return true;
-  }
-
-  // Rules and standard Tests: only allow drill-down if failed (to see exception)
-  if (kind === 'Rule' || kind === 'Test') {
-    return status === 'failed' || status === 'timedOut';
-  }
-
-  // Default: allow drill-down for containers and unknown types
-  return true;
-}
 
 function getIconForKind(kind: string) {
   switch (kind) {
@@ -54,24 +30,6 @@ function getIconForKind(kind: string) {
       return FileText;
     default: return FileText;
   }
-}
-
-function formatDuration(ms?: number) {
-  if (ms === undefined) return null;
-  if (ms < 1) return '<1ms';
-  if (ms < 1000) return `${Math.floor(ms)}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-function findNavPath(items: NavItem[], targetId: string): NavItem[] | null {
-  for (const item of items) {
-    if (item.id === targetId) return [item];
-    if (item.kind === 'Group') {
-      const found = findNavPath(item.children, targetId);
-      if (found) return [item, ...found];
-    }
-  }
-  return null;
 }
 
 export function GroupView({ run, groupId }: { run: Run; groupId: string }) {

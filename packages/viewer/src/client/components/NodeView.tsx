@@ -4,27 +4,16 @@ import { useStore } from '../store';
 import { renderTitle } from '../lib/title-utils';
 import { cn } from '../lib/utils';
 import { useMemo } from 'react';
-import { buildGroupedNavTree, NavItem } from '../lib/nav-tree';
+import { buildGroupedNavTree, findNavPath, NavItem } from '../lib/nav-tree';
 import { ScenarioBlock } from './ScenarioBlock';
 import { ContainerHeader } from './nodeviews/ContainerHeader';
 import { ChildrenList } from './nodeviews/ChildrenList';
 import { FailureSummary } from './nodeviews/FailureSummary';
 import { OutlineNodeView } from './nodeviews/OutlineNodeView';
-import { statusFromStats } from './nodeviews/status';
+import { statusFromStats } from '../lib/status-utils';
 
 interface NodeViewProps {
   node: TestCase | AnyTest;
-}
-
-function findNavPath(items: NavItem[], targetId: string): NavItem[] | null {
-  for (const item of items) {
-    if (item.id === targetId) return [item];
-    if (item.kind === 'Group') {
-      const found = findNavPath(item.children, targetId);
-      if (found) return [item, ...found];
-    }
-  }
-  return null;
 }
 
 export function NodeView({ node }: NodeViewProps) {

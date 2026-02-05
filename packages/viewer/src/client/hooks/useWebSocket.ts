@@ -12,7 +12,6 @@ export function useWebSocket() {
     setRuns, 
     addRun, 
     updateRun, 
-    removeRun, 
     selectRun, 
     setProjectHierarchy,
     upsertTestCase,
@@ -186,7 +185,7 @@ export function useWebSocket() {
         // Ignore unknown messages (future-proof)
         break;
     }
-  }, [addRun, fetchProjectHierarchy, handleRunCompleted, patchTestExecution, removeRun, selectRun, upsertOutlineExampleResults, upsertTest, upsertTestCase]);
+  }, [addRun, fetchProjectHierarchy, handleRunCompleted, patchTestExecution, selectRun, upsertOutlineExampleResults, upsertTest, upsertTestCase]);
 
   const connect = useCallback(() => {
     const wsUrl = `${getWsBaseUrl()}/ws`;
@@ -197,7 +196,6 @@ export function useWebSocket() {
     wsRef.current = ws;
     
     ws.onopen = () => {
-      console.log('WebSocket connected');
       setConnectionStatus('connected');
 
       // Subscribe to all project/environment updates so we receive run events.
@@ -224,7 +222,6 @@ export function useWebSocket() {
     };
     
     ws.onclose = () => {
-      console.log('WebSocket disconnected');
       setConnectionStatus('disconnected');
       wsRef.current = null;
       

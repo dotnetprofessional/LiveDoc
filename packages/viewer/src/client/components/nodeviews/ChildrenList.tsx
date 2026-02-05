@@ -1,9 +1,10 @@
-import type { AnyTest } from '@livedoc/schema';
+import type { AnyTest, Status } from '@livedoc/schema';
 import { ChevronRight, FileText } from 'lucide-react';
 import { StatusBadge } from '../StatusBadge';
 import { subtreeHasMatch } from '../../lib/filter-utils';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
+import { shouldAllowDrillDown } from '../../lib/status-utils';
 
 export interface ChildrenListProps {
   children: AnyTest[] | undefined;
@@ -12,34 +13,6 @@ export interface ChildrenListProps {
   filterTags: string[];
   navigate: (kind: 'group' | 'node', id: string) => void;
   isSpecificationContainer: boolean;
-}
-
-/**
- * Determines whether a test item should show a drill-down chevron.
- * - Scenarios and Outlines always have sub-content to display
- * - Rules and standard Tests only show chevron if failed (to view exception details)
- */
-function shouldShowChevron(child: AnyTest): boolean {
-  const kind = (child as any).kind as string | undefined;
-  const status = (child as any).execution?.status as string | undefined;
-
-  // Outlines always have drill-down (examples as sub-tests)
-  if (kind === 'ScenarioOutline' || kind === 'RuleOutline') {
-    return true;
-  }
-
-  // Scenarios always have drill-down (GTW steps to display)
-  if (kind === 'Scenario') {
-    return true;
-  }
-
-  // Rules and standard Tests: only show chevron if failed (to see exception)
-  if (kind === 'Rule' || kind === 'Test') {
-    return status === 'failed' || status === 'timedOut';
-  }
-
-  // Default: allow drill-down for unknown types (safety fallback)
-  return true;
 }
 
 export function ChildrenList({
@@ -86,7 +59,9 @@ export function ChildrenList({
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="divide-y">
           {visibleChildren.map((child: any) => {
-            const canDrillDown = shouldShowChevron(child);
+            const kind = String(child.kind ?? '');
+            const status = child.execution?.status as Status | undefined;
+            const canDrillDown = shouldAllowDrillDown(kind, status);
             return (
             <div
               key={child.id}

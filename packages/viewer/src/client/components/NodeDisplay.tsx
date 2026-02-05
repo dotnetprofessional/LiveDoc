@@ -7,6 +7,7 @@ import { renderTitle } from '../lib/title-utils';
 import { Markdown } from './Markdown';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
+import { StatusProgressBar } from './ProgressBar';
 
 interface NodeDisplayProps {
   node: TestCase | AnyTest;
@@ -90,11 +91,13 @@ export function NodeDisplay({ node, variant, size = 'lg', showStats = true, onCl
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Results</span>
                     <span className="text-[10px] font-bold">{summary.total} Total</span>
                   </div>
-                  <div className="flex gap-1 h-1.5 rounded-full overflow-hidden bg-muted">
-                    <div className="bg-pass h-full" style={{ width: `${(summary.passed / summary.total) * 100}%` }} />
-                    <div className="bg-fail h-full" style={{ width: `${(summary.failed / summary.total) * 100}%` }} />
-                    <div className="bg-pending h-full" style={{ width: `${(summary.pending / summary.total) * 100}%` }} />
-                  </div>
+                  <StatusProgressBar
+                    passed={summary.passed}
+                    failed={summary.failed}
+                    pending={summary.pending}
+                    skipped={summary.skipped ?? 0}
+                    size="sm"
+                  />
                 </div>
               </>
             )}
