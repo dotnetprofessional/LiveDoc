@@ -11,7 +11,7 @@ feature(`Feature statement
         `, (ctx) => {
 
     const featureTitleExpected = "Feature statement";
-    const filename = "Feature.Spec";
+    const filename = "feature-statement.Spec";
     const description = "Features are used to define a feature that requires testing";
     const tags = ["tag-sample:test", "tag-sample:test2", "even-more"];
 

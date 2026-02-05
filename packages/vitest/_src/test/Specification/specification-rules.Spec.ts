@@ -135,7 +135,7 @@ specification("Context Object Access", () => {
 
     rule("Can access rule context from rule", async (ctx) => {
         expect(ctx.rule).toBeDefined();
-        expect(ctx.rule.title).toBe("Can access rule context from rule!");
+        expect(ctx.rule.title).toBe("Can access rule context from rule");
     });
 });
 
