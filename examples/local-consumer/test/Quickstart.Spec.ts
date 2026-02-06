@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { feature, scenario, given, and, when, Then as then } from "@livedoc/vitest";
+import { feature, scenario, given, and, when, Then as then } from "@swedevtools/livedoc-vitest";
 
 feature(`Calculator basics
 

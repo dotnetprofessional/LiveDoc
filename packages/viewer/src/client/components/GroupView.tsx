@@ -6,7 +6,7 @@ import { StatusBadge } from './StatusBadge';
 import { cn } from '../lib/utils';
 import { subtreeHasMatch } from '../lib/filter-utils';
 import { Badge } from './ui/badge';
-import type { AnyTest, Status, TestCase } from '@livedoc/schema';
+import type { AnyTest, Status, TestCase } from '@swedevtools/livedoc-schema';
 import { Markdown } from './Markdown';
 import { TagChips } from './TagChips';
 import { shouldAllowDrillDown, formatDuration } from '../lib/status-utils';

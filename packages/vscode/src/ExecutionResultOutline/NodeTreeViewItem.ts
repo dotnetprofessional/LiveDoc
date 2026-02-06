@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from 'path';
-import type { AnyTest, Status, Statistics, TestCase } from "@livedoc/schema";
+import type { AnyTest, Status, Statistics, TestCase } from "@swedevtools/livedoc-schema";
 
 export enum ScenarioStatus {
     unknown = 0,

@@ -1,7 +1,21 @@
 {
-  "name": "@livedoc/viewer",
+  "name": "@swedevtools/livedoc-viewer",
   "version": "1.0.0",
   "description": "LiveDoc BDD Test Results Viewer - Real-time test visualization",
+  "author": "Garry McGlennon",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git",
+    "directory": "packages/viewer"
+  },
+  "homepage": "https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/viewer#readme",
+  "bugs": {
+    "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "dist/server/index.js",
   "bin": {
@@ -20,8 +34,8 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@livedoc/schema": "workspace:^",
-    "@livedoc/server": "workspace:*",
+    "@swedevtools/livedoc-schema": "workspace:^",
+    "@swedevtools/livedoc-server": "workspace:*",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -70,7 +84,5 @@
     "xunit",
     "reporter",
     "viewer"
-  ],
-  "author": "",
-  "license": "MIT"
+  ]
 }

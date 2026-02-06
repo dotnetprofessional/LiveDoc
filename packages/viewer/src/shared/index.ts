@@ -1,2 +1,2 @@
-// Re-export everything from @livedoc/server
-export * from '@livedoc/server';
+// Re-export everything from @swedevtools/livedoc-server
+export * from '@swedevtools/livedoc-server';

@@ -1,4 +1,4 @@
-import { feature, scenario, background, given, when, Then, and } from "@livedoc/vitest";
+import { feature, scenario, background, given, when, Then, and } from "@swedevtools/livedoc-vitest";
 import { expect } from "vitest";
 import { createServer, type LiveDocServer } from "../src/index.js";
 import os from "os";

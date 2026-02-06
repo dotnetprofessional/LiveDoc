@@ -5,7 +5,7 @@ import type {
   Status,
   TestCase,
   TestRunV3,
-} from '@livedoc/schema';
+} from '@swedevtools/livedoc-schema';
 import { promises as fs } from 'fs';
 import path from 'path';
 

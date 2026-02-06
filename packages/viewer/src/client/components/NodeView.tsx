@@ -1,4 +1,4 @@
-import type { AnyTest, Statistics, Status, StepTest, TestCase } from '@livedoc/schema';
+import type { AnyTest, Statistics, Status, StepTest, TestCase } from '@swedevtools/livedoc-schema';
 import { StepList } from './StepList';
 import { useStore } from '../store';
 import { renderTitle } from '../lib/title-utils';

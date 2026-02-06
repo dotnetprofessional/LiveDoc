@@ -1,4 +1,4 @@
-import { Status } from '@livedoc/schema';
+import { Status } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
 import { Check, X, Minus, HelpCircle, Clock, Loader2 } from "lucide-react"
 

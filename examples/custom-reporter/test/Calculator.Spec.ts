@@ -1,4 +1,4 @@
-import { feature, scenario, given, when, Then as then } from "@livedoc/vitest";
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
 import { expect } from "vitest";
 
 feature(`Calculator operations

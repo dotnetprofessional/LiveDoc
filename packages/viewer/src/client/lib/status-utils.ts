@@ -1,4 +1,4 @@
-import type { Statistics, Status } from '@livedoc/schema';
+import type { Statistics, Status } from '@swedevtools/livedoc-schema';
 
 /**
  * Computes aggregate status from statistics.

@@ -9,8 +9,8 @@ import type {
   StepKeyword,
   StepTest,
   TestCase,
-} from '@livedoc/schema';
-import { generateStabilityId } from '@livedoc/schema';
+} from '@swedevtools/livedoc-schema';
+import { generateStabilityId } from '@swedevtools/livedoc-schema';
 import {
   ExecutionResults,
   Feature as SDKFeature,

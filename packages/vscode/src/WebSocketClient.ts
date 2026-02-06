@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import WebSocket from 'ws';
-import type { V3WebSocketEvent, WebSocketClientMessage } from '@livedoc/server';
+import type { V3WebSocketEvent, WebSocketClientMessage } from '@swedevtools/livedoc-server';
 
 export class LiveDocWebSocketClient {
   private ws: WebSocket | null = null;

@@ -1,4 +1,4 @@
-import type { Status } from '@livedoc/schema';
+import type { Status } from '@swedevtools/livedoc-schema';
 import { ChevronRight, Home, Tag } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';

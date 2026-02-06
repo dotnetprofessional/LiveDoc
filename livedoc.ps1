@@ -449,11 +449,12 @@ if (Test-Path $dotnetSln) {
 $packages = $packages | Sort-Object {
     switch -Regex ($_.Name) {
         '^Root$' { 0 }
-        '^@livedoc/vitest$' { 1 }
-        '^@livedoc/server$' { 2 }
-        '^@livedoc/viewer$' { 3 }
-        '^@livedoc/vscode$' { 4 }
-        '^dotnet/xunit$' { 5 }
+        '^@swedevtools/livedoc-vitest$' { 1 }
+        '^@swedevtools/livedoc-server$' { 2 }
+        '^@swedevtools/livedoc-viewer$' { 3 }
+        '^@swedevtools/livedoc-schema$' { 4 }
+        '^livedoc-vscode$' { 5 }
+        '^dotnet/xunit$' { 6 }
         default { 50 }
     }
 }, Name
@@ -549,14 +550,55 @@ $packageMenuItems.Add((New-MenuItem -Label 'Clean All (pnpm clean)' -HotKey 'x' 
     }
 }.GetNewClosure())))
 
+# Add Publish submenu with nested submenus for each package
+$schemaPublishChildren = @(
+    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema }.GetNewClosure())),
+    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema -Tag beta }.GetNewClosure()))
+)
+$serverPublishChildren = @(
+    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server }.GetNewClosure())),
+    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server -Tag beta }.GetNewClosure()))
+)
+$vitestPublishChildren = @(
+    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest }.GetNewClosure())),
+    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest -Tag beta }.GetNewClosure()))
+)
+$viewerPublishChildren = @(
+    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer }.GetNewClosure())),
+    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer -Tag beta }.GetNewClosure()))
+)
+
+$publishChildren = @(
+    (New-MenuItem -Label 'All (dry-run)' -HotKey '1' -Action ({
+        & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package all -DryRun
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'All (release)' -HotKey '2' -Action ({
+        & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package all
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'All (beta)' -HotKey '3' -Action ({
+        & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package all -Tag beta
+    }.GetNewClosure())),
+    (New-MenuItem -Label '─────────────────────' -HotKey ([char]0) -Action $null),
+    (New-MenuItem -Label 'schema...' -HotKey '4' -Children $schemaPublishChildren),
+    (New-MenuItem -Label 'server...' -HotKey '5' -Children $serverPublishChildren),
+    (New-MenuItem -Label 'vitest...' -HotKey '6' -Children $vitestPublishChildren),
+    (New-MenuItem -Label 'viewer...' -HotKey '7' -Children $viewerPublishChildren)
+)
+$packageMenuItems.Add((New-MenuItem -Label 'Publish to npm...' -HotKey 'n' -Children $publishChildren))
+
 foreach ($p in $packages) {
     $hotKey = [char]0
     switch ($p.Name) {
         'Root' { $hotKey = 'r' }
-        '@livedoc/vitest' { $hotKey = 'v' }
-        '@livedoc/server' { $hotKey = 's' }
-        '@livedoc/viewer' { $hotKey = 'w' }
-        '@livedoc/vscode' { $hotKey = 'c' }
+        '@swedevtools/livedoc-vitest' { $hotKey = 'v' }
+        '@swedevtools/livedoc-server' { $hotKey = 's' }
+        '@swedevtools/livedoc-viewer' { $hotKey = 'w' }
+        '@swedevtools/livedoc-schema' { $hotKey = 'm' }
+        'livedoc-vscode' { $hotKey = 'c' }
         'dotnet/xunit' { $hotKey = 'd' }
     }
 

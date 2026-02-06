@@ -1,4 +1,4 @@
-import type { DataTable, StepTest, Status, TypedValue } from '@livedoc/schema';
+import type { DataTable, StepTest, Status, TypedValue } from '@swedevtools/livedoc-schema';
 import { bindPlaceholdersInText, renderTitle, highlightPlaceholders } from '../lib/title-utils';
 import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';

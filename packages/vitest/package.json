@@ -1,16 +1,20 @@
 {
-  "name": "@livedoc/vitest",
+  "name": "@swedevtools/livedoc-vitest",
   "version": "0.1.4",
   "author": "Garry McGlennon",
   "license": "MIT",
   "description": "BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax and MSpec-style specifications.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git"
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git",
+    "directory": "packages/vitest"
   },
-  "homepage": "https://github.com/dotnetprofessional/LiveDoc/blob/master/packages/vitest#readme",
+  "homepage": "https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/vitest#readme",
   "bugs": {
     "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "main": "./dist/index.cjs",
@@ -84,7 +88,7 @@
     "publish:release": "npm publish"
   },
   "devDependencies": {
-    "@livedoc/server": "workspace:^",
+    "@swedevtools/livedoc-server": "workspace:^",
     "@types/chai": "^5.2.3",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^20.19.27",
@@ -99,16 +103,16 @@
     "vitest": "^4.0.16"
   },
   "peerDependencies": {
-    "@livedoc/server": ">=1.0.0",
+    "@swedevtools/livedoc-server": ">=1.0.0",
     "vitest": ">=1.0.0"
   },
   "peerDependenciesMeta": {
-    "@livedoc/server": {
+    "@swedevtools/livedoc-server": {
       "optional": true
     }
   },
   "dependencies": {
-    "@livedoc/schema": "workspace:*",
+    "@swedevtools/livedoc-schema": "workspace:*",
     "@types/diff": "^7.0.2",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",

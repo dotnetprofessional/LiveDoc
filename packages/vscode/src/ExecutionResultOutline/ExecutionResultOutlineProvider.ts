@@ -1,5 +1,5 @@
-import type { V3WebSocketEvent } from "@livedoc/server";
-import type { AnyTest, Status, TestCase, TestRunV3 } from "@livedoc/schema";
+import type { V3WebSocketEvent } from "@swedevtools/livedoc-server";
+import type { AnyTest, Status, TestCase, TestRunV3 } from "@swedevtools/livedoc-schema";
 
 import * as vscode from "vscode";
 import * as path from 'path';

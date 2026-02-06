@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useStore } from '../store';
 import { StatusBadge } from './StatusBadge';
-import type { AnyTest, TestCase } from '@livedoc/schema';
+import type { AnyTest, TestCase } from '@swedevtools/livedoc-schema';
 import { 
   ChevronRight, 
   ChevronDown, 

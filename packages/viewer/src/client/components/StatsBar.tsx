@@ -1,4 +1,4 @@
-import { Statistics } from '@livedoc/schema';
+import { Statistics } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
 import { StatusProgressBar } from './ProgressBar';
 import { formatDuration } from '../lib/status-utils';

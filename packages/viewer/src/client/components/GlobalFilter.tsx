@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Search, Tag, X } from 'lucide-react';
-import type { AnyTest, TestCase } from '@livedoc/schema';
+import type { AnyTest, TestCase } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { formatTagLabel, normalizeTag, subtreeHasMatch } from '../lib/filter-utils';

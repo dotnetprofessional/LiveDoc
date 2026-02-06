@@ -1,4 +1,4 @@
-import type { AnyTest, ExecutionResult, TestCase } from '@livedoc/schema';
+import type { AnyTest, ExecutionResult, TestCase } from '@swedevtools/livedoc-schema';
 import { Calendar, ChevronRight, Clock, FileText, Globe, HelpCircle, AlertCircle, CheckCircle2, Tag, XCircle } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';

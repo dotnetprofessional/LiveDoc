@@ -1,10 +1,10 @@
 /**
  * LiveDoc Viewer Server
  * 
- * This wraps @livedoc/server and adds static file serving for the React app.
+ * This wraps @swedevtools/livedoc-server and adds static file serving for the React app.
  */
 
-import { createServer, type LiveDocServer } from '@livedoc/server';
+import { createServer, type LiveDocServer } from '@swedevtools/livedoc-server';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promises as fs } from 'fs';
@@ -32,7 +32,7 @@ export async function startViewerServer(options: ViewerServerOptions = {}) {
   const host = options.host || '0.0.0.0';
   const staticDir = getStaticDir();
   
-  // Create base server from @livedoc/server
+  // Create base server from @swedevtools/livedoc-server
   const server = createServer({
     port,
     host,

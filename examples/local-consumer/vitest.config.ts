@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { LiveDocServerReporter, LiveDocSpecReporter } from "@livedoc/vitest/reporter";
+import { LiveDocServerReporter, LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
 
 export default defineConfig({
   test: {

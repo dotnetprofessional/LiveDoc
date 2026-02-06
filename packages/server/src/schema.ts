@@ -1,9 +1,9 @@
 /**
  * LiveDoc Unified Schema (vNext)
- * Re-exports canonical types from @livedoc/schema and defines server-specific types.
+ * Re-exports canonical types from @swedevtools/livedoc-schema and defines server-specific types.
  */
 
-export * from '@livedoc/schema';
+export * from '@swedevtools/livedoc-schema';
 
 // =============================================================================
 // Server Configuration

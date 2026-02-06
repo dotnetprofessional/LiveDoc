@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "author": "Garry McGlennon",
-  "description": "Sample project demonstrating @livedoc/vitest BDD testing.",
+  "description": "Sample project demonstrating @swedevtools/livedoc-vitest BDD testing.",
   "type": "module",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@livedoc/vitest": "workspace:*",
+    "@swedevtools/livedoc-vitest": "workspace:*",
     "@types/node": "^20.19.27",
     "chai": "^5.3.3",
     "typescript": "^5.9.3",

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { makeRunState, useStore, Run } from '../store';
 import { getApiBaseUrl, getWsBaseUrl } from '../config';
-import type { V3WebSocketEvent, TestRunV3 } from '@livedoc/schema';
+import type { V3WebSocketEvent, TestRunV3 } from '@swedevtools/livedoc-schema';
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);

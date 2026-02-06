@@ -1,4 +1,4 @@
-import type { DataTable, ExecutionResult, Status, TypedValue } from '@livedoc/schema';
+import type { DataTable, ExecutionResult, Status, TypedValue } from '@swedevtools/livedoc-schema';
 import { CheckCircle2, HelpCircle, Layers, XCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';

@@ -6,7 +6,7 @@ import * as model from '../model/index';
 import { SpecStatus } from '../model/SpecStatus';
 import { Exception } from '../model/Exception';
 import { DescriptionParser } from '../parser/Parser';
-import { generateStabilityId } from '@livedoc/schema';
+import { generateStabilityId } from '@swedevtools/livedoc-schema';
 import { livedoc } from '../livedoc';
 
 type Node = any;
@@ -74,9 +74,9 @@ export default class LiveDocServerReporter implements Reporter {
 
         // Otherwise, try to discover server
         try {
-            // Use dynamic import to avoid circular dependencies or issues if @livedoc/server is not available
+            // Use dynamic import to avoid circular dependencies or issues if @swedevtools/livedoc-server is not available
             // @ts-ignore
-            const { discoverServer } = await import('@livedoc/server');
+            const { discoverServer } = await import('@swedevtools/livedoc-server');
             const serverInfo = await discoverServer();
             if (serverInfo) {
                 this.serverUrl = serverInfo.url;

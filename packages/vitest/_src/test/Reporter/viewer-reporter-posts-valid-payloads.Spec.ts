@@ -1,7 +1,7 @@
 require('chai').should();
 
 import { expect } from "vitest";
-import { V3UpsertTestCaseRequestSchema } from "@livedoc/schema";
+import { V3UpsertTestCaseRequestSchema } from "@swedevtools/livedoc-schema";
 import LiveDocServerReporter from "../../app/reporter/LiveDocServerReporter";
 import { LiveDocViewerReporter } from "../../app/reporter/LiveDocViewerReporter";
 import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";

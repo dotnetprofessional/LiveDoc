@@ -1,4 +1,4 @@
-import { feature, scenario, background, given, when, Then, and } from "@livedoc/vitest";
+import { feature, scenario, background, given, when, Then, and } from "@swedevtools/livedoc-vitest";
 import { expect } from "vitest";
 import { RunStore } from "../src/store.js";
 import type { Feature, Scenario, Step, Statistics } from "../src/schema.js";

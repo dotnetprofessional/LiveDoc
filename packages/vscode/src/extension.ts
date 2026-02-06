@@ -1,7 +1,7 @@
 import { ExecutionResultOutlineProvider } from "./ExecutionResultOutline/ExecutionResultOutlineProvider";
 import * as vscode from "vscode";
 import { activateTableFormatter, deactivateTableFormatter } from "./tableFormatter";
-import { createServer, LiveDocServer } from "@livedoc/server";
+import { createServer, LiveDocServer } from "@swedevtools/livedoc-server";
 import { LiveDocWebSocketClient } from "./WebSocketClient";
 import { ViewerPanel } from "./viewer/ViewerPanel";
 import { NodeTreeViewItem } from "./ExecutionResultOutline/NodeTreeViewItem";

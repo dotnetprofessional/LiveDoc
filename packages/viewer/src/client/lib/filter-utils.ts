@@ -1,4 +1,4 @@
-import type { AnyTest, TestCase } from '@livedoc/schema';
+import type { AnyTest, TestCase } from '@swedevtools/livedoc-schema';
 
 export function normalizeTag(tag: string): string {
   const trimmed = tag.trim();

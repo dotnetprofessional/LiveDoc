@@ -1,4 +1,4 @@
-import type { Status, StepTest } from '@livedoc/schema';
+import type { Status, StepTest } from '@swedevtools/livedoc-schema';
 import { Card, CardContent } from './ui/card';
 import { StatusBadge } from './StatusBadge';
 import { Markdown } from './Markdown';

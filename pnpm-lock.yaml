@@ -17,7 +17,7 @@ importers:
 
   examples/custom-reporter:
     devDependencies:
-      '@livedoc/vitest':
+      '@swedevtools/livedoc-vitest':
         specifier: workspace:*
         version: link:../../packages/vitest
       '@types/node':
@@ -32,7 +32,7 @@ importers:
 
   examples/local-consumer:
     dependencies:
-      '@livedoc/vitest':
+      '@swedevtools/livedoc-vitest':
         specifier: workspace:*
         version: link:../../packages/vitest
     devDependencies:
@@ -54,7 +54,7 @@ importers:
 
   examples/vitest-sample:
     devDependencies:
-      '@livedoc/vitest':
+      '@swedevtools/livedoc-vitest':
         specifier: workspace:*
         version: link:../../packages/vitest
       '@types/node':
@@ -91,7 +91,7 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.7
         version: 1.19.7(hono@4.11.1)
-      '@livedoc/schema':
+      '@swedevtools/livedoc-schema':
         specifier: workspace:*
         version: link:../schema
       commander:
@@ -107,7 +107,7 @@ importers:
         specifier: ^8.18.3
         version: 8.18.3
     devDependencies:
-      '@livedoc/vitest':
+      '@swedevtools/livedoc-vitest':
         specifier: workspace:*
         version: link:../vitest
       '@types/node':
@@ -134,12 +134,6 @@ importers:
 
   packages/viewer:
     dependencies:
-      '@livedoc/schema':
-        specifier: workspace:^
-        version: link:../schema
-      '@livedoc/server':
-        specifier: workspace:*
-        version: link:../server
       '@radix-ui/react-collapsible':
         specifier: ^1.1.12
         version: 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -167,6 +161,12 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@swedevtools/livedoc-schema':
+        specifier: workspace:^
+        version: link:../schema
+      '@swedevtools/livedoc-server':
+        specifier: workspace:*
+        version: link:../server
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -246,7 +246,7 @@ importers:
 
   packages/vitest:
     dependencies:
-      '@livedoc/schema':
+      '@swedevtools/livedoc-schema':
         specifier: workspace:*
         version: link:../schema
       '@types/diff':
@@ -268,7 +268,7 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
     devDependencies:
-      '@livedoc/server':
+      '@swedevtools/livedoc-server':
         specifier: workspace:^
         version: link:../server
       '@types/chai':
@@ -310,13 +310,13 @@ importers:
 
   packages/vscode:
     dependencies:
-      '@livedoc/schema':
+      '@swedevtools/livedoc-schema':
         specifier: workspace:^
         version: link:../schema
-      '@livedoc/server':
+      '@swedevtools/livedoc-server':
         specifier: workspace:*
         version: link:../server
-      '@livedoc/vitest':
+      '@swedevtools/livedoc-vitest':
         specifier: workspace:*
         version: link:../vitest
       aphrodite:

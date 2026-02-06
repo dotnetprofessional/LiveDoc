@@ -1,4 +1,4 @@
-import type { AnyTest, Status } from '@livedoc/schema';
+import type { AnyTest, Status } from '@swedevtools/livedoc-schema';
 import { ChevronRight, FileText } from 'lucide-react';
 import { StatusBadge } from '../StatusBadge';
 import { subtreeHasMatch } from '../../lib/filter-utils';

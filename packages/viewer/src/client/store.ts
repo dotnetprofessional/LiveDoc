@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV3 } from '@livedoc/schema';
+import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV3 } from '@swedevtools/livedoc-schema';
 
 function getInitialAudienceMode(): 'business' | 'developer' {
   try {
