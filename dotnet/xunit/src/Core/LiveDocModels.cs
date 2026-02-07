@@ -27,13 +27,43 @@ public class StepExecution
 }
 
 /// <summary>
-/// Provides context about the current feature being executed.
+/// Base class for test case contexts (Feature or Specification).
+/// Contains shared properties common to all test case types.
 /// </summary>
-public class FeatureContext
+public abstract class TestCaseContext
 {
-    public string Name { get; set; } = "";
+    /// <summary>
+    /// The title/name of the test case.
+    /// </summary>
+    public string Title { get; set; } = "";
+    
+    /// <summary>
+    /// Optional description providing additional context.
+    /// </summary>
     public string? Description { get; set; }
+    
+    /// <summary>
+    /// Tags for filtering/categorization.
+    /// </summary>
     public string[] Tags { get; set; } = Array.Empty<string>();
+}
+
+/// <summary>
+/// Provides context about the current feature being executed.
+/// Used with BDD/Gherkin-style tests.
+/// </summary>
+public class FeatureContext : TestCaseContext
+{
+    // Feature-specific properties can be added here
+}
+
+/// <summary>
+/// Provides context about the current specification being executed.
+/// Used with MSpec-style tests.
+/// </summary>
+public class SpecificationContext : TestCaseContext
+{
+    // Specification-specific properties can be added here
 }
 
 /// <summary>
@@ -45,6 +75,16 @@ public class ScenarioContext
     public string? Description { get; set; }
     public string[] Tags { get; set; } = Array.Empty<string>();
     public List<StepExecution> Steps { get; } = new();
+}
+
+/// <summary>
+/// Provides context about the current rule being executed.
+/// </summary>
+public class RuleContext
+{
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public string[] Tags { get; set; } = Array.Empty<string>();
 }
 
 /// <summary>

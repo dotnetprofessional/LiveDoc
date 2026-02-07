@@ -5,7 +5,7 @@ namespace LiveDoc.xUnit;
 
 /// <summary>
 /// Test case discoverer for Scenario attributes.
-/// This allows custom display names to be shown in Test Explorer.
+/// Validates that Scenario is used with [Feature] class attribute.
 /// </summary>
 public class ScenarioTestCaseDiscoverer : IXunitTestCaseDiscoverer
 {
@@ -21,8 +21,16 @@ public class ScenarioTestCaseDiscoverer : IXunitTestCaseDiscoverer
         ITestMethod testMethod,
         IAttributeInfo factAttribute)
     {
-        // Use xUnit's default test case discovery
-        // The DisplayName from ScenarioAttribute will be used automatically
+        // Validate paradigm usage
+        var violation = LiveDocParadigmValidator.ValidateGherkinMethod(testMethod, "Scenario");
+        if (violation != null)
+        {
+            yield return LiveDocParadigmValidator.CreateViolationTestCase(
+                _diagnosticMessageSink, testMethod, violation);
+            yield break;
+        }
+
+        // Valid - create normal test case
         yield return new XunitTestCase(
             _diagnosticMessageSink,
             discoveryOptions.MethodDisplayOrDefault(),

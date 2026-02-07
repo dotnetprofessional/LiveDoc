@@ -1,3 +1,4 @@
+using System.Reflection;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -5,7 +6,8 @@ namespace LiveDoc.xUnit;
 
 /// <summary>
 /// Test case discoverer for ScenarioOutline attributes.
-/// This allows custom display names to be shown in Test Explorer for data-driven tests.
+/// Uses XunitTheoryTestCase for grouped display in Test Explorer.
+/// Example data injection happens via AsyncLocal in the custom invoker.
 /// </summary>
 public class ScenarioOutlineTestCaseDiscoverer : IXunitTestCaseDiscoverer
 {
@@ -21,17 +23,20 @@ public class ScenarioOutlineTestCaseDiscoverer : IXunitTestCaseDiscoverer
         ITestMethod testMethod,
         IAttributeInfo factAttribute)
     {
-        // For theory/data-driven tests, use xUnit's theory discovery
-        // This will create one test case per [Example] attribute
-        var defaultMethodDisplay = discoveryOptions.MethodDisplayOrDefault();
-        var defaultMethodDisplayOptions = discoveryOptions.MethodDisplayOptionsOrDefault();
+        // Validate paradigm usage
+        var violation = LiveDocParadigmValidator.ValidateGherkinMethod(testMethod, "ScenarioOutline");
+        if (violation != null)
+        {
+            yield return LiveDocParadigmValidator.CreateViolationTestCase(
+                _diagnosticMessageSink, testMethod, violation);
+            yield break;
+        }
 
-        // Simply return a theory test case - xUnit will handle the data discovery
-        // through the [Example] attributes which inherit from DataAttribute
-        yield return new XunitTheoryTestCase(
+        // Use XunitTheoryTestCase for grouped display - it handles data enumeration internally
+        yield return new LiveDocTheoryTestCase(
             _diagnosticMessageSink,
-            defaultMethodDisplay,
-            defaultMethodDisplayOptions,
+            discoveryOptions.MethodDisplayOrDefault(),
+            discoveryOptions.MethodDisplayOptionsOrDefault(),
             testMethod);
     }
 }

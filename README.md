@@ -75,6 +75,24 @@ npx vitest
 - 📋 **Beautiful Output** - Formatted test results
 - 🎯 **Tag Filtering** - Include/exclude tests by tags
 - 📄 **JSON Export** - Export results for reporting tools
+- 🖥️ **Live Viewer** - Real-time web UI for test results
+
+## Live Viewer
+
+See your test results in real-time with the LiveDoc Viewer:
+
+```bash
+# Install the viewer globally
+npm install -g @swedevtools/livedoc-viewer
+
+# Start the viewer (opens browser automatically)
+livedoc-viewer
+
+# Run your tests in another terminal
+npx vitest run
+```
+
+Results appear in your browser as tests run. See the [@livedoc/viewer README](packages/viewer/README.md) for full documentation.
 
 ## Documentation
 

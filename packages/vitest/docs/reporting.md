@@ -134,7 +134,41 @@ The JSON file includes:
 
 ## LiveDoc Viewer integration
 
-Send results to a web-based visualization:
+Visualize test results in real-time with the LiveDoc Viewer web UI.
+
+### Setup
+
+```bash
+# Install the viewer globally (one-time)
+npm install -g @swedevtools/livedoc-viewer
+
+# Start the viewer
+livedoc-viewer
+```
+
+The viewer opens at `http://localhost:3100` and automatically receives results from your tests.
+
+### Option 1: Auto-discovery (Recommended)
+
+The `LiveDocServerReporter` automatically finds a running viewer:
+
+```ts
+import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import LiveDocServerReporter from '@livedoc/vitest/reporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+      new LiveDocServerReporter(),  // Auto-discovers running viewer
+    ],
+  },
+});
+```
+
+### Option 2: Explicit configuration
+
+Specify the viewer URL directly:
 
 ```ts
 import { LiveDocSpecReporter, LiveDocViewerReporter } from '@livedoc/vitest/reporter';
@@ -145,7 +179,7 @@ export default defineConfig({
       new LiveDocSpecReporter({
         postReporters: [
           new LiveDocViewerReporter({
-            server: 'http://localhost:3000',
+            server: 'http://localhost:3100',
             project: 'my-project',
             environment: 'local',
           })
@@ -160,11 +194,13 @@ export default defineConfig({
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `server` | `'http://localhost:3000'` | Viewer server URL |
+| `server` | `'http://localhost:3100'` | Viewer server URL |
 | `project` | `'default'` | Project name for grouping |
 | `environment` | `'local'` | Environment label |
 | `timeout` | `5000` | HTTP request timeout (ms) |
 | `silent` | `true` | Fail silently if server unavailable |
+
+> **📖 Full documentation:** See the [@livedoc/viewer README](../../viewer/README.md) for CLI options and troubleshooting.
 
 ---
 

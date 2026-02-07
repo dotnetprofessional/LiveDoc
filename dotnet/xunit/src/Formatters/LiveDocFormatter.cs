@@ -20,6 +20,51 @@ internal class LiveDocFormatter
     }
 
     /// <summary>
+    /// Formats a specification heading.
+    /// </summary>
+    public string FormatSpecification(string name)
+    {
+        return $"{FeatureIndent}Specification: {name}";
+    }
+
+    /// <summary>
+    /// Formats a rule heading (for specification tests).
+    /// </summary>
+    public string FormatRule(string name)
+    {
+        // If name already has the prefix, just add indentation
+        if (name.StartsWith("Rule:"))
+            return $"{ScenarioIndent}{name}";
+        return $"{ScenarioIndent}Rule: {name}";
+    }
+
+    /// <summary>
+    /// Formats a description with proper indentation.
+    /// Handles multi-line descriptions by indenting each line.
+    /// </summary>
+    public string FormatDescription(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return string.Empty;
+
+        // Normalize line endings and split into lines
+        var lines = description
+            .Replace("\r\n", "\n")
+            .Replace("\r", "\n")
+            .Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => !string.IsNullOrEmpty(line))
+            .ToList();
+
+        if (lines.Count == 0)
+            return string.Empty;
+
+        // Use scenario indent for description lines (aligned with scenario)
+        var formattedLines = lines.Select(line => $"{ScenarioIndent}{line}");
+        return string.Join("\n", formattedLines);
+    }
+
+    /// <summary>
     /// Formats a scenario heading.
     /// </summary>
     public string FormatScenario(string name)

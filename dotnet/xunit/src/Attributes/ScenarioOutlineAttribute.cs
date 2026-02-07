@@ -26,5 +26,4 @@ public class ScenarioOutlineAttribute : TheoryAttribute
     }
 
     public string? Description { get; set; }
-    public string[] Tags { get; set; } = Array.Empty<string>();
 }

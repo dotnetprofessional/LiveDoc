@@ -25,5 +25,4 @@ public class ScenarioAttribute : FactAttribute
     }
 
     public string? Description { get; set; }
-    public string[] Tags { get; set; } = Array.Empty<string>();
 }

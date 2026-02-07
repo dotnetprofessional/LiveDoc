@@ -113,6 +113,56 @@ Click any test to see the detailed BDD-formatted output in the Test Detail Summa
 
 See the [samples](./samples) directory for more examples.
 
+---
+
+## LiveDoc Viewer Integration
+
+Visualize your test results in real-time with the LiveDoc Viewer web UI.
+
+### Setup
+
+```bash
+# Install the viewer globally (requires Node.js)
+npm install -g @swedevtools/livedoc-viewer
+
+# Start the viewer
+livedoc-viewer
+```
+
+The viewer opens at `http://localhost:3100`.
+
+### Configure your tests
+
+Add the `LiveDocViewerReporter` to your test project:
+
+```csharp
+// In your test assembly, add an assembly attribute or configure via runsettings
+[assembly: LiveDocViewerReporter("http://localhost:3100")]
+```
+
+Or configure via `.runsettings`:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <LiveDoc>
+    <ViewerUrl>http://localhost:3100</ViewerUrl>
+    <Project>my-dotnet-app</Project>
+    <Environment>local</Environment>
+  </LiveDoc>
+</RunSettings>
+```
+
+### Workflow
+
+1. Start the viewer: `livedoc-viewer`
+2. Run your tests: `dotnet test`
+3. Results appear in the browser as tests execute
+
+> **📖 Full documentation:** See the [@livedoc/viewer README](../../packages/viewer/README.md) for CLI options and troubleshooting.
+
+---
+
 ## License
 
 MIT

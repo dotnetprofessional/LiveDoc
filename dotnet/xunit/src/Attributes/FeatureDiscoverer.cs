@@ -14,9 +14,17 @@ public class FeatureDiscoverer : ITraitDiscoverer
 
     public IEnumerable<KeyValuePair<string, string>> GetTraits(IAttributeInfo traitAttribute)
     {
-        var categoryName = traitAttribute.GetNamedArgument<string>("Name");
+        var featureName = traitAttribute.GetNamedArgument<string>("Name");
 
-        if (!string.IsNullOrWhiteSpace(categoryName))
-            yield return new KeyValuePair<string, string>("Feature: " + categoryName, "");
+        if (!string.IsNullOrWhiteSpace(featureName))
+        {
+            // Show as "Feature: Name" in Test Explorer
+            yield return new KeyValuePair<string, string>($"Feature: {featureName}", "");
+        }
+        else
+        {
+            // No explicit name - just show "Feature" category
+            yield return new KeyValuePair<string, string>("Feature", "");
+        }
     }
 }

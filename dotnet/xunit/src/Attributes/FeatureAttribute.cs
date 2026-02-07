@@ -17,14 +17,13 @@ public class FeatureAttribute : Attribute, ITraitAttribute
 
     public string? Name { get; set; }
     public string? Description { get; set; }
-    public string[] Tags { get; set; } = Array.Empty<string>();
 
     /// <summary>
     /// Gets the display name for the feature, using the provided name or formatting the class name
     /// </summary>
     public string GetDisplayName(Type testClassType)
     {
-        return this.Name ?? FormatName("Feature: " + testClassType.Name);
+        return this.Name ?? FormatName(testClassType.Name);
     }
 
     /// <summary>

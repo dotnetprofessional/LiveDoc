@@ -32,6 +32,9 @@
     <Compile Remove="samples\**" />
     <EmbeddedResource Remove="samples\**" />
     <None Remove="samples\**" />
+    <Compile Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <None Remove="tests\**" />
   </ItemGroup>
 
 </Project>

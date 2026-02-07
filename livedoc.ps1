@@ -611,8 +611,31 @@ foreach ($p in $packages) {
         $dotnetSlnLocal = $dotnetSln
         $dotnetDirLocal = (Join-Path $repoRoot 'dotnet/xunit')
         $children = @(
-            (New-MenuItem -Label 'dotnet test (solution)' -HotKey 't' -Action ({
+            (New-MenuItem -Label 'dotnet build' -HotKey '1' -Action ({
+                Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('build', $dotnetSlnLocal)
+            }.GetNewClosure())),
+            (New-MenuItem -Label 'dotnet test' -HotKey '2' -Action ({
                 Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal)
+            }.GetNewClosure())),
+            (New-MenuItem -Label 'dotnet test (with Viewer)' -HotKey '3' -Action ({
+                # Start the LiveDoc server if not running, then run tests with LIVEDOC_SERVER_URL set
+                $serverUrl = 'http://localhost:19275'
+                Write-Host "Running .NET tests with LiveDoc Viewer integration..." -ForegroundColor Cyan
+                Write-Host "Server URL: $serverUrl" -ForegroundColor Gray
+                Write-Host ""
+                $env:LIVEDOC_SERVER_URL = $serverUrl
+                $env:LIVEDOC_PROJECT = 'LiveDoc.xUnit'
+                $env:LIVEDOC_ENVIRONMENT = 'local'
+                try {
+                    Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal)
+                } finally {
+                    Remove-Item Env:\LIVEDOC_SERVER_URL -ErrorAction SilentlyContinue
+                    Remove-Item Env:\LIVEDOC_PROJECT -ErrorAction SilentlyContinue
+                    Remove-Item Env:\LIVEDOC_ENVIRONMENT -ErrorAction SilentlyContinue
+                }
+            }.GetNewClosure())),
+            (New-MenuItem -Label 'dotnet clean' -HotKey '4' -Action ({
+                Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('clean', $dotnetSlnLocal)
             }.GetNewClosure()))
         )
 
