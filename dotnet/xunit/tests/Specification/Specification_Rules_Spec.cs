@@ -10,7 +10,10 @@ namespace LiveDoc.xUnit.Tests.Specification;
 /// Tests for the [Specification] and [Rule] attributes
 /// that enable MSpec-style testing.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    The [Specification] + [Rule] pattern enables MSpec-style testing
+    with direct assertions and no Given/When/Then ceremony. Rules
+    support explicit titles, embedded values, and simple assertions.")]
 public class Specification_Rules_Spec : SpecificationTest
 {
     public Specification_Rules_Spec(ITestOutputHelper output) : base(output)

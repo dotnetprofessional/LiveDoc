@@ -8,7 +8,10 @@ namespace LiveDoc.xUnit.Tests.Gherkin.Examples;
 /// 
 /// Unit tests for the [ScenarioOutline] attribute metadata.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    The [ScenarioOutline] attribute marks a method as a data-driven scenario.
+    It supports descriptions, tags, and [Example] attributes that provide
+    parameterized test data to the method.")]
 public class Scenario_Outline_Attribute_Spec : SpecificationTest
 {
     public Scenario_Outline_Attribute_Spec(ITestOutputHelper output) : base(output)

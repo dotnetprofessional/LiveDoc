@@ -180,6 +180,15 @@ export const V3UpsertTestCaseRequestSchema = z.object({
   testCase: V3TestCaseSchema,
 });
 
+export const V3UpsertTestCasesBatchRequestSchema = z.object({
+  testCases: z.array(V3TestCaseSchema),
+  complete: z.object({
+    status: V3StatusSchema,
+    duration: z.number().nonnegative(),
+    summary: V3StatisticsSchema.optional(),
+  }).optional(),
+});
+
 export const V3UpsertTestRequestSchema = z.object({
   testCaseId: z.string(),
   test: V3AnyTestSchema,
@@ -276,6 +285,7 @@ export type V3WebSocketEvent = z.infer<typeof V3WebSocketEventSchema>;
 export type V3StartRunRequest = z.infer<typeof V3StartRunRequestSchema>;
 export type V3StartRunResponse = z.infer<typeof V3StartRunResponseSchema>;
 export type V3UpsertTestCaseRequest = z.infer<typeof V3UpsertTestCaseRequestSchema>;
+export type V3UpsertTestCasesBatchRequest = z.infer<typeof V3UpsertTestCasesBatchRequestSchema>;
 export type V3UpsertTestRequest = z.infer<typeof V3UpsertTestRequestSchema>;
 export type V3UpsertScenarioStepsRequest = z.infer<typeof V3UpsertScenarioStepsRequestSchema>;
 export type V3PatchExecutionRequest = z.infer<typeof V3PatchExecutionRequestSchema>;

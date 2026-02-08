@@ -9,7 +9,10 @@ namespace LiveDoc.xUnit.Tests.Gherkin.Scenario;
 /// 
 /// Unit tests for the [Scenario] attribute metadata.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    The [Scenario] attribute marks a method as a BDD scenario. It supports
+    explicit display names (overriding the method name), descriptions,
+    and tags for filtering.")]
 public class Scenario_Statement_Spec : SpecificationTest
 {
     public Scenario_Statement_Spec(ITestOutputHelper output) : base(output)

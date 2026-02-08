@@ -10,7 +10,10 @@ namespace LiveDoc.xUnit.Tests._Internal;
 /// Unit tests for the LiveDocValueArray class that provides
 /// bounds-checked access to extracted values.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    LiveDocValueArray provides bounds-checked indexing over extracted values.
+    It supports tuple deconstruction and typed conversion via As<T1,T2,...>,
+    throwing LiveDocValueIndexException with helpful context on out-of-range access.")]
 public class LiveDoc_Value_Array_Spec : SpecificationTest
 {
     public LiveDoc_Value_Array_Spec(ITestOutputHelper output) : base(output)

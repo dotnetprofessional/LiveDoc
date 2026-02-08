@@ -16,6 +16,7 @@ import type {
   V3StartRunRequest,
   V3StartRunResponse,
   V3UpsertTestCaseRequest,
+  V3UpsertTestCasesBatchRequest,
   V3UpsertTestRequest,
   V3UpsertScenarioStepsRequest,
   V3PatchExecutionRequest,
@@ -25,6 +26,7 @@ import type {
 import {
   V3StartRunRequestSchema,
   V3UpsertTestCaseRequestSchema,
+  V3UpsertTestCasesBatchRequestSchema,
   V3UpsertTestRequestSchema,
   V3UpsertScenarioStepsRequestSchema,
   V3PatchExecutionRequestSchema,
@@ -383,6 +385,49 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     }
 
     return c.json({ success: true });
+  });
+
+  // Batch upsert multiple test cases in a single request
+  app.post('/api/v3/runs/:runId/testcases/batch', async (c) => {
+    const runId = c.req.param('runId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V3UpsertTestCasesBatchRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V3UpsertTestCasesBatchRequest = parsed.data;
+    for (const tc of body.testCases) {
+      store.upsertTestCase(runId, tc as TestCase);
+
+      if (wsManager) {
+        const event: V3WebSocketEvent = { type: 'testcase:upsert', runId, testCase: tc };
+        wsManager.broadcast(event, runId, run.project, run.environment);
+      }
+    }
+
+    // Optionally complete the run in the same request (avoids extra HTTP call)
+    if (body.complete) {
+      store.completeRun(runId, body.complete.status, body.complete.duration, body.complete.summary);
+
+      eventEmitter.emit('run:v3:completed', runId);
+
+      if (wsManager) {
+        const event: V3WebSocketEvent = {
+          type: 'run:v3:completed',
+          runId,
+          status: body.complete.status,
+          duration: body.complete.duration,
+          summary: body.complete.summary ?? run.summary,
+        };
+        wsManager.broadcast(event, runId, run.project, run.environment);
+      }
+    }
+
+    return c.json({ success: true, count: body.testCases.length });
   });
 
   app.post('/api/v3/runs/:runId/tests', async (c) => {

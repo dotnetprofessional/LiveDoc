@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using LiveDoc.xUnit.Core;
@@ -9,7 +11,9 @@ namespace LiveDoc.xUnit.Reporter;
 
 /// <summary>
 /// Manages test run reporting to the LiveDoc server.
-/// Thread-safe singleton that handles the entire test run lifecycle.
+/// Thread-safe singleton that buffers all results in memory during test execution,
+/// then sends everything in bulk when FlushAndCompleteAsync is called.
+/// This follows the same pattern as the vitest reporter for reliability.
 /// </summary>
 public class LiveDocTestRunReporter : IDisposable
 {
@@ -17,10 +21,17 @@ public class LiveDocTestRunReporter : IDisposable
     private static readonly object _lock = new();
 
     private readonly LiveDocReporter _reporter;
-    private readonly Dictionary<string, TestCase> _testCases = new();
+    private readonly ConcurrentDictionary<string, TestCase> _testCases = new();
+    private readonly ConcurrentDictionary<string, BaseTest> _tests = new();
+    private readonly ConcurrentDictionary<string, string> _testToTestCase = new();
     private readonly Stopwatch _runStopwatch;
-    private bool _runStarted;
     private bool _disposed;
+    private Task? _flushTask;
+    private readonly object _flushLock = new();
+    private int _totalCount;
+    private int _passedCount;
+    private int _failedCount;
+    private int _skippedCount;
 
     /// <summary>
     /// Gets the singleton instance.
@@ -49,30 +60,165 @@ public class LiveDocTestRunReporter : IDisposable
     {
         _reporter = new LiveDocReporter();
         _runStopwatch = Stopwatch.StartNew();
+
+        if (_reporter.IsEnabled)
+        {
+            AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+        }
+    }
+
+    private void OnProcessExit(object? sender, EventArgs e)
+    {
+        // If flush is already in progress (from RunTestCases), wait for it
+        // If not started yet, start it now
+        Task task;
+        lock (_flushLock)
+        {
+            if (_flushTask != null)
+            {
+                task = _flushTask;
+            }
+            else
+            {
+                _flushTask = FlushCoreAsync();
+                task = _flushTask;
+            }
+        }
+        task.GetAwaiter().GetResult();
     }
 
     /// <summary>
-    /// Ensures the test run has been started.
+    /// Sends all buffered data to the server and completes the run.
+    /// Called from the test framework hook after all tests finish.
     /// </summary>
-    public async Task EnsureRunStartedAsync()
+    public async Task FlushAndCompleteAsync()
     {
-        if (_runStarted || !_reporter.IsEnabled)
+        if (!_reporter.IsEnabled)
             return;
 
-        lock (_lock)
+        Task task;
+        lock (_flushLock)
         {
-            if (_runStarted)
-                return;
-            _runStarted = true;
+            if (_flushTask != null)
+            {
+                task = _flushTask;
+            }
+            else
+            {
+                _flushTask = FlushCoreAsync();
+                task = _flushTask;
+            }
         }
+        await task;
+    }
 
-        await _reporter.StartRunAsync();
+    private async Task FlushCoreAsync()
+    {
+        try
+        {
+            // Start the run
+            var runId = await _reporter.StartRunAsync();
+            if (runId == null)
+                return;
+
+            // Prepare all test cases with their accumulated tests
+            var upsertPayloads = new List<TestCase>();
+            foreach (var kvp in _testCases)
+            {
+                var testCase = kvp.Value;
+
+                // Gather tests belonging to this test case
+                var testsForCase = _testToTestCase
+                    .Where(t => t.Value == testCase.Id)
+                    .Select(t => _tests.TryGetValue(t.Key, out var test) ? test : null)
+                    .Where(t => t != null)
+                    .ToList();
+
+                testCase.Tests = testsForCase!;
+
+                // Finalize outline stats from their exampleResults before sending
+                foreach (var test in testsForCase)
+                {
+                    if (test is ScenarioOutlineTest sot)
+                        FinalizeOutlineStats(sot.Statistics, sot.ExampleResults, sot.Execution);
+                    else if (test is RuleOutlineTest rot)
+                        FinalizeOutlineStats(rot.Statistics, rot.ExampleResults, rot.Execution);
+                }
+
+                // Compute test case statistics
+                int totalTests = 0, passed = 0, failed = 0, skipped = 0, pending = 0;
+                foreach (var test in testsForCase)
+                {
+                    if (test is ScenarioOutlineTest outline)
+                    {
+                        totalTests += outline.Statistics.Total;
+                        passed += outline.Statistics.Passed;
+                        failed += outline.Statistics.Failed;
+                        skipped += outline.Statistics.Skipped;
+                        pending += outline.Statistics.Pending;
+                    }
+                    else if (test is RuleOutlineTest ruleOutline)
+                    {
+                        totalTests += ruleOutline.Statistics.Total;
+                        passed += ruleOutline.Statistics.Passed;
+                        failed += ruleOutline.Statistics.Failed;
+                        skipped += ruleOutline.Statistics.Skipped;
+                        pending += ruleOutline.Statistics.Pending;
+                    }
+                    else
+                    {
+                        totalTests++;
+                        var s = test!.Execution.Status;
+                        if (s == Models.Status.Passed) passed++;
+                        else if (s == Models.Status.Failed) failed++;
+                        else if (s == Models.Status.Skipped) skipped++;
+                        else pending++;
+                    }
+                }
+
+                testCase.Statistics = new Statistics
+                {
+                    Total = totalTests,
+                    Passed = passed,
+                    Failed = failed,
+                    Skipped = skipped,
+                    Pending = pending
+                };
+
+                upsertPayloads.Add(testCase);
+            }
+
+            // Send all test cases AND complete the run in a single HTTP request
+            _runStopwatch.Stop();
+            var status = _failedCount > 0 ? Models.Status.Failed : Models.Status.Passed;
+            var summary = new Statistics
+            {
+                Total = _totalCount,
+                Passed = _passedCount,
+                Failed = _failedCount,
+                Skipped = _skippedCount,
+                Pending = 0
+            };
+            var complete = new CompleteRunRequest
+            {
+                Status = status,
+                Duration = _runStopwatch.ElapsedMilliseconds,
+                Summary = summary
+            };
+
+            await _reporter.UpsertTestCasesBatchAsync(upsertPayloads, complete);
+        }
+        catch
+        {
+            // Don't let reporting errors affect test exit
+        }
     }
 
     /// <summary>
-    /// Reports a test case (Feature or Specification).
+    /// Buffers a test case (Feature or Specification) for later sending.
+    /// Thread-safe — only the first call per ID is stored.
     /// </summary>
-    public async Task ReportTestCaseAsync(
+    public void BufferTestCase(
         string id,
         string style,
         string title,
@@ -80,114 +226,150 @@ public class LiveDocTestRunReporter : IDisposable
         string[]? tags = null,
         string? path = null)
     {
-        if (!_reporter.IsEnabled)
-            return;
-
-        await EnsureRunStartedAsync();
-
-        var testCase = new TestCase
+        _testCases.TryAdd(id, new TestCase
         {
             Id = id,
             Style = style,
             Title = title,
             Description = description,
             Tags = tags?.ToList(),
-            Path = path,
-            Statistics = new Statistics()
-        };
-
-        lock (_lock)
-        {
-            _testCases[id] = testCase;
-        }
-
-        await _reporter.UpsertTestCaseAsync(testCase);
+            Path = path
+        });
     }
 
     /// <summary>
-    /// Reports a scenario start.
+    /// Buffers a scenario/rule test result (non-outline).
+    /// Uses TryAdd to avoid overwriting data already provided by LiveDocContext.
     /// </summary>
-    public async Task ReportScenarioStartAsync(
+    public void BufferTest(
         string testCaseId,
-        string scenarioId,
+        string testId,
+        string kind,
         string title,
         string? description = null,
         string[]? tags = null)
     {
-        if (!_reporter.IsEnabled)
-            return;
-
-        var scenario = new ScenarioTest
+        var test = kind switch
         {
-            Id = scenarioId,
-            Title = title,
-            Description = description,
-            Tags = tags?.ToList(),
-            Execution = new ExecutionResult { Status = Models.Status.Running }
-        };
-
-        await _reporter.UpsertTestAsync(testCaseId, scenario);
-    }
-
-    /// <summary>
-    /// Reports a step result.
-    /// </summary>
-    public async Task ReportStepAsync(
-        string testCaseId,
-        string scenarioId,
-        string stepId,
-        StepKeyword keyword,
-        string title,
-        Models.Status status,
-        long duration,
-        ErrorInfo? error = null)
-    {
-        if (!_reporter.IsEnabled)
-            return;
-
-        var step = new StepTest
-        {
-            Id = stepId,
-            Keyword = keyword,
-            Title = title,
-            Execution = new ExecutionResult
+            "Scenario" => new ScenarioTest
             {
-                Status = status,
-                Duration = duration,
-                Error = error
+                Id = testId,
+                Title = title,
+                Description = description,
+                Tags = tags?.ToList(),
+                Execution = new ExecutionResult { Status = Models.Status.Running }
+            },
+            _ => new BaseTest
+            {
+                Id = testId,
+                Kind = kind,
+                Title = title,
+                Description = description,
+                Tags = tags?.ToList(),
+                Execution = new ExecutionResult { Status = Models.Status.Running }
             }
         };
 
-        // Patch the step execution
-        await _reporter.PatchExecutionAsync(stepId, step.Execution);
+        _tests.TryAdd(testId, test);
+        _testToTestCase.TryAdd(testId, testCaseId);
     }
 
     /// <summary>
-    /// Reports a scenario completion.
+    /// Returns true if a test with the given ID has already been buffered.
     /// </summary>
-    public async Task ReportScenarioCompleteAsync(
-        string scenarioId,
-        Models.Status status,
-        long duration,
-        ErrorInfo? error = null)
+    public bool HasTest(string testId) => _tests.ContainsKey(testId);
+
+    /// <summary>
+    /// Buffers an outline test (ScenarioOutline or RuleOutline).
+    /// Creates the outline on first call; subsequent calls add example results.
+    /// Thread-safe via ConcurrentDictionary.
+    /// </summary>
+    public void BufferOutlineExample(
+        string testCaseId,
+        string outlineId,
+        string kind,
+        string title,
+        int rowId,
+        ParameterInfo[] parameters,
+        object[] args,
+        string? description = null,
+        string[]? tags = null)
     {
-        if (!_reporter.IsEnabled)
-            return;
-
-        var execution = new ExecutionResult
+        // Build the example row values
+        var rowValues = new List<TypedValue>();
+        for (int i = 0; i < Math.Min(parameters.Length, args.Length); i++)
         {
-            Status = status,
-            Duration = duration,
-            Error = error
-        };
+            rowValues.Add(TypedValue.From(args[i]));
+        }
+        var row = new Row { RowId = rowId, Values = rowValues };
 
-        await _reporter.PatchExecutionAsync(scenarioId, execution);
+        if (kind == "ScenarioOutline")
+        {
+            var outline = _tests.GetOrAdd(outlineId, _ =>
+            {
+                var headers = parameters.Select(p => p.Name ?? $"arg{p.Position}").ToList();
+                var t = new ScenarioOutlineTest
+                {
+                    Id = outlineId,
+                    Title = title,
+                    Description = description,
+                    Tags = tags?.ToList(),
+                    Execution = new ExecutionResult { Status = Models.Status.Running },
+                    Examples = new List<DataTable>
+                    {
+                        new DataTable { Headers = headers, Rows = new List<Row>() }
+                    }
+                };
+                _testToTestCase[outlineId] = testCaseId;
+                return t;
+            });
+
+            if (outline is ScenarioOutlineTest sot)
+            {
+                lock (sot)
+                {
+                    if (sot.Examples.Count > 0)
+                        sot.Examples[0].Rows.Add(row);
+                }
+            }
+        }
+        else // RuleOutline
+        {
+            var outline = _tests.GetOrAdd(outlineId, _ =>
+            {
+                var headers = parameters.Select(p => p.Name ?? $"arg{p.Position}").ToList();
+                var t = new RuleOutlineTest
+                {
+                    Id = outlineId,
+                    Title = title,
+                    Description = description,
+                    Tags = tags?.ToList(),
+                    Execution = new ExecutionResult { Status = Models.Status.Running },
+                    Examples = new List<DataTable>
+                    {
+                        new DataTable { Headers = headers, Rows = new List<Row>() }
+                    }
+                };
+                _testToTestCase[outlineId] = testCaseId;
+                return t;
+            });
+
+            if (outline is RuleOutlineTest rot)
+            {
+                lock (rot)
+                {
+                    if (rot.Examples.Count > 0)
+                        rot.Examples[0].Rows.Add(row);
+                }
+            }
+        }
     }
 
     /// <summary>
-    /// Reports an outline example result.
+    /// Adds an example result to an outline test.
+    /// testId should be the step ID (for step-level tracking) or outline ID (for no-step outlines).
     /// </summary>
-    public async Task ReportExampleResultAsync(
+    public void AddOutlineExampleResult(
         string outlineId,
         int rowId,
         string testId,
@@ -195,7 +377,7 @@ public class LiveDocTestRunReporter : IDisposable
         long duration,
         ErrorInfo? error = null)
     {
-        if (!_reporter.IsEnabled)
+        if (!_tests.TryGetValue(outlineId, out var test))
             return;
 
         var result = new ExampleResult
@@ -210,92 +392,112 @@ public class LiveDocTestRunReporter : IDisposable
             }
         };
 
-        await _reporter.UpsertExampleResultsAsync(outlineId, new[] { result });
+        if (test is ScenarioOutlineTest sot)
+        {
+            lock (sot)
+            {
+                sot.ExampleResults.Add(result);
+            }
+        }
+        else if (test is RuleOutlineTest rot)
+        {
+            lock (rot)
+            {
+                rot.ExampleResults.Add(result);
+            }
+        }
     }
 
     /// <summary>
-    /// Reports a standard test result (for vanilla [Fact]/[Theory] tests).
-    /// Creates both the test case and result in one call.
+    /// Finalizes outline stats at flush time from exampleResults.
+    /// Called in FlushAndCompleteAsync to ensure all results are counted.
     /// </summary>
-    public async Task ReportStandardTestAsync(
-        string className,
-        string methodName,
-        string displayName,
+    private static void FinalizeOutlineStats(Statistics stats, List<ExampleResult> results, ExecutionResult execution)
+    {
+        if (results.Count == 0)
+            return;
+
+        // Count unique rows and their statuses
+        var rowStatuses = results
+            .GroupBy(r => r.Result.RowId)
+            .Select(g => g.Any(r => r.Result.Status == Models.Status.Failed) 
+                ? Models.Status.Failed 
+                : g.All(r => r.Result.Status == Models.Status.Passed) 
+                    ? Models.Status.Passed 
+                    : Models.Status.Pending)
+            .ToList();
+
+        stats.Total = rowStatuses.Count;
+        stats.Passed = rowStatuses.Count(s => s == Models.Status.Passed);
+        stats.Failed = rowStatuses.Count(s => s == Models.Status.Failed);
+        stats.Pending = rowStatuses.Count(s => s == Models.Status.Pending);
+        stats.Skipped = 0;
+
+        execution.Status = stats.Failed > 0 ? Models.Status.Failed : Models.Status.Passed;
+        execution.Duration = results.Sum(r => r.Result.Duration);
+    }
+
+    /// <summary>
+    /// Sets the steps on a buffered scenario test.
+    /// </summary>
+    public void SetTestSteps(string testId, List<StepTest> steps)
+    {
+        if (_tests.TryGetValue(testId, out var test))
+        {
+            if (test is ScenarioTest scenario)
+            {
+                scenario.Steps = steps;
+            }
+            else if (test is ScenarioOutlineTest outline)
+            {
+                // Only set template steps once (from first example)
+                lock (outline)
+                {
+                    if (outline.Steps.Count == 0)
+                        outline.Steps = steps;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates the execution result of a buffered test.
+    /// </summary>
+    public void UpdateTestExecution(
+        string testId,
         Models.Status status,
         long duration,
         ErrorInfo? error = null)
     {
-        if (!_reporter.IsEnabled)
-            return;
-
-        await EnsureRunStartedAsync();
-
-        var testCaseId = $"standard:{className}";
-        var testId = $"{className}.{methodName}";
-
-        // Report the test case (class) if not already reported
-        if (!_testCases.ContainsKey(testCaseId))
+        if (_tests.TryGetValue(testId, out var test))
         {
-            var testCase = new TestCase
-            {
-                Id = testCaseId,
-                Style = TestStyles.Standard,
-                Title = FormatClassName(className)
-            };
-
-            _testCases[testCaseId] = testCase;
-            await _reporter.UpsertTestCaseAsync(testCase);
-        }
-
-        // Report the test as a BaseTest (standard tests have no steps)
-        var test = new BaseTest
-        {
-            Id = testId,
-            Kind = "Test",
-            Title = displayName,
-            Execution = new ExecutionResult
+            test.Execution = new ExecutionResult
             {
                 Status = status,
                 Duration = duration,
                 Error = error
-            }
-        };
-
-        await _reporter.UpsertTestAsync(testCaseId, test);
-    }
-
-    private static string FormatClassName(string className)
-    {
-        // Extract just the class name from fully qualified name
-        var lastDot = className.LastIndexOf('.');
-        var name = lastDot >= 0 ? className.Substring(lastDot + 1) : className;
-        
-        // Convert PascalCase to Title Case with spaces
-        return System.Text.RegularExpressions.Regex.Replace(
-            name, "([a-z])([A-Z])", "$1 $2");
+            };
+        }
     }
 
     /// <summary>
-    /// Completes the test run.
+    /// Records a test result for run summary statistics.
     /// </summary>
-    public async Task CompleteRunAsync(int total, int passed, int failed, int skipped)
+    public void RecordResult(Models.Status status)
     {
-        if (!_reporter.IsEnabled || !_runStarted)
-            return;
-
-        _runStopwatch.Stop();
-
-        var status = failed > 0 ? Models.Status.Failed : Models.Status.Passed;
-        var summary = new Statistics
+        Interlocked.Increment(ref _totalCount);
+        switch (status)
         {
-            Total = total,
-            Passed = passed,
-            Failed = failed,
-            Skipped = skipped,
-            Pending = 0
-        };
-
-        await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
+            case Models.Status.Passed:
+                Interlocked.Increment(ref _passedCount);
+                break;
+            case Models.Status.Failed:
+                Interlocked.Increment(ref _failedCount);
+                break;
+            case Models.Status.Skipped:
+                Interlocked.Increment(ref _skippedCount);
+                break;
+        }
     }
 
     /// <summary>
@@ -307,7 +509,8 @@ public class LiveDocTestRunReporter : IDisposable
     }
 
     /// <summary>
-    /// Generates a stable ID for a scenario.
+    /// Generates a stable ID for a scenario/rule (non-outline).
+    /// Includes args hash for unique per-invocation identification.
     /// </summary>
     public static string GenerateScenarioId(Type testClass, string methodName, object[]? args = null)
     {
@@ -315,7 +518,6 @@ public class LiveDocTestRunReporter : IDisposable
         
         if (args != null && args.Length > 0)
         {
-            // Include args hash for outline disambiguation
             var argsStr = string.Join(",", args.Select(a => a?.ToString() ?? "null"));
             baseId += $":{ComputeHash(argsStr)}";
         }
@@ -324,11 +526,47 @@ public class LiveDocTestRunReporter : IDisposable
     }
 
     /// <summary>
+    /// Generates a stable ID for an outline test (shared across all example rows).
+    /// No args hash — all rows share the same outline test.
+    /// </summary>
+    public static string GenerateOutlineId(Type testClass, string methodName)
+    {
+        return $"Outline:{testClass.FullName ?? testClass.Name}:{methodName}";
+    }
+
+    /// <summary>
     /// Generates a stable ID for a step.
     /// </summary>
-    public static string GenerateStepId(string scenarioId, string stepType, int stepIndex)
+    public static string GenerateStepId(string parentId, string stepType, int stepIndex)
     {
-        return $"Step:{scenarioId}:{stepType}:{stepIndex}";
+        return $"{parentId}:step{stepIndex}";
+    }
+
+    /// <summary>
+    /// Derives a navigation path from a test class type.
+    /// Strips the assembly name prefix and converts namespace separators to slashes.
+    /// E.g., LiveDoc.xUnit.Tests.Gherkin.Examples.MySpec → Gherkin/Examples/MySpec.cs
+    /// </summary>
+    public static string DerivePath(Type testClass)
+    {
+        var fullName = testClass.FullName ?? testClass.Name;
+        var assemblyName = testClass.Assembly.GetName().Name ?? "";
+        return DerivePathFromNames(fullName, assemblyName);
+    }
+
+    /// <summary>
+    /// Derives a navigation path from class and assembly name strings.
+    /// Used by MessageSink which has ITypeInfo instead of Type.
+    /// </summary>
+    public static string DerivePathFromNames(string fullClassName, string assemblyName)
+    {
+        // Strip assembly prefix
+        var relativeName = fullClassName.StartsWith(assemblyName + ".", StringComparison.Ordinal)
+            ? fullClassName.Substring(assemblyName.Length + 1)
+            : fullClassName;
+
+        // Convert dots to slashes
+        return relativeName.Replace('.', '/') + ".cs";
     }
 
     private static string ComputeHash(string input)
@@ -342,6 +580,7 @@ public class LiveDocTestRunReporter : IDisposable
     {
         if (!_disposed)
         {
+            AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
             _reporter.Dispose();
             _disposed = true;
         }

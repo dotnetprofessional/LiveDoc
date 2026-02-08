@@ -10,7 +10,9 @@ namespace LiveDoc.xUnit.Tests.Reporter;
 /// Tests for the LiveDocConfig class that reads configuration
 /// from environment variables.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    LiveDocConfig reads server URL, project, and environment settings.
+    Reporting is enabled only when a valid server URL is configured.")]
 public class Reporter_Config_Spec : SpecificationTest
 {
     public Reporter_Config_Spec(ITestOutputHelper output) : base(output)

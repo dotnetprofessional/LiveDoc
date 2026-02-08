@@ -10,7 +10,10 @@ namespace LiveDoc.xUnit.Tests._Internal;
 /// Unit tests for the LiveDocValue class that wraps raw string values
 /// and provides type-safe conversion methods.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    LiveDocValue wraps a raw string and provides type-safe conversion
+    methods: AsInt(), AsLong(), AsDecimal(), AsDouble(), AsBool(),
+    AsDateTime(), and As<T>() for enums, arrays, and nullable types.")]
 public class LiveDoc_Value_Spec : SpecificationTest
 {
     public LiveDoc_Value_Spec(ITestOutputHelper output) : base(output)

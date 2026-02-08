@@ -11,7 +11,10 @@ namespace LiveDoc.xUnit.Tests.Gherkin;
 /// Tests for the [Tag] attribute used to categorize and filter tests.
 /// Tags can be applied to classes and test methods, and are merged from both levels.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    The [Tag] attribute enables categorization and filtering of tests.
+    Tags can be applied at class and method level, are merged together,
+    and deduplicated in a case-insensitive manner.")]
 public class Tag_Attribute_Spec : SpecificationTest
 {
     public Tag_Attribute_Spec(ITestOutputHelper output) : base(output) { }

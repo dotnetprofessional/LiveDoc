@@ -20,6 +20,11 @@ public class StepExecution
 {
     public string Type { get; set; } = "";
     public string Description { get; set; } = "";
+    /// <summary>
+    /// The original step description before placeholder substitution.
+    /// For outlines, this contains &lt;placeholder&gt; tokens for template display.
+    /// </summary>
+    public string? OriginalDescription { get; set; }
     public StepStatus Status { get; set; }
     public TimeSpan Duration { get; set; }
     public Exception? Exception { get; set; }
@@ -135,6 +140,11 @@ public class ExampleData
             return actualKey != null ? _data[actualKey] : null;
         }
     }
+
+    /// <summary>
+    /// Gets all key-value pairs in the example data.
+    /// </summary>
+    public IEnumerable<KeyValuePair<string, object?>> GetAll() => _data;
 
     /// <summary>
     /// Gets a strongly-typed value by key.

@@ -12,7 +12,10 @@ namespace LiveDoc.xUnit.Tests.Reporter;
 /// Tests for the C# schema models that map to the v3 protocol.
 /// Verifies correct JSON serialization.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    The C# schema models map to the v3 reporter protocol. Each model
+    (Status, StepKeyword, ExecutionResult, TestCase, etc.) must serialize
+    to the expected camelCase JSON format.")]
 public class Schema_Models_Spec : SpecificationTest
 {
     private readonly JsonSerializerOptions _jsonOptions = new()

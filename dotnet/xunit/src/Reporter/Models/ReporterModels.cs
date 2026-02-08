@@ -194,6 +194,11 @@ public class Statistics
 /// <summary>
 /// Base test information shared by all test types.
 /// </summary>
+[JsonDerivedType(typeof(ScenarioTest))]
+[JsonDerivedType(typeof(ScenarioOutlineTest))]
+[JsonDerivedType(typeof(RuleTest))]
+[JsonDerivedType(typeof(RuleOutlineTest))]
+[JsonDerivedType(typeof(StepTest))]
 public class BaseTest
 {
     [JsonPropertyName("id")]

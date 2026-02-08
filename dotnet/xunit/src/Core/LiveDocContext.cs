@@ -27,6 +27,10 @@ public class LiveDocContext : IDisposable
     private StepContext? _currentStep;
     private string? _testCaseId;
     private string? _scenarioId;
+    private string? _outlineId;
+    private int _outlineRowId;
+    private int _exampleNumber;
+    private bool _isOutline;
     private int _stepIndex;
     private static readonly Dictionary<string, int> _exampleCounters = new();
     private static readonly object _counterLock = new();
@@ -114,52 +118,78 @@ public class LiveDocContext : IDisposable
 
         // Generate IDs for reporting
         _testCaseId = LiveDocTestRunReporter.GenerateTestCaseId(testClassType);
-        _scenarioId = testMethod != null 
-            ? LiveDocTestRunReporter.GenerateScenarioId(testClassType, testMethod.Name, testMethodArgs)
-            : null;
+        
+        // Detect outline tests
+        var isScenarioOutline = testMethod?.GetCustomAttribute<ScenarioOutlineAttribute>() != null;
+        var isRuleOutline = testMethod?.GetCustomAttribute<RuleOutlineAttribute>() != null;
+        _isOutline = isScenarioOutline || isRuleOutline;
 
-        // Report test case and scenario start (fire and forget - don't block tests)
-        ReportStartAsync().ConfigureAwait(false);
+        if (_isOutline && testMethod != null)
+        {
+            _outlineId = LiveDocTestRunReporter.GenerateOutlineId(testClassType, testMethod.Name);
+            _exampleNumber = GetExampleNumber();
+            _outlineRowId = _exampleNumber - 1; // 0-based row IDs
+            _scenarioId = null; // outlines don't use per-row scenario IDs
+        }
+        else
+        {
+            _scenarioId = testMethod != null 
+                ? LiveDocTestRunReporter.GenerateScenarioId(testClassType, testMethod.Name, testMethodArgs)
+                : null;
+        }
 
-        // Output feature and scenario headers
-        OutputHeader();
-    }
-
-    private async Task ReportStartAsync()
-    {
-        if (_runReporter == null || _testCaseId == null)
-            return;
-
-        try
+        // Buffer test case and scenario data for bulk sending at end
+        if (_runReporter != null && _testCaseId != null)
         {
             var style = _isSpecification ? TestStyles.Specification : TestStyles.Feature;
-
-            await _runReporter.ReportTestCaseAsync(
+            var path = LiveDocTestRunReporter.DerivePath(testClassType);
+            _runReporter.BufferTestCase(
                 _testCaseId,
                 style,
                 TestCase.Title,
                 TestCase.Description,
-                TestCase.Tags);
+                TestCase.Tags,
+                path);
 
-            if (_scenarioId != null)
+            if (_isOutline && _outlineId != null && testMethod != null && testMethodArgs != null)
             {
-                // For specifications, report rule; for features, report scenario
+                var testDesc = _isSpecification ? Rule.Description : Scenario.Description;
+                var testTags = _isSpecification ? Rule.Tags : Scenario.Tags;
+                var kind = isScenarioOutline ? "ScenarioOutline" : "RuleOutline";
+
+                // For outline titles, use the template form with <placeholders>
+                var testName = GetOutlineTemplateTitle(testMethod, _isSpecification);
+
+                _runReporter.BufferOutlineExample(
+                    _testCaseId,
+                    _outlineId,
+                    kind,
+                    testName,
+                    _outlineRowId,
+                    testMethod.GetParameters(),
+                    testMethodArgs,
+                    testDesc,
+                    testTags);
+            }
+            else if (_scenarioId != null)
+            {
                 var testName = _isSpecification ? Rule.Name : Scenario.Name;
                 var testDesc = _isSpecification ? Rule.Description : Scenario.Description;
                 var testTags = _isSpecification ? Rule.Tags : Scenario.Tags;
-                
-                await _runReporter.ReportScenarioStartAsync(
+                var kind = _isSpecification ? "Rule" : "Scenario";
+
+                _runReporter.BufferTest(
                     _testCaseId,
                     _scenarioId,
+                    kind,
                     testName,
                     testDesc,
                     testTags);
             }
         }
-        catch
-        {
-            // Silently ignore reporting errors - don't affect test execution
-        }
+
+        // Output feature and scenario headers
+        OutputHeader();
     }
 
     private FeatureContext InitializeFeatureContext()
@@ -284,9 +314,8 @@ public class LiveDocContext : IDisposable
                 var ruleName = ResolveParameterPlaceholders(Rule.Name);
                 _output.WriteLine(_formatter.FormatRule(ruleName));
                 
-                var exampleNumber = GetExampleNumber();
                 _output.WriteLine("");
-                _output.WriteLine(_formatter.FormatExampleHeader(exampleNumber));
+                _output.WriteLine(_formatter.FormatExampleHeader(_exampleNumber));
                 
                 if (_currentExample != null && _testMethod != null)
                 {
@@ -322,9 +351,8 @@ public class LiveDocContext : IDisposable
                 
                 if (_testMethodArgs != null && _testMethodArgs.Length > 0)
                 {
-                    var exampleNumber = GetExampleNumber();
                     _output.WriteLine("");
-                    _output.WriteLine(_formatter.FormatExampleHeader(exampleNumber));
+                    _output.WriteLine(_formatter.FormatExampleHeader(_exampleNumber));
                     
                     if (_currentExample != null && _testMethod != null)
                     {
@@ -406,6 +434,45 @@ public class LiveDocContext : IDisposable
         return result;
     }
 
+    /// <summary>
+    /// Gets the template title for an outline test, with placeholders in angle brackets.
+    /// For RuleOutline: uses Description attribute (already has &lt;placeholders&gt;) or generates from method name.
+    /// For ScenarioOutline: uses explicit title from constructor or generates from method name.
+    /// </summary>
+    private static string GetOutlineTemplateTitle(MethodInfo testMethod, bool isSpecification)
+    {
+        var paramNames = testMethod.GetParameters().Select(p => p.Name!).ToArray();
+
+        if (isSpecification)
+        {
+            var ruleOutlineAttr = testMethod.GetCustomAttribute<RuleOutlineAttribute>();
+            // RuleOutline Description is the explicit title template (already has <placeholders>)
+            if (!string.IsNullOrEmpty(ruleOutlineAttr?.Description))
+                return ruleOutlineAttr.Description;
+        }
+        else
+        {
+            var scenarioOutlineAttr = testMethod.GetCustomAttribute<ScenarioOutlineAttribute>();
+            if (scenarioOutlineAttr != null)
+            {
+                // ScenarioOutline title comes from the constructor parameter
+                // If DisplayName differs from the method name → user provided an explicit title
+                var methodAsTitle = "Scenario Outline: " + testMethod.Name.Replace("_", " ");
+                if (scenarioOutlineAttr.DisplayName != null && scenarioOutlineAttr.DisplayName != methodAsTitle)
+                {
+                    // Strip "Scenario Outline: " prefix — the viewer adds its own formatting
+                    var title = scenarioOutlineAttr.DisplayName;
+                    if (title.StartsWith("Scenario Outline: ", StringComparison.OrdinalIgnoreCase))
+                        title = title.Substring("Scenario Outline: ".Length);
+                    return title;
+                }
+            }
+        }
+
+        // No explicit title — generate template from method name with <placeholders>
+        return ValueParser.FormatMethodNameAsTemplate(testMethod.Name, paramNames);
+    }
+
     public void ExecuteStep(string type, string description, Action step)
     {
         // Create step context with extracted values
@@ -418,6 +485,7 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
+            OriginalDescription = description,
             StartTime = DateTime.UtcNow
         };
 
@@ -436,7 +504,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result (fire and forget)
-            ReportStepAsync(currentStepIndex, type, displayTitle, execution).ConfigureAwait(false);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
         }
         catch (Exception ex)
         {
@@ -446,7 +514,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result (fire and forget)
-            ReportStepAsync(currentStepIndex, type, displayTitle, execution).ConfigureAwait(false);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
 
             // Re-throw to let xUnit handle the failure
             throw;
@@ -472,6 +540,7 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
+            OriginalDescription = description,
             StartTime = DateTime.UtcNow
         };
 
@@ -488,7 +557,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result (fire and forget)
-            ReportStepAsync(currentStepIndex, type, displayTitle, execution).ConfigureAwait(false);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
         }
         catch (Exception ex)
         {
@@ -498,7 +567,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result (fire and forget)
-            ReportStepAsync(currentStepIndex, type, displayTitle, execution).ConfigureAwait(false);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
             
             throw;
         }
@@ -519,6 +588,7 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
+            OriginalDescription = description,
             StartTime = DateTime.UtcNow
         };
 
@@ -534,7 +604,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result
-            await ReportStepAsync(currentStepIndex, type, displayTitle, execution);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
         }
         catch (Exception ex)
         {
@@ -544,7 +614,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result
-            await ReportStepAsync(currentStepIndex, type, displayTitle, execution);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
             
             throw;
         }
@@ -568,6 +638,7 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
+            OriginalDescription = description,
             StartTime = DateTime.UtcNow
         };
 
@@ -583,7 +654,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result
-            await ReportStepAsync(currentStepIndex, type, displayTitle, execution);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
         }
         catch (Exception ex)
         {
@@ -593,7 +664,7 @@ public class LiveDocContext : IDisposable
             _steps.Add(execution);
             
             // Report step result
-            await ReportStepAsync(currentStepIndex, type, displayTitle, execution);
+            ReportStepAsync(currentStepIndex, type, displayTitle, execution);
             
             throw;
         }
@@ -603,39 +674,10 @@ public class LiveDocContext : IDisposable
         }
     }
 
-    private async Task ReportStepAsync(int stepIndex, string type, string title, StepExecution execution)
+    private void ReportStepAsync(int stepIndex, string type, string title, StepExecution execution)
     {
-        if (_runReporter == null || _testCaseId == null || _scenarioId == null)
-            return;
-
-        try
-        {
-            var stepId = LiveDocTestRunReporter.GenerateStepId(_scenarioId, type, stepIndex);
-            
-            ErrorInfo? error = null;
-            if (execution.Exception != null)
-            {
-                error = new ErrorInfo
-                {
-                    Message = execution.Exception.Message,
-                    Stack = execution.Exception.StackTrace
-                };
-            }
-
-            await _runReporter.ReportStepAsync(
-                _testCaseId,
-                _scenarioId,
-                stepId,
-                type.ToStepKeyword(),
-                title,
-                execution.Status.ToReporterStatus(),
-                (long)execution.Duration.TotalMilliseconds,
-                error);
-        }
-        catch
-        {
-            // Silently ignore reporting errors
-        }
+        // Steps are not individually reported in bulk mode — 
+        // final status is captured in scenario completion
     }
 
     private StepContext CreateStepContext(string type, string originalDescription, string displayTitle)
@@ -714,19 +756,11 @@ public class LiveDocContext : IDisposable
 
         _output.WriteLine("");
         
-        // Report scenario completion (fire and forget)
-        ReportScenarioCompleteAsync(failed > 0).ConfigureAwait(false);
-    }
-
-    private async Task ReportScenarioCompleteAsync(bool hasFailed)
-    {
-        if (_runReporter == null || _scenarioId == null)
-            return;
-
-        try
+        // Update buffered test with final execution result
+        var hasFailed = failed > 0;
+        if (_runReporter != null)
         {
             _scenarioStopwatch.Stop();
-            
             var failedStep = _steps.FirstOrDefault(s => s.Status == StepStatus.Failed);
             ErrorInfo? error = null;
             if (failedStep?.Exception != null)
@@ -738,15 +772,103 @@ public class LiveDocContext : IDisposable
                 };
             }
 
-            await _runReporter.ReportScenarioCompleteAsync(
-                _scenarioId,
-                hasFailed ? Reporter.Models.Status.Failed : Reporter.Models.Status.Passed,
-                _scenarioStopwatch.ElapsedMilliseconds,
-                error);
+            var finalStatus = hasFailed ? Reporter.Models.Status.Failed : Reporter.Models.Status.Passed;
+            var durationMs = _scenarioStopwatch.ElapsedMilliseconds;
+
+            // Build step data for reporting
+            var reportedSteps = BuildStepData();
+
+            if (_isOutline && _outlineId != null)
+            {
+                // Set template steps on the outline (only first example's steps are kept)
+                if (reportedSteps.Count > 0)
+                    _runReporter.SetTestSteps(_outlineId, reportedSteps);
+
+                // Add per-step example results for this row (matches vitest format)
+                // Server expects testId = step ID, not outline ID
+                if (reportedSteps.Count > 0)
+                {
+                    foreach (var step in reportedSteps)
+                    {
+                        _runReporter.AddOutlineExampleResult(
+                            _outlineId, _outlineRowId, step.Id,
+                            step.Execution.Status, step.Execution.Duration);
+                    }
+                }
+                else
+                {
+                    // No steps (e.g., Rules) — use outline ID as fallback
+                    _runReporter.AddOutlineExampleResult(
+                        _outlineId, _outlineRowId, _outlineId,
+                        finalStatus, durationMs, error);
+                }
+                _runReporter.RecordResult(finalStatus);
+            }
+            else if (_scenarioId != null)
+            {
+                // Set steps on scenario test
+                if (reportedSteps.Count > 0)
+                    _runReporter.SetTestSteps(_scenarioId, reportedSteps);
+
+                _runReporter.UpdateTestExecution(_scenarioId, finalStatus, durationMs, error);
+                _runReporter.RecordResult(finalStatus);
+            }
         }
-        catch
+    }
+
+    private List<StepTest> BuildStepData()
+    {
+        var parentId = _isOutline ? _outlineId! : _scenarioId!;
+        var result = new List<StepTest>();
+        for (int i = 0; i < _steps.Count; i++)
         {
-            // Silently ignore reporting errors
+            var step = _steps[i];
+            var stepId = LiveDocTestRunReporter.GenerateStepId(parentId, step.Type, i + 1);
+            // For outlines, reconstruct template with <placeholders> from bound values
+            var title = _isOutline
+                ? ReconstructTemplate(step.OriginalDescription ?? step.Description)
+                : step.Description;
+            result.Add(new StepTest
+            {
+                Id = stepId,
+                Title = title,
+                Keyword = step.Type.ToStepKeyword(),
+                Execution = new ExecutionResult
+                {
+                    Status = step.Status.ToReporterStatus(),
+                    Duration = (long)step.Duration.TotalMilliseconds
+                }
+            });
         }
+        return result;
+    }
+
+    /// <summary>
+    /// Reconstructs a template step by replacing bound example values with &lt;paramName&gt; placeholders.
+    /// E.g., "an order total of '100'" → "an order total of '&lt;orderTotal&gt;'" when orderTotal=100.
+    /// </summary>
+    private string ReconstructTemplate(string description)
+    {
+        if (_currentExample == null)
+            return description;
+
+        var result = description;
+        // Replace bound values with <paramName>, longest values first to avoid partial matches
+        foreach (var kvp in _currentExample.GetAll().OrderByDescending(k => k.Value?.ToString()?.Length ?? 0))
+        {
+            var valueStr = kvp.Value?.ToString();
+            if (string.IsNullOrEmpty(valueStr)) continue;
+            var placeholder = $"<{kvp.Key}>";
+
+            // Replace quoted occurrences: 'value...' → '<paramName>' (value may be part of quoted text)
+            result = Regex.Replace(result, $"'{Regex.Escape(valueStr)}([^']*)'", m =>
+            {
+                var suffix = m.Groups[1].Value;
+                return string.IsNullOrEmpty(suffix)
+                    ? $"'{placeholder}'"
+                    : $"'{placeholder}{suffix}'";
+            });
+        }
+        return result;
     }
 }

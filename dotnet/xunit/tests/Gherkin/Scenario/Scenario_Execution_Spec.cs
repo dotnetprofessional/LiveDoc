@@ -8,7 +8,10 @@ namespace LiveDoc.xUnit.Tests.Gherkin.Scenario;
 /// 
 /// BDD tests for scenario execution behavior.
 /// </summary>
-[Feature("Scenario Execution")]
+[Feature("Scenario Execution", Description = @"
+    Scenarios are isolated from each other and do not share state.
+    All step types (Given, When, Then, And, But) execute in
+    declaration order within a scenario.")]
 public class Scenario_Execution_Spec : FeatureTest
 {
     public Scenario_Execution_Spec(ITestOutputHelper output) : base(output)

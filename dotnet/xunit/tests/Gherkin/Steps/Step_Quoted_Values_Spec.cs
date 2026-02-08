@@ -10,7 +10,10 @@ namespace LiveDoc.xUnit.Tests.Gherkin.Steps;
 /// Step statements can include values in single quotes.
 /// These are extracted and made available via ctx.Step.Values array.
 /// </summary>
-[Feature]
+[Feature(Description = @"
+    Single-quoted values in step descriptions are automatically extracted
+    into ctx.Step.Values. The array supports indexing, tuple deconstruction,
+    typed conversion, and bounds-checked access with helpful errors.")]
 public class Step_Quoted_Values_Spec : FeatureTest
 {
     public Step_Quoted_Values_Spec(ITestOutputHelper output) : base(output)

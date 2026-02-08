@@ -188,4 +188,34 @@ public static class ValueParser
 
         return result;
     }
+
+    /// <summary>
+    /// Generates a TEMPLATE title from a method name, wrapping ALLCAPS placeholders
+    /// in angle brackets (e.g., "Adding_A_and_B_equals_EXPECTED" → "Adding <A> and <B> equals <EXPECTED>").
+    /// Used for outline test titles in the viewer where the template form is needed.
+    /// </summary>
+    public static string FormatMethodNameAsTemplate(string methodName, string[]? parameterNames = null)
+    {
+        // Build a set of parameter names for matching (case-insensitive)
+        var paramSet = parameterNames != null
+            ? new HashSet<string>(parameterNames, StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        // Replace _ALLCAPS with <lowercased> (before underscore-to-space)
+        var pattern = new Regex(@"_([A-Z][A-Z0-9]*)(?=_|$)");
+        var withMarkers = pattern.Replace(methodName, match =>
+        {
+            var name = match.Groups[1].Value;
+            // Only wrap if no param names specified, or if name matches a parameter
+            if (paramSet == null || paramSet.Contains(name))
+            {
+                return $" <{name.ToLowerInvariant()}>";
+            }
+            return match.Value;
+        });
+
+        // Replace remaining underscores with spaces
+        var withSpaces = withMarkers.Replace('_', ' ');
+        return Regex.Replace(withSpaces, @"\s+", " ").Trim();
+    }
 }

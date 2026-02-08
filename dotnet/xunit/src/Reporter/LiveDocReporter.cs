@@ -40,7 +40,11 @@ public class LiveDocReporter : IDisposable
     public LiveDocReporter(LiveDocConfig config)
     {
         _config = config;
-        _client = new HttpClient();
+        _client = new HttpClient(new SocketsHttpHandler
+        {
+            MaxConnectionsPerServer = 50,
+            ConnectTimeout = TimeSpan.FromSeconds(5)
+        });
         
         if (_config.IsEnabled)
         {
@@ -135,6 +139,35 @@ public class LiveDocReporter : IDisposable
         {
             LogWarning($"Failed to upsert test case: {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Upserts multiple test cases in a single batch request, optionally completing the run.
+    /// Combines batch + complete into one HTTP call to fit within ProcessExit timeout.
+    /// </summary>
+    public async Task UpsertTestCasesBatchAsync(
+        IEnumerable<TestCase> testCases, 
+        CompleteRunRequest? complete = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_config.IsEnabled || _runId == null)
+            return;
+
+        try
+        {
+            var request = complete != null
+                ? (object)new { testCases = testCases.ToList(), complete }
+                : new { testCases = testCases.ToList() };
+            var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
+            var content = new ByteArrayContent(json);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v3/runs/{_runId}/testcases/batch") { Content = content };
+            await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            LogWarning($"Failed to batch upsert test cases: {ex.Message}");
         }
     }
 
@@ -246,11 +279,11 @@ public class LiveDocReporter : IDisposable
                 Summary = summary
             };
 
-            var response = await _client.PostAsJsonAsync(
-                $"/api/v3/runs/{_runId}/complete",
-                request,
-                _jsonOptions,
-                cancellationToken);
+            var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
+            var content = new ByteArrayContent(json);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v3/runs/{_runId}/complete") { Content = content };
+            var response = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             return response.IsSuccessStatusCode;
         }
@@ -266,8 +299,6 @@ public class LiveDocReporter : IDisposable
     /// </summary>
     protected virtual void LogWarning(string message)
     {
-        // Silent by default - don't pollute test output
-        // Subclasses can override for diagnostics
         System.Diagnostics.Debug.WriteLine($"[LiveDoc] Warning: {message}");
     }
 

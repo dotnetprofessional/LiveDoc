@@ -93,7 +93,8 @@ if ($health) {
     return
 }
 
-$cmd = "Set-Location `"$serverDir`"; pnpm run dev -- --port $Port --host $HostName"
+$dataDir = Join-Path $repoRoot 'packages/viewer/.livedoc/data'
+$cmd = "Set-Location `"$serverDir`"; pnpm run dev -- --port $Port --host $HostName --data-dir `"$dataDir`""
 
 Write-Host "Starting LiveDoc server dev process on port $Port..." -ForegroundColor Cyan
 
@@ -104,7 +105,7 @@ if ($NewWindow) {
 
 Push-Location $serverDir
 try {
-    & pnpm run dev -- --port $Port --host $HostName
+    & pnpm run dev -- --port $Port --host $HostName --data-dir "$dataDir"
 } finally {
     Pop-Location
 }

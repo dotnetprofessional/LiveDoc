@@ -8,7 +8,9 @@ namespace LiveDoc.xUnit.Tests.Gherkin.Execution;
 /// 
 /// Tests for async support in Specification-style rules.
 /// </summary>
-[Specification]
+[Specification(Description = @"
+    Specification-style [Rule] and [RuleOutline] methods support async/await,
+    allowing asynchronous assertions and data-driven async tests.")]
 public class Async_Rules_Spec : SpecificationTest
 {
     public Async_Rules_Spec(ITestOutputHelper output) : base(output)
