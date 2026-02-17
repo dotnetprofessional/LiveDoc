@@ -1,7 +1,7 @@
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Base class for BDD/Gherkin-style feature tests.

@@ -1,9 +1,9 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using LiveDoc.xUnit.Reporter.Models;
+using SweDevTools.LiveDoc.xUnit.Reporter.Models;
 
-namespace LiveDoc.xUnit.Reporter;
+namespace SweDevTools.LiveDoc.xUnit.Reporter;
 
 /// <summary>
 /// HTTP client for reporting test results to the LiveDoc server.

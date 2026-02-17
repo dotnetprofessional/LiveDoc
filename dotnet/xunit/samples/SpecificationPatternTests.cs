@@ -1,5 +1,5 @@
-using LiveDoc.xUnit;
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -15,7 +15,7 @@ namespace ShippingSample;
     Core arithmetic operations for the calculator module.
     Uses the specification pattern for cleaner unit tests.
 ")]
-public class CalculatorSpec : LiveDocTest
+public class CalculatorSpec : SpecificationTest
 {
     public CalculatorSpec(ITestOutputHelper output) : base(output)
     {
@@ -27,58 +27,40 @@ public class CalculatorSpec : LiveDocTest
     public void Adding_positive_numbers_works()
     {
         var result = Add(5, 3);
-        
-        Then("the result should be correct", () =>
-        {
-            Assert.Equal(8, result);
-        });
+        Assert.Equal(8, result);
     }
 
     [Rule]
     public void Multiplying_by_zero_returns_zero()
     {
         var result = Multiply(100, 0);
-        
-        Then("the result should be zero", () =>
-        {
-            Assert.Equal(0, result);
-        });
+        Assert.Equal(0, result);
     }
 
     [Rule("Division by '0' throws DivideByZeroException")]
     public void Division_by_zero_throws()
     {
-        Then("attempting to divide by zero throws", () =>
-        {
-            Assert.Throws<DivideByZeroException>(() => Divide(10, 0));
-        });
+        Assert.Throws<DivideByZeroException>(() => Divide(10, 0));
     }
 
     #endregion
 
-    #region Rules with Descriptions
+    #region Rules with Value Extraction
 
     [Rule("Adding '5' and '3' returns '8'")]
     public void Add_with_values()
     {
-        Given("the addition '5' + '3'", ctx =>
-        {
-            var (a, b) = ctx.Step!.Values.As<int, int>();
-            var result = Add(a, b);
-            Assert.Equal(8, result);
-        });
+        var (a, b, expected) = Rule.Values.As<int, int, int>();
+        Assert.Equal(expected, Add(a, b));
     }
 
     [Rule("Subtracting <b:3> from <a:10> returns <expected:7>")]
     public void Subtract_with_named_params()
     {
-        Given("the subtraction <a:10> - <b:3>", ctx =>
-        {
-            var a = ctx.Step!.Params["a"].AsInt();
-            var b = ctx.Step!.Params["b"].AsInt();
-            var result = Subtract(a, b);
-            Assert.Equal(7, result);
-        });
+        var a = Rule.Params["a"].AsInt();
+        var b = Rule.Params["b"].AsInt();
+        var expected = Rule.Params["expected"].AsInt();
+        Assert.Equal(expected, Subtract(a, b));
     }
 
     #endregion
@@ -132,7 +114,7 @@ public class CalculatorSpec : LiveDocTest
 /// Validates email format using data-driven rule outlines.
 /// </summary>
 [Specification("Email Validation Rules")]
-public class EmailValidationSpec : LiveDocTest
+public class EmailValidationSpec : SpecificationTest
 {
     public EmailValidationSpec(ITestOutputHelper output) : base(output)
     {
@@ -184,7 +166,7 @@ public class EmailValidationSpec : LiveDocTest
 /// Tests for the _ALLCAPS placeholder syntax in method names.
 /// </summary>
 [Specification("Method Name Placeholder Parsing")]
-public class MethodNamePlaceholderSpec : LiveDocTest
+public class MethodNamePlaceholderSpec : SpecificationTest
 {
     public MethodNamePlaceholderSpec(ITestOutputHelper output) : base(output)
     {

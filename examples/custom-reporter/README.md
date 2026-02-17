@@ -84,7 +84,7 @@ For reporters that understand LiveDoc's BDD structure (Features, Scenarios, Step
 
 ```typescript
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
     test: {
@@ -121,10 +121,10 @@ custom-reporter/
 
 ## Step Function Naming
 
-**Important:** In @livedoc/vitest, step functions use PascalCase:
+**Important:** In @swedevtools/livedoc-vitest, step functions use PascalCase:
 
 ```typescript
-import { feature, scenario, Given, When, Then, And, But } from "@livedoc/vitest";
+import { feature, scenario, Given, When, Then, And, But } from "@swedevtools/livedoc-vitest";
 
 scenario("My test", () => {
     Given("some precondition", () => { });

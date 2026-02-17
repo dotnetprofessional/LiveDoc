@@ -2,13 +2,13 @@ using System.Runtime.CompilerServices;
 using Xunit;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Marks a test method as a Scenario in BDD terminology.
 /// Inherits from xUnit's FactAttribute.
 /// </summary>
-[XunitTestCaseDiscoverer("LiveDoc.xUnit.ScenarioTestCaseDiscoverer", "livedoc-xunit")]
+[XunitTestCaseDiscoverer("SweDevTools.LiveDoc.xUnit.ScenarioTestCaseDiscoverer", "livedoc-xunit")]
 [AttributeUsage(AttributeTargets.Method)]
 public class ScenarioAttribute : FactAttribute
 {

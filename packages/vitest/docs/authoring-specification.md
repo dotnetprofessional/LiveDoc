@@ -27,7 +27,7 @@ While BDD's `feature/scenario` pattern tells user stories, `specification/rule` 
 A specification groups related rules. It's analogous to `feature` in BDD.
 
 ```ts
-import { specification, rule } from '@livedoc/vitest';
+import { specification, rule } from '@swedevtools/livedoc-vitest';
 
 specification("Password Validation", () => {
   rule("Password must be at least 8 characters", (ctx) => {
@@ -81,7 +81,7 @@ rule("The result of <a:10> + <b:20> should be <expected:30>", (ctx) => {
 Data-driven rules with an Examples table:
 
 ```ts
-import { specification, ruleOutline } from '@livedoc/vitest';
+import { specification, ruleOutline } from '@swedevtools/livedoc-vitest';
 
 specification("Tax Calculation", () => {
   ruleOutline(`Tax rate by income bracket

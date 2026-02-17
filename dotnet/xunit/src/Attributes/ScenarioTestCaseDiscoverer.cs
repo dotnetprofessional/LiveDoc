@@ -1,7 +1,7 @@
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Test case discoverer for Scenario attributes.

@@ -29,13 +29,13 @@ pnpm install
 ### 2. Build the vitest package
 
 ```bash
-pnpm --filter @livedoc/vitest build
+pnpm --filter @swedevtools/livedoc-vitest build
 ```
 
 ### 3. Run tests
 
 ```bash
-pnpm --filter @livedoc/vitest test
+pnpm --filter @swedevtools/livedoc-vitest test
 ```
 
 ---
@@ -65,19 +65,19 @@ packages/vitest/
 1. Create a branch: `git checkout -b feature/my-feature`
 2. Make your changes
 3. Add/update tests in `_src/test/`
-4. Run tests: `pnpm --filter @livedoc/vitest test`
-5. Build: `pnpm --filter @livedoc/vitest build`
+4. Run tests: `pnpm --filter @swedevtools/livedoc-vitest test`
+5. Build: `pnpm --filter @swedevtools/livedoc-vitest build`
 
 ### Running a specific test file
 
 ```bash
-pnpm --filter @livedoc/vitest test -- _src/test/MyFeature.Spec.ts
+pnpm --filter @swedevtools/livedoc-vitest test -- _src/test/MyFeature.Spec.ts
 ```
 
 ### Watch mode
 
 ```bash
-pnpm --filter @livedoc/vitest test -- --watch
+pnpm --filter @swedevtools/livedoc-vitest test -- --watch
 ```
 
 ---
@@ -162,8 +162,8 @@ If you're adding a new keyword or modifying behavior:
 
 1. **Fork the repo** and create your branch
 2. **Make your changes** with tests
-3. **Ensure tests pass**: `pnpm --filter @livedoc/vitest test`
-4. **Ensure build works**: `pnpm --filter @livedoc/vitest build`
+3. **Ensure tests pass**: `pnpm --filter @swedevtools/livedoc-vitest test`
+4. **Ensure build works**: `pnpm --filter @swedevtools/livedoc-vitest build`
 5. **Open a PR** with:
    - Clear description of what and why
    - Link to any related issues

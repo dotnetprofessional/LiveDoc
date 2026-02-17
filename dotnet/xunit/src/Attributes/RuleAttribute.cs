@@ -2,7 +2,7 @@ using System.Reflection;
 using Xunit;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Marks a test method as a Rule (single assertion in a Specification).
@@ -11,7 +11,7 @@ namespace LiveDoc.xUnit;
 /// <example>
 /// <code>
 /// [Specification("Calculator")]
-/// public class CalculatorSpec : LiveDocTest
+/// public class CalculatorSpec : SpecificationTest
 /// {
 ///     // Simple rule - method name becomes description
 ///     [Rule]
@@ -30,7 +30,7 @@ namespace LiveDoc.xUnit;
 /// </code>
 /// </example>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-[XunitTestCaseDiscoverer("LiveDoc.xUnit.RuleTestCaseDiscoverer", "livedoc-xunit")]
+[XunitTestCaseDiscoverer("SweDevTools.LiveDoc.xUnit.RuleTestCaseDiscoverer", "livedoc-xunit")]
 public class RuleAttribute : FactAttribute
 {
     /// <summary>
@@ -76,7 +76,7 @@ public class RuleAttribute : FactAttribute
         
         if (paramValues != null && paramValues.Count > 0)
         {
-            return LiveDoc.xUnit.Core.ValueParser.FormatMethodNameWithValues(methodName, paramValues);
+            return SweDevTools.LiveDoc.xUnit.Core.ValueParser.FormatMethodNameWithValues(methodName, paramValues);
         }
 
         // Simple underscore to space conversion

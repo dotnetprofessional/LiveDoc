@@ -1,4 +1,4 @@
-# @livedoc/vscode Extension - Developer Guide
+# livedoc-vscode Extension - Developer Guide
 
 This document provides a quickstart guide for developing the LiveDoc VS Code extension.
 
@@ -34,7 +34,7 @@ packages/vscode/
 
 3. **Compile manually**:
    ```bash
-   pnpm --filter @livedoc/vscode run compile
+   pnpm --filter livedoc-vscode run compile
    ```
 
 ### From the Extension Folder Directly
@@ -95,5 +95,5 @@ code --install-extension livedoc-0.0.1.vsix
 
 ## Related Packages
 
-- [@livedoc/vitest](../vitest/) - Core BDD testing framework
-- [@livedoc/viewer](../viewer/) - Test results visualization
+- [@swedevtools/livedoc-vitest](../vitest/) - Core BDD testing framework
+- [@swedevtools/livedoc-viewer](../viewer/) - Test results visualization

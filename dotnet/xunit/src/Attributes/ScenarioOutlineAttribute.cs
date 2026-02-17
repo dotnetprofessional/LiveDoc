@@ -2,14 +2,14 @@ using System.Runtime.CompilerServices;
 using Xunit;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Marks a test method as a Scenario Outline (data-driven scenario) in BDD terminology.
 /// Inherits from xUnit's TheoryAttribute.
 /// Use with [Example] attributes to provide data rows.
 /// </summary>
-[XunitTestCaseDiscoverer("LiveDoc.xUnit.ScenarioOutlineTestCaseDiscoverer", "livedoc-xunit")]
+[XunitTestCaseDiscoverer("SweDevTools.LiveDoc.xUnit.ScenarioOutlineTestCaseDiscoverer", "livedoc-xunit")]
 [AttributeUsage(AttributeTargets.Method)]
 public class ScenarioOutlineAttribute : TheoryAttribute
 {

@@ -1,4 +1,4 @@
-# @livedoc/server
+# @swedevtools/livedoc-server
 
 Shared server infrastructure for the LiveDoc ecosystem. This package provides the core server functionality used by both the LiveDoc Viewer and VS Code extension.
 
@@ -13,9 +13,9 @@ Shared server infrastructure for the LiveDoc ecosystem. This package provides th
 ## Installation
 
 ```bash
-npm install @livedoc/server
+npm install @swedevtools/livedoc-server
 # or
-pnpm add @livedoc/server
+pnpm add @swedevtools/livedoc-server
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ pnpm add @livedoc/server
 ### Embedded Mode (Library)
 
 ```typescript
-import { createServer } from '@livedoc/server';
+import { createServer } from '@swedevtools/livedoc-server';
 
 // Create server instance
 const server = createServer({
@@ -55,10 +55,10 @@ import type {
   Scenario, 
   Step,
   ReporterConfig 
-} from '@livedoc/server';
+} from '@swedevtools/livedoc-server';
 
 // Or import from schema subpath
-import type { TestRun } from '@livedoc/server/schema';
+import type { TestRun } from '@swedevtools/livedoc-server/schema';
 ```
 
 ## API Endpoints

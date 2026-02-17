@@ -222,7 +222,7 @@ This design means reporters work even if tests are run in worker threads.
 For advanced use cases (like the VS Code extension), LiveDoc supports dynamic execution:
 
 ```ts
-import { executeDynamicTestAsync } from '@livedoc/vitest';
+import { executeDynamicTestAsync } from '@swedevtools/livedoc-vitest';
 
 const results = await executeDynamicTestAsync(`
   feature("Dynamic", () => {

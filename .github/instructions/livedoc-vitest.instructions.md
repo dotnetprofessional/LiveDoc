@@ -42,10 +42,10 @@ then("the balance is correct", (ctx) => { expect(balance).toBe(300); });
 
 ```typescript
 // Note: 'Then' must be uppercase due to ESM thenable detection, alias it for lowercase usage
-import { feature, scenario, scenarioOutline, background, given, when, Then as then, and, but } from "@livedoc/vitest";
+import { feature, scenario, scenarioOutline, background, given, when, Then as then, and, but } from "@swedevtools/livedoc-vitest";
 
 // Specification pattern imports
-import { specification, rule, ruleOutline } from "@livedoc/vitest";
+import { specification, rule, ruleOutline } from "@swedevtools/livedoc-vitest";
 
 // Or use globals mode (vitest.config.ts: globals: true) for all lowercase without imports
 ```
@@ -248,6 +248,16 @@ specification("My Spec @tag1", (ctx) => {
         ctx.rule.title       // "Rule context"
         ctx.rule.description // rule description
     });
+
+    rule("Adding '5' and '3' returns '8'", (ctx) => {
+        ctx.rule.values      // [5, 3, 8] — type-coerced quoted values
+        ctx.rule.valuesRaw   // ["5", "3", "8"] — raw strings
+    });
+
+    rule("Processing <action:login> for <user:alice>", (ctx) => {
+        ctx.rule.params      // {action: "login", user: "alice"} — type-coerced
+        ctx.rule.paramsRaw   // {action: "login", user: "alice"} — raw strings
+    });
 });
 ```
 
@@ -337,8 +347,17 @@ given(`JSON input:
 |       Property       |          Type          |                      Description                       |
 | -------------------- | ---------------------- | ------------------------------------------------------ |
 | `ctx.specification`  | `SpecificationContext` | `{title, description, tags}`                           |
-| `ctx.rule`           | `RuleContext`          | `{title, description, tags, specification}`            |
+| `ctx.rule`           | `RuleContext`          | `{title, description, tags, specification, values, params}` |
 | `ctx.example`        | `object`               | Current example row data (ruleOutline only)            |
+
+### RuleContext Properties
+
+| Property    | Returns                             |
+| ----------  | ---------                           |
+| `values`    | Coerced quoted values array         |
+| `valuesRaw` | Raw string values                   |
+| `params`    | Coerced named values object `<n:v>` |
+| `paramsRaw` | Raw named values string object      |
 
 ### StepContext Properties
 

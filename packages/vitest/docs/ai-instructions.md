@@ -3,7 +3,7 @@
 This document is intended for AI Agents (LLMs) to automate the setup and maintenance of LiveDoc tests.
 
 ## 🤖 Role
-You are a LiveDoc Setup Agent. Your goal is to configure the developer's environment to use `@livedoc/vitest` for living documentation.
+You are a LiveDoc Setup Agent. Your goal is to configure the developer's environment to use `@swedevtools/livedoc-vitest` for living documentation.
 
 ## 📋 Agent Execution Plan
 
@@ -26,7 +26,7 @@ Follow this plan to initialize or update the LiveDoc environment:
     *   Ask: "Where should I place the spec files? (Default: `test/*.Spec.ts`)"
 3.  **Dependency Injection**:
     *   Install/ensure `vitest` is present (and 4+ per the checkpoint above).
-    *   Install `@livedoc/vitest` using the project's package manager (npm/pnpm/yarn).
+    *   Install `@swedevtools/livedoc-vitest` using the project's package manager (npm/pnpm/yarn).
 4.  **Configuration**:
   *   Configure `vitest.config.ts` with `LiveDocSpecReporter`.
   *   **Config safety (recommended):**
@@ -53,7 +53,7 @@ Use this snippet to quickly configure the environment once the developer has mad
 
 ```bash
 # Example for pnpm
-pnpm add -D @livedoc/vitest
+pnpm add -D @swedevtools/livedoc-vitest
 ```
 
 ## ⚙️ Configuration Templates
@@ -89,7 +89,7 @@ pnpm add -D cross-env
 #### vitest.config.ts
 ```ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -111,7 +111,7 @@ export default defineConfig({
 #### vitest.config.ts
 ```ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -119,9 +119,9 @@ export default defineConfig({
     environment: 'node',
     include: ['**/*.Spec.ts'],
     // Preferred: use the package-provided globals setup.
-    // Fallback: if the consuming repo is pinned to an older @livedoc/vitest that
+    // Fallback: if the consuming repo is pinned to an older @swedevtools/livedoc-vitest that
     // doesn't export this entrypoint, use a local ./livedoc.setup.ts instead.
-    setupFiles: ['@livedoc/vitest/setup'],
+    setupFiles: ['@swedevtools/livedoc-vitest/setup'],
     reporters: [
       new LiveDocSpecReporter({
         detailLevel: process.env.LIVEDOC_DETAIL_LEVEL ?? 'spec+summary+headers',
@@ -135,12 +135,12 @@ export default defineConfig({
 ```json
 {
   "compilerOptions": {
-    "types": ["vitest/globals", "@livedoc/vitest/globals"]
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
   }
 }
 ```
 
-#### Globals mode fallback (when `@livedoc/vitest/setup` and/or `@livedoc/vitest/globals` do not exist)
+#### Globals mode fallback (when `@swedevtools/livedoc-vitest/setup` and/or `@swedevtools/livedoc-vitest/globals` do not exist)
 
 1) Create `livedoc.setup.ts` (referenced by `setupFiles` above) and attach the API to `globalThis`:
 
@@ -158,7 +158,7 @@ import {
   specification,
   rule,
   ruleOutline,
-} from '@livedoc/vitest';
+} from '@swedevtools/livedoc-vitest';
 
 Object.assign(globalThis, {
   feature,
@@ -182,18 +182,18 @@ Object.assign(globalThis, {
 export {};
 
 declare global {
-  const feature: typeof import('@livedoc/vitest').feature;
-  const scenario: typeof import('@livedoc/vitest').scenario;
-  const scenarioOutline: typeof import('@livedoc/vitest').scenarioOutline;
-  const background: typeof import('@livedoc/vitest').background;
-  const given: typeof import('@livedoc/vitest').given;
-  const when: typeof import('@livedoc/vitest').when;
-  const Then: typeof import('@livedoc/vitest').Then;
-  const and: typeof import('@livedoc/vitest').and;
-  const but: typeof import('@livedoc/vitest').but;
-  const specification: typeof import('@livedoc/vitest').specification;
-  const rule: typeof import('@livedoc/vitest').rule;
-  const ruleOutline: typeof import('@livedoc/vitest').ruleOutline;
+  const feature: typeof import('@swedevtools/livedoc-vitest').feature;
+  const scenario: typeof import('@swedevtools/livedoc-vitest').scenario;
+  const scenarioOutline: typeof import('@swedevtools/livedoc-vitest').scenarioOutline;
+  const background: typeof import('@swedevtools/livedoc-vitest').background;
+  const given: typeof import('@swedevtools/livedoc-vitest').given;
+  const when: typeof import('@swedevtools/livedoc-vitest').when;
+  const Then: typeof import('@swedevtools/livedoc-vitest').Then;
+  const and: typeof import('@swedevtools/livedoc-vitest').and;
+  const but: typeof import('@swedevtools/livedoc-vitest').but;
+  const specification: typeof import('@swedevtools/livedoc-vitest').specification;
+  const rule: typeof import('@swedevtools/livedoc-vitest').rule;
+  const ruleOutline: typeof import('@swedevtools/livedoc-vitest').ruleOutline;
 }
 ```
 
@@ -202,23 +202,23 @@ declare global {
 - Place it in a folder already included (common: `src/`), or
 - Add a `/// <reference path="./livedoc-globals.d.ts" />` in a shared types entry.
 
-### Avoid alias collisions with `@livedoc/*` (CRITICAL)
+### Avoid alias collisions with `@swedevtools/livedoc-*` (CRITICAL)
 
-Many repos alias `@` → `src`. That can accidentally rewrite scoped packages like `@livedoc/vitest/...` in some bundler/test configs.
+Many repos alias `@` → `src`. That can accidentally rewrite scoped packages like `@swedevtools/livedoc-vitest/...` in some bundler/test configs.
 
 - Prefer aliasing only `@/` → `src` (or a regex that matches `^@/`) rather than bare `@`.
-- If the repo already has a bare `@` alias, update it carefully so `@livedoc/*` remains untouched.
+- If the repo already has a bare `@` alias, update it carefully so `@swedevtools/livedoc-*` remains untouched.
 
 ### Reporter loading expectations (CLI vs config)
 
 - **Most reliable**: instantiate `new LiveDocSpecReporter(...)` in `vitest.config.ts` (as shown above).
-- If using CLI `--reporter=@livedoc/vitest/reporter`, be aware some builds may export `LiveDocSpecReporter` as a **named** export (not a default export).
+- If using CLI `--reporter=@swedevtools/livedoc-vitest/reporter`, be aware some builds may export `LiveDocSpecReporter` as a **named** export (not a default export).
     - If Vitest expects a **default export** for custom reporter modules, use a tiny wrapper file.
 
 Example wrapper `livedoc.reporter.ts`:
 
 ```ts
-export { LiveDocSpecReporter as default } from '@livedoc/vitest/reporter';
+export { LiveDocSpecReporter as default } from '@swedevtools/livedoc-vitest/reporter';
 ```
 
 Then reference it in config or CLI as your reporter module path.
@@ -228,7 +228,7 @@ Then reference it in config or CLI as your reporter module path.
 Create `test/SmokeTest.Spec.ts` (or your preferred spec folder). This validates both parsing and reporting:
 
 ```ts
-import { feature, scenario, given, when, Then as then } from '@livedoc/vitest';
+import { feature, scenario, given, when, Then as then } from '@swedevtools/livedoc-vitest';
 
 feature(`LiveDoc Smoke Test
   Verifies that LiveDoc steps render and the reporter prints output

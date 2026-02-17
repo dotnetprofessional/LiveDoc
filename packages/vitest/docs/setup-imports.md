@@ -26,7 +26,7 @@ In ES modules, if a module's namespace object has a property named `then`, some 
 LiveDoc exports `Then` (uppercase) to avoid this. You simply alias it:
 
 ```ts
-import { Then as then } from '@livedoc/vitest';
+import { Then as then } from '@swedevtools/livedoc-vitest';
 ```
 
 Now you write specs with lowercase `then` — clean and consistent.
@@ -40,7 +40,7 @@ Now you write specs with lowercase `then` — clean and consistent.
 ```ts
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -67,7 +67,7 @@ import {
   Then as then,
   and,
   but,
-} from '@livedoc/vitest';
+} from '@swedevtools/livedoc-vitest';
 
 feature("User Authentication", () => {
   scenario("Successful login", () => {

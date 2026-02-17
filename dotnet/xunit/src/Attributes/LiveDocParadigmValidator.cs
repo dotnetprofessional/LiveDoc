@@ -1,9 +1,9 @@
 using System.Reflection;
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Helper class for validating LiveDoc paradigm usage at test discovery time.

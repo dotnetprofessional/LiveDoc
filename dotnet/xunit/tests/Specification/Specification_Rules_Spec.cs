@@ -1,8 +1,8 @@
-using LiveDoc.xUnit;
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Tests.Specification;
+namespace SweDevTools.LiveDoc.xUnit.Tests.Specification;
 
 /// <summary>
 /// Specification: Specification Rules
@@ -51,19 +51,18 @@ public class Specification_Rules_Spec : SpecificationTest
     [Rule("Adding '5' and '3' produces '8'")]
     public void Rule_with_quoted_values()
     {
-        // Rules use direct assertions - values are in the rule title for documentation
-        var a = 5;
-        var b = 3;
+        // Values are extracted from the rule title — no hardcoding
+        var (a, b, expected) = Rule.Values.As<int, int, int>();
         var result = a + b;
-        Assert.Equal(8, result);
+        Assert.Equal(expected, result);
     }
 
-    [Rule("User John is 30 years old")]
+    [Rule("User 'John' is '30' years old")]
     public void Rule_with_inline_values()
     {
-        // Values are documented in the title, implementation uses them directly
-        var name = "John";
-        var age = 30;
+        // Values extracted and type-coerced from the title
+        var name = Rule.Values[0].AsString();
+        var age = Rule.Values[1].AsInt();
         
         Assert.Equal("John", name);
         Assert.Equal(30, age);

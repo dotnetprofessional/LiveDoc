@@ -17,6 +17,12 @@ export class Rule extends LiveDocSuite {
     public code: string = "";
     public exception: Exception = new Exception();
 
+    // Value extraction from rule title
+    public valuesRaw: string[] = [];
+    public values: any[] = [];
+    public paramsRaw: Record<string, string> = {};
+    public params: Record<string, any> = {};
+
     constructor(parent: Specification) {
         super();
         this.parent = parent;
@@ -34,6 +40,10 @@ export class Rule extends LiveDocSuite {
         context.description = this.description;
         context.tags = this.tags;
         context.specification = this.parent.getSpecificationContext();
+        context.valuesRaw = this.valuesRaw;
+        context.values = this.values;
+        context.paramsRaw = this.paramsRaw;
+        context.params = this.params;
         return context;
     }
 

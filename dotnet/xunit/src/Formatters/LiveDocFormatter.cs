@@ -1,4 +1,4 @@
-namespace LiveDoc.xUnit.Formatters;
+namespace SweDevTools.LiveDoc.xUnit.Formatters;
 
 /// <summary>
 /// Formats test output in BDD/Gherkin style with optional colors.

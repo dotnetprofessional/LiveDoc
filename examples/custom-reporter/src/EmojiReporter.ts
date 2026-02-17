@@ -5,7 +5,7 @@ import type { Reporter, File, TaskResultPack } from 'vitest';
  * 
  * This is a simple example showing how to create a custom reporter for Vitest.
  * For LiveDoc-aware reporters that understand Features, Scenarios, and Steps,
- * see the LiveDocSpecReporter in @livedoc/vitest.
+ * see the LiveDocSpecReporter in @swedevtools/livedoc-vitest.
  * 
  * Emojis used:
  * - 😃 Pass

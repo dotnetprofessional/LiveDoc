@@ -1,8 +1,8 @@
-using LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Tests.Output;
+namespace SweDevTools.LiveDoc.xUnit.Tests.Output;
 
 /// <summary>
 /// Tests that verify the description is displayed in test output.

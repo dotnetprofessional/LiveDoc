@@ -34,7 +34,7 @@ export function MainContent() {
           </p>
           <div className="p-4 bg-card border rounded-xl text-left text-xs font-mono text-muted-foreground">
             <p className="mb-2 text-foreground font-semibold">Quick Start:</p>
-            <p>pnpm vitest --reporter @livedoc/vitest</p>
+            <p>pnpm vitest --reporter @swedevtools/livedoc-vitest</p>
           </div>
         </motion.div>
       </main>

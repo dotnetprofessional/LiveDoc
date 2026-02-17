@@ -1,10 +1,10 @@
 <div align="center">
 
-# 📖 @livedoc/vitest
+# 📖 @swedevtools/livedoc-vitest
 
 ### Turn your tests into living documentation
 
-[![npm version](https://img.shields.io/npm/v/@livedoc/vitest.svg)](https://www.npmjs.com/package/@livedoc/vitest)
+[![npm version](https://img.shields.io/npm/v/@swedevtools/livedoc-vitest.svg)](https://www.npmjs.com/package/@swedevtools/livedoc-vitest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 </div>

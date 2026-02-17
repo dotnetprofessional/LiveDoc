@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace LiveDoc.xUnit.Reporter.Models;
+namespace SweDevTools.LiveDoc.xUnit.Reporter.Models;
 
 // =============================================================================
 // Value Objects

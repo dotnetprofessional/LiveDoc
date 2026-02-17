@@ -28,7 +28,7 @@ Check out our **[AI Setup Guide](./ai-setup-guide.md)** for a one-sentence promp
 ## Step 1: Install
 
 ```bash
-npm install --save-dev vitest @livedoc/vitest
+npm install --save-dev vitest @swedevtools/livedoc-vitest
 ```
 
 > **Already using Vitest?** Great! LiveDoc works alongside your existing config.
@@ -41,7 +41,7 @@ Create a file named `calculator.Spec.ts` (the `.Spec.ts` suffix is important):
 
 ```ts
 // tests/calculator.Spec.ts
-import { feature, scenario, given, when, Then as then, and } from '@livedoc/vitest';
+import { feature, scenario, given, when, Then as then, and } from '@swedevtools/livedoc-vitest';
 
 feature("Calculator", () => {
   scenario("Adding two numbers", () => {
@@ -83,7 +83,7 @@ Create or update `vitest.config.ts`:
 
 ```ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {

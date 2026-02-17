@@ -1,7 +1,7 @@
-using LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Tests.Specification;
+namespace SweDevTools.LiveDoc.xUnit.Tests.Specification;
 
 /// <summary>
 /// Specification: RuleOutline with Complex Types

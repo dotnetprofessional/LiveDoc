@@ -1,6 +1,6 @@
 using System;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Adds tags to a LiveDoc test class or test method for filtering and categorization.

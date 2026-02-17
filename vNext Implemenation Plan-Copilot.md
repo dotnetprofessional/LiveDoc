@@ -27,7 +27,7 @@ This document outlines the strategy for re-architecting the LiveDoc ecosystem to
 ## Phase 2: Server Evolution
 **Goal**: Update the server to act as a strict gatekeeper and provide a clean read-model.
 
-1.  **Adopt `@livedoc/schema`**:
+1.  **Adopt `@swedevtools/livedoc-schema`**:
     *   Replace internal types in `packages/server` with the new schema.
 2.  **Strict Validation**:
     *   Update REST endpoints (`/api/runs/start`, `/api/runs/:id/nodes`, etc.) to validate incoming payloads against the vNext schema.
@@ -59,7 +59,7 @@ This document outlines the strategy for re-architecting the LiveDoc ecosystem to
         *   `VitestSuite` -> `vNext.TestSuite`
         *   `LiveDocTest` -> `vNext.Test`
 2.  **StabilityID Integration**:
-    *   Use the `@livedoc/schema` utility to generate IDs during the reporting phase.
+    *   Use the `@swedevtools/livedoc-schema` utility to generate IDs during the reporting phase.
 3.  **Binding & Values**:
     *   Ensure `binding` objects are populated for all example nodes.
     *   Extract and type `Step.values` at the reporter level.

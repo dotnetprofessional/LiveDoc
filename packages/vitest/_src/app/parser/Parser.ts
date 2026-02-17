@@ -254,6 +254,13 @@ export class LiveDocGrammarParser {
         rule.description = parser.description;
         rule.displayTitle = this.formatDisplayTitle(description, type, 6);
         rule.tags = parser.tags;
+
+        // Extract values and params from rule title (same as step parsing)
+        rule.valuesRaw = parser.quotedValues;
+        rule.values = parser.coerceValues(rule.valuesRaw);
+        rule.paramsRaw = parser.namedValues;
+        rule.params = parser.coerceNamedValues(rule.paramsRaw);
+
         specification.addRule(rule);
 
         return rule;

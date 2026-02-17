@@ -1,4 +1,4 @@
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// Context for the current step being executed.
@@ -74,6 +74,11 @@ public class LiveDocValueArray
 {
     private readonly LiveDocValue[] _values;
     private readonly string _stepTitle;
+
+    /// <summary>
+    /// An empty value array (used as default for contexts with no extracted values).
+    /// </summary>
+    public static readonly LiveDocValueArray Empty = new(Array.Empty<LiveDocValue>(), "");
 
     /// <summary>
     /// Creates a new value array.

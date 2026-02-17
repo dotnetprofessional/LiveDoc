@@ -13,7 +13,7 @@
  * export default defineConfig({
  *   test: {
  *     globals: true,
- *     setupFiles: ['@livedoc/vitest/setup'],
+ *     setupFiles: ['@swedevtools/livedoc-vitest/setup'],
  *   },
  * });
  * ```

@@ -1,10 +1,10 @@
 using System.Text.Json;
-using LiveDoc.xUnit;
-using LiveDoc.xUnit.Reporter;
-using LiveDoc.xUnit.Reporter.Models;
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Reporter;
+using SweDevTools.LiveDoc.xUnit.Reporter.Models;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Tests.Reporter;
+namespace SweDevTools.LiveDoc.xUnit.Tests.Reporter;
 
 /// <summary>
 /// Specification: Schema Models

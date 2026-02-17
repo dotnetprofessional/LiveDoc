@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>LiveDoc.xUnit</RootNamespace>
+    <RootNamespace>SweDevTools.LiveDoc.xUnit</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>true</IsPackable>
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <PackageId>LiveDoc.xUnit</PackageId>
-    <Version>1.0.0-beta1</Version>
+    <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
+    <Version>0.1.1-beta1</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -35,6 +35,12 @@
     <Compile Remove="tests\**" />
     <EmbeddedResource Remove="tests\**" />
     <None Remove="tests\**" />
+  </ItemGroup>
+
+  <!-- Include readme.txt and MSBuild targets in the NuGet package -->
+  <ItemGroup>
+    <None Include="readme.txt" Pack="true" PackagePath="" />
+    <None Include="build\SweDevTools.LiveDoc.xUnit.targets" Pack="true" PackagePath="build\" />
   </ItemGroup>
 
 </Project>

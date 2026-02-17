@@ -1,5 +1,5 @@
-using LiveDoc.xUnit;
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -20,7 +20,7 @@ namespace ShippingSample;
     directly in step descriptions and extract it for use in assertions.
     This makes tests self-documenting and easier to understand.
 ")]
-public class ValueExtractionTests : LiveDocTest
+public class ValueExtractionTests : FeatureTest
 {
     public ValueExtractionTests(ITestOutputHelper output) : base(output)
     {
@@ -379,8 +379,6 @@ public class ValueExtractionTests : LiveDocTest
     [Example("New Zealand", 50.00)]
     public void Combine_value_extraction_with_outline(string country, decimal baseAmount)
     {
-        SetExampleData(country, baseAmount);
-
         decimal? capturedMultiplier = null;
         decimal? calculatedTotal = null;
 

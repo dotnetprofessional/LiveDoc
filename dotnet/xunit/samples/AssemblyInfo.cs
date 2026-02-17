@@ -1,3 +1,3 @@
 using Xunit;
 
-[assembly: TestFramework("LiveDoc.xUnit.LiveDocTestFramework", "livedoc-xunit")]
+[assembly: TestFramework("SweDevTools.LiveDoc.xUnit.LiveDocTestFramework", "livedoc-xunit")]

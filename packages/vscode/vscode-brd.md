@@ -1,6 +1,6 @@
 # LiveDoc VS Code Extension BRD
 
-> **Deprecation Notice**: This document supersedes all previous backlogs and design documents for the `@livedoc/vscode` extension.
+> **Deprecation Notice**: This document supersedes all previous backlogs and design documents for the `livedoc-vscode` extension.
 
 ## Overview
 The LiveDoc VS Code extension brings "Living Documentation" directly into the developer's workflow. It provides fast feedback, easy navigation between code and specifications, and hosts the local documentation server for zero-config development.

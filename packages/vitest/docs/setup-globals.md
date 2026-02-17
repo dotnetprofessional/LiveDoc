@@ -37,14 +37,14 @@ Note: `then` is registered as **lowercase** — the ESM thenable issue doesn't a
 ```ts
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
     include: ['**/*.Spec.ts'],
-    setupFiles: ['@livedoc/vitest/setup'],  // ← This is the magic
+    setupFiles: ['@swedevtools/livedoc-vitest/setup'],  // ← This is the magic
     reporters: [
       new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' })
     ],
@@ -85,7 +85,7 @@ For full IntelliSense, add the LiveDoc globals to your `tsconfig.json`:
 ```json
 {
   "compilerOptions": {
-    "types": ["vitest/globals", "@livedoc/vitest/globals"]
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
   }
 }
 ```
@@ -98,7 +98,7 @@ With globals mode, you can set up filters and rules in a single setup file:
 
 ```ts
 // test/livedoc.setup.ts
-import { livedoc } from '@livedoc/vitest';
+import { livedoc } from '@swedevtools/livedoc-vitest';
 
 // Only run @smoke tests
 livedoc.options.filters.include = ['@smoke'];
@@ -111,7 +111,7 @@ Then add it to your setupFiles:
 
 ```ts
 setupFiles: [
-  '@livedoc/vitest/setup',
+  '@swedevtools/livedoc-vitest/setup',
   './test/livedoc.setup.ts'
 ],
 ```
@@ -122,11 +122,11 @@ setupFiles: [
 
 ### "ReferenceError: feature is not defined"
 
-Make sure `setupFiles` includes `'@livedoc/vitest/setup'` and that `globals: true` is set.
+Make sure `setupFiles` includes `'@swedevtools/livedoc-vitest/setup'` and that `globals: true` is set.
 
 ### TypeScript errors on step keywords
 
-Add `@livedoc/vitest/globals` to your `types` in `tsconfig.json`.
+Add `@swedevtools/livedoc-vitest/globals` to your `types` in `tsconfig.json`.
 
 ---
 

@@ -1,6 +1,6 @@
 # Local Consumer Sample
 
-This sample is an isolated project that installs `@livedoc/vitest` from a locally packed tarball (no source/dist linking). Use it to validate the published artifacts and as a quickstart template.
+This sample is an isolated project that installs `@swedevtools/livedoc-vitest` from a locally packed tarball (no source/dist linking). Use it to validate the published artifacts and as a quickstart template.
 
 ## Prerequisites
 - Node 18+
@@ -33,4 +33,4 @@ pnpm test
 You should see the `Calculator basics` feature passing, confirming the package works when installed from the tarball.
 
 ## Updating the tarball path
-If the package version changes, update `dependencies.@livedoc/vitest` in `package.json` to the new tarball filename and rerun steps 1–3.
+If the package version changes, update `dependencies.@swedevtools/livedoc-vitest` in `package.json` to the new tarball filename and rerun steps 1–3.

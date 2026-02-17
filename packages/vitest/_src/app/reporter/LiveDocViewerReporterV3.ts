@@ -990,23 +990,36 @@ export class LiveDocViewerReporter implements IPostReporter {
   private calculateSummary(results: ExecutionResults): { summary: Statistics; duration: number } {
     const summary: Statistics = { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
 
+    const addResult = (status: SpecStatus) => {
+      summary.total += 1;
+      if (status === SpecStatus.pass) summary.passed += 1;
+      else if (status === SpecStatus.fail) summary.failed += 1;
+      else summary.pending += 1;
+    };
+
+    // Count feature scenarios (1 per scenario, 1 per outline example row)
     for (const feature of results.features || []) {
       for (const scenario of feature.scenarios || []) {
         const outline = scenario as SDKScenarioOutline;
         if ((outline as any).examples && (outline as any).examples.length > 0) {
           for (const example of outline.examples) {
-            const status = this.calculateScenarioStatus(example);
-            summary.total += 1;
-            if (status === SpecStatus.pass) summary.passed += 1;
-            else if (status === SpecStatus.fail) summary.failed += 1;
-            else summary.pending += 1;
+            addResult(this.calculateScenarioStatus(example));
           }
         } else {
-          const status = this.calculateScenarioStatus(scenario as SDKScenario);
-          summary.total += 1;
-          if (status === SpecStatus.pass) summary.passed += 1;
-          else if (status === SpecStatus.fail) summary.failed += 1;
-          else summary.pending += 1;
+          addResult(this.calculateScenarioStatus(scenario as SDKScenario));
+        }
+      }
+    }
+
+    // Count specification rules (1 per rule, 1 per rule outline example row)
+    for (const spec of (results as any).specifications || []) {
+      for (const rule of spec.rules || []) {
+        if (Array.isArray((rule as any).examples) && (rule as any).examples.length > 0) {
+          for (const example of (rule as any).examples) {
+            addResult(example?.status ?? SpecStatus.pending);
+          }
+        } else {
+          addResult((rule as any).status ?? SpecStatus.pending);
         }
       }
     }

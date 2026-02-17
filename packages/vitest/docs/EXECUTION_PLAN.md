@@ -1,12 +1,12 @@
-# @livedoc/vitest — Documentation Execution Plan
+# @swedevtools/livedoc-vitest — Documentation Execution Plan
 
-> Goal: ship a comprehensive, developer-friendly markdown doc set for `@livedoc/vitest`, stored in `packages/vitest/docs/` and linked from `packages/vitest/README.md`.
+> Goal: ship a comprehensive, developer-friendly markdown doc set for `@swedevtools/livedoc-vitest`, stored in `packages/vitest/docs/` and linked from `packages/vitest/README.md`.
 >
 > Notes
 > - The Mocha implementation is deprecated but remains available for reference at `_archive/livedoc-mocha`.
 > - The recommended authoring API is **lowercase** `given/when/then/and/but`.
 >   - **Imports mode:** use `Then` export aliased as `then` to avoid the ESM "thenable" issue.
->   - **Globals mode:** enable `globals` and `setupFiles: ['@livedoc/vitest/setup']` so a lowercase global `then` is available.
+>   - **Globals mode:** enable `globals` and `setupFiles: ['@swedevtools/livedoc-vitest/setup']` so a lowercase global `then` is available.
 
 ---
 
@@ -32,7 +32,7 @@
 - [x] `packages/vitest/docs/index.md` — doc hub / navigation
 - [x] `packages/vitest/docs/getting-started.md` — 5-minute quick start
 - [x] `packages/vitest/docs/setup-imports.md` — explicit imports setup (alias `Then as then`)
-- [x] `packages/vitest/docs/setup-globals.md` — globals setup (`globals` + `@livedoc/vitest/setup`)
+- [x] `packages/vitest/docs/setup-globals.md` — globals setup (`globals` + `@swedevtools/livedoc-vitest/setup`)
 - [x] `packages/vitest/docs/ai-setup-guide.md` — AI-targeted config + reporter options
 - [x] `packages/vitest/docs/authoring-bdd.md` — feature/scenario/background/scenarioOutline + steps
 - [x] `packages/vitest/docs/authoring-specification.md` — specification/rule/ruleOutline
@@ -55,13 +55,13 @@
 ## Acceptance criteria
 
 - [x] A new OSS user can:
-  - [x] install `@livedoc/vitest`
+  - [x] install `@swedevtools/livedoc-vitest`
   - [x] choose setup mode (imports or globals)
   - [x] run `vitest` and see LiveDoc output
   - [x] understand how tags/filtering works and configure it
 - [x] All snippets match the **actual** exported API:
-  - [x] Imports mode shows `import { feature, scenario, given, when, Then as then, and, but } from '@livedoc/vitest'`
-  - [x] Globals mode shows `setupFiles: ['@livedoc/vitest/setup']` and `globals: true`
+  - [x] Imports mode shows `import { feature, scenario, given, when, Then as then, and, but } from '@swedevtools/livedoc-vitest'`
+  - [x] Globals mode shows `setupFiles: ['@swedevtools/livedoc-vitest/setup']` and `globals: true`
 - [x] Reporter configuration docs match shipped reporter options and known VS Code constraints.
 - [x] Docs cover both BDD and Specification patterns.
 - [x] At least one page exists that is **AI-oriented** (verbose, explicit config matrices and copy/paste blocks).

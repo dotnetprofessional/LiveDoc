@@ -91,3 +91,4 @@ Press F11 to step directly into your lambda expressions. No generated code to na
 2. Add new examples to the scenario outline
 3. Create your own feature tests following this pattern
 4. Use tags for test filtering (coming soon)
+5. Install AI coding skills for your editor: `dotnet livedoc install-skill`

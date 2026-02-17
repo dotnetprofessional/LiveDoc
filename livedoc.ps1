@@ -84,6 +84,20 @@ function Run-Build {
         Write-Host "Packaging Vitest package..." -ForegroundColor Cyan
         Invoke-InDirectory -WorkingDirectory $vitestDir -Executable 'pnpm' -Arguments @('run', 'pack:local')
     }
+
+    # 6. Package Viewer
+    $viewerDir = Join-Path $repoRoot 'packages/viewer'
+    if (Test-Path $viewerDir) {
+        Write-Host "Packaging Viewer..." -ForegroundColor Cyan
+        Invoke-InDirectory -WorkingDirectory $viewerDir -Executable 'pnpm' -Arguments @('run', 'pack:local')
+    }
+
+    # 7. Pack NuGet package
+    $packNuget = Join-Path $repoRoot 'scripts/pack-nuget.ps1'
+    if (Test-Path $packNuget) {
+        Write-Host "Packing NuGet package..." -ForegroundColor Cyan
+        & $packNuget
+    }
     
     Sync-Releases
     Write-Host "Build complete!" -ForegroundColor Green
@@ -116,23 +130,48 @@ function Sync-Releases {
 
     Write-Host "Syncing artifacts to releases folder..." -ForegroundColor Cyan
 
-    # VS Code extension
+    # VS Code extension → releases/livedoc-vscode/
     $vscodeDir = Join-Path $repoRoot 'packages/vscode'
     if (Test-Path $vscodeDir) {
-        Get-ChildItem -Path $vscodeDir -Filter "*.vsix" | Copy-Item -Destination $releasesDir -ErrorAction SilentlyContinue
+        $vsixFiles = @(Get-ChildItem -Path $vscodeDir -Filter "*.vsix")
+        if ($vsixFiles.Count -gt 0) {
+            $vscodeDest = Join-Path $releasesDir 'livedoc-vscode'
+            if (-not (Test-Path $vscodeDest)) { New-Item -ItemType Directory -Path $vscodeDest -Force | Out-Null }
+            $vsixFiles | Copy-Item -Destination $vscodeDest -ErrorAction SilentlyContinue
+        }
     }
 
-    # Vitest package
+    # Vitest package → releases/@swedevtools/livedoc-vitest/
     $vitestDir = Join-Path $repoRoot 'packages/vitest'
     if (Test-Path $vitestDir) {
-        Get-ChildItem -Path $vitestDir -Filter "*.tgz" | Copy-Item -Destination $releasesDir -ErrorAction SilentlyContinue
+        $tgzFiles = @(Get-ChildItem -Path $vitestDir -Filter "*.tgz")
+        if ($tgzFiles.Count -gt 0) {
+            $vitestDest = Join-Path $releasesDir '@swedevtools/livedoc-vitest'
+            if (-not (Test-Path $vitestDest)) { New-Item -ItemType Directory -Path $vitestDest -Force | Out-Null }
+            $tgzFiles | Copy-Item -Destination $vitestDest -ErrorAction SilentlyContinue
+        }
     }
 
-    $artifacts = @(Get-ChildItem -Path $releasesDir)
+    # Viewer package → releases/@swedevtools/livedoc-viewer/
+    $viewerDir = Join-Path $repoRoot 'packages/viewer'
+    if (Test-Path $viewerDir) {
+        $viewerTgzFiles = @(Get-ChildItem -Path $viewerDir -Filter "*.tgz")
+        if ($viewerTgzFiles.Count -gt 0) {
+            $viewerDest = Join-Path $releasesDir '@swedevtools/livedoc-viewer'
+            if (-not (Test-Path $viewerDest)) { New-Item -ItemType Directory -Path $viewerDest -Force | Out-Null }
+            $viewerTgzFiles | Copy-Item -Destination $viewerDest -ErrorAction SilentlyContinue
+        }
+    }
+
+    # NuGet package → releases/SweDevTools.LiveDoc.xUnit/ (already placed by pack-nuget.ps1)
+
+    # Display all artifacts
+    $artifacts = @(Get-ChildItem -Path $releasesDir -Recurse -File)
     if ($artifacts.Count -gt 0) {
         Write-Host "Current artifacts in releases:" -ForegroundColor White
         foreach ($a in $artifacts) {
-            Write-Host "  - $($a.Name)" -ForegroundColor Gray
+            $relative = $a.FullName.Substring($releasesDir.Length + 1)
+            Write-Host "  - $relative" -ForegroundColor Gray
         }
     } else {
         Write-Host "  (No artifacts found)" -ForegroundColor DarkGray
@@ -383,7 +422,7 @@ function Build-PnpmScriptMenuItems {
     $items = New-Object System.Collections.Generic.List[object]
 
     # Special-case: vitest package gets a “run single spec file” helper because it’s common.
-    if ($PackageDisplay -eq '@livedoc/vitest') {
+    if ($PackageDisplay -eq '@swedevtools/livedoc-vitest') {
         $items.Add((New-MenuItem -Label 'test:spec (prompt for file path)' -HotKey 'f' -Action ({
             $path = Read-Host "Enter spec path (relative to packages/vitest), e.g. _src/test/ScenarioOutline.Spec.ts"
             if (-not $path) { return }
@@ -491,6 +530,8 @@ if ($Command -eq 'help' -or $Command -eq '-h' -or $Command -eq '--help') {
     Write-Host "  build-packages    Build packages individually (fast incremental)" -ForegroundColor Gray
     Write-Host "  clean    Clean all packages" -ForegroundColor Gray
     Write-Host "  test     Run all tests" -ForegroundColor Gray
+    Write-Host "  pack-nuget    Pack the xUnit NuGet package to releases/" -ForegroundColor Gray
+    Write-Host "  publish-nuget Publish the xUnit NuGet package to nuget.org" -ForegroundColor Gray
     Write-Host "  -List    List all available package scripts (including build/package)" -ForegroundColor Gray
     Write-Host ""
     Write-Host "If no command is provided, the interactive menu will be shown." -ForegroundColor Gray
@@ -523,56 +564,54 @@ if ($Command -eq 'test') {
     return
 }
 
+if ($Command -eq 'pack-nuget') {
+    & (Join-Path $repoRoot 'scripts/pack-nuget.ps1')
+    return
+}
+
+if ($Command -eq 'publish-nuget') {
+    & (Join-Path $repoRoot 'scripts/publish-nuget.ps1')
+    return
+}
+
 # ---- Build menus ----
 $packageMenuItems = New-Object System.Collections.Generic.List[object]
 
-# Add Dev All option
+# ═══════════════════════════════════════
+# Group: Quick Actions
+# ═══════════════════════════════════════
+
 $packageMenuItems.Add((New-MenuItem -Label 'Dev All (Viewer + Server)' -HotKey 'a' -Action ({
     Invoke-InDirectory -WorkingDirectory (Join-Path $repoRoot 'packages/viewer') -Executable 'pnpm' -Arguments @('run', 'dev:all')
 }.GetNewClosure())))
 
-# Add Build All option
-$packageMenuItems.Add((New-MenuItem -Label 'Build All (pnpm build + package)' -HotKey 'b' -Action ({
-    Run-Build
-}.GetNewClosure())))
+# ═══════════════════════════════════════
+# Group: Build & Package
+# ═══════════════════════════════════════
 
-# Add Build Packages option (fast incremental)
-$packageMenuItems.Add((New-MenuItem -Label 'Build Packages (schema/server/vitest/viewer/vscode)' -HotKey 'p' -Action ({
-    Run-BuildPackages
-}.GetNewClosure())))
+$buildChildren = @(
+    (New-MenuItem -Label 'Build All (clean + install + build + package)' -HotKey '1' -Action ({
+        Run-Build
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'Build Packages (fast incremental)' -HotKey '2' -Action ({
+        Run-BuildPackages
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'Clean All' -HotKey '3' -Action ({
+        Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'clean')
+        $releasesDir = Join-Path $repoRoot 'releases'
+        if (Test-Path $releasesDir) {
+            Write-Host "Cleaning releases folder..." -ForegroundColor Cyan
+            Remove-Item -Path "$releasesDir\*" -Recurse -Force
+        }
+    }.GetNewClosure()))
+)
+$packageMenuItems.Add((New-MenuItem -Label 'Build & Package...' -HotKey 'b' -Children $buildChildren))
 
-$packageMenuItems.Add((New-MenuItem -Label 'Clean All (pnpm clean)' -HotKey 'x' -Action ({
-    Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'clean')
-    $releasesDir = Join-Path $repoRoot 'releases'
-    if (Test-Path $releasesDir) {
-        Write-Host "Cleaning releases folder..." -ForegroundColor Cyan
-        Remove-Item -Path "$releasesDir\*" -Recurse -Force
-    }
-}.GetNewClosure())))
+# ═══════════════════════════════════════
+# Group: Publish
+# ═══════════════════════════════════════
 
-# Add Publish submenu with nested submenus for each package
-$schemaPublishChildren = @(
-    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema -DryRun }.GetNewClosure())),
-    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema }.GetNewClosure())),
-    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema -Tag beta }.GetNewClosure()))
-)
-$serverPublishChildren = @(
-    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server -DryRun }.GetNewClosure())),
-    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server }.GetNewClosure())),
-    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server -Tag beta }.GetNewClosure()))
-)
-$vitestPublishChildren = @(
-    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest -DryRun }.GetNewClosure())),
-    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest }.GetNewClosure())),
-    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest -Tag beta }.GetNewClosure()))
-)
-$viewerPublishChildren = @(
-    (New-MenuItem -Label 'Dry-run' -HotKey '1' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer -DryRun }.GetNewClosure())),
-    (New-MenuItem -Label 'Release (latest)' -HotKey '2' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer }.GetNewClosure())),
-    (New-MenuItem -Label 'Beta' -HotKey '3' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer -Tag beta }.GetNewClosure()))
-)
-
-$publishChildren = @(
+$npmPublishChildren = @(
     (New-MenuItem -Label 'All (dry-run)' -HotKey '1' -Action ({
         & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package all -DryRun
     }.GetNewClosure())),
@@ -583,12 +622,39 @@ $publishChildren = @(
         & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package all -Tag beta
     }.GetNewClosure())),
     (New-MenuItem -Label '─────────────────────' -HotKey ([char]0) -Action $null),
-    (New-MenuItem -Label 'schema...' -HotKey '4' -Children $schemaPublishChildren),
-    (New-MenuItem -Label 'server...' -HotKey '5' -Children $serverPublishChildren),
-    (New-MenuItem -Label 'vitest...' -HotKey '6' -Children $vitestPublishChildren),
-    (New-MenuItem -Label 'viewer...' -HotKey '7' -Children $viewerPublishChildren)
+    (New-MenuItem -Label 'schema (dry-run)' -HotKey '4' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'schema (release)' -HotKey '5' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package schema }.GetNewClosure())),
+    (New-MenuItem -Label 'server (dry-run)' -HotKey '6' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'server (release)' -HotKey '7' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package server }.GetNewClosure())),
+    (New-MenuItem -Label 'vitest (dry-run)' -HotKey '8' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'vitest (release)' -HotKey '9' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package vitest }.GetNewClosure())),
+    (New-MenuItem -Label 'viewer (dry-run)' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer -DryRun }.GetNewClosure())),
+    (New-MenuItem -Label 'viewer (release)' -Action ({ & (Join-Path $repoRoot 'scripts/publish-package.ps1') -Package viewer }.GetNewClosure()))
 )
-$packageMenuItems.Add((New-MenuItem -Label 'Publish to npm...' -HotKey 'n' -Children $publishChildren))
+
+$nugetPublishChildren = @(
+    (New-MenuItem -Label 'Pack NuGet' -HotKey '1' -Action ({
+        & (Join-Path $repoRoot 'scripts/pack-nuget.ps1')
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'Publish NuGet (dry-run)' -HotKey '2' -Action ({
+        & (Join-Path $repoRoot 'scripts/publish-nuget.ps1') -DryRun
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'Publish NuGet' -HotKey '3' -Action ({
+        & (Join-Path $repoRoot 'scripts/publish-nuget.ps1')
+    }.GetNewClosure()))
+)
+
+$publishChildren = @(
+    (New-MenuItem -Label 'npm packages...' -HotKey '1' -Children $npmPublishChildren),
+    (New-MenuItem -Label 'NuGet (xUnit)...' -HotKey '2' -Children $nugetPublishChildren)
+)
+$packageMenuItems.Add((New-MenuItem -Label 'Publish...' -HotKey 'n' -Children $publishChildren))
+
+$packageMenuItems.Add((New-MenuItem -Label '─────────────────────' -HotKey ([char]0) -Action $null))
+
+# ═══════════════════════════════════════
+# Group: Packages (one per package)
+# ═══════════════════════════════════════
 
 foreach ($p in $packages) {
     $hotKey = [char]0
@@ -605,20 +671,18 @@ foreach ($p in $packages) {
     if ($p.Kind -eq 'pnpm') {
         $children = Build-PnpmScriptMenuItems -PackageDir $p.Directory -PackageDisplay $p.Name -Scripts $p.Scripts
 
-        # If a package has no tests/validation scripts, still show it but with empty submenu.
         $packageMenuItems.Add((New-MenuItem -Label $p.Name -HotKey $hotKey -Children $children))
     } elseif ($p.Kind -eq 'dotnet') {
         $dotnetSlnLocal = $dotnetSln
         $dotnetDirLocal = (Join-Path $repoRoot 'dotnet/xunit')
         $children = @(
-            (New-MenuItem -Label 'dotnet build' -HotKey '1' -Action ({
+            (New-MenuItem -Label 'Build' -HotKey '1' -Action ({
                 Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('build', $dotnetSlnLocal)
             }.GetNewClosure())),
-            (New-MenuItem -Label 'dotnet test' -HotKey '2' -Action ({
+            (New-MenuItem -Label 'Test' -HotKey '2' -Action ({
                 Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal)
             }.GetNewClosure())),
-            (New-MenuItem -Label 'dotnet test (with Viewer)' -HotKey '3' -Action ({
-                # Start the LiveDoc server if not running, then run tests with LIVEDOC_SERVER_URL set
+            (New-MenuItem -Label 'Test (with Viewer)' -HotKey '3' -Action ({
                 $serverUrl = 'http://localhost:19275'
                 Write-Host "Running .NET tests with LiveDoc Viewer integration..." -ForegroundColor Cyan
                 Write-Host "Server URL: $serverUrl" -ForegroundColor Gray
@@ -634,8 +698,18 @@ foreach ($p in $packages) {
                     Remove-Item Env:\LIVEDOC_ENVIRONMENT -ErrorAction SilentlyContinue
                 }
             }.GetNewClosure())),
-            (New-MenuItem -Label 'dotnet clean' -HotKey '4' -Action ({
+            (New-MenuItem -Label 'Clean' -HotKey '4' -Action ({
                 Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('clean', $dotnetSlnLocal)
+            }.GetNewClosure())),
+            (New-MenuItem -Label '─────────────────────' -HotKey ([char]0) -Action $null),
+            (New-MenuItem -Label 'Pack NuGet' -HotKey '5' -Action ({
+                & (Join-Path $repoRoot 'scripts/pack-nuget.ps1')
+            }.GetNewClosure())),
+            (New-MenuItem -Label 'Publish NuGet (dry-run)' -HotKey '6' -Action ({
+                & (Join-Path $repoRoot 'scripts/publish-nuget.ps1') -DryRun
+            }.GetNewClosure())),
+            (New-MenuItem -Label 'Publish NuGet' -HotKey '7' -Action ({
+                & (Join-Path $repoRoot 'scripts/publish-nuget.ps1')
             }.GetNewClosure()))
         )
 

@@ -3,11 +3,11 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using LiveDoc.xUnit.Core;
-using LiveDoc.xUnit.Reporter.Models;
+using SweDevTools.LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit.Reporter.Models;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Reporter;
+namespace SweDevTools.LiveDoc.xUnit.Reporter;
 
 /// <summary>
 /// Manages test run reporting to the LiveDoc server.
@@ -545,7 +545,7 @@ public class LiveDocTestRunReporter : IDisposable
     /// <summary>
     /// Derives a navigation path from a test class type.
     /// Strips the assembly name prefix and converts namespace separators to slashes.
-    /// E.g., LiveDoc.xUnit.Tests.Gherkin.Examples.MySpec → Gherkin/Examples/MySpec.cs
+    /// E.g., SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Examples.MySpec → Gherkin/Examples/MySpec.cs
     /// </summary>
     public static string DerivePath(Type testClass)
     {

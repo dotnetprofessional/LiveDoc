@@ -1,7 +1,7 @@
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Trait discoverer for Feature attributes.
@@ -10,7 +10,7 @@ namespace LiveDoc.xUnit;
 public class FeatureDiscoverer : ITraitDiscoverer
 {
     internal const string AssemblyName = "livedoc-xunit";
-    internal const string DiscovererTypeName = "LiveDoc.xUnit." + nameof(FeatureDiscoverer);
+    internal const string DiscovererTypeName = "SweDevTools.LiveDoc.xUnit." + nameof(FeatureDiscoverer);
 
     public IEnumerable<KeyValuePair<string, string>> GetTraits(IAttributeInfo traitAttribute)
     {

@@ -3,7 +3,7 @@
 Because this isn’t deployed to prod, keep the transition simple: remove v2 concepts and move everything (server + viewer + schema) to v3 as the only supported model. Keep the work incremental by landing small, shippable steps, but avoid dual-protocol routing, adapters, or “support both” code paths.
 
 Decisions locked in:
-- Stable IDs remain producer-owned (same technique as today, e.g. deterministic hashing via `generateStabilityId` in `@livedoc/schema`). The server treats IDs as opaque and never rewrites them.
+- Stable IDs remain producer-owned (same technique as today, e.g. deterministic hashing via `generateStabilityId` in `@swedevtools/livedoc-schema`). The server treats IDs as opaque and never rewrites them.
 - Stats/summary are aggregated on the server while streaming (server is the source of truth for what it has received).
 - The VS Code extension is migrated in the same workstream; it should reuse the Viewer web UI (already embedded via `dist/viewer`) and update its sidebar tree + WS client to v3 events.
 

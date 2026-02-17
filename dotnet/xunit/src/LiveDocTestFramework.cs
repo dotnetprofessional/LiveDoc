@@ -2,7 +2,7 @@ using System.Reflection;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Custom xUnit test framework that enables LiveDoc reporting for all tests,
@@ -11,7 +11,7 @@ namespace LiveDoc.xUnit;
 /// <remarks>
 /// To use this framework, add the following to your project:
 /// <code>
-/// [assembly: TestFramework("LiveDoc.xUnit.LiveDocTestFramework", "livedoc-xunit")]
+/// [assembly: TestFramework("SweDevTools.LiveDoc.xUnit.LiveDocTestFramework", "livedoc-xunit")]
 /// </code>
 /// This will automatically report all test results to the LiveDoc viewer.
 /// </remarks>
@@ -140,6 +140,12 @@ public class LiveDocMessageSink : IMessageSink
         var className = testClass.Name;
         var methodName = testMethod.Name;
         var durationMs = (long)(executionTime * 1000);
+
+        // Skip fixture/helper classes that aren't real test specs.
+        // Convention: real test classes end in "_Spec" or "Spec".
+        var simpleClassName = className.Contains('.') ? className.Substring(className.LastIndexOf('.') + 1) : className;
+        if ((isFeature || isSpec) && !simpleClassName.EndsWith("Spec", StringComparison.Ordinal))
+            return;
 
         // Derive assembly simple name — IAssemblyInfo.Name may return full name with version or DLL path
         var rawAssemblyName = testCase.TestMethod.TestClass.TestCollection.TestAssembly.Assembly.Name;

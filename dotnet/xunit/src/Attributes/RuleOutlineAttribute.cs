@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Xunit;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Marks a test method as a RuleOutline (data-driven rule in a Specification).
@@ -35,7 +35,7 @@ namespace LiveDoc.xUnit;
 /// </code>
 /// </example>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-[XunitTestCaseDiscoverer("LiveDoc.xUnit.RuleOutlineTestCaseDiscoverer", "livedoc-xunit")]
+[XunitTestCaseDiscoverer("SweDevTools.LiveDoc.xUnit.RuleOutlineTestCaseDiscoverer", "livedoc-xunit")]
 public class RuleOutlineAttribute : TheoryAttribute
 {
     /// <summary>
@@ -90,6 +90,6 @@ public class RuleOutlineAttribute : TheoryAttribute
         }
 
         // Use method name with _ALLCAPS placeholder replacement
-        return LiveDoc.xUnit.Core.ValueParser.FormatMethodNameWithValues(method.Name, paramValues);
+        return SweDevTools.LiveDoc.xUnit.Core.ValueParser.FormatMethodNameWithValues(method.Name, paramValues);
     }
 }

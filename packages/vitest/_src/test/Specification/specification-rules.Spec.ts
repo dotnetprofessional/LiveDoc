@@ -76,8 +76,9 @@ specification(`String Operations
         expect(result).toBe(ctx.example.expected);
     });
 
-    rule("Trim removes whitespace from '  padded  ' @trim", async () => {
-        const result = "  padded  ".trim();
+    rule("Trim removes whitespace from '  padded  ' @trim", async (ctx) => {
+        const input = ctx.rule.values[0] as string;
+        const result = input.trim();
         expect(result).toBe("padded");
     });
 });
@@ -276,6 +277,74 @@ specification("Async Rule Execution", () => {
         const delay = ctx.example.delay;
         await new Promise(resolve => setTimeout(resolve, delay));
         expect(ctx.example.expected).toBe(delay);
+    });
+});
+
+// =============================================================================
+// Rule Value Extraction Tests
+// =============================================================================
+
+specification("Rule Value Extraction", () => {
+    rule("Adding '5' and '3' returns '8'", (ctx) => {
+        const [a, b, expected] = ctx.rule.values;
+        expect(a + b).toBe(expected);
+    });
+
+    rule("Multiplying '7' by '6' equals '42'", (ctx) => {
+        expect(ctx.rule.values.length).toBe(3);
+        expect(ctx.rule.values[0]).toBe(7);
+        expect(ctx.rule.values[1]).toBe(6);
+        expect(ctx.rule.values[2]).toBe(42);
+    });
+
+    rule("Boolean coercion: 'true' and 'false' are booleans", (ctx) => {
+        expect(ctx.rule.values[0]).toBe(true);
+        expect(ctx.rule.values[1]).toBe(false);
+    });
+
+    rule("Raw values are strings: '42' stays '42'", (ctx) => {
+        expect(ctx.rule.valuesRaw[0]).toBe("42");
+        expect(ctx.rule.valuesRaw[1]).toBe("42");
+        expect(typeof ctx.rule.valuesRaw[0]).toBe("string");
+    });
+
+    rule("Rule with no quoted values has empty arrays", (ctx) => {
+        expect(ctx.rule.values.length).toBe(0);
+        expect(ctx.rule.valuesRaw.length).toBe(0);
+    });
+});
+
+specification("Rule Named Parameter Extraction", () => {
+    rule("Processing <action:login> for <user:alice>", (ctx) => {
+        expect(ctx.rule.params.action).toBe("login");
+        expect(ctx.rule.params.user).toBe("alice");
+    });
+
+    rule("Transfer <amount:500> from <source:checking> to <dest:savings>", (ctx) => {
+        expect(ctx.rule.params.amount).toBe(500);
+        expect(ctx.rule.params.source).toBe("checking");
+        expect(ctx.rule.params.dest).toBe("savings");
+    });
+
+    rule("Raw params are strings: <count:42>", (ctx) => {
+        expect(ctx.rule.paramsRaw.count).toBe("42");
+        expect(typeof ctx.rule.paramsRaw.count).toBe("string");
+    });
+
+    rule("Rule with no named params has empty object", (ctx) => {
+        expect(Object.keys(ctx.rule.params).length).toBe(0);
+        expect(Object.keys(ctx.rule.paramsRaw).length).toBe(0);
+    });
+});
+
+specification("Rule Mixed Values and Params", () => {
+    rule("Adding <a:10> to '5' returns <expected:15>", (ctx) => {
+        // Quoted values
+        expect(ctx.rule.values.length).toBe(1);
+        expect(ctx.rule.values[0]).toBe(5);
+        // Named params
+        expect(ctx.rule.params.a).toBe(10);
+        expect(ctx.rule.params.expected).toBe(15);
     });
 });
 

@@ -15,17 +15,17 @@ A BDD-style testing framework for xUnit that brings the clarity and readability 
 ### 1. Install the package
 
 ```bash
-dotnet add package LiveDoc.xUnit
+dotnet add package SweDevTools.LiveDoc.xUnit
 ```
 
 ### 2. Create a test class
 
 ```csharp
-using LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit;
 using Xunit;
 
 [Feature]
-public class ShippingCostsTests : LiveDocTest
+public class ShippingCostsTests : FeatureTest
 {
     private ShoppingCart _cart = new();
 
@@ -159,7 +159,40 @@ Or configure via `.runsettings`:
 2. Run your tests: `dotnet test`
 3. Results appear in the browser as tests execute
 
-> **📖 Full documentation:** See the [@livedoc/viewer README](../../packages/viewer/README.md) for CLI options and troubleshooting.
+> **📖 Full documentation:** See the [@swedevtools/livedoc-viewer README](../../packages/viewer/README.md) for CLI options and troubleshooting.
+
+---
+
+## AI Coding Skills
+
+LiveDoc includes AI skills that help your coding assistant write better BDD and Specification tests — with correct patterns, value extraction, and living documentation best practices.
+
+### Supported AI Tools
+
+| Tool | Scope | CLI Key |
+|------|-------|---------|
+| GitHub Copilot (VS Code / CLI) | Project & User | `copilot` |
+| Claude Code | Project & User | `claude` |
+| Roo Code | Project & User | `roo` |
+| Cursor | Project only | `cursor` |
+| Windsurf | Project only | `windsurf` |
+
+### Install the Skill
+
+```bash
+# 1. Add a local tool manifest (skip if you already have one)
+dotnet new tool-manifest
+
+# 2. Install the LiveDoc CLI tool
+dotnet tool install SweDevTools.LiveDoc.Tool
+
+# 3. Interactive install — select your AI tool(s) and scope
+dotnet livedoc install-skill
+
+# Or non-interactive:
+dotnet livedoc install-skill --tool copilot --scope project
+dotnet livedoc install-skill --all  # Install for all tools at project level
+```
 
 ---
 

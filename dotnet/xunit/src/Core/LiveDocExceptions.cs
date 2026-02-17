@@ -1,4 +1,4 @@
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// Exception thrown when a LiveDocValue conversion fails.

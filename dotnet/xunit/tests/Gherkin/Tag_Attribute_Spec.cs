@@ -1,9 +1,9 @@
-using LiveDoc.xUnit;
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Tests.Gherkin;
+namespace SweDevTools.LiveDoc.xUnit.Tests.Gherkin;
 
 /// <summary>
 /// Feature: Tag Attribute

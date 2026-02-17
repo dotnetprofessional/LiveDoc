@@ -1,4 +1,4 @@
-# @livedoc/vscode Extension Backlog (DEPRECATED)
+# livedoc-vscode Extension Backlog (DEPRECATED)
 
 > **DEPRECATION NOTICE**: This document is now deprecated. Please refer to the new [packages/vscode/vscode-brd.md](vscode-brd.md) for the current source of truth.
 
@@ -106,7 +106,7 @@ A unified server that:
 
 #### Context
 
-**We already have a working server!** The `@livedoc/viewer` package contains a fully functional server with:
+**We already have a working server!** The `@swedevtools/livedoc-viewer` package contains a fully functional server with:
 - REST API (Hono framework)
 - WebSocket real-time events
 - Persistent file storage
@@ -115,7 +115,7 @@ A unified server that:
 - Full BDD schema support
 - Non-BDD test suite support (TestSuite/Test)
 
-The goal is to **extract** this server into a shared `@livedoc/server` package that both the Viewer and VS Code extension can consume. This is a refactoring exercise, not a rewrite.
+The goal is to **extract** this server into a shared `@swedevtools/livedoc-server` package that both the Viewer and VS Code extension can consume. This is a refactoring exercise, not a rewrite.
 
 #### Existing Viewer Server Features (Already Implemented)
 
@@ -131,7 +131,7 @@ The goal is to **extract** this server into a shared `@livedoc/server` package t
 | Non-BDD model (TestSuite/Test)    | ✅ Defined | Schema ready, viewer not using yet        |
 | Multiple frameworks               | ✅ Working | vitest, xunit, mocha, jest                |
 
-#### Existing API Endpoints (from `@livedoc/viewer`)
+#### Existing API Endpoints (from `@swedevtools/livedoc-viewer`)
 
 |  Method  |                 Endpoint                  |           Description           |
 | -------- | ----------                                | -------------                   |
@@ -168,8 +168,8 @@ The goal is to **extract** this server into a shared `@livedoc/server` package t
 | `ping`               | Client→Server | Keep-alive                 |
 
 #### Goals
-- Extract server code into `@livedoc/server` package
-- Update `@livedoc/viewer` to consume `@livedoc/server`
+- Extract server code into `@swedevtools/livedoc-server` package
+- Update `@swedevtools/livedoc-viewer` to consume `@swedevtools/livedoc-server`
 - Enable VS Code extension to embed the same server
 - Maintain 100% backward compatibility
 
@@ -180,17 +180,17 @@ The goal is to **extract** this server into a shared `@livedoc/server` package t
 
 ---
 
-#### Story E1-S1: Extract server code into `@livedoc/server` package
+#### Story E1-S1: Extract server code into `@swedevtools/livedoc-server` package
 
 **As a** monorepo maintainer  
 **I want** server code in a dedicated shared package  
 **So that** both Viewer and VS Code extension can use the same server
 
 **Context:**
-Move the existing server code from `packages/viewer/src/server/` and `packages/viewer/src/shared/` to a new `packages/server/` package. The Viewer will then depend on `@livedoc/server`.
+Move the existing server code from `packages/viewer/src/server/` and `packages/viewer/src/shared/` to a new `packages/server/` package. The Viewer will then depend on `@swedevtools/livedoc-server`.
 
 **Acceptance Criteria:**
-- [x] New package `packages/server/` with name `@livedoc/server`
+- [x] New package `packages/server/` with name `@swedevtools/livedoc-server`
 - [x] Move files:
   - `viewer/src/server/index.ts` → `server/src/index.ts`
   - `viewer/src/server/store.ts` → `server/src/store.ts`
@@ -204,7 +204,7 @@ Move the existing server code from `packages/viewer/src/server/` and `packages/v
   export * from './schema';  // All types
   ```
 - [x] Dependencies: `hono`, `ws`, `@hono/node-server`
-- [x] Viewer updated to import from `@livedoc/server`
+- [x] Viewer updated to import from `@swedevtools/livedoc-server`
 - [x] All existing Viewer functionality still works
 - [x] `pnpm test` passes in viewer package
 
@@ -267,20 +267,20 @@ export async function startServer(options?: ServerOptions): Promise<LiveDocServe
 
 ---
 
-#### Story E1-S3: Update Viewer to use `@livedoc/server`
+#### Story E1-S3: Update Viewer to use `@swedevtools/livedoc-server`
 
 **As a** Viewer user  
 **I want** the Viewer to work exactly as before  
 **So that** the extraction doesn't break anything
 
 **Context:**
-After extracting the server, update the Viewer package to import from `@livedoc/server` instead of its local files. This validates the extraction worked correctly.
+After extracting the server, update the Viewer package to import from `@swedevtools/livedoc-server` instead of its local files. This validates the extraction worked correctly.
 
 **Acceptance Criteria:**
-- [x] Viewer's `package.json` depends on `@livedoc/server: workspace:*`
+- [x] Viewer's `package.json` depends on `@swedevtools/livedoc-server: workspace:*`
 - [x] All imports updated:
-  - `from '../shared/schema'` → `from '@livedoc/server'`
-  - `from './store'` → `from '@livedoc/server'`
+  - `from '../shared/schema'` → `from '@swedevtools/livedoc-server'`
+  - `from './store'` → `from '@swedevtools/livedoc-server'`
   - etc.
 - [x] Viewer's `src/server/` directory removed (or just contains thin wrapper)
 - [x] `npm run dev` works in viewer
@@ -313,7 +313,7 @@ When the reporter starts, it needs to know if a server is available. The server 
 
 **Implementation Notes:**
 ```typescript
-// In @livedoc/server
+// In @swedevtools/livedoc-server
 export async function discoverServer(): Promise<{ url: string; port: number } | null> {
   const portFile = getPortFilePath();
   if (!fs.existsSync(portFile)) return null;
@@ -430,7 +430,7 @@ The extension's `activate()` function should start the server. The server runs i
 **Implementation Notes:**
 ```typescript
 // src/extension.ts
-import { createServer } from '@livedoc/server';
+import { createServer } from '@swedevtools/livedoc-server';
 
 let server: LiveDocServer | null = null;
 
@@ -680,7 +680,7 @@ statusBarItem.show();
 
 The LiveDoc reporter runs during test execution. It captures test structure and results, then sends them to the server. The reporter is the "source of truth" for what happened during tests.
 
-**Important:** The Viewer already defines a `ReporterConfig` interface in `@livedoc/server/schema.ts`:
+**Important:** The Viewer already defines a `ReporterConfig` interface in `@swedevtools/livedoc-server/schema.ts`:
 ```typescript
 export interface ReporterConfig {
   server?: string;          // Server URL, e.g., 'http://localhost:3000'
@@ -701,7 +701,7 @@ The server already has streaming API endpoints:
 - `POST /api/runs/:runId/complete` → Complete run
 
 #### Goals
-- Reporter uses `@livedoc/server` types and API
+- Reporter uses `@swedevtools/livedoc-server` types and API
 - Data sent to server in real-time (streaming)
 - Graceful fallback if server unavailable
 - Support all existing ReporterConfig options
@@ -715,11 +715,11 @@ The server already has streaming API endpoints:
 **So that** the VS Code extension can display them
 
 **Context:**
-The reporter uses the existing server API (already working in Viewer). We need to integrate this into the `@livedoc/vitest` reporter.
+The reporter uses the existing server API (already working in Viewer). We need to integrate this into the `@swedevtools/livedoc-vitest` reporter.
 
 **Acceptance Criteria:**
-- [x] Reporter class in `@livedoc/vitest` sends to server
-- [x] Uses types from `@livedoc/server` (not duplicating)
+- [x] Reporter class in `@swedevtools/livedoc-vitest` sends to server
+- [x] Uses types from `@swedevtools/livedoc-server` (not duplicating)
 - [x] Uses the EXISTING server API endpoints (not `/api/v1/`, just `/api/`)
 - [x] Supports `ReporterConfig` options from server schema
 - [x] Events sent using existing endpoints:
@@ -733,7 +733,7 @@ The reporter uses the existing server API (already working in Viewer). We need t
 **Implementation Notes:**
 ```typescript
 // packages/livedoc-vitest/_src/app/reporters/LiveDocServerReporter.ts
-import { ReporterConfig, StartRunRequest, PostFeatureRequest } from '@livedoc/server';
+import { ReporterConfig, StartRunRequest, PostFeatureRequest } from '@swedevtools/livedoc-server';
 
 export class LiveDocServerReporter extends LiveDocReporter {
   private config: ReporterConfig;
@@ -913,7 +913,7 @@ While zero-config is the goal, advanced users may need to change the server URL.
 - [ ] Can also pass via reporter options in vitest.config:
   ```ts
   reporters: [
-    ['@livedoc/vitest/reporter', { serverUrl: 'http://...' }]
+    ['@swedevtools/livedoc-vitest/reporter', { serverUrl: 'http://...' }]
   ]
   ```
 - [ ] Environment variable takes precedence over config
@@ -1599,7 +1599,7 @@ const SCHEMA = `
 
 ## Technical Notes
 
-### Existing Viewer Server (to be extracted to `@livedoc/server`)
+### Existing Viewer Server (to be extracted to `@swedevtools/livedoc-server`)
 
 The server already exists in `packages/viewer/src/server/` with this structure:
 ```
@@ -1625,7 +1625,7 @@ packages/server/
 └── tsconfig.json
 ```
 
-### Existing API (from `@livedoc/viewer`)
+### Existing API (from `@swedevtools/livedoc-viewer`)
 
 The viewer already uses port 3000 by default. We should align the default port across all components.
 
@@ -1751,7 +1751,7 @@ interface UpdateEvent {
 
 ## Testing Approach
 
-**We eat our own dog food.** All tests for `@livedoc/server` and related packages must use the LiveDoc BDD format.
+**We eat our own dog food.** All tests for `@swedevtools/livedoc-server` and related packages must use the LiveDoc BDD format.
 
 ### Test Location
 - `packages/server/_src/test/` - Server tests
@@ -1797,8 +1797,8 @@ feature(`Server API`, () => {
 ## Suggested Implementation Order
 
 ### Phase 1: Server Extraction & Foundation (Mostly Complete)
-1. **E1-S1:** Extract server code into `@livedoc/server` package (✅ Done)
-2. **E1-S3:** Update Viewer to use `@livedoc/server` (✅ Done)
+1. **E1-S1:** Extract server code into `@swedevtools/livedoc-server` package (✅ Done)
+2. **E1-S3:** Update Viewer to use `@swedevtools/livedoc-server` (✅ Done)
 3. **E1-S2:** Make server embeddable (library mode) (✅ Done)
 4. **E1-S4:** Add health check and port discovery (✅ Done)
 5. **E2-S1:** Start server on extension activation (✅ Done)

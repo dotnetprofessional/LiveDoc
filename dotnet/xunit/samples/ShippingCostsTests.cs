@@ -1,4 +1,4 @@
-using LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -14,7 +14,7 @@ namespace ShippingSample;
 /// - Overseas customers all pay the same shipping rate regardless of order size
 /// </summary>
 [Feature("Beautiful Tea Shipping Costs")]
-public class ShippingCostsTests : LiveDocTest
+public class ShippingCostsTests : FeatureTest
 {
     private ShoppingCart _cart = null!;
 
@@ -112,9 +112,6 @@ public class ShippingCostsTests : LiveDocTest
         decimal ExpectedGST,
         string ExpectedShippingRate)
     {
-        // Initialize example data for placeholder replacement
-        this.SetExampleData(CustomerCountry, OrderTotal, ExpectedGST, ExpectedShippingRate);
-
         this.Given("the customer is from <CustomerCountry>", () =>
         {
             _cart = new ShoppingCart { Country = CustomerCountry };

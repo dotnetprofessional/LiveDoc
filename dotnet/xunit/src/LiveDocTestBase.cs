@@ -1,8 +1,8 @@
 using System.Reflection;
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Internal base class with shared infrastructure for LiveDoc tests.

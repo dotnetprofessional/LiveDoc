@@ -28,7 +28,7 @@ The main reporter for console output:
 ```ts
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -109,7 +109,7 @@ detailLevel: 'silent'
 Export results to a JSON file for CI integration or custom processing:
 
 ```ts
-import { LiveDocSpecReporter, JsonReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -153,8 +153,8 @@ The viewer opens at `http://localhost:3100` and automatically receives results f
 The `LiveDocServerReporter` automatically finds a running viewer:
 
 ```ts
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
-import LiveDocServerReporter from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+import LiveDocServerReporter from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -171,7 +171,7 @@ export default defineConfig({
 Specify the viewer URL directly:
 
 ```ts
-import { LiveDocSpecReporter, LiveDocViewerReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter, LiveDocViewerReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -200,7 +200,7 @@ export default defineConfig({
 | `timeout` | `5000` | HTTP request timeout (ms) |
 | `silent` | `true` | Fail silently if server unavailable |
 
-> **📖 Full documentation:** See the [@livedoc/viewer README](../../viewer/README.md) for CLI options and troubleshooting.
+> **📖 Full documentation:** See the [@swedevtools/livedoc-viewer README](../../viewer/README.md) for CLI options and troubleshooting.
 
 ---
 
@@ -209,8 +209,8 @@ export default defineConfig({
 Auto-discovers a running LiveDoc server and posts results:
 
 ```ts
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
-import LiveDocServerReporter from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+import LiveDocServerReporter from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {

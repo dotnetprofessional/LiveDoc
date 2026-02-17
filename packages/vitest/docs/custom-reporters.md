@@ -24,7 +24,7 @@ Post reporters receive the complete test results after execution finishes. They'
 ### The interface
 
 ```ts
-import { ExecutionResults } from '@livedoc/vitest/reporter';
+import { ExecutionResults } from '@swedevtools/livedoc-vitest/reporter';
 
 interface IPostReporter {
   execute(results: ExecutionResults, options?: any): void | Promise<void>;
@@ -35,7 +35,7 @@ interface IPostReporter {
 
 ```ts
 import * as fs from 'fs';
-import { IPostReporter, ExecutionResults } from '@livedoc/vitest/reporter';
+import { IPostReporter, ExecutionResults } from '@swedevtools/livedoc-vitest/reporter';
 
 export class MyJsonReporter implements IPostReporter {
   execute(results: ExecutionResults, options?: any): void {
@@ -66,7 +66,7 @@ export class MyJsonReporter implements IPostReporter {
 ```ts
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 import { MyJsonReporter } from './reporters/MyJsonReporter';
 
 export default defineConfig({
@@ -142,7 +142,7 @@ For custom console output during test execution, extend `LiveDocReporter`:
 ### The base class
 
 ```ts
-import * as model from '@livedoc/vitest/reporter';
+import * as model from '@swedevtools/livedoc-vitest/reporter';
 
 abstract class LiveDocReporter {
   protected colorTheme: ColorTheme;
@@ -184,8 +184,8 @@ abstract class LiveDocReporter {
 A simple reporter that shows emoji for each scenario result:
 
 ```ts
-import { LiveDocReporter } from '@livedoc/vitest/reporter';
-import * as model from '@livedoc/vitest/reporter';
+import { LiveDocReporter } from '@swedevtools/livedoc-vitest/reporter';
+import * as model from '@swedevtools/livedoc-vitest/reporter';
 
 export class EmojiReporter extends LiveDocReporter {
   
@@ -289,7 +289,7 @@ LiveDoc ships with several reporters you can use or extend:
 ### Extending built-in reporters
 
 ```ts
-import { LiveDocSpec } from '@livedoc/vitest/reporter';
+import { LiveDocSpec } from '@swedevtools/livedoc-vitest/reporter';
 
 export class MySpecReporter extends LiveDocSpec {
   protected featureStart(feature: model.Feature): void {

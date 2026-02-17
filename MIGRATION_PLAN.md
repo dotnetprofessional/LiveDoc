@@ -30,11 +30,11 @@
 
 **Phase 2: Package Restructuring**
 - ✅ Archived `livedoc-mocha` to `_archive/livedoc-mocha`
-- ✅ Renamed `livedoc-vitest` → `packages/vitest` (`@livedoc/vitest`)
-- ✅ Renamed `livedoc-viewer` → `packages/viewer` (`@livedoc/viewer`)
-- ✅ Renamed `livedoc-vscode` → `packages/vscode` (`@livedoc/vscode`)
+- ✅ Renamed `livedoc-vitest` → `packages/vitest` (`@swedevtools/livedoc-vitest`)
+- ✅ Renamed `livedoc-viewer` → `packages/viewer` (`@swedevtools/livedoc-viewer`)
+- ✅ Renamed `livedoc-vscode` → `packages/vscode` (`livedoc-vscode`)
 - ✅ Moved `livedoc-xunit` → `dotnet/xunit`
-- ✅ Updated all package.json names to scoped `@livedoc/*`
+- ✅ Updated all package.json names to scoped `@swedevtools/livedoc-*`
 - ✅ Added missing dependencies (strip-ansi, @vitest/runner) for pnpm strict mode
 - ✅ All 489 tests pass
 
@@ -50,9 +50,9 @@
 ```
 LiveDoc/
 ├── packages/
-│   ├── vitest/          # @livedoc/vitest - Primary JavaScript BDD SDK
-│   ├── viewer/          # @livedoc/viewer - Web-based test results viewer
-│   └── vscode/          # @livedoc/vscode - VS Code extension
+│   ├── vitest/          # @swedevtools/livedoc-vitest - Primary JavaScript BDD SDK
+│   ├── viewer/          # @swedevtools/livedoc-viewer - Web-based test results viewer
+│   └── vscode/          # livedoc-vscode - VS Code extension
 ├── dotnet/
 │   └── xunit/           # LiveDoc.xUnit - .NET BDD framework
 ├── examples/
@@ -142,7 +142,7 @@ LiveDoc/
 │   └── workflows/            # CI/CD
 │
 ├── packages/
-│   ├── vitest/               # @livedoc/vitest - Primary JavaScript SDK
+│   ├── vitest/               # @swedevtools/livedoc-vitest - Primary JavaScript SDK
 │   │   ├── src/
 │   │   │   ├── livedoc.ts    # Vitest BDD DSL
 │   │   │   ├── model/        # FeatureModel, ScenarioModel, etc.
@@ -152,10 +152,10 @@ LiveDoc/
 │   │   │   └── index.ts
 │   │   └── package.json
 │   │
-│   ├── viewer/               # @livedoc/viewer - Web UI
+│   ├── viewer/               # @swedevtools/livedoc-viewer - Web UI
 │   │   └── ...
 │   │
-│   └── vscode/               # @livedoc/vscode - VS Code extension
+│   └── vscode/               # livedoc-vscode - VS Code extension
 │       └── ...
 │
 ├── dotnet/                   # .NET packages (separate ecosystem)
@@ -186,18 +186,18 @@ LiveDoc/
 
 |   Current Name    |   New NPM Name    |    Folder Path    |    Status    |
 | --------------    | --------------    | -------------     | ----------   |
-| `livedoc-vitest`  | `@livedoc/vitest` | `packages/vitest` | ✅ Active     |
-| `@livedoc/viewer` | `@livedoc/viewer` | `packages/viewer` | ✅ Active     |
-| `livedoc-vscode`  | `@livedoc/vscode` | `packages/vscode` | ✅ Active     |
+| `livedoc-vitest`  | `@swedevtools/livedoc-vitest` | `packages/vitest` | ✅ Active     |
+| `@swedevtools/livedoc-viewer` | `@swedevtools/livedoc-viewer` | `packages/viewer` | ✅ Active     |
+| `livedoc-vscode`  | `livedoc-vscode` | `packages/vscode` | ✅ Active     |
 | `livedoc-xunit`   | `LiveDoc.xUnit`   | `dotnet/xunit`    | ✅ Active     |
 | `livedoc-mocha`   | *(deprecated)*    | `_archive/mocha`  | 🗄️ Archived |
 
 ### Rationale
-1. **Scoped names** (`@livedoc/*`) prevent npm name collisions
+1. **Scoped names** (`@swedevtools/livedoc-*`) prevent npm name collisions
 2. **Short folder names** reduce path length and improve readability
 3. **Consistent pattern** across TypeScript packages
 4. **NuGet naming** for .NET (`LiveDoc.xUnit`)
-5. **No @livedoc/core needed** - with single JS SDK, keep models in vitest package
+5. **No @swedevtools/livedoc-core needed** - with single JS SDK, keep models in vitest package
 
 ---
 
@@ -224,7 +224,7 @@ packages/
 |                      Approach                       |                           Pros                            |                 Cons                  |
 | ----------                                          | ------                                                    | ------                                |
 | **Bundled (recommended)**                           | Simpler deps, version-locked with SDK, easier maintenance | Larger package size                   |
-| Separate packages (`@livedoc/vitest-reporter-spec`) | Smaller installs, independent versions                    | Complex deps, version matrix issues   |
+| Separate packages (`@swedevtools/livedoc-vitest-reporter-spec`) | Smaller installs, independent versions                    | Complex deps, version matrix issues   |
 | Nested packages (`packages/vitest/reporters/spec/`) | Organized                                                 | Over-engineering for simple reporters |
 
 ### When to Extract a Reporter
@@ -244,8 +244,8 @@ export * from './livedoc';
 export * from './reporter';
 
 // User imports
-import { feature, scenario, Given, When, Then } from '@livedoc/vitest';
-import { LiveDocSpecReporter, JsonReporter } from '@livedoc/vitest/reporter';
+import { feature, scenario, Given, When, Then } from '@swedevtools/livedoc-vitest';
+import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
 ```
 
 ---
@@ -269,7 +269,7 @@ import { LiveDocSpecReporter, JsonReporter } from '@livedoc/vitest/reporter';
 - [x] Move `livedoc-mocha` to `_archive/livedoc-mocha` (preserve for reference)
 - [ ] Publish final `livedoc-mocha` npm version with deprecation notice
 - [x] Rename active package folders (keep git history)
-- [x] Update package.json names to scoped (`@livedoc/*`)
+- [x] Update package.json names to scoped (`@swedevtools/livedoc-*`)
 - [x] Move `livedoc-xunit` to `dotnet/xunit`
 - [x] Test all active packages still work
 
@@ -405,19 +405,19 @@ git mv packages/livedoc-xunit dotnet/xunit
 ```json
 // packages/vitest/package.json
 {
-  "name": "@livedoc/vitest",
+  "name": "@swedevtools/livedoc-vitest",
   ...
 }
 
 // packages/viewer/package.json  
 {
-  "name": "@livedoc/viewer",
+  "name": "@swedevtools/livedoc-viewer",
   ...
 }
 
 // packages/vscode/package.json
 {
-  "name": "@livedoc/vscode",
+  "name": "livedoc-vscode",
   ...
 }
 ```
@@ -458,7 +458,7 @@ packages:
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
-    "test:vitest": "pnpm --filter @livedoc/vitest test"
+    "test:vitest": "pnpm --filter @swedevtools/livedoc-vitest test"
   },
   "packageManager": "pnpm@9.14.2"
 }
@@ -516,7 +516,7 @@ dotnet/
 |    Decision    |               Choice               |                Rationale                 |
 | ----------     | --------                           | -----------                              |
 | Monorepo tool  | **pnpm workspaces**                | Fast, strict, excellent monorepo support |
-| Package naming | **@livedoc/\*** scoped             | Consistent, no conflicts                 |
+| Package naming | **@swedevtools/livedoc-\*** scoped             | Consistent, no conflicts                 |
 | Folder naming  | **Short names** (vitest, viewer)   | Cleaner paths                            |
 | Reporters      | **Bundled in vitest package**      | Simple, version-locked                   |
 | livedoc-mocha  | **Deprecated & Archived**          | Vitest is the modern standard            |
@@ -552,9 +552,9 @@ packages/
 ### After (Target)
 ```
 packages/
-  vitest/                     ← @livedoc/vitest (primary JavaScript SDK)
-  viewer/                     ← @livedoc/viewer
-  vscode/                     ← @livedoc/vscode
+  vitest/                     ← @swedevtools/livedoc-vitest (primary JavaScript SDK)
+  viewer/                     ← @swedevtools/livedoc-viewer
+  vscode/                     ← livedoc-vscode
 
 dotnet/
   xunit/                      ← LiveDoc.xUnit (NuGet)

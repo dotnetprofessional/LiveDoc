@@ -1,4 +1,4 @@
-# @livedoc/vscode
+# livedoc-vscode
 
 VS Code extension providing tools and snippets for working with LiveDoc BDD testing framework.
 
@@ -59,12 +59,12 @@ code --install-extension livedoc-0.0.1.vsix
 
 ## Using
 
-This extension works with the [@livedoc/vitest](../vitest/README.md) testing library.
+This extension works with the [@swedevtools/livedoc-vitest](../vitest/README.md) testing library.
 
 ### Setup Your Project
 
 ```bash
-npm install @livedoc/vitest vitest --save-dev
+npm install @swedevtools/livedoc-vitest vitest --save-dev
 ```
 
 ### Write BDD Tests
@@ -79,7 +79,7 @@ Use the snippets to quickly scaffold your tests:
 ### Example Test
 
 ```typescript
-import { feature, scenario, given, when, then } from "@livedoc/vitest";
+import { feature, scenario, given, when, then } from "@swedevtools/livedoc-vitest";
 import { expect } from "vitest";
 
 feature(`User Authentication
@@ -203,8 +203,8 @@ pnpm run package
 
 ## Related Packages
 
-- [@livedoc/vitest](../vitest/README.md) - The main BDD testing framework for Vitest
-- [@livedoc/viewer](../viewer/README.md) - Web-based test results viewer
+- [@swedevtools/livedoc-vitest](../vitest/README.md) - The main BDD testing framework for Vitest
+- [@swedevtools/livedoc-viewer](../viewer/README.md) - Web-based test results viewer
 
 ## Contributing
 

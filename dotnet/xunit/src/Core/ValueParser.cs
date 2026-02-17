@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// Parses step descriptions to extract quoted values and named parameters.

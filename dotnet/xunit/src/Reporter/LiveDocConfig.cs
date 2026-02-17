@@ -1,4 +1,4 @@
-namespace LiveDoc.xUnit.Reporter;
+namespace SweDevTools.LiveDoc.xUnit.Reporter;
 
 /// <summary>
 /// Configuration for LiveDoc reporter.

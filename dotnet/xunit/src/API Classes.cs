@@ -1,6 +1,6 @@
-﻿using LiveDoc.Models;
+using LiveDoc.Models;
 
-namespace LiveDoc.xUnit.src;
+namespace SweDevTools.LiveDoc.xUnit.src;
 // =============================================================================
 // Navigation / Hierarchy
 // =============================================================================

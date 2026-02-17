@@ -39,7 +39,7 @@ Common tag conventions:
 Filters are set via `livedoc.options.filters`:
 
 ```ts
-import { livedoc } from '@livedoc/vitest';
+import { livedoc } from '@swedevtools/livedoc-vitest';
 
 // Include only these tags
 livedoc.options.filters.include = ['@smoke', '@critical'];
@@ -54,7 +54,7 @@ livedoc.options.filters.exclude = ['@slow', '@wip'];
 
 ```ts
 // test/livedoc.setup.ts
-import { livedoc } from '@livedoc/vitest';
+import { livedoc } from '@swedevtools/livedoc-vitest';
 
 livedoc.options.filters.include = ['@smoke'];
 livedoc.options.filters.exclude = ['@slow'];
@@ -74,7 +74,7 @@ export default defineConfig({
 ```ts
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { livedoc } from '@livedoc/vitest';
+import { livedoc } from '@swedevtools/livedoc-vitest';
 
 livedoc.options.filters.include = ['@smoke'];
 
@@ -179,7 +179,7 @@ For CI/CD, you might want environment-based filtering:
 
 ```ts
 // test/livedoc.setup.ts
-import { livedoc } from '@livedoc/vitest';
+import { livedoc } from '@swedevtools/livedoc-vitest';
 
 if (process.env.CI === 'true') {
   // In CI, skip slow tests

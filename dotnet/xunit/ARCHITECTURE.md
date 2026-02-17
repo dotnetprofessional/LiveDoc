@@ -25,14 +25,15 @@ livedoc-xunit/
 │   │   └── LiveDocContext.cs # Execution context
 │   ├── Formatters/           # Output formatting
 │   │   └── LiveDocFormatter.cs
-│   └── LiveDocTest.cs        # Base test class
+│   ├── FeatureTest.cs         # BDD base test class
+│   └── SpecificationTest.cs   # MSpec base test class
 ├── samples/                  # Example tests
 └── tests/                    # Unit tests (future)
 ```
 
 ### Key Classes
 
-#### 1. `LiveDocTest` (Base Class)
+#### 1. `FeatureTest` / `SpecificationTest` (Base Classes)
 - Provides `Given`, `When`, `Then`, `And`, `But` methods
 - Manages test execution context
 - Integrates with xUnit's `ITestOutputHelper`
@@ -59,7 +60,7 @@ livedoc-xunit/
 ## Design Decisions
 
 ### 1. Base Class Approach
-**Decision**: Require inheritance from `LiveDocTest`
+**Decision**: Require inheritance from `FeatureTest` or `SpecificationTest`
 
 **Rationale**:
 - Eliminates `_ctx` prefix noise
@@ -218,7 +219,7 @@ The package itself should be tested using xUnit (dogfooding):
 
 ```csharp
 [Feature]
-public class LiveDocFormatterTests : LiveDocTest
+public class LiveDocFormatterTests : FeatureTest
 {
     [Scenario]
     public void Format_feature_with_correct_indentation()

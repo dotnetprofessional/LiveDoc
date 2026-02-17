@@ -1,4 +1,4 @@
-# Writing LiveDoc Tests with @livedoc/vitest
+# Writing LiveDoc Tests with @swedevtools/livedoc-vitest
 
 This prompt helps you write BDD-style tests using the LiveDoc framework with Gherkin syntax. The goal is to create living documentation that is readable, maintainable, and provides clear specifications.
 
@@ -11,7 +11,7 @@ This prompt helps you write BDD-style tests using the LiveDoc framework with Ghe
 ## Import Pattern
 
 ```typescript
-import { feature, scenario, scenarioOutline, background, Given, When, Then, And, But } from "@livedoc/vitest";
+import { feature, scenario, scenarioOutline, background, Given, When, Then, And, But } from "@swedevtools/livedoc-vitest";
 ```
 
 ## Basic Structure
@@ -428,7 +428,7 @@ scenario("Fetch user data from API", (ctx) => {
 ## Complete Example
 
 ```typescript
-import { feature, scenario, scenarioOutline, background, Given, When, Then, And } from "@livedoc/vitest";
+import { feature, scenario, scenarioOutline, background, Given, When, Then, And } from "@swedevtools/livedoc-vitest";
 import { expect } from "chai";
 
 feature(`Order Discount Calculation

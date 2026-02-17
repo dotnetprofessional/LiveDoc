@@ -278,7 +278,7 @@ These Vitest features don't translate naturally to C# and are intentionally omit
 
 ```csharp
 [Feature("Shopping Cart")]
-public class ShoppingCartTests : LiveDocTest
+public class ShoppingCartTests : FeatureTest
 {
     [Scenario]
     public void Add_item_to_empty_cart()
@@ -294,7 +294,7 @@ public class ShoppingCartTests : LiveDocTest
 
 ```csharp
 [Feature("Shipping Costs")]
-public class ShippingTests : LiveDocTest
+public class ShippingTests : FeatureTest
 {
     [ScenarioOutline]
     [Example("Australia", 99.99, "Standard")]
@@ -313,7 +313,7 @@ public class ShippingTests : LiveDocTest
 
 ```csharp
 [Specification("Email Validation")]
-public class EmailSpec : LiveDocTest
+public class EmailSpec : SpecificationTest
 {
     [RuleOutline("Email '<email>' should return <valid>")]
     [Example("test@example.com", true)]
@@ -329,7 +329,7 @@ public class EmailSpec : LiveDocTest
 
 ```csharp
 [Specification("Calculator")]
-public class CalcSpec : LiveDocTest
+public class CalcSpec : SpecificationTest
 {
     [RuleOutline]
     [Example(5, 3, 8)]

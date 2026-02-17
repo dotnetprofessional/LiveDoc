@@ -31,7 +31,8 @@
     "build:webview": "vite build --config vite.config.webview.ts",
     "start": "node dist/server/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "pack:local": "pnpm pack"
   },
   "dependencies": {
     "@swedevtools/livedoc-schema": "^1.0.0",

@@ -1,6 +1,6 @@
 using System.Collections;
 
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// A dictionary-like collection for accessing named parameters extracted from step descriptions.
@@ -11,6 +11,11 @@ public class LiveDocValueDictionary : IEnumerable<KeyValuePair<string, LiveDocVa
     private readonly Dictionary<string, string> _rawValues;
     private readonly Dictionary<string, LiveDocValue> _values;
     private readonly string _stepTitle;
+
+    /// <summary>
+    /// An empty dictionary (used as default for contexts with no extracted parameters).
+    /// </summary>
+    public static readonly LiveDocValueDictionary Empty = new(new Dictionary<string, string>(), "");
 
     /// <summary>
     /// Creates an empty dictionary.

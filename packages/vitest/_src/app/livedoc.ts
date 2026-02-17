@@ -1261,7 +1261,7 @@ export const when = createStepFunction("when");
  * Then keyword - assertions
  * NOTE: Uppercase 'Then' is required due to ESM thenable detection.
  * If a module exports 'then', Node.js treats it as a Promise-like object.
- * Users who prefer lowercase can use: import { Then as then } from '@livedoc/vitest'
+ * Users who prefer lowercase can use: import { Then as then } from '@swedevtools/livedoc-vitest'
  * Or use globals mode where lowercase 'then' is available.
  */
 export const Then = createStepFunction("then");

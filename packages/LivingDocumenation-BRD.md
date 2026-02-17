@@ -1,7 +1,7 @@
-﻿# LiveDoc Viewer — BRD (Screen-by-screen)
+# LiveDoc Viewer — BRD (Screen-by-screen)
 
 **Document type:** Business Requirements Document (Viewer UX)  
-**Applies to:** `@livedoc/viewer` (website + VS Code webview surface), backed by `@livedoc/server` + `@livedoc/schema`  
+**Applies to:** `@swedevtools/livedoc-viewer` (website + VS Code webview surface), backed by `@swedevtools/livedoc-server` + `@swedevtools/livedoc-schema`  
 **Version:** 2.1  
 **Last updated:** 2026-01-05  
 **Status:** Living document

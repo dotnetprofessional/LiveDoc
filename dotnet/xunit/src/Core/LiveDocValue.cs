@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// Wrapper for extracted values that provides fluent type conversion.

@@ -1,7 +1,7 @@
-using LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Tests.Gherkin.Execution;
+namespace SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Execution;
 
 /// <summary>
 /// Specification: Async Rules

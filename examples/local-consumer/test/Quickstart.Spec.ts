@@ -3,7 +3,7 @@ import { feature, scenario, given, and, when, Then as then } from "@swedevtools/
 
 feature(`Calculator basics
 
-    Validates a minimal @livedoc/vitest setup when installed from a local tarball.
+    Validates a minimal @swedevtools/livedoc-vitest setup when installed from a local tarball.
     `, () => {
     scenario("Adding two numbers", () => {
         let first: number;

@@ -1,10 +1,10 @@
 <div align="center">
 
-# @livedoc/vitest
+# @swedevtools/livedoc-vitest
 
 ### Turn your tests into living documentation
 
-[![npm version](https://img.shields.io/npm/v/@livedoc/vitest.svg)](https://www.npmjs.com/package/@livedoc/vitest)
+[![npm version](https://img.shields.io/npm/v/@swedevtools/livedoc-vitest.svg)](https://www.npmjs.com/package/@swedevtools/livedoc-vitest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 **Write tests in Gherkin. Get documentation that never goes stale.**
@@ -41,14 +41,14 @@ feature("Shopping Cart", () => {
 ### Install
 
 ```bash
-npm install --save-dev vitest @livedoc/vitest
+npm install --save-dev vitest @swedevtools/livedoc-vitest
 ```
 
 ### Create a spec
 
 ```ts
 // tests/calculator.Spec.ts
-import { feature, scenario, given, when, Then as then, and } from '@livedoc/vitest';
+import { feature, scenario, given, when, Then as then, and } from '@swedevtools/livedoc-vitest';
 
 feature("Calculator", () => {
   scenario("Adding two numbers", () => {
@@ -81,7 +81,7 @@ feature("Calculator", () => {
 ```ts
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -193,9 +193,9 @@ specification("Password Validation", () => {
 
 | Package                                | Description                          |
 | ---------                              | -------------                        |
-| [@livedoc/viewer](../viewer/README.md) | Web-based test results visualization |
-| [@livedoc/vscode](../vscode/README.md) | VS Code extension with snippets      |
-| [@livedoc/server](../server/README.md) | Results server for live updates      |
+| [@swedevtools/livedoc-viewer](../viewer/README.md) | Web-based test results visualization |
+| [livedoc-vscode](../vscode/README.md) | VS Code extension with snippets      |
+| [@swedevtools/livedoc-server](../server/README.md) | Results server for live updates      |
 
 ---
 

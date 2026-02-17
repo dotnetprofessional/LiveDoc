@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// Represents the execution status of a step.
@@ -84,12 +84,46 @@ public class ScenarioContext
 
 /// <summary>
 /// Provides context about the current rule being executed.
+/// Includes value extraction from the rule title for self-documenting tests.
 /// </summary>
+/// <example>
+/// <code>
+/// [Rule("Adding '5' and '3' returns '8'")]
+/// public void Add_values()
+/// {
+///     var (a, b, expected) = Rule.Values.As&lt;int, int, int&gt;();
+///     Assert.Equal(expected, a + b);
+/// }
+/// </code>
+/// </example>
 public class RuleContext
 {
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public string[] Tags { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Extracted values from quoted strings in the rule title.
+    /// Access by index: Values[0].AsInt()
+    /// </summary>
+    public LiveDocValueArray Values { get; set; } = LiveDocValueArray.Empty;
+
+    /// <summary>
+    /// Extracted named parameters from &lt;name:value&gt; patterns in the rule title.
+    /// Access by name: Params["name"].AsString()
+    /// </summary>
+    public LiveDocValueDictionary Params { get; set; } = LiveDocValueDictionary.Empty;
+
+    /// <summary>
+    /// Raw string values before conversion.
+    /// </summary>
+    public string[] ValuesRaw { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Raw parameter values before conversion.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ParamsRaw { get; set; }
+        = new Dictionary<string, string>();
 }
 
 /// <summary>

@@ -18,7 +18,7 @@
 export default defineConfig({
   test: {
     globals: true,  // ← Required
-    setupFiles: ['@livedoc/vitest/setup'],  // ← Required for globals
+    setupFiles: ['@swedevtools/livedoc-vitest/setup'],  // ← Required for globals
   },
 });
 ```
@@ -50,7 +50,7 @@ Or rename your config to `vitest.config.mts`.
 ```json
 {
   "compilerOptions": {
-    "types": ["vitest/globals", "@livedoc/vitest/globals"]
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
   }
 }
 ```
@@ -132,7 +132,7 @@ export default defineConfig({
 ```ts
 // ✅ Correct - setup file
 // test/livedoc.setup.ts
-import { livedoc } from '@livedoc/vitest';
+import { livedoc } from '@swedevtools/livedoc-vitest';
 livedoc.options.filters.include = ['@smoke'];
 ```
 
@@ -236,10 +236,10 @@ new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' })
 
 ```ts
 // ❌ Wrong
-import { then } from '@livedoc/vitest';  // Doesn't exist
+import { then } from '@swedevtools/livedoc-vitest';  // Doesn't exist
 
 // ✅ Correct
-import { Then as then } from '@livedoc/vitest';
+import { Then as then } from '@swedevtools/livedoc-vitest';
 ```
 
 Or use globals mode where `then` is available directly.

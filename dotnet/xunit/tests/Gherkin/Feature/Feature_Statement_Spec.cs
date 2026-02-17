@@ -1,8 +1,8 @@
-using LiveDoc.xUnit;
-using LiveDoc.xUnit.Core;
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Tests.Gherkin.Feature;
+namespace SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Feature;
 
 /// <summary>
 /// Specification: Feature Statement

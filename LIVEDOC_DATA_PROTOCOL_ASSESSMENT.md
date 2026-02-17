@@ -200,7 +200,7 @@ Options:
 1. Create a small `packages/schema` (recommended) exporting:
    - TypeScript types (and optionally runtime validators)
    - Protocol version constants
-2. Or, use the already-exported server schema (`@livedoc/server` currently exports schema types) and import it from both viewer and vitest reporter.
+2. Or, use the already-exported server schema (`@swedevtools/livedoc-server` currently exports schema types) and import it from both viewer and vitest reporter.
 
 Minimum acceptance criteria:
 - No duplicated protocol unions/enums (status, step keywords, scenario types).
@@ -294,7 +294,7 @@ With this in place:
 ## Suggested incremental refactor plan (low-risk)
 
 1. **Choose canonical protocol location**
-   - Decide between `packages/schema` or importing from `@livedoc/server`.
+   - Decide between `packages/schema` or importing from `@swedevtools/livedoc-server`.
 
 2. **Make the viewer compile against the protocol types**
    - Replace `packages/viewer/src/client/store.ts` model types with protocol types (or a very thin view model).
@@ -349,7 +349,7 @@ These are good refactoring targets because they exist only due to upstream ambig
 
 ## “Good bones” already present
 - The server already exports a unified schema and a WebSocket event union.
-- The viewer already has `packages/viewer/src/shared/index.ts` re-exporting `@livedoc/server`.
+- The viewer already has `packages/viewer/src/shared/index.ts` re-exporting `@swedevtools/livedoc-server`.
 
 The main issue is not lack of schema—it’s lack of **schema adoption + invariants + enforcement**.
 

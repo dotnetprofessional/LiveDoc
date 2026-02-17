@@ -52,7 +52,7 @@ If you prefer to copy-paste configurations manually, use the sections below.
 
 ```ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -79,7 +79,7 @@ import {
   Then as then,
   and,
   but,
-} from '@livedoc/vitest';
+} from '@swedevtools/livedoc-vitest';
 
 feature("Feature Title", () => {
   scenario("Scenario Title", () => {
@@ -100,14 +100,14 @@ feature("Feature Title", () => {
 
 ```ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
     include: ['**/*.Spec.ts'],
-    setupFiles: ['@livedoc/vitest/setup'],
+    setupFiles: ['@swedevtools/livedoc-vitest/setup'],
     reporters: [
       new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' })
     ],
@@ -120,7 +120,7 @@ export default defineConfig({
 ```json
 {
   "compilerOptions": {
-    "types": ["vitest/globals", "@livedoc/vitest/globals"]
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
   }
 }
 ```
@@ -148,10 +148,10 @@ Add these scripts to your `package.json` to easily switch between reporting deta
 ```json
 {
   "scripts": {
-    "test:spec": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=spec+headers",
-    "test:list": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=list+headers",
-    "test:summary": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=summary+headers",
-    "test:full": "vitest run --reporter=@livedoc/vitest/reporter --reporter-options.detailLevel=spec+summary+headers"
+    "test:spec": "vitest run --reporter=@swedevtools/livedoc-vitest/reporter --reporter-options.detailLevel=spec+headers",
+    "test:list": "vitest run --reporter=@swedevtools/livedoc-vitest/reporter --reporter-options.detailLevel=list+headers",
+    "test:summary": "vitest run --reporter=@swedevtools/livedoc-vitest/reporter --reporter-options.detailLevel=summary+headers",
+    "test:full": "vitest run --reporter=@swedevtools/livedoc-vitest/reporter --reporter-options.detailLevel=spec+summary+headers"
   }
 }
 ```
@@ -192,7 +192,7 @@ new LiveDocSpecReporter({
 ## Adding JSON output
 
 ```ts
-import { LiveDocSpecReporter, JsonReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -212,7 +212,7 @@ export default defineConfig({
 ## Adding Viewer integration
 
 ```ts
-import { LiveDocSpecReporter, LiveDocViewerReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter, LiveDocViewerReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -240,7 +240,7 @@ export default defineConfig({
 
 ```ts
 // test/livedoc.setup.ts
-import { livedoc } from '@livedoc/vitest';
+import { livedoc } from '@swedevtools/livedoc-vitest';
 
 livedoc.options.filters.include = ['@smoke', '@critical'];
 livedoc.options.filters.exclude = ['@slow', '@flaky'];
@@ -277,7 +277,7 @@ feature("API Tests @api @integration", () => {
 For technical/domain rules instead of user stories:
 
 ```ts
-import { specification, rule, ruleOutline } from '@livedoc/vitest';
+import { specification, rule, ruleOutline } from '@swedevtools/livedoc-vitest';
 
 specification("Email Validation Rules", () => {
   rule("Email must contain @ symbol", (ctx) => {
@@ -304,7 +304,7 @@ specification("Email Validation Rules", () => {
 ```
 my-project/
 ├── vitest.config.ts          # Vitest + LiveDoc config
-├── tsconfig.json             # Add @livedoc/vitest/globals to types
+├── tsconfig.json             # Add @swedevtools/livedoc-vitest/globals to types
 ├── test/
 │   ├── livedoc.setup.ts      # Optional: filter/rule configuration
 │   ├── auth.Spec.ts          # BDD specs

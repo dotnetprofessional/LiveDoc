@@ -5,9 +5,9 @@
 LiveDoc is a modern living documentation framework that generates documentation from executable specifications. It is a monorepo managed with pnpm workspaces.
 
 ### Key Packages
-- **`packages/vitest`**: Core testing framework and Gherkin/Spec parser (`@livedoc/vitest`).
-- **`packages/viewer`**: Real-time test result visualizer (`@livedoc/viewer`).
-- **`packages/vscode`**: VS Code extension for LiveDoc (`@livedoc/vscode`).
+- **`packages/vitest`**: Core testing framework and Gherkin/Spec parser (`@swedevtools/livedoc-vitest`).
+- **`packages/viewer`**: Real-time test result visualizer (`@swedevtools/livedoc-viewer`).
+- **`packages/vscode`**: VS Code extension for LiveDoc (`livedoc-vscode`).
 - **`dotnet/xunit`**: .NET integration (separate solution).
 
 ## Technology Stack
@@ -76,16 +76,16 @@ given("the user has items", (ctx) => { const items = 5; ... });
 
 ### Build & Run
 - **Root**: `pnpm install`, `pnpm build`
-- **Viewer**: `pnpm --filter @livedoc/viewer dev`
-- **Vitest Package**: `pnpm --filter @livedoc/vitest test`
-- **VS Code**: `pnpm --filter @livedoc/vscode compile`
+- **Viewer**: `pnpm --filter @swedevtools/livedoc-viewer dev`
+- **Vitest Package**: `pnpm --filter @swedevtools/livedoc-vitest test`
+- **VS Code**: `pnpm --filter livedoc-vscode compile`
 
 ### Dev Scripts (Required)
 
 To avoid repeated dev friction (especially port 3000 collisions), prefer the repo scripts over ad-hoc commands.
 
 - **Start Viewer reliably (port 3000)**: `./scripts/start-viewer.ps1 -KillStale`
-  - Use this instead of running `pnpm --filter @livedoc/viewer dev` directly.
+  - Use this instead of running `pnpm --filter @swedevtools/livedoc-viewer dev` directly.
   - If the viewer is already healthy, the script will no-op (it won’t restart unless you ask).
   - Use `-NewWindow` if you want it in a separate terminal.
   - Do **not** use `-KillAll` unless the user explicitly asks (it can kill non-node processes).

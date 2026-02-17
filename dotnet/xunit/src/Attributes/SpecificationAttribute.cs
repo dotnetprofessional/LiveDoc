@@ -1,7 +1,7 @@
 using Xunit;
 using Xunit.Sdk;
 
-namespace LiveDoc.xUnit;
+namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
 /// Marks a test class as a Specification (MSpec-style container).

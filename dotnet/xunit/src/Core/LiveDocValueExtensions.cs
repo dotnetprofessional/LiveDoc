@@ -1,4 +1,4 @@
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// Extension methods for LiveDocValue arrays, including tuple deconstruction.

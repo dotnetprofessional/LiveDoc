@@ -1,6 +1,6 @@
 # LiveDoc Vitest BRD
 
-> **Deprecation Notice**: This document supersedes all previous implementation status and backlog documents for `@livedoc/vitest`.
+> **Deprecation Notice**: This document supersedes all previous implementation status and backlog documents for `@swedevtools/livedoc-vitest`.
 
 ## Overview
 LiveDoc Vitest is the core testing framework that allows developers to write executable specifications using BDD (Behavior Driven Development) patterns. It turns technical tests into a "Living Documentation" source that can be understood by both developers and business stakeholders.

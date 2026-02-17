@@ -1,11 +1,11 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
-using LiveDoc.xUnit.Formatters;
-using LiveDoc.xUnit.Reporter;
-using LiveDoc.xUnit.Reporter.Models;
+using SweDevTools.LiveDoc.xUnit.Formatters;
+using SweDevTools.LiveDoc.xUnit.Reporter;
+using SweDevTools.LiveDoc.xUnit.Reporter.Models;
 using Xunit.Abstractions;
 
-namespace LiveDoc.xUnit.Core;
+namespace SweDevTools.LiveDoc.xUnit.Core;
 
 /// <summary>
 /// Context that manages step execution and provides access to test metadata.
@@ -270,11 +270,19 @@ public class LiveDocContext : IDisposable
             name = FeatureAttribute.FormatName(_testMethod.Name);
         }
 
+        var valuesRaw = ValueParser.ExtractQuotedValues(name);
+        var paramsRaw = ValueParser.ExtractNamedParams(name);
+
         return new RuleContext
         {
             Name = name,
             Description = ruleAttr?.Description ?? ruleOutlineAttr?.Description,
-            Tags = TagAttribute.GetTags(_testClassType, _testMethod)
+            Tags = TagAttribute.GetTags(_testClassType, _testMethod),
+            ValuesRaw = valuesRaw,
+            ParamsRaw = paramsRaw,
+            Values = new LiveDocValueArray(
+                ValueParser.CreateValueArray(valuesRaw, name), name),
+            Params = new LiveDocValueDictionary(paramsRaw, name),
         };
     }
 

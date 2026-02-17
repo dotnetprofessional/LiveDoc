@@ -10,9 +10,9 @@ LiveDoc brings Gherkin-style BDD syntax to modern testing frameworks, enabling y
 
 | Package | Description | Status |
 |---------|-------------|--------|
-| [@livedoc/vitest](packages/vitest) | Gherkin BDD syntax for Vitest | ✅ Active |
-| [@livedoc/viewer](packages/viewer) | Web UI for viewing test results | ✅ Active |
-| [@livedoc/vscode](packages/vscode) | VS Code extension with snippets | ✅ Active |
+| [@swedevtools/livedoc-vitest](packages/vitest) | Gherkin BDD syntax for Vitest | ✅ Active |
+| [@swedevtools/livedoc-viewer](packages/viewer) | Web UI for viewing test results | ✅ Active |
+| [livedoc-vscode](packages/vscode) | VS Code extension with snippets | ✅ Active |
 | [LiveDoc.xUnit](dotnet/xunit) | BDD syntax for xUnit (.NET) | ✅ Active |
 
 ## Quick Start
@@ -20,13 +20,13 @@ LiveDoc brings Gherkin-style BDD syntax to modern testing frameworks, enabling y
 ### Installation
 
 ```bash
-npm install @livedoc/vitest vitest --save-dev
+npm install @swedevtools/livedoc-vitest vitest --save-dev
 ```
 
 ### Write Your First Feature
 
 ```typescript
-import { feature, scenario, given, when, then } from '@livedoc/vitest';
+import { feature, scenario, given, when, then } from '@swedevtools/livedoc-vitest';
 
 feature('Calculator', () => {
     scenario('Adding two numbers', () => {
@@ -52,7 +52,7 @@ feature('Calculator', () => {
 ```typescript
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@livedoc/vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
     test: {
@@ -92,11 +92,11 @@ livedoc-viewer
 npx vitest run
 ```
 
-Results appear in your browser as tests run. See the [@livedoc/viewer README](packages/viewer/README.md) for full documentation.
+Results appear in your browser as tests run. See the [@swedevtools/livedoc-viewer README](packages/viewer/README.md) for full documentation.
 
 ## Documentation
 
-See the [@livedoc/vitest README](packages/vitest/README.md) for full documentation.
+See the [@swedevtools/livedoc-vitest README](packages/vitest/README.md) for full documentation.
 
 ## License
 

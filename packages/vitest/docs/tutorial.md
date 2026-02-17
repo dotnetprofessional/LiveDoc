@@ -118,7 +118,7 @@ Now let's turn this specification into executable code with LiveDoc.
 Create `ShippingCosts.Spec.ts`:
 
 ```ts
-import { feature, scenarioOutline, given, when, Then as then, and } from '@livedoc/vitest';
+import { feature, scenarioOutline, given, when, Then as then, and } from '@swedevtools/livedoc-vitest';
 import { expect } from 'vitest';
 
 // We'll build these classes as we go

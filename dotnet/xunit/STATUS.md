@@ -1,9 +1,9 @@
-# LiveDoc.xUnit - Project Status
+# SweDevTools.LiveDoc.xUnit - Project Status
 
 ## ✅ Completed (100%)
 
 ### Core Framework
-- ✅ Base `LiveDocTest` class with Given/When/Then/And/But methods
+- ✅ Base `FeatureTest`/`SpecificationTest` classes with Given/When/Then/And/But methods
 - ✅ Synchronous and asynchronous step execution
 - ✅ Context management via base class (zero-noise API)
 - ✅ Step timing and execution tracking
@@ -108,7 +108,7 @@ All 59 sample tests passing:
 ### BDD/Gherkin Style
 ```csharp
 [Feature("Beautiful Tea Shipping Costs")]
-public class ShippingCostsTests : LiveDocTest
+public class ShippingCostsTests : FeatureTest
 {
     [Scenario]
     public void Free_shipping_in_Australia()
@@ -140,7 +140,7 @@ public void Customer_pays_correct_tax()
 ### Specification Pattern
 ```csharp
 [Specification("Calculator Operations")]
-public class CalculatorSpec : LiveDocTest
+public class CalculatorSpec : SpecificationTest
 {
     [Rule("Adding positive numbers works")]
     public void Adding_positive_numbers()
@@ -185,7 +185,7 @@ dotnet test
 
 ## 📝 Next Steps (Optional)
 
-1. Publish to NuGet as `LiveDoc.xUnit`
+1. Publish to NuGet as `SweDevTools.LiveDoc.xUnit`
 2. Add more samples showing different use cases
 3. Consider implementing Background steps
 4. Add tag/label support for test filtering
