@@ -1,0 +1,451 @@
+---
+sidebar_position: 8
+title: "Tutorial: Beautiful Tea"
+description: "A complete walkthrough — take a real business requirement and turn it into an executable, living specification. See the same example implemented in both TypeScript/Vitest and C#/xUnit."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Tutorial: Beautiful Tea
+
+<p className="intro">
+Take a real business requirement and turn it into an executable, living specification.
+This tutorial walks through the thinking process — from vague requirement to polished spec —
+and shows the implementation in both SDKs side by side.
+</p>
+
+:::info Attribution
+This tutorial is adapted from [Alister Scott's](https://www.thoughtworks.com/profiles/alister-scott)
+excellent article *Specification by Example: a Love Story*. It demonstrates how to think in
+specifications and write tests anyone on your team can understand.
+:::
+
+---
+
+## The Business Requirement
+
+You're working for **Beautiful Tea**, an Australian company that ships tea worldwide. The business hands you this requirement:
+
+> *"We need to charge different amounts for our customers overseas versus Australia. The tax
+> office says we must charge GST for Australian customers but not for overseas ones. Also, we
+> got a great deal with a local shipping company — we can ship anywhere in Australia for free
+> if they spend more than AUD\$100, but we still have to charge overseas customers."*
+
+Your mission: implement and **document** these rules as a living specification.
+
+---
+
+## Step 1: Think in Features, Not Code
+
+### ❌ The Technical Approach
+
+A developer's first instinct might be:
+
+```
+Feature: Add additional shipping options to shopping cart
+```
+
+This describes *what you're building* but not *why*. It focuses on implementation, not business value.
+
+### ✅ The Business Approach
+
+Rewrite from the business perspective:
+
+```
+Feature: Beautiful Tea Shipping Costs
+  * Australian customers pay GST
+  * Overseas customers don't pay GST
+  * Australian customers get free shipping for orders $100 and above
+  * Overseas customers all pay the same shipping rate regardless of order size
+```
+
+**Notice the difference:**
+- No mention of websites, shopping carts, or technical details
+- Focuses on business rules anyone can understand
+- A new team member could read this and understand the shipping policy
+
+---
+
+## Step 2: Think in Scenarios, Not UI Steps
+
+### ❌ The UI-Focused Approach
+
+A common mistake is writing scenarios that mirror the user interface:
+
+```
+Scenario: Free shipping in Australia
+  Given I am on the Beautiful Tea home page
+  When I search for 'Byron Breakfast' tea
+  Then I see the page for 'Byron Breakfast' tea
+  When I add 'Byron Breakfast' tea to my cart
+    And I select 10 as the quantity
+  Then I see 10 x 'Byron Breakfast' tea in my cart
+  When I select 'Check Out'
+    And I enter my country as 'Australia'
+  Then I see the total including GST
+    And I see that I am eligible for free shipping
+```
+
+**Problems:**
+- Very long and repetitive
+- Tied to UI implementation (breaks when UI changes)
+- Doesn't clearly explain the *rules*
+- You'd need many similar scenarios for different cases
+
+### ✅ The Declarative Approach
+
+Focus on the **business rules** using a scenario outline:
+
+```
+Scenario Outline: Calculate GST status and shipping rate
+  Given the customer is from <country>
+  When the customer's order totals <order total>
+  Then the customer pays <GST amount> GST
+    And they are charged the <shipping rate> shipping rate
+
+  Examples:
+  | country     | order total | GST amount | shipping rate          |
+  | Australia   |       99.99 |      9.999 | Standard Domestic      |
+  | Australia   |      100.00 |      10.00 | Free                   |
+  | New Zealand |       99.99 |          0 | Standard International |
+  | New Zealand |      100.00 |          0 | Standard International |
+  | Zimbabwe    |      100.00 |          0 | Standard International |
+```
+
+**Benefits:**
+- Crystal clear what the rules are
+- Easy to add new test cases — just add a row
+- Not tied to any UI or implementation
+- Serves as documentation for the entire team
+
+:::tip The Gherkin Vocabulary
+Steps 1 and 2 used [Gherkin vocabulary](https://cucumber.io/docs/gherkin/reference/) to express the concepts.
+The code below shows how each SDK implements this using its own syntax.
+:::
+
+---
+
+## Step 3: Build the Domain Code
+
+Before writing the spec, create the business logic. Both SDKs test the same domain:
+
+<Tabs>
+<TabItem value="ts" label="TypeScript" default>
+
+```typescript
+// src/ShoppingCart.ts
+
+export interface CartItem {
+  product: string;
+  quantity: number;
+  price: number;
+}
+
+export class ShoppingCart {
+  country = '';
+  items: CartItem[] = [];
+  gst = 0;
+  shippingRate = '';
+
+  addItem(item: CartItem): void {
+    this.items.push(item);
+  }
+
+  calculateInvoice(): void {
+    const total = this.items.reduce(
+      (sum, item) => sum + item.price * item.quantity, 0
+    );
+
+    // GST: 10% for Australian customers, 0% for everyone else
+    this.gst = this.country === 'Australia'
+      ? parseFloat((total * 0.1).toFixed(3))
+      : 0;
+
+    // Shipping rules
+    if (this.country === 'Australia') {
+      this.shippingRate = total >= 100 ? 'Free' : 'Standard Domestic';
+    } else {
+      this.shippingRate = 'Standard International';
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="csharp" label="C#">
+
+```csharp
+// ShoppingCart.cs
+namespace TeaShop;
+
+public class CartItem
+{
+    public string Name { get; set; } = "";
+    public decimal Price { get; set; }
+}
+
+public class ShoppingCart
+{
+    public string Country { get; set; } = "Australia";
+    public List<CartItem> Items { get; } = new();
+    public decimal Subtotal => Items.Sum(i => i.Price);
+    public decimal GST { get; private set; }
+    public string ShippingType { get; private set; } = "";
+
+    public void AddItem(CartItem item) => Items.Add(item);
+
+    public void Calculate()
+    {
+        // GST: 10% for Australian customers, 0% for everyone else
+        GST = Country == "Australia"
+            ? Math.Round(Subtotal * 0.10m, 3) : 0m;
+
+        // Shipping rules
+        if (Country == "Australia")
+            ShippingType = Subtotal >= 100m ? "Free" : "Standard Domestic";
+        else
+            ShippingType = "Standard International";
+    }
+}
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Step 4: Write the Feature
+
+Now translate the Gherkin outline from Step 2 into executable code. This is where the SDKs diverge in syntax, but the specification reads the same:
+
+<Tabs>
+<TabItem value="ts" label="TypeScript" default>
+
+```typescript
+// tests/ShippingCosts.Spec.ts
+import {
+  feature, scenarioOutline, given, when, Then as then, and,
+} from '@swedevtools/livedoc-vitest';
+import { ShoppingCart } from '../src/ShoppingCart';
+
+feature(`Beautiful Tea Shipping Costs
+
+  * Australian customers pay GST
+  * Overseas customers don't pay GST
+  * Australian customers get free shipping for orders $100 and above
+  * Overseas customers all pay the same shipping rate regardless of order size
+`, () => {
+
+  scenarioOutline(`Calculate GST status and shipping rate
+
+    Examples:
+    |   country   | order total | GST amount |     shipping rate      |
+    | Australia   |       99.99 |      9.999 | Standard Domestic      |
+    | Australia   |      100.00 |      10.00 | Free                   |
+    | New Zealand |       99.99 |          0 | Standard International |
+    | New Zealand |      100.00 |          0 | Standard International |
+    | Zimbabwe    |      100.00 |          0 | Standard International |
+  `, (ctx) => {
+    let cart: ShoppingCart;
+
+    given("the customer is from '<country>'", () => {
+      cart = new ShoppingCart();
+      cart.country = ctx.example.country;
+    });
+
+    when("the customer's order totals '<order total>'", () => {
+      cart.addItem({ product: 'tea', quantity: 1, price: ctx.example.orderTotal });
+      cart.calculateInvoice();
+    });
+
+    then("the customer pays '<GST amount>' GST", () => {
+      expect(cart.gst).toBe(ctx.example.GSTAmount);
+    });
+
+    and("they are charged the '<shipping rate>' shipping rate", () => {
+      expect(cart.shippingRate).toBe(ctx.example.shippingRate);
+    });
+  });
+});
+```
+
+**Key TypeScript details:**
+- The Examples table is embedded in the `scenarioOutline` title string
+- Column values are accessed via `ctx.example.propertyName` (camelCased)
+- Values are automatically type-coerced (strings → numbers, booleans, etc.)
+- `Then` must be imported uppercase due to ESM thenable detection: `Then as then`
+
+</TabItem>
+<TabItem value="csharp" label="C#">
+
+```csharp
+// ShippingCostsTests.cs
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
+using Xunit;
+using Xunit.Abstractions;
+using TeaShop;
+
+namespace TeaShop.Tests.Shipping;
+
+[Feature("Beautiful Tea Shipping Costs", Description = @"
+    Business Rules:
+    - Australian customers pay GST (10%)
+    - Overseas customers don't pay GST
+    - Australian customers get free shipping for orders $100 and above
+    - Overseas customers all pay the same shipping rate regardless of order size
+")]
+public class ShippingCostsTests : FeatureTest
+{
+    private ShoppingCart _cart = null!;
+
+    public ShippingCostsTests(ITestOutputHelper output) : base(output) { }
+
+    [ScenarioOutline(nameof(Calculate_GST_and_shipping))]
+    [Example("Australia",    99.99,  9.999, "Standard Domestic")]
+    [Example("Australia",   100.00, 10.00,  "Free")]
+    [Example("New Zealand",  99.99,  0,     "Standard International")]
+    [Example("New Zealand", 100.00,  0,     "Standard International")]
+    [Example("Zimbabwe",    100.00,  0,     "Standard International")]
+    public void Calculate_GST_and_shipping(
+        string CustomerCountry,
+        decimal OrderTotal,
+        decimal ExpectedGST,
+        string ExpectedShippingRate)
+    {
+        Given("the customer is from <CustomerCountry>", () =>
+        {
+            _cart = new ShoppingCart { Country = CustomerCountry };
+        });
+
+        When("the customer's order totals <OrderTotal>", () =>
+        {
+            _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = OrderTotal });
+            _cart.Calculate();
+        });
+
+        Then("the customer pays <ExpectedGST> GST", () =>
+        {
+            Assert.Equal(ExpectedGST, Math.Round(_cart.GST, 3));
+        });
+
+        And("they are charged the <ExpectedShippingRate> shipping rate", () =>
+        {
+            Assert.Equal(ExpectedShippingRate, _cart.ShippingType);
+        });
+    }
+}
+```
+
+**Key C# details:**
+- Examples are defined as `[Example]` attributes on the method
+- Column values arrive as method parameters (strongly typed)
+- `<Placeholder>` in step titles is replaced in the output
+- The class inherits from `FeatureTest` and constructor-injects `ITestOutputHelper`
+- The namespace (`TeaShop.Tests.Shipping`) determines the Viewer hierarchy
+
+</TabItem>
+</Tabs>
+
+---
+
+## Step 5: Run It 🎉
+
+<Tabs>
+<TabItem value="ts" label="TypeScript" default>
+
+```bash
+npx vitest run ShippingCosts.Spec.ts
+```
+
+</TabItem>
+<TabItem value="csharp" label="C#">
+
+```bash
+dotnet test --logger "console;verbosity=detailed"
+```
+
+</TabItem>
+</Tabs>
+
+Both SDKs produce the same structured output — a readable specification, not just pass/fail:
+
+```
+Feature: Beautiful Tea Shipping Costs
+  * Australian customers pay GST
+  * Overseas customers don't pay GST
+  * Australian customers get free shipping for orders $100 and above
+  * Overseas customers all pay the same shipping rate regardless of order size
+
+  Scenario Outline: Calculate GST status and shipping rate
+
+    Example: 1
+      ✓ Given the customer is from 'Australia'
+      ✓ When the customer's order totals '99.99'
+      ✓ Then the customer pays '9.999' GST
+      ✓   And they are charged the 'Standard Domestic' shipping rate
+
+    Example: 2
+      ✓ Given the customer is from 'Australia'
+      ✓ When the customer's order totals '100.00'
+      ✓ Then the customer pays '10.00' GST
+      ✓   And they are charged the 'Free' shipping rate
+
+    Example: 3
+      ✓ Given the customer is from 'New Zealand'
+      ✓ When the customer's order totals '99.99'
+      ✓ Then the customer pays '0' GST
+      ✓   And they are charged the 'Standard International' shipping rate
+
+    ...
+```
+
+This output **is** the specification. Share it with stakeholders, include it in documentation, or view it live in the [LiveDoc Viewer](/viewer/learn/getting-started).
+
+---
+
+## What Makes This Living Documentation?
+
+Look at what we've achieved:
+
+1. **The spec reads like a business document** — A product owner can review the Examples table and ask "what about Express shipping?" without reading code.
+
+2. **The tests ARE the documentation** — There's no separate wiki to maintain. When the business rules change, the test changes, and the documentation updates automatically.
+
+3. **Values drive both code and docs** — The Examples table is the single source of truth. The test code extracts values from it, so there's zero risk of [value drift](/concepts/self-documenting-tests#the-danger-value-drift).
+
+4. **Adding a test case is adding a row** — Want to test a new country? Add a row. Want to test a boundary condition? Add a row. The test template handles execution.
+
+5. **Same spec, two SDKs** — TypeScript and C# implement the same specification. The [reporting model](/concepts/reporting-model) normalizes the output, so the Viewer renders both identically.
+
+---
+
+## Key Takeaways
+
+| Principle | What We Did |
+| --- | --- |
+| **Think business, not technical** | Feature title describes shipping rules, not shopping cart code |
+| **Be declarative, not imperative** | Scenarios describe *what* should happen, not *how* through the UI |
+| **Use examples liberally** | One outline covers 5 country/amount combinations |
+| **Let the spec drive the code** | We wrote the specification first, then the `ShoppingCart` class |
+| **Values in titles** | Every input and expected output is visible in the spec |
+
+---
+
+## Try It Yourself
+
+> **Challenge**: Extend the Beautiful Tea spec to handle a new business rule:
+>
+> *"Express shipping is available for Australian orders over \$200 at a flat rate of \$15.
+> International express is \$50 for all countries."*
+>
+> Add rows to the Examples table and update the domain code to match.
+
+---
+
+## Next Steps
+
+- **Concepts**: [Self-Documenting Tests](/concepts/self-documenting-tests) — why values in titles matter
+- **Concepts**: [Data-Driven Tests](/concepts/data-driven-tests) — deep dive into Examples tables
+- **SDK details**: [Vitest Tutorial](/vitest/learn/tutorial) · [xUnit Tutorial](/xunit/learn/tutorial) — extended versions with more patterns

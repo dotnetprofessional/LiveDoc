@@ -6,18 +6,130 @@ hide_table_of_contents: true
 hide_title: true
 ---
 
-<div style={{textAlign: 'center', padding: '3rem 0 2rem'}}>
+<div className="hero-section">
 
-<h1 style={{fontSize: '3rem', fontWeight: 800, marginBottom: '0.5rem'}}>LiveDoc</h1>
+<div className="hero-inner">
 
-<p style={{fontSize: '1.35rem', color: 'var(--ifm-color-primary)', fontWeight: 600, marginBottom: '1rem'}}>
+<img src="/img/logo-full.png" alt="LiveDoc" className="hero-logo" />
+
+<div className="hero-text">
+
+<h1 className="hero-title">LiveDoc</h1>
+
+<p className="hero-tagline">
 Living Documentation from Executable Specifications
 </p>
 
-<p style={{fontSize: '1.1rem', maxWidth: '640px', margin: '0 auto 2rem', color: 'var(--ifm-font-color-secondary)'}}>
+<p className="hero-subtitle">
 Write tests that double as documentation. LiveDoc turns your BDD features and specifications
-into a browsable, always-up-to-date documentation site — powered by the tests you already run.
+into browsable, always-up-to-date documentation — powered by the tests you already run.
 </p>
+
+</div>
+
+</div>
+
+</div>
+
+## See the Difference
+
+Most tests verify behavior but document nothing. LiveDoc tests do both:
+
+<div className="comparison-grid">
+
+<div className="comparison-card comparison-before">
+
+**Typical test** — verifies, but tells the reader nothing:
+
+```
+test('discount', () => {
+  const result = applyDiscount(100, 'SAVE20');
+  expect(result).toBe(80);
+});
+```
+
+<span className="comparison-label">✗ What's being tested? Why 80? What's SAVE20?</span>
+
+</div>
+
+<div className="comparison-card comparison-after">
+
+**LiveDoc spec** — verifies *and* documents:
+
+```
+Scenario: Applying a discount code
+  Given the cart total is '$100.00'
+  When the user applies code 'SAVE20'
+  Then the total becomes '$80.00'
+```
+
+<span className="comparison-label">✓ Self-documenting. Values in titles. No drift.</span>
+
+</div>
+
+</div>
+
+The LiveDoc spec on the right executes as a real test *and* generates browsable documentation. When the test changes, the docs update automatically. When the test passes, the documentation is accurate.
+
+---
+
+## Why LiveDoc?
+
+<div className="features-grid">
+
+<div className="feature-card">
+<div className="feature-icon">📝</div>
+<h3>Tests <em>Are</em> the Docs</h3>
+<p>Your BDD features and specifications generate documentation automatically. When a test changes, the docs update. No more stale wikis.</p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">🔄</div>
+<h3>Always In Sync</h3>
+<p>Documentation is produced from test results, so it stays aligned with reality. If the test passes, the doc is accurate.</p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">🧑‍💻</div>
+<h3>Developer-Friendly</h3>
+<p>Write tests in the language you already use — TypeScript or C#. No separate <code>.feature</code> files, no extra tooling, no context switching.</p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">👁️</div>
+<h3>Real-Time Feedback</h3>
+<p>The LiveDoc Viewer shows test results as they run, with a searchable, filterable interface your whole team can use.</p>
+</div>
+
+</div>
+
+---
+
+## How It Works
+
+<div className="workflow-steps">
+
+<div className="workflow-step">
+<div className="workflow-number">1</div>
+<h3>Write Specs</h3>
+<p>Author BDD features or specification rules in TypeScript or C#. Your tests are the single source of truth.</p>
+</div>
+
+<div className="workflow-connector">→</div>
+
+<div className="workflow-step">
+<div className="workflow-number">2</div>
+<h3>Run Tests</h3>
+<p>Execute with Vitest or xUnit. LiveDoc captures titles, values, steps, and results into a structured reporting model.</p>
+</div>
+
+<div className="workflow-connector">→</div>
+
+<div className="workflow-step">
+<div className="workflow-number">3</div>
+<h3>Browse Docs</h3>
+<p>The Viewer renders your test results as browsable, hierarchical specifications — filterable by tags, status, and search.</p>
+</div>
 
 </div>
 
@@ -25,30 +137,30 @@ into a browsable, always-up-to-date documentation site — powered by the tests 
 
 ## Choose Your SDK
 
-<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', margin: '1.5rem 0'}}>
+<div className="sdk-grid">
 
-<div style={{border: '1px solid var(--ifm-color-emphasis-300)', borderRadius: '8px', padding: '1.5rem'}}>
+<div className="sdk-card sdk-card--ts">
 
-### 🟦 TypeScript — Vitest
+### TypeScript — Vitest
 
-The `@livedoc/vitest` package brings BDD and specification patterns to Vitest with zero boilerplate.
+BDD and specification patterns for Vitest with zero boilerplate.
 
 ```bash
-npm install -D @livedoc/vitest
+npm install -D @swedevtools/livedoc-vitest
 ```
 
 **[Get Started →](/vitest/learn/getting-started)**
 
 </div>
 
-<div style={{border: '1px solid var(--ifm-color-emphasis-300)', borderRadius: '8px', padding: '1.5rem'}}>
+<div className="sdk-card sdk-card--dotnet">
 
-### 🟪 .NET — xUnit
+### .NET — xUnit
 
-The `LiveDoc.xUnit` package integrates with xUnit to bring living documentation to .NET projects.
+Living documentation for .NET projects via xUnit integration.
 
 ```bash
-dotnet add package LiveDoc.xUnit
+dotnet add package SweDevTools.LiveDoc.xUnit
 ```
 
 **[Get Started →](/xunit/learn/getting-started)**
@@ -61,83 +173,31 @@ dotnet add package LiveDoc.xUnit
 
 ## Explore the Docs
 
-<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', margin: '1.5rem 0'}}>
+<div className="nav-grid">
 
-<a href="/category/concepts" style={{border: '1px solid var(--ifm-color-emphasis-300)', borderRadius: '8px', padding: '1.25rem', textDecoration: 'none', color: 'inherit', display: 'block'}}>
+<a className="nav-card" href="/category/concepts">
 <strong>📖 Concepts</strong>
-<p style={{margin: '0.5rem 0 0', fontSize: '0.9rem', color: 'var(--ifm-font-color-secondary)'}}>BDD, specifications, data-driven tests, and the reporting model.</p>
+<span>BDD, specifications, data-driven tests, and the reporting model.</span>
 </a>
 
-<a href="/vitest/learn/getting-started" style={{border: '1px solid var(--ifm-color-emphasis-300)', borderRadius: '8px', padding: '1.25rem', textDecoration: 'none', color: 'inherit', display: 'block'}}>
+<a className="nav-card" href="/vitest/learn/getting-started">
 <strong>⚡ Vitest SDK</strong>
-<p style={{margin: '0.5rem 0 0', fontSize: '0.9rem', color: 'var(--ifm-font-color-secondary)'}}>TypeScript API reference, tutorials, and guides.</p>
+<span>TypeScript API reference, tutorials, and guides.</span>
 </a>
 
-<a href="/xunit/learn/getting-started" style={{border: '1px solid var(--ifm-color-emphasis-300)', borderRadius: '8px', padding: '1.25rem', textDecoration: 'none', color: 'inherit', display: 'block'}}>
+<a className="nav-card" href="/xunit/learn/getting-started">
 <strong>🔷 xUnit SDK</strong>
-<p style={{margin: '0.5rem 0 0', fontSize: '0.9rem', color: 'var(--ifm-font-color-secondary)'}}>.NET API reference, tutorials, and guides.</p>
+<span>.NET API reference, tutorials, and guides.</span>
 </a>
 
-<a href="/viewer/learn/getting-started" style={{border: '1px solid var(--ifm-color-emphasis-300)', borderRadius: '8px', padding: '1.25rem', textDecoration: 'none', color: 'inherit', display: 'block'}}>
+<a className="nav-card" href="/viewer/learn/getting-started">
 <strong>🖥️ Viewer</strong>
-<p style={{margin: '0.5rem 0 0', fontSize: '0.9rem', color: 'var(--ifm-font-color-secondary)'}}>Real-time test result visualizer and dashboard.</p>
+<span>Real-time test result visualizer and dashboard.</span>
 </a>
 
-<a href="/vscode/overview" style={{border: '1px solid var(--ifm-color-emphasis-300)', borderRadius: '8px', padding: '1.25rem', textDecoration: 'none', color: 'inherit', display: 'block'}}>
+<a className="nav-card" href="/vscode/overview">
 <strong>🧩 VS Code</strong>
-<p style={{margin: '0.5rem 0 0', fontSize: '0.9rem', color: 'var(--ifm-font-color-secondary)'}}>Editor integration for writing and viewing specs.</p>
+<span>Editor integration for writing and viewing specs.</span>
 </a>
 
 </div>
-
----
-
-## Why LiveDoc?
-
-<div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', margin: '1.5rem 0'}}>
-
-<div>
-
-### 📝 Tests *Are* the Docs
-
-Your BDD features and specifications generate documentation automatically. When a test changes, the docs update. No more stale wikis.
-
-</div>
-
-<div>
-
-### 🔄 Always Up to Date
-
-Documentation is produced from test results, so it's impossible for docs to drift from reality. If the test passes, the doc is accurate.
-
-</div>
-
-<div>
-
-### 🧑‍💻 Developer-Friendly
-
-Write tests in the language you already use — TypeScript or C#. No separate `.feature` files, no extra tooling, no context switching.
-
-</div>
-
-<div>
-
-### 👁️ Real-Time Feedback
-
-The LiveDoc Viewer shows test results as they run, with a searchable, filterable interface your whole team can use.
-
-</div>
-
-</div>
-
----
-
-## Where to Start
-
-**New to living documentation?** Start with the [Concepts](/category/concepts) section to understand BDD, specifications, and what makes tests self-documenting.
-
-**Ready to code?** Jump straight to the getting-started guide for your stack:
-- [Vitest (TypeScript)](/vitest/learn/getting-started)
-- [xUnit (.NET)](/xunit/learn/getting-started)
-
-**Want to see results?** Set up the [Viewer](/viewer/learn/getting-started) for a real-time dashboard of your living docs.

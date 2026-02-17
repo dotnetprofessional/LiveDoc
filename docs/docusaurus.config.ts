@@ -48,6 +48,10 @@ const config: Config = {
   themeConfig: {
     navbar: {
       title: 'LiveDoc',
+      logo: {
+        alt: 'LiveDoc Logo',
+        src: 'img/logo.png',
+      },
       items: [
         {
           type: 'docSidebar',

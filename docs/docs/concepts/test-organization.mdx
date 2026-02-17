@@ -1,5 +1,5 @@
 ---
-sidebar_position: 7
+sidebar_position: 6
 description: "How you organize your test files and namespaces directly shapes the documentation LiveDoc generates. Learn the conventions that produce clear, navigable specifications."
 ---
 
@@ -135,7 +135,7 @@ Use PascalCase file names that describe the feature or specification:
 
 | ✅ Good                           | ❌ Avoid                          | Why                                     |
 | --------------------------------- | --------------------------------- | --------------------------------------- |
-| `Login.Spec.ts`                   | `login.spec.ts`                   | Wrong casing — won't be recognized      |
+| `Login.Spec.ts`                   | `login.spec.ts`                   | Different convention — only matches if your vitest `include` pattern allows it |
 | `ShoppingCartCheckout.Spec.ts`    | `test-checkout.Spec.ts`           | "test" prefix adds no value             |
 | `PasswordStrengthValidator.Spec.ts`| `PSV.Spec.ts`                    | Abbreviations are unclear in reports    |
 | `EmailNotifications.Spec.ts`      | `email_notifications.Spec.ts`     | Underscores don't match convention      |
@@ -355,6 +355,6 @@ The Viewer navigation mirrors the file structure, and each document shows its sc
 
 ## Next Steps
 
+- **Next in this series**: [Reporting Model](./reporting-model.mdx) — the data structure that connects SDKs to the Viewer
+- **Hands-on**: [Tutorial: Beautiful Tea](./tutorial-beautiful-tea.mdx) — build a complete living specification from scratch
 - **SDK specifics**: [Vitest Getting Started](/vitest/learn/getting-started) or [xUnit Getting Started](/xunit/learn/getting-started)
-- **Context**: [Living Documentation](./living-documentation.mdx) · [Reporting Model](./reporting-model.mdx)
-- **Self-documenting titles**: [Self-Documenting Tests](./self-documenting-tests.mdx) — the content within your organized structure

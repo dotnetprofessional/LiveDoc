@@ -20,3 +20,241 @@
   --ifm-color-primary-lightest: #bfdbfe;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
+
+/* ─── Landing Page: Hero ───────────────────────────── */
+
+.hero-section {
+  padding: 3.5rem 0 2rem;
+}
+
+.hero-inner {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.hero-logo {
+  width: 160px;
+  height: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+}
+
+[data-theme='dark'] .hero-logo {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+}
+
+.hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .hero-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .hero-logo {
+    width: 120px;
+  }
+}
+
+.hero-title {
+  font-size: 3.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.hero-tagline {
+  font-size: 1.35rem;
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.hero-subtitle {
+  font-size: 1.1rem;
+  max-width: 640px;
+  margin: 0 0 2rem;
+  color: var(--ifm-font-color-secondary);
+  line-height: 1.6;
+}
+
+/* ─── Landing Page: Before / After Comparison ──────── */
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.comparison-card {
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.comparison-before {
+  border-left: 3px solid #ef4444;
+}
+
+.comparison-after {
+  border-left: 3px solid #22c55e;
+}
+
+.comparison-label {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  color: var(--ifm-font-color-secondary);
+  font-style: italic;
+}
+
+/* ─── Landing Page: Feature Cards ──────────────────── */
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.feature-card h3 {
+  margin-top: 0.25rem;
+}
+
+.feature-icon {
+  font-size: 1.75rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ─── Landing Page: Workflow Steps ─────────────────── */
+
+.workflow-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.workflow-step {
+  flex: 1;
+  min-width: 180px;
+  max-width: 260px;
+  text-align: center;
+  padding: 1rem;
+}
+
+.workflow-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--ifm-color-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.workflow-step h3 {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.workflow-step p {
+  font-size: 0.9rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+.workflow-connector {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  color: var(--ifm-color-emphasis-400);
+  padding-top: 2.5rem;
+  font-weight: 300;
+}
+
+@media (max-width: 768px) {
+  .workflow-connector {
+    display: none;
+  }
+}
+
+/* ─── Landing Page: SDK Cards ──────────────────────── */
+
+.sdk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.sdk-card {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.5rem;
+  border-top: 3px solid transparent;
+}
+
+.sdk-card--ts {
+  border-top-color: #3178c6;
+}
+
+.sdk-card--dotnet {
+  border-top-color: #512bd4;
+}
+
+/* ─── Landing Page: Navigation Grid ────────────────── */
+
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.nav-card {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.nav-card:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav-card span {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+/* ─── Concepts Intro Paragraphs ────────────────────── */
+
+.intro {
+  font-size: 1.1rem;
+  color: var(--ifm-font-color-secondary);
+  line-height: 1.6;
+  border-left: 3px solid var(--ifm-color-primary);
+  padding-left: 1rem;
+  margin-bottom: 1.5rem;
+}
