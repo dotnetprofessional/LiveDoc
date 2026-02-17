@@ -41,7 +41,7 @@ function Invoke-InDirectory {
         Write-Host "" 
         Write-Host "==> $Executable $($Arguments -join ' ')" -ForegroundColor Cyan
         & $Executable @Arguments
-        $exitCode = $LASTEXITCODE
+        $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
         if ($exitCode -ne 0) {
             Write-Host "" 
             Write-Host "Exit code: $exitCode" -ForegroundColor Red
@@ -530,6 +530,8 @@ if ($Command -eq 'help' -or $Command -eq '-h' -or $Command -eq '--help') {
     Write-Host "  build-packages    Build packages individually (fast incremental)" -ForegroundColor Gray
     Write-Host "  clean    Clean all packages" -ForegroundColor Gray
     Write-Host "  test     Run all tests" -ForegroundColor Gray
+    Write-Host "  docs-build    Build the documentation site for production" -ForegroundColor Gray
+    Write-Host "  docs-serve    Build docs and start local preview server" -ForegroundColor Gray
     Write-Host "  pack-nuget    Pack the xUnit NuGet package to releases/" -ForegroundColor Gray
     Write-Host "  publish-nuget Publish the xUnit NuGet package to nuget.org" -ForegroundColor Gray
     Write-Host "  -List    List all available package scripts (including build/package)" -ForegroundColor Gray
@@ -564,6 +566,27 @@ if ($Command -eq 'test') {
     return
 }
 
+if ($Command -eq 'docs-build') {
+    Write-Host "Building documentation site..." -ForegroundColor Cyan
+    $docsDir = Join-Path $repoRoot 'docs'
+    Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'build')
+    return
+}
+
+if ($Command -eq 'docs-serve') {
+    Write-Host "Building documentation site..." -ForegroundColor Cyan
+    $docsDir = Join-Path $repoRoot 'docs'
+    Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'build')
+    if ($script:LiveDocLastExitCode -gt 0) {
+        Write-Host "Build failed — aborting serve." -ForegroundColor Red
+        return
+    }
+    Write-Host ""
+    Write-Host "Starting preview server..." -ForegroundColor Cyan
+    Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'serve')
+    return
+}
+
 if ($Command -eq 'pack-nuget') {
     & (Join-Path $repoRoot 'scripts/pack-nuget.ps1')
     return
@@ -584,6 +607,38 @@ $packageMenuItems = New-Object System.Collections.Generic.List[object]
 $packageMenuItems.Add((New-MenuItem -Label 'Dev All (Viewer + Server)' -HotKey 'a' -Action ({
     Invoke-InDirectory -WorkingDirectory (Join-Path $repoRoot 'packages/viewer') -Executable 'pnpm' -Arguments @('run', 'dev:all')
 }.GetNewClosure())))
+
+# ═══════════════════════════════════════
+# Group: Documentation
+# ═══════════════════════════════════════
+
+$docsChildren = @(
+    (New-MenuItem -Label 'Dev Server (hot reload)' -HotKey '1' -Action ({
+        $docsDir = Join-Path $repoRoot 'docs'
+        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'start')
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'Build (production)' -HotKey '2' -Action ({
+        $docsDir = Join-Path $repoRoot 'docs'
+        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'build')
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'Build + Serve (validation)' -HotKey '3' -Action ({
+        $docsDir = Join-Path $repoRoot 'docs'
+        Write-Host "Building documentation site..." -ForegroundColor Cyan
+        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'build')
+        if ($script:LiveDocLastExitCode -gt 0) {
+            Write-Host "Build failed — aborting serve." -ForegroundColor Red
+            return
+        }
+        Write-Host ""
+        Write-Host "Starting preview server..." -ForegroundColor Cyan
+        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'serve')
+    }.GetNewClosure())),
+    (New-MenuItem -Label 'Clear Cache' -HotKey '4' -Action ({
+        $docsDir = Join-Path $repoRoot 'docs'
+        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'clear')
+    }.GetNewClosure()))
+)
+$packageMenuItems.Add((New-MenuItem -Label 'Documentation Site...' -HotKey 'o' -Children $docsChildren))
 
 # ═══════════════════════════════════════
 # Group: Build & Package

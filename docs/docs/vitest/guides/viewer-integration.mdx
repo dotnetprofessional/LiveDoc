@@ -1,0 +1,241 @@
+---
+sidebar_position: 5
+description: "Connect your Vitest tests to the LiveDoc Viewer web UI for real-time test result visualization."
+---
+
+# How to Connect to the LiveDoc Viewer
+
+<p className="intro">
+This guide shows you how to send test results to the LiveDoc Viewer web UI
+for real-time visualization. By the end, you'll see your features, scenarios,
+and steps in an interactive browser dashboard as tests execute.
+</p>
+
+:::info Prerequisites
+- A working LiveDoc Vitest setup ([imports](./setup-imports.mdx) or [globals](./setup-globals.mdx))
+- `@swedevtools/livedoc-viewer` installed (globally or locally)
+:::
+
+## Overview
+
+The LiveDoc Viewer is a web application that visualizes your test results in
+real time. Tests are sent to the viewer via a reporter — either the
+auto-discovery `LiveDocServerReporter` or the explicit
+`LiveDocViewerReporter`. The viewer renders your Gherkin features as an
+interactive, navigable tree.
+
+## Step 1: Install the Viewer
+
+```bash
+npm install -g @swedevtools/livedoc-viewer
+```
+
+Or add it as a dev dependency:
+
+```bash
+npm install -D @swedevtools/livedoc-viewer
+```
+
+## Step 2: Start the Viewer
+
+```bash
+livedoc-viewer
+```
+
+The viewer opens at `http://localhost:3100` and waits for incoming test results.
+
+:::tip
+In the LiveDoc monorepo, use the convenience script instead:
+```powershell
+./scripts/start-viewer.ps1 -KillStale
+```
+:::
+
+## Step 3: Configure the Reporter (Auto-Discovery)
+
+The simplest approach uses `LiveDocServerReporter`, which automatically finds
+a running viewer on your machine:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+import LiveDocServerReporter from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+      new LiveDocServerReporter(),
+    ],
+  },
+});
+```
+
+If no viewer is running, the reporter silently disables itself — your tests
+still run normally.
+
+## Step 4: Run Your Tests
+
+```bash
+npx vitest run
+```
+
+Results appear in the viewer automatically. If running in watch mode
+(`npx vitest`), the viewer updates on every test re-run.
+
+## Complete Example
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+import LiveDocServerReporter from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    include: ['**/*.Spec.ts'],
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+      new LiveDocServerReporter(),
+    ],
+  },
+});
+```
+
+```typescript
+// tests/ShoppingCart.Spec.ts
+import {
+  feature, scenario, given, when, Then as then,
+} from '@swedevtools/livedoc-vitest';
+
+feature(`Shopping Cart @checkout
+    Core cart operations displayed in the viewer.
+    `, () => {
+
+  scenario("Add item to cart", () => {
+    given("an empty cart", () => { /* setup */ });
+    when("the user adds 'Widget' to the cart", (ctx) => {
+      const item = ctx.step.values[0];
+      // add item
+    });
+    then("the cart contains '1' item", (ctx) => {
+      const count = ctx.step.values[0];
+      // assert
+    });
+  });
+});
+```
+
+Run tests and open `http://localhost:3100` to see the results tree.
+
+## Common Variations
+
+### Explicit Configuration
+
+Specify the viewer URL and project metadata directly using `LiveDocViewerReporter`
+as a post reporter:
+
+```typescript
+import {
+  LiveDocSpecReporter,
+  LiveDocViewerReporter,
+} from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: 'spec+summary+headers',
+        postReporters: [
+          new LiveDocViewerReporter({
+            server: 'http://localhost:3100',
+            project: 'my-project',
+            environment: 'local',
+          }),
+        ],
+      }),
+    ],
+  },
+});
+```
+
+### Viewer Reporter Options
+
+| Option | Default | Description |
+| ------ | ------- | ----------- |
+| `server` | `'http://localhost:3100'` | Viewer server URL |
+| `project` | `'default'` | Project name for grouping results |
+| `environment` | `'local'` | Environment label (e.g., `'ci'`, `'staging'`) |
+| `timeout` | `5000` | HTTP request timeout in milliseconds |
+| `silent` | `true` | Fail silently if the viewer is unavailable |
+
+### Multiple Reporters Together
+
+Combine console output, JSON export, and viewer integration:
+
+```typescript
+import {
+  LiveDocSpecReporter,
+  JsonReporter,
+  LiveDocViewerReporter,
+} from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: 'spec+summary+headers',
+        postReporters: [
+          new JsonReporter(),
+          new LiveDocViewerReporter({ server: 'http://localhost:3100' }),
+        ],
+        'json-output': './test-results/results.json',
+      }),
+    ],
+  },
+});
+```
+
+### VS Code Compatibility
+
+The VS Code Vitest extension can conflict with custom reporters. Detect the
+environment and fall back:
+
+```typescript
+const isVSCodeVitest = !!(
+  process.env.VITEST_VSCODE ||
+  process.env.VSCODE_PID ||
+  process.env.VSCODE_IPC_HOOK
+);
+
+export default defineConfig({
+  test: {
+    reporters: isVSCodeVitest
+      ? undefined
+      : [
+          new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+          new LiveDocServerReporter(),
+        ],
+  },
+});
+```
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| Viewer shows no results | Reporter not configured | Add `LiveDocServerReporter` or `LiveDocViewerReporter` to config |
+| Connection refused | Viewer not running | Start the viewer with `livedoc-viewer` before running tests |
+| Results don't update in watch mode | Stale viewer session | Refresh the browser or restart the viewer |
+| Port conflict on 3100 | Another process using the port | Use `./scripts/start-viewer.ps1 -KillStale` or change the viewer port |
+| No output in VS Code | Custom reporter conflicts | Use the VS Code environment detection pattern above |
+| Silent failure | `silent: true` (default) | Set `silent: false` on the reporter to see connection errors |
+
+## Related
+
+- [Custom Reporters](./custom-reporters.mdx) — build your own reporter
+- [CI/CD Integration](./ci-cd.mdx) — viewer in CI pipelines
+- [Reporters Reference](../reference/reporters.mdx) — full reporter API
+- [Configuration](../reference/configuration.mdx) — all configuration options

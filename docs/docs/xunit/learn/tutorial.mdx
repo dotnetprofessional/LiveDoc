@@ -1,0 +1,600 @@
+---
+sidebar_position: 6
+title: "Tutorial: Shipping Costs"
+description: "Build a complete BDD test suite from scratch — features, scenarios, scenario outlines, value extraction, and async steps for a real-world shipping calculator."
+---
+
+# Tutorial: Building a Shipping Costs Test Suite
+
+<p className="intro">
+In this tutorial you'll build a complete, real-world test suite for an online
+tea shop's shipping calculator. You'll use every LiveDoc feature you've learned
+— features, scenarios, scenario outlines, value extraction, async steps, and
+descriptions — all in one cohesive test class.
+</p>
+
+## What You'll Build
+
+A comprehensive test suite for these business rules:
+
+| Rule | Details |
+| --- | --- |
+| **Australian GST** | 10% added to all domestic orders |
+| **No GST overseas** | International orders are GST-free |
+| **Free shipping** | Australian orders ≥ \$100 |
+| **Standard Domestic** | Australian orders < \$100 → \$9.95 |
+| **International** | All overseas orders → \$25.00 flat |
+
+By the end, you'll have 5 test methods covering individual scenarios, edge
+cases, and data-driven outlines — all producing beautiful living documentation.
+
+---
+
+## Prerequisites
+
+- Completed [Getting Started](./getting-started.mdx) (LiveDoc installed and working)
+- Familiarity with [BDD steps](./your-first-feature.mdx) and [value extraction](./value-extraction.mdx)
+
+---
+
+## Step 1: Set Up the Domain
+
+First, create the classes under test. In a real project these would be in your
+application code — here we'll define them alongside the tests for simplicity.
+
+Create `ShoppingCart.cs`:
+
+```csharp
+namespace TeaShop;
+
+public class CartItem
+{
+    public string Name { get; set; } = "";
+    public decimal Price { get; set; }
+}
+
+public class ShoppingCart
+{
+    public string Country { get; set; } = "Australia";
+    public List<CartItem> Items { get; } = new();
+    public decimal Subtotal => Items.Sum(i => i.Price);
+    public decimal GST { get; private set; }
+    public decimal Shipping { get; private set; }
+    public string ShippingType { get; private set; } = "";
+
+    public void AddItem(CartItem item) => Items.Add(item);
+
+    public void Calculate()
+    {
+        // GST: 10% for Australian customers only
+        GST = Country == "Australia" ? Math.Round(Subtotal * 0.10m, 3) : 0m;
+
+        // Shipping rules
+        if (Country == "Australia")
+        {
+            if (Subtotal >= 100m)
+            {
+                Shipping = 0m;
+                ShippingType = "Free";
+            }
+            else
+            {
+                Shipping = 9.95m;
+                ShippingType = "Standard Domestic";
+            }
+        }
+        else
+        {
+            Shipping = 25.00m;
+            ShippingType = "Standard International";
+        }
+    }
+
+    public Task CalculateAsync()
+    {
+        Calculate();
+        return Task.CompletedTask;
+    }
+}
+```
+
+---
+
+## Step 2: Create the Feature Class
+
+Create `ShippingCostsTests.cs` with the feature container and constructor:
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
+using Xunit;
+using Xunit.Abstractions;
+using TeaShop;
+
+namespace TeaShop.Tests.Shipping;
+
+[Feature("Beautiful Tea Shipping Costs", Description = @"
+    Business Rules:
+    - Australian customers pay GST (10%)
+    - Overseas customers don't pay GST
+    - Australian customers get free shipping for orders $100 and above
+    - Overseas customers all pay the same shipping rate regardless of order size
+")]
+public class ShippingCostsTests : FeatureTest
+{
+    private ShoppingCart _cart = null!;
+
+    public ShippingCostsTests(ITestOutputHelper output) : base(output)
+    {
+    }
+}
+```
+
+The `Description` captures the business rules right in the test class —
+anyone reading the code or the test output immediately understands the context.
+
+---
+
+## Step 3: Add the First Scenario — Free Shipping
+
+The simplest case: an Australian customer ordering \$100 or more:
+
+```csharp
+[Scenario(nameof(Free_shipping_in_Australia))]
+public void Free_shipping_in_Australia()
+{
+    Given("the customer is from Australia", () =>
+    {
+        _cart = new ShoppingCart { Country = "Australia" };
+    });
+
+    When("the customer's order totals $100", () =>
+    {
+        _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 100.00m });
+        _cart.Calculate();
+    });
+
+    Then("the customer pays GST", () =>
+    {
+        Assert.Equal(10.00m, _cart.GST);
+    });
+
+    And("they are charged Free shipping", () =>
+    {
+        Assert.Equal(0m, _cart.Shipping);
+        Assert.Equal("Free", _cart.ShippingType);
+    });
+}
+```
+
+:::tip Using `nameof`
+Passing `nameof(Free_shipping_in_Australia)` as the scenario title ensures
+the display name stays in sync with the method name. Underscores are
+automatically converted to spaces in the output.
+:::
+
+---
+
+## Step 4: Add a Contrasting Scenario — Under \$100
+
+Now the domestic case where shipping is charged:
+
+```csharp
+[Scenario(nameof(Standard_shipping_in_Australia_for_orders_under_100_dollars))]
+public void Standard_shipping_in_Australia_for_orders_under_100_dollars()
+{
+    Given("the customer is from Australia", () =>
+    {
+        _cart = new ShoppingCart { Country = "Australia" };
+    });
+
+    When("the customer's order totals $99.99", () =>
+    {
+        _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 99.99m });
+        _cart.Calculate();
+    });
+
+    Then("the customer pays GST", () =>
+    {
+        Assert.Equal(9.999m, Math.Round(_cart.GST, 3));
+    });
+
+    And("they are charged Standard Domestic shipping", () =>
+    {
+        Assert.Equal(9.95m, _cart.Shipping);
+        Assert.Equal("Standard Domestic", _cart.ShippingType);
+    });
+}
+```
+
+---
+
+## Step 5: Add the International Scenario
+
+Overseas customers get a different shipping rate and no GST:
+
+```csharp
+[Scenario(nameof(International_shipping_for_overseas_customers))]
+public void International_shipping_for_overseas_customers()
+{
+    Given("the customer is from New Zealand", () =>
+    {
+        _cart = new ShoppingCart { Country = "New Zealand" };
+    });
+
+    When("the customer's order totals $100", () =>
+    {
+        _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 100.00m });
+        _cart.Calculate();
+    });
+
+    Then("the customer pays no GST", () =>
+    {
+        Assert.Equal(0m, _cart.GST);
+    });
+
+    And("they are charged Standard International shipping", () =>
+    {
+        Assert.Equal(25.00m, _cart.Shipping);
+        Assert.Equal("Standard International", _cart.ShippingType);
+    });
+}
+```
+
+---
+
+## Step 6: Add a Scenario Outline for Comprehensive Coverage
+
+Individual scenarios document key cases, but a Scenario Outline lets you
+cover all combinations in one structure. This is the most powerful pattern
+for data-driven testing:
+
+```csharp
+[ScenarioOutline(nameof(Calculate_GST_and_shipping),
+    Description = @"
+    Validates all combinations of country, order total, expected GST,
+    and expected shipping rate in a single outline.
+")]
+[Example("Australia", 99.99, 9.999, "Standard Domestic")]
+[Example("Australia", 100.00, 10.00, "Free")]
+[Example("New Zealand", 99.99, 0, "Standard International")]
+[Example("New Zealand", 100.00, 0, "Standard International")]
+[Example("Zimbabwe", 100.00, 0, "Standard International")]
+public void Calculate_GST_and_shipping(
+    string CustomerCountry,
+    decimal OrderTotal,
+    decimal ExpectedGST,
+    string ExpectedShippingRate)
+{
+    Given("the customer is from <CustomerCountry>", () =>
+    {
+        _cart = new ShoppingCart { Country = CustomerCountry };
+    });
+
+    When("the customer's order totals <OrderTotal>", () =>
+    {
+        _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = OrderTotal });
+        _cart.Calculate();
+    });
+
+    Then("the customer pays <ExpectedGST> GST", () =>
+    {
+        Assert.Equal(ExpectedGST, Math.Round(_cart.GST, 3));
+    });
+
+    And("they are charged the <ExpectedShippingRate> shipping rate", () =>
+    {
+        Assert.Equal(ExpectedShippingRate, _cart.ShippingType);
+    });
+}
+```
+
+Each `[Example]` row generates a fully independent test run. The
+`<Placeholder>` values in the step titles are automatically replaced with
+the actual data in the formatted output.
+
+---
+
+## Step 7: Add an Async Scenario
+
+Real-world code is often asynchronous. LiveDoc handles async steps naturally:
+
+```csharp
+[Scenario("Async shipping calculation")]
+public async Task Async_shipping_test()
+{
+    ShoppingCart? cart = null;
+
+    await Given("a customer from Australia with $150 order", async () =>
+    {
+        await Task.Delay(10); // Simulate async setup
+        cart = new ShoppingCart { Country = "Australia" };
+        cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 150.00m });
+    });
+
+    await When("we calculate shipping asynchronously", async () =>
+    {
+        await cart!.CalculateAsync();
+    });
+
+    Then("the shipping should be Free", () =>
+    {
+        Assert.Equal("Free", cart!.ShippingType);
+    });
+
+    And("GST should be calculated correctly", () =>
+    {
+        Assert.Equal(15.00m, cart!.GST);
+    });
+}
+```
+
+Notice how sync and async steps mix freely — just `await` the async ones.
+
+---
+
+## Step 8: Run and Admire the Output
+
+```bash
+dotnet test --logger "console;verbosity=detailed"
+```
+
+The complete output reads like a specification document:
+
+```
+Feature: Beautiful Tea Shipping Costs
+
+  Scenario: Free shipping in Australia
+    Given the customer is from Australia
+    When the customer's order totals $100
+    Then the customer pays GST
+      And they are charged Free shipping
+
+    ✓ 4 passing (15ms)
+
+  Scenario: Standard shipping in Australia for orders under 100 dollars
+    Given the customer is from Australia
+    When the customer's order totals $99.99
+    Then the customer pays GST
+      And they are charged Standard Domestic shipping
+
+    ✓ 4 passing (8ms)
+
+  Scenario: International shipping for overseas customers
+    Given the customer is from New Zealand
+    When the customer's order totals $100
+    Then the customer pays no GST
+      And they are charged Standard International shipping
+
+    ✓ 4 passing (7ms)
+
+  Scenario Outline: Calculate GST and shipping
+    Example: Australia, 99.99, 9.999, Standard Domestic
+      Given the customer is from Australia
+      When the customer's order totals 99.99
+      Then the customer pays 9.999 GST
+        And they are charged the Standard Domestic shipping rate
+      ✓ 4 passing (5ms)
+
+    Example: Australia, 100.00, 10.00, Free
+      Given the customer is from Australia
+      When the customer's order totals 100.00
+      Then the customer pays 10.00 GST
+        And they are charged the Free shipping rate
+      ✓ 4 passing (4ms)
+
+    ...
+
+  Scenario: Async shipping calculation
+    Given a customer from Australia with $150 order
+    When we calculate shipping asynchronously
+    Then the shipping should be Free
+      And GST should be calculated correctly
+
+    ✓ 4 passing (25ms)
+```
+
+This output **is** the specification. Share it with stakeholders, include it
+in documentation, or view it in the [LiveDoc Viewer](../guides/viewer-integration.mdx).
+
+---
+
+## The Complete Test Class
+
+Here's everything assembled into the final file:
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
+using Xunit;
+using Xunit.Abstractions;
+using TeaShop;
+
+namespace TeaShop.Tests.Shipping;
+
+[Feature("Beautiful Tea Shipping Costs", Description = @"
+    Business Rules:
+    - Australian customers pay GST (10%)
+    - Overseas customers don't pay GST
+    - Australian customers get free shipping for orders $100 and above
+    - Overseas customers all pay the same shipping rate regardless of order size
+")]
+public class ShippingCostsTests : FeatureTest
+{
+    private ShoppingCart _cart = null!;
+
+    public ShippingCostsTests(ITestOutputHelper output) : base(output)
+    {
+    }
+
+    [Scenario(nameof(Free_shipping_in_Australia))]
+    public void Free_shipping_in_Australia()
+    {
+        Given("the customer is from Australia", () =>
+        {
+            _cart = new ShoppingCart { Country = "Australia" };
+        });
+
+        When("the customer's order totals $100", () =>
+        {
+            _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 100.00m });
+            _cart.Calculate();
+        });
+
+        Then("the customer pays GST", () =>
+        {
+            Assert.Equal(10.00m, _cart.GST);
+        });
+
+        And("they are charged Free shipping", () =>
+        {
+            Assert.Equal(0m, _cart.Shipping);
+            Assert.Equal("Free", _cart.ShippingType);
+        });
+    }
+
+    [Scenario(nameof(Standard_shipping_in_Australia_for_orders_under_100_dollars))]
+    public void Standard_shipping_in_Australia_for_orders_under_100_dollars()
+    {
+        Given("the customer is from Australia", () =>
+        {
+            _cart = new ShoppingCart { Country = "Australia" };
+        });
+
+        When("the customer's order totals $99.99", () =>
+        {
+            _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 99.99m });
+            _cart.Calculate();
+        });
+
+        Then("the customer pays GST", () =>
+        {
+            Assert.Equal(9.999m, Math.Round(_cart.GST, 3));
+        });
+
+        And("they are charged Standard Domestic shipping", () =>
+        {
+            Assert.Equal(9.95m, _cart.Shipping);
+            Assert.Equal("Standard Domestic", _cart.ShippingType);
+        });
+    }
+
+    [Scenario(nameof(International_shipping_for_overseas_customers))]
+    public void International_shipping_for_overseas_customers()
+    {
+        Given("the customer is from New Zealand", () =>
+        {
+            _cart = new ShoppingCart { Country = "New Zealand" };
+        });
+
+        When("the customer's order totals $100", () =>
+        {
+            _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 100.00m });
+            _cart.Calculate();
+        });
+
+        Then("the customer pays no GST", () =>
+        {
+            Assert.Equal(0m, _cart.GST);
+        });
+
+        And("they are charged Standard International shipping", () =>
+        {
+            Assert.Equal(25.00m, _cart.Shipping);
+            Assert.Equal("Standard International", _cart.ShippingType);
+        });
+    }
+
+    [ScenarioOutline(nameof(Calculate_GST_and_shipping))]
+    [Example("Australia", 99.99, 9.999, "Standard Domestic")]
+    [Example("Australia", 100.00, 10.00, "Free")]
+    [Example("New Zealand", 99.99, 0, "Standard International")]
+    [Example("New Zealand", 100.00, 0, "Standard International")]
+    [Example("Zimbabwe", 100.00, 0, "Standard International")]
+    public void Calculate_GST_and_shipping(
+        string CustomerCountry,
+        decimal OrderTotal,
+        decimal ExpectedGST,
+        string ExpectedShippingRate)
+    {
+        Given("the customer is from <CustomerCountry>", () =>
+        {
+            _cart = new ShoppingCart { Country = CustomerCountry };
+        });
+
+        When("the customer's order totals <OrderTotal>", () =>
+        {
+            _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = OrderTotal });
+            _cart.Calculate();
+        });
+
+        Then("the customer pays <ExpectedGST> GST", () =>
+        {
+            Assert.Equal(ExpectedGST, Math.Round(_cart.GST, 3));
+        });
+
+        And("they are charged the <ExpectedShippingRate> shipping rate", () =>
+        {
+            Assert.Equal(ExpectedShippingRate, _cart.ShippingType);
+        });
+    }
+
+    [Scenario("Async shipping calculation")]
+    public async Task Async_shipping_test()
+    {
+        ShoppingCart? cart = null;
+
+        await Given("a customer from Australia with $150 order", async () =>
+        {
+            await Task.Delay(10);
+            cart = new ShoppingCart { Country = "Australia" };
+            cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 150.00m });
+        });
+
+        await When("we calculate shipping asynchronously", async () =>
+        {
+            await cart!.CalculateAsync();
+        });
+
+        Then("the shipping should be Free", () =>
+        {
+            Assert.Equal("Free", cart!.ShippingType);
+        });
+
+        And("GST should be calculated correctly", () =>
+        {
+            Assert.Equal(15.00m, cart!.GST);
+        });
+    }
+}
+```
+
+---
+
+## What You've Learned
+
+Across this tutorial and the entire Learn series, you've mastered:
+
+- **`[Feature]`** + **`[Scenario]`** — BDD testing with Given/When/Then
+- **`[Specification]`** + **`[Rule]`** — concise unit testing
+- **`[ScenarioOutline]`** + **`[Example]`** — data-driven BDD tests
+- **`[RuleOutline]`** + **`[Example]`** — data-driven specification tests
+- **Value extraction** — `ctx.Step.Values`, `Rule.Values`, `Params[]`, `As<T>()`
+- **Descriptions** — adding context to attributes
+- **Async steps** — mixing sync and async freely
+- **Namespace organization** — structuring tests for clear reporting
+
+---
+
+## Where to Go Next
+
+You've completed the Learn series! Here's where to continue:
+
+- **Reference**: [Attributes](../reference/attributes.mdx) — every attribute and property documented
+- **Reference**: [FeatureTest](../reference/feature-test.mdx) — complete base class API
+- **Reference**: [SpecificationTest](../reference/specification-test.mdx) — complete spec API
+- **Reference**: [Value Extraction API](../reference/value-extraction-api.mdx) — all conversion methods
+- **Guide**: [Viewer Integration](../guides/viewer-integration.mdx) — visualize results in real-time
+- **Guide**: [Best Practices](../guides/best-practices.mdx) — patterns for great living documentation
+- **Guide**: [Debugging](../guides/debugging.mdx) — step through tests with F11
+- **Guide**: [AI Skill Setup](../guides/ai-skill-setup.mdx) — let your AI assistant write tests for you

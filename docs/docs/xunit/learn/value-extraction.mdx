@@ -1,0 +1,385 @@
+---
+sidebar_position: 4
+title: "Value Extraction"
+description: "Master LiveDocValue — extract, convert, and deconstruct values from step and rule titles using Values[], Params[], As<T>(), and typed accessors."
+---
+
+# Value Extraction
+
+<p className="intro">
+Value extraction is the mechanism that keeps your tests honest. By embedding
+data in step titles and extracting it programmatically, the documentation
+and the test logic can never drift apart.
+</p>
+
+## Why Value Extraction Matters
+
+Consider these two approaches:
+
+```csharp
+// ❌ BAD: Title says 300, code checks 200 — value drift!
+Then("the balance should be '300' dollars", () =>
+{
+    Assert.Equal(200, account.Balance);
+});
+
+// ✅ GOOD: Value extracted from the title — always in sync
+Then("the balance should be '300' dollars", ctx =>
+{
+    Assert.Equal(ctx.Step!.Values[0].AsDecimal(), account.Balance);
+});
+```
+
+When someone reads the test output, they see `the balance should be '300' dollars`.
+With extraction, the assertion is guaranteed to check 300 — not some other number
+buried in the code.
+
+---
+
+## Two Extraction Systems
+
+LiveDoc provides value extraction in two contexts:
+
+| Context | Property | Used In |
+| --- | --- | --- |
+| **Steps** (BDD) | `ctx.Step!.Values` / `ctx.Step!.Params` | `Given`, `When`, `Then`, `And`, `But` |
+| **Rules** (Specification) | `Rule.Values` / `Rule.Params` | `[Rule]` methods |
+
+Both use the same `LiveDocValue` type with identical conversion methods.
+
+---
+
+## Quoted Values: `Values[]`
+
+Wrap values in single quotes in the title. They're extracted in order:
+
+```csharp
+Given("a cart with '5' items totaling '99.99' dollars", ctx =>
+{
+    var itemCount = ctx.Step!.Values[0].AsInt();     // 5
+    var total = ctx.Step!.Values[1].AsDecimal();      // 99.99
+});
+```
+
+### In Rules
+
+```csharp
+[Rule("Adding '5' and '3' returns '8'")]
+public void Addition()
+{
+    var a = Rule.Values[0].AsInt();       // 5
+    var b = Rule.Values[1].AsInt();       // 3
+    var expected = Rule.Values[2].AsInt(); // 8
+    Assert.Equal(expected, a + b);
+}
+```
+
+---
+
+## Type Conversion Methods
+
+Every `LiveDocValue` supports these conversion methods:
+
+| Method | Returns | Example Input |
+| --- | --- | --- |
+| `.AsString()` | `string` | `'hello'` → `"hello"` |
+| `.AsInt()` | `int` | `'42'` → `42` |
+| `.AsLong()` | `long` | `'9999999999'` → `9999999999L` |
+| `.AsDecimal()` | `decimal` | `'99.99'` → `99.99m` |
+| `.AsDouble()` | `double` | `'3.14159'` → `3.14159d` |
+| `.AsBool()` | `bool` | `'true'` → `true` |
+| `.AsDateTime()` | `DateTime` | `'2024-01-15'` → `DateTime(2024,1,15)` |
+| `.As<T>()` | `T` | Any parseable type (enums, arrays) |
+
+### Numeric Conversions
+
+```csharp
+Given("an integer '42' and a decimal '3.14' and a long '9999999999'", ctx =>
+{
+    int intVal = ctx.Step!.Values[0].AsInt();
+    decimal decVal = ctx.Step!.Values[1].AsDecimal();
+    long longVal = ctx.Step!.Values[2].AsLong();
+});
+```
+
+### Boolean Conversion
+
+```csharp
+Given("active is 'true' and archived is 'false'", ctx =>
+{
+    bool active = ctx.Step!.Values[0].AsBool();   // true
+    bool archived = ctx.Step!.Values[1].AsBool(); // false
+});
+```
+
+### DateTime Conversion
+
+```csharp
+Given("the order was placed on '2024-01-15'", ctx =>
+{
+    DateTime date = ctx.Step!.Values[0].AsDateTime();
+    Assert.Equal(new DateTime(2024, 1, 15), date);
+});
+```
+
+### Enum Conversion with `As<T>()`
+
+The generic `As<T>()` method handles any type that can be parsed, including enums:
+
+```csharp
+Given("the day is <day:Monday>", ctx =>
+{
+    DayOfWeek day = ctx.Step!.Params["day"].As<DayOfWeek>();
+    Assert.Equal(DayOfWeek.Monday, day);
+});
+```
+
+### Array Conversion
+
+```csharp
+Given("product IDs '[101, 102, 103]'", ctx =>
+{
+    int[] ids = ctx.Step!.Values[0].As<int[]>();
+    Assert.Equal(3, ids.Length);
+    Assert.Equal(101, ids[0]);
+});
+
+Given("tags '[\"sale\", \"new\", \"featured\"]'", ctx =>
+{
+    string[] tags = ctx.Step!.Values[0].As<string[]>();
+    Assert.Contains("sale", tags);
+});
+```
+
+---
+
+## Tuple Deconstruction
+
+When you have multiple values, deconstruct them into a tuple for cleaner code:
+
+### Basic Deconstruction
+
+```csharp
+When("I purchase '3' units of 'Green Tea' for '15.50'", ctx =>
+{
+    var (qty, product, cost) = ctx.Step!.Values;
+    int quantity = qty.AsInt();
+    string name = product.AsString();
+    decimal price = cost.AsDecimal();
+});
+```
+
+### Typed Tuple Deconstruction with `As<T1, T2, ...>()`
+
+The most concise approach — converts all values in one call:
+
+```csharp
+When("I purchase '7' units of 'Oolong Tea' for '22.99'", ctx =>
+{
+    var (qty, product, cost) = ctx.Step!.Values.As<int, string, decimal>();
+    // qty = 7, product = "Oolong Tea", cost = 22.99m
+});
+```
+
+This also works with `Rule.Values`:
+
+```csharp
+[Rule("Adding '5' and '3' returns '8'")]
+public void Addition()
+{
+    var (a, b, expected) = Rule.Values.As<int, int, int>();
+    Assert.Equal(expected, a + b);
+}
+```
+
+Typed tuple deconstruction supports 2 to 6 type parameters:
+
+```csharp
+// Two values
+var (a, b) = ctx.Step!.Values.As<int, int>();
+
+// Three values
+var (x, y, z) = ctx.Step!.Values.As<string, int, bool>();
+
+// Six values
+var (v1, v2, v3, v4, v5, v6) = ctx.Step!.Values.As<int, int, int, string, decimal, bool>();
+```
+
+---
+
+## Named Parameters: `Params[]`
+
+Use the `<name:value>` syntax for self-documenting parameters:
+
+```csharp
+Given("a user with <email:john@example.com> and <age:25>", ctx =>
+{
+    string email = ctx.Step!.Params["email"].AsString();
+    int age = ctx.Step!.Params["age"].AsInt();
+});
+```
+
+### Display Title
+
+Named parameters are replaced with just their values in the display output:
+
+| Original Title | Display Title |
+| --- | --- |
+| `"a user with <email:john@test.com> and <age:25>"` | `"a user with john@test.com and 25"` |
+
+### Case Insensitivity
+
+Parameter lookup is case-insensitive:
+
+```csharp
+Given("a parameter <MyParam:test-value>", ctx =>
+{
+    // All of these work:
+    ctx.Step!.Params["MyParam"].AsString();
+    ctx.Step!.Params["myparam"].AsString();
+    ctx.Step!.Params["MYPARAM"].AsString();
+});
+```
+
+### In Rules
+
+```csharp
+[Rule("Subtracting <b:3> from <a:10> returns <expected:7>")]
+public void Subtraction()
+{
+    var a = Rule.Params["a"].AsInt();
+    var b = Rule.Params["b"].AsInt();
+    var expected = Rule.Params["expected"].AsInt();
+    Assert.Equal(expected, a - b);
+}
+```
+
+---
+
+## Step Context Properties
+
+The full `ctx.Step` object exposes several properties:
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `Title` | `string` | The raw title as written in code |
+| `DisplayTitle` | `string` | Title with named params replaced by values |
+| `Type` | `string` | `"Given"`, `"When"`, `"Then"`, `"And"`, or `"But"` |
+| `Values` | `LiveDocValueCollection` | Indexed collection of quoted values |
+| `Values.Count` | `int` | Number of extracted values |
+| `Params` | `LiveDocParamCollection` | Named parameter dictionary |
+| `Params.Count` | `int` | Number of extracted parameters |
+
+```csharp
+Given("a step with 'value1' and <param:value2>", ctx =>
+{
+    Assert.Equal("a step with 'value1' and <param:value2>", ctx.Step!.Title);
+    Assert.Equal("a step with 'value1' and value2", ctx.Step!.DisplayTitle);
+    Assert.Equal("Given", ctx.Step!.Type);
+    Assert.Equal(1, ctx.Step!.Values.Count);
+    Assert.Equal(1, ctx.Step!.Params.Count);
+});
+```
+
+---
+
+## Error Handling
+
+LiveDoc provides descriptive exceptions when extraction fails:
+
+### Invalid Type Conversion
+
+```csharp
+Given("an invalid number 'not-a-number'", ctx =>
+{
+    // Throws LiveDocConversionException with:
+    //   - The value that failed conversion
+    //   - The target type
+    //   - The step title for context
+    var value = ctx.Step!.Values[0].AsInt(); // throws!
+});
+```
+
+### Index Out of Range
+
+```csharp
+Given("only one value '42'", ctx =>
+{
+    // Throws LiveDocValueIndexException with:
+    //   - Requested index: 5
+    //   - Available count: 1
+    //   - The step title for context
+    var value = ctx.Step!.Values[5]; // throws!
+});
+```
+
+### Missing Parameter
+
+```csharp
+Given("a parameter <existing:value>", ctx =>
+{
+    // Throws LiveDocParamNotFoundException with:
+    //   - The parameter name that was requested
+    //   - A list of available parameter names
+    var value = ctx.Step!.Params["nonexistent"]; // throws!
+});
+```
+
+All exceptions include the step title, making it easy to identify which step
+caused the failure in test output.
+
+| Exception | Cause | Fix |
+| --- | --- | --- |
+| `LiveDocConversionException` | Invalid type conversion (e.g., `'abc'.AsInt()`) | Check the quoted value format |
+| `LiveDocValueIndexException` | `Values[n]` beyond available count | Verify the number of quoted values in the title |
+| `LiveDocParamNotFoundException` | `Params["x"]` for non-existent name | Check the `<name:value>` syntax in the title |
+
+---
+
+## Combining with ScenarioOutline
+
+You can use value extraction alongside outline placeholders:
+
+```csharp
+[ScenarioOutline("Apply tax multiplier")]
+[Example("Australia", 100.00)]
+[Example("New Zealand", 50.00)]
+public void Apply_tax_multiplier(string country, decimal baseAmount)
+{
+    Given("a customer from <country>", () =>
+    {
+        Assert.NotNull(country); // from method parameter
+    });
+
+    When("I apply a multiplier of '1.1' to the base amount", ctx =>
+    {
+        var multiplier = ctx.Step!.Values[0].AsDecimal(); // from title
+        var total = baseAmount * multiplier;              // from parameter
+        Assert.Equal(baseAmount * 1.1m, total);
+    });
+}
+```
+
+Use **method parameters** for data that varies per example row, and **quoted
+values** for constants embedded in the step description.
+
+---
+
+## Recap
+
+- **`Values[]`** — extract quoted `'value'` strings by index, with type conversion
+- **`Params[]`** — extract named `<key:value>` parameters by name (case-insensitive)
+- **`.AsInt()` / `.AsDecimal()` / `.AsBool()` / etc.** — type-safe conversion methods
+- **`.As<T>()`** — generic conversion for enums, arrays, and custom types
+- **`.As<T1, T2, T3>()`** — typed tuple deconstruction for multiple values
+- **`Rule.Values` / `Rule.Params`** — same API available in Specification rules
+- **Error handling** — descriptive exceptions with step title context
+
+---
+
+## Next Steps
+
+- **Next in this series**: [Scenario Outlines](./scenario-outlines.mdx) — data-driven tests with `[ScenarioOutline]` and `[Example]`
+- **Deep dive**: [Value Extraction API Reference](../reference/value-extraction-api.mdx) — exhaustive reference for every method
+- **Deep dive**: [LiveDocContext Reference](../reference/context.mdx) — the full context object
+- **Practical use**: [Troubleshooting](../guides/troubleshooting.mdx) — common errors and fixes

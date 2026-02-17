@@ -1,0 +1,345 @@
+---
+sidebar_position: 8
+description: "Solutions for common LiveDoc Vitest issues including ESM problems, import errors, and test discovery failures."
+---
+
+# Troubleshooting
+
+<p className="intro">
+This page covers common issues you may encounter when using
+`@swedevtools/livedoc-vitest` and how to fix them. Find your error below and
+follow the solution.
+</p>
+
+:::info
+If your issue isn't listed here, check the
+[GitHub Issues](https://github.com/nicktho/livedoc/issues) or open a new one
+with a minimal reproduction.
+:::
+
+## ESM and Module Issues
+
+### "Cannot use 'import.meta' outside a module"
+
+**Cause**: Your project isn't configured for ES modules.
+
+**Solution**: Add `"type": "module"` to your `package.json`:
+
+```json
+{
+  "type": "module"
+}
+```
+
+Or rename your config file to `vitest.config.mts`.
+
+### Import Errors with `then`
+
+**Cause**: Trying to import lowercase `then` directly, which doesn't exist.
+
+**Solution**: Always alias the uppercase export:
+
+```typescript
+// ❌ Wrong — this export doesn't exist
+import { then } from '@swedevtools/livedoc-vitest';
+
+// ✅ Correct — alias uppercase Then
+import { Then as then } from '@swedevtools/livedoc-vitest';
+```
+
+**Why**: In ES modules, a module with a `then` property on its namespace is
+treated as a "thenable" (Promise-like). LiveDoc exports `Then` (uppercase) to
+avoid this.
+
+Alternatively, use [globals mode](./setup-globals.mdx) where `then` is
+registered directly on `globalThis`.
+
+---
+
+## Test Discovery Issues
+
+### "ReferenceError: feature is not defined"
+
+**Cause**: Globals mode isn't set up correctly.
+
+**Solution**: Ensure both settings are in `vitest.config.ts`:
+
+```typescript
+export default defineConfig({
+  test: {
+    globals: true,
+    setupFiles: ['@swedevtools/livedoc-vitest/setup'],
+  },
+});
+```
+
+If using explicit imports instead, verify your import statement includes
+`feature`:
+
+```typescript
+import { feature } from '@swedevtools/livedoc-vitest';
+```
+
+### Tests Not Found / "No test suite found"
+
+**Cause**: File naming or include pattern mismatch.
+
+**Solution**: LiveDoc spec files must end in `.Spec.ts`. Verify:
+
+1. Your file is named correctly: `MyFeature.Spec.ts` (not `.spec.ts` or `.test.ts`)
+2. Your config includes the right pattern:
+   ```typescript
+   include: ['**/*.Spec.ts'],
+   ```
+
+### TypeScript Errors on Step Keywords
+
+**Cause**: TypeScript doesn't know about LiveDoc global types.
+
+**Solution**: Add to `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
+  }
+}
+```
+
+---
+
+## Async Errors
+
+### "The async keyword is not supported for Feature"
+
+**Cause**: `async` used on a feature, scenario, or scenarioOutline callback.
+
+**Solution**: Only step callbacks (`given`, `when`, `then`, `and`, `but`) and
+`rule` callbacks support `async`:
+
+```typescript
+// ❌ Wrong — async on scenario
+feature("Test", () => {
+  scenario("Example", async () => { });
+});
+
+// ✅ Correct — async on steps only
+feature("Test", () => {
+  scenario("Example", () => {
+    given("data is loaded", async () => {
+      await loadData();
+    });
+  });
+});
+```
+
+### Steps Running Out of Order
+
+**Cause**: Async operations not awaited inside step callbacks.
+
+**Solution**: Mark the step as `async` and `await` all async operations:
+
+```typescript
+// ❌ Wrong — fire and forget
+given("data is loaded", () => {
+  loadData(); // async but not awaited
+});
+
+// ✅ Correct — properly awaited
+given("data is loaded", async () => {
+  await loadData();
+});
+```
+
+---
+
+## Data Extraction Issues
+
+### Values Not Extracted from Step Titles
+
+**Cause**: Values aren't wrapped in single quotes.
+
+**Solution**: Use single quotes `'value'` for extractable values:
+
+```typescript
+// ❌ Wrong — no quotes
+given("the user has $100", (ctx) => {
+  ctx.step.values; // [] — empty
+});
+
+// ✅ Correct — single quotes
+given("the user has '$100'", (ctx) => {
+  ctx.step.values; // [100]
+});
+```
+
+### Table Data Not Parsing
+
+**Cause**: Incorrect table formatting — missing pipe characters.
+
+**Solution**: Use proper pipe-delimited format with pipes on both sides:
+
+```typescript
+// ❌ Wrong — missing outer pipes
+given(`users
+  name | email
+  Alice | alice@test.com
+`, (ctx) => {});
+
+// ✅ Correct — pipes on both sides
+given(`users
+  | name  | email          |
+  | Alice | alice@test.com |
+`, (ctx) => {});
+```
+
+### `ctx.example` is Undefined
+
+**Cause**: Using `ctx.example` inside a regular `scenario` instead of a
+`scenarioOutline` or `ruleOutline`.
+
+**Solution**: `ctx.example` is only available inside `scenarioOutline` or
+`ruleOutline`:
+
+```typescript
+// ❌ Wrong — plain scenario
+scenario("Test", (ctx) => {
+  given("input", (ctx) => {
+    ctx.example; // undefined
+  });
+});
+
+// ✅ Correct — scenarioOutline
+scenarioOutline(`Test
+    Examples:
+    | input | expected |
+    | foo   | true     |
+    `, (ctx) => {
+  given("checking <input>", (ctx) => {
+    ctx.example.input; // "foo"
+  });
+});
+```
+
+---
+
+## Reporter Issues
+
+### Reporter Not Showing Output
+
+**Cause**: `detailLevel` set to `'silent'` or reporter not configured.
+
+**Solution**: Check your detail level:
+
+```typescript
+// ❌ No output
+new LiveDocSpecReporter({ detailLevel: 'silent' })
+
+// ✅ Full output
+new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' })
+```
+
+### "No test suite found" in VS Code
+
+**Cause**: Custom reporters can conflict with the VS Code Vitest extension.
+
+**Solution**: Detect VS Code and use the default reporter:
+
+```typescript
+const isVSCodeVitest = !!(
+  process.env.VITEST_VSCODE ||
+  process.env.VSCODE_PID
+);
+
+export default defineConfig({
+  test: {
+    reporters: isVSCodeVitest
+      ? undefined
+      : [new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' })],
+  },
+});
+```
+
+---
+
+## Tag Filtering Issues
+
+### Tags Not Filtering Correctly
+
+**Cause**: Filters set inside a spec file instead of a setup file.
+
+**Solution**: Filters must be set before tests register. Use a `setupFiles`
+module:
+
+```typescript
+// ✅ Correct — setup file (runs before specs)
+// test/livedoc.setup.ts
+import { livedoc } from '@swedevtools/livedoc-vitest';
+livedoc.options.filters.include = ['@smoke'];
+```
+
+```typescript
+// vitest.config.ts
+setupFiles: ['./test/livedoc.setup.ts'],
+```
+
+```typescript
+// ❌ Wrong — too late (specs already registered)
+// Inside a .Spec.ts file
+livedoc.options.filters.include = ['@smoke'];
+```
+
+---
+
+## Background Issues
+
+### Background Not Running for All Scenarios
+
+**Cause**: Background defined after scenarios.
+
+**Solution**: Always place `background` before any `scenario` in the feature:
+
+```typescript
+feature("Test", () => {
+  // ✅ Background first
+  background("Setup", () => {
+    given("common setup", () => { /* ... */ });
+  });
+
+  // Then scenarios
+  scenario("First", () => { /* ... */ });
+  scenario("Second", () => { /* ... */ });
+});
+```
+
+---
+
+## Quick Reference
+
+| Problem | Solution |
+| ------- | -------- |
+| `feature is not defined` | Add `setupFiles` and `globals: true` to config |
+| `Then` import error | Use `import { Then as then }` |
+| `import.meta` error | Add `"type": "module"` to `package.json` |
+| TypeScript errors on keywords | Add `@swedevtools/livedoc-vitest/globals` to `tsconfig.json` types |
+| Async on scenario | Move `async` to step callbacks only |
+| Values empty | Wrap values in single quotes: `'value'` |
+| Tables not parsed | Use `\| col \|` format with pipes on both sides |
+| No reporter output | Set `detailLevel: 'spec+summary+headers'` |
+| VS Code no tests | Use VS Code environment detection pattern |
+| Tags not filtering | Set filters in `setupFiles`, not in spec files |
+
+## Still Stuck?
+
+1. Enable verbose Vitest output: `npx vitest run --reporter=verbose`
+2. Dump the full results model: use `JsonReporter` with `'json-output'`
+3. Check [GitHub Issues](https://github.com/nicktho/livedoc/issues)
+4. Open a new issue with your `vitest.config.ts`, a minimal reproduction, and
+   the full error message
+
+## Related
+
+- [Setup: Explicit Imports](./setup-imports.mdx) — correct import patterns
+- [Setup: Globals Mode](./setup-globals.mdx) — zero-import configuration
+- [Configuration](../reference/configuration.mdx) — all configuration options
+- [Data APIs](../reference/data-apis.mdx) — value extraction reference

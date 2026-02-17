@@ -1,0 +1,298 @@
+---
+sidebar_position: 4
+description: "Build custom post-reporters and UI reporters to extend LiveDoc's output with your own reporting solutions."
+---
+
+# How to Build Custom Reporters
+
+<p className="intro">
+This guide shows you how to create custom reporters that process LiveDoc test
+results. By the end, you'll be able to build post-reporters for data export
+and UI reporters for custom console output.
+</p>
+
+:::info Prerequisites
+- A working LiveDoc Vitest setup ([imports](./setup-imports.mdx) or [globals](./setup-globals.mdx))
+- Familiarity with the [Reporters reference](../reference/reporters.mdx)
+:::
+
+## Overview
+
+LiveDoc provides two reporter extension points:
+
+| Type | When It Runs | Use Case |
+| ---- | ------------ | -------- |
+| **Post Reporter** | After all tests complete | JSON export, CI integration, summaries |
+| **UI Reporter** | During test execution | Custom console output, live dashboards |
+
+Post reporters are simpler and cover most needs. Start there unless you need
+real-time output.
+
+## Step 1: Create a Post Reporter
+
+Implement the `IPostReporter` interface with a single `execute` method:
+
+```typescript
+// reporters/SummaryReporter.ts
+import * as fs from 'fs';
+import { IPostReporter, ExecutionResults } from '@swedevtools/livedoc-vitest/reporter';
+
+export class SummaryReporter implements IPostReporter {
+  execute(results: ExecutionResults, options?: any): void {
+    const outputFile = options?.['summary-output'] ?? 'test-summary.json';
+
+    const summary = {
+      timestamp: new Date().toISOString(),
+      totalFeatures: results.features.length,
+      features: results.features.map(f => ({
+        title: f.title,
+        tags: f.tags,
+        passed: f.statistics.passedCount,
+        failed: f.statistics.failedCount,
+        scenarios: f.scenarios.map(s => ({
+          title: s.title,
+          status: s.statistics.failedCount === 0 ? 'passed' : 'failed',
+        })),
+      })),
+    };
+
+    fs.writeFileSync(outputFile, JSON.stringify(summary, null, 2));
+    console.log(`📄 Summary written to: ${outputFile}`);
+  }
+}
+```
+
+## Step 2: Register the Post Reporter
+
+Add your reporter to the `postReporters` array in the `LiveDocSpecReporter`
+options:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+import { SummaryReporter } from './reporters/SummaryReporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: 'spec+summary+headers',
+        postReporters: [new SummaryReporter()],
+        'summary-output': './test-results/summary.json',
+      }),
+    ],
+  },
+});
+```
+
+Custom options (like `'summary-output'`) are passed through to your reporter
+via the `options` parameter.
+
+## Step 3: Create a UI Reporter
+
+For custom console output during execution, extend `LiveDocReporter` and
+override its lifecycle hooks:
+
+```typescript
+// reporters/EmojiReporter.ts
+import { LiveDocReporter } from '@swedevtools/livedoc-vitest/reporter';
+import * as model from '@swedevtools/livedoc-vitest/reporter';
+
+export class EmojiReporter extends LiveDocReporter {
+  protected featureStart(feature: model.Feature): void {
+    this.write(`${feature.title}: `);
+  }
+
+  protected featureEnd(feature: model.Feature): void {
+    this.writeLine('');
+  }
+
+  protected scenarioEnd(scenario: model.Scenario): void {
+    const emoji = scenario.statistics.failedCount === 0 ? '✅' : '❌';
+    this.write(`${emoji} `);
+  }
+
+  protected scenarioExampleEnd(example: model.ScenarioExample): void {
+    const emoji = example.statistics.failedCount === 0 ? '✅' : '❌';
+    this.write(`${emoji} `);
+  }
+}
+```
+
+Output:
+
+```
+Shopping Cart: ✅ ✅ ✅
+User Login: ✅ ❌ ✅
+```
+
+## Step 4: Understand the ExecutionResults Model
+
+Post reporters receive the complete test results tree:
+
+```
+ExecutionResults
+├── features[]
+│   ├── title, description, tags, filename
+│   ├── statistics { passedCount, failedCount, pendingCount }
+│   ├── background?
+│   │   └── steps[]
+│   ├── scenarios[]
+│   │   ├── title, description, tags
+│   │   ├── statistics
+│   │   └── steps[]
+│   │       ├── title, displayTitle, type (given/when/then/and/but)
+│   │       ├── values[], table[], docString
+│   │       └── status, error?, duration
+│   └── scenarioOutlines[]
+│       ├── title, tables[]
+│       └── examples[]
+│           └── (same structure as scenario)
+└── statistics (aggregated totals)
+```
+
+### Iterating Over Results
+
+```typescript
+execute(results: ExecutionResults): void {
+  for (const feature of results.features) {
+    console.log(`Feature: ${feature.title}`);
+    console.log(`  Tags: ${feature.tags.join(', ')}`);
+    console.log(`  Passed: ${feature.statistics.passedCount}`);
+    console.log(`  Failed: ${feature.statistics.failedCount}`);
+
+    for (const scenario of feature.scenarios) {
+      const icon = scenario.statistics.failedCount === 0 ? '✓' : '✗';
+      console.log(`  ${icon} ${scenario.title}`);
+
+      for (const step of scenario.steps) {
+        console.log(`    ${step.type}: ${step.displayTitle}`);
+        if (step.error) {
+          console.log(`      Error: ${step.error.message}`);
+        }
+      }
+    }
+  }
+}
+```
+
+## Complete Example
+
+```typescript
+// reporters/MarkdownReporter.ts
+import * as fs from 'fs';
+import { IPostReporter, ExecutionResults } from '@swedevtools/livedoc-vitest/reporter';
+
+export class MarkdownReporter implements IPostReporter {
+  execute(results: ExecutionResults, options?: any): void {
+    const outputFile = options?.['md-output'] ?? 'test-report.md';
+    const lines: string[] = ['# Test Report', ''];
+
+    for (const feature of results.features) {
+      const featureIcon = feature.statistics.failedCount === 0 ? '✅' : '❌';
+      lines.push(`## ${featureIcon} ${feature.title}`);
+      if (feature.description) {
+        lines.push('', `> ${feature.description}`, '');
+      }
+
+      for (const scenario of feature.scenarios) {
+        const scenarioIcon = scenario.statistics.failedCount === 0 ? '✓' : '✗';
+        lines.push(`### ${scenarioIcon} ${scenario.title}`);
+
+        for (const step of scenario.steps) {
+          const stepIcon = step.status === 'passed' ? '✓' : '✗';
+          lines.push(`- ${stepIcon} **${step.type}** ${step.displayTitle}`);
+        }
+        lines.push('');
+      }
+    }
+
+    fs.writeFileSync(outputFile, lines.join('\n'));
+    console.log(`📝 Markdown report written to: ${outputFile}`);
+  }
+}
+```
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+import { MarkdownReporter } from './reporters/MarkdownReporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: 'spec+summary+headers',
+        postReporters: [new MarkdownReporter()],
+        'md-output': './test-results/report.md',
+      }),
+    ],
+  },
+});
+```
+
+## Common Variations
+
+### Extending a Built-In Reporter
+
+Override specific lifecycle hooks while keeping the default behavior:
+
+```typescript
+import { LiveDocSpec } from '@swedevtools/livedoc-vitest/reporter';
+import * as model from '@swedevtools/livedoc-vitest/reporter';
+
+export class BrandedSpecReporter extends LiveDocSpec {
+  protected featureStart(feature: model.Feature): void {
+    this.writeLine('═'.repeat(60));
+    super.featureStart(feature);
+  }
+}
+```
+
+### Using Utility Methods
+
+`LiveDocReporter` provides built-in helpers:
+
+```typescript
+// Format a data table for console output
+const table = [['Name', 'Price'], ['Widget', '$10'], ['Gadget', '$25']];
+this.writeLine(this.formatTable(table, HeaderType.Top));
+
+// Highlight regex matches in text
+const text = this.highlight("the price is $100", /\$\d+/g, this.colorTheme.highlight);
+
+// Bind <placeholders> to model values
+const bound = this.bind("the customer pays <amount>", { amount: "100" }, this.colorTheme.highlight);
+```
+
+### Exploring the Data Model
+
+Use the built-in `JsonReporter` to dump the full results structure:
+
+```typescript
+import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+new LiveDocSpecReporter({
+  postReporters: [new JsonReporter()],
+  'json-output': 'debug-results.json',
+});
+```
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| Post reporter never called | Not added to `postReporters` array | Add to `LiveDocSpecReporter({ postReporters: [...] })` |
+| Options not passed | Options on wrong object | Put custom options on the `LiveDocSpecReporter` options object, not Vitest |
+| UI reporter slows tests | Blocking I/O in lifecycle hooks | Keep UI reporter hooks fast — use post reporters for file I/O |
+| Empty results | Reporter registered but no tests match | Check your test patterns and filters |
+| Type errors on model | Wrong import path | Import from `@swedevtools/livedoc-vitest/reporter` |
+
+## Related
+
+- [Viewer Integration](./viewer-integration.mdx) — built-in LiveDoc Viewer reporter
+- [CI/CD Integration](./ci-cd.mdx) — using reporters in pipelines
+- [Reporters Reference](../reference/reporters.mdx) — full API documentation
+- [Configuration](../reference/configuration.mdx) — reporter configuration options

@@ -1,0 +1,218 @@
+---
+sidebar_position: 2
+title: "scenario()"
+description: "Defines a single BDD test case inside a feature with Given/When/Then steps, optional tags, and description."
+---
+
+# `scenario()`
+
+<p className="intro">
+`scenario` defines an individual test case inside a feature. Each scenario contains
+a sequence of Given/When/Then steps that describe a single behavior of the system.
+</p>
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Shopping Cart", () => {
+  scenario("Adding an item to the cart", () => {
+    given("an empty cart", () => { cart = new Cart(); });
+    when("the user adds a product", () => { cart.add(product); });
+    then("the cart contains '1' item", (ctx) => {
+      expect(cart.items).toHaveLength(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `scenario(title, fn)` {#scenario}
+
+Registers a scenario block that maps to a Vitest `describe()` call prefixed with `"Scenario: "`.
+
+```typescript
+function scenario(title: string, fn: (ctx: ScenarioCtx) => void): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — The scenario title with optional tags and description. Parsed identically to `feature()`:
+  - **First line** → scenario title
+  - **Lines starting with `@`** → tags
+  - **Remaining lines** → description text
+
+- **`fn`**: `(ctx: ScenarioCtx) => void` — Callback containing step functions (`given`, `when`, `then`, `and`, `but`). **Must not be `async`** — use async inside individual steps instead.
+
+#### The `ctx` Parameter {#ctx}
+
+| Property       | Type              | Description                                         |
+| -------------- | ----------------- | --------------------------------------------------- |
+| `ctx.feature`  | `FeatureContext`  | `{ filename, title, description, tags }`            |
+| `ctx.scenario` | `ScenarioContext` | `{ title, description, tags, given?, and[], steps }` |
+
+#### Returns {#returns}
+
+`void` — Scenarios are registered as side effects.
+
+#### Caveats {#caveats}
+
+- **Not async**: The scenario callback itself must be synchronous. Use `async` only inside step functions.
+- Scenarios must be nested inside a `feature()` call.
+- Step execution order follows declaration order — `given` → `when` → `then` → `and`/`but`.
+
+---
+
+## Modifiers {#modifiers}
+
+### `scenario.skip(title, fn)` {#skip}
+
+Skip this scenario. It appears as pending in the test output.
+
+```typescript
+scenario.skip("Payment with expired card — not implemented", () => {
+  given("a user with an expired card", () => { /* skipped */ });
+  when("they attempt to pay", () => { /* skipped */ });
+  then("an error is shown", () => { /* skipped */ });
+});
+```
+
+### `scenario.only(title, fn)` {#only}
+
+Run only this scenario. All other scenarios (across all features) are skipped.
+
+```typescript
+scenario.only("Debugging this specific scenario", () => {
+  given("a specific setup", () => { /* only this runs */ });
+  when("a specific action", () => { /* only this runs */ });
+  then("a specific result", () => { /* only this runs */ });
+});
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Single scenario with steps {#basic-usage}
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("User Login", () => {
+  scenario("Successful login with valid credentials", () => {
+    given("a registered user with email 'alice@example.com'", (ctx) => {
+      user = findUser(ctx.step.values[0]);
+    });
+
+    when("they enter the correct password", () => {
+      result = login(user, "correct-password");
+    });
+
+    then("they are redirected to the dashboard", () => {
+      expect(result.redirectTo).toBe("/dashboard");
+    });
+  });
+});
+```
+
+### Tags and description {#tags-description}
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Order Management", () => {
+  scenario(`Cancel an order
+    @regression @orders
+    The customer cancels an order within the allowed window
+  `, () => {
+    given("an order placed '30' minutes ago", (ctx) => {
+      order = createOrder({ minutesAgo: ctx.step.values[0] });
+    });
+
+    when("the customer cancels the order", () => {
+      result = cancelOrder(order);
+    });
+
+    then("the order status is 'cancelled'", (ctx) => {
+      expect(order.status).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+### Multiple scenarios in a feature {#multiple-scenarios}
+
+```typescript
+import { feature, scenario, given, when, Then as then, and, but } from "@swedevtools/livedoc-vitest";
+
+feature("Password Reset", () => {
+  scenario("Request a password reset email", () => {
+    given("a registered user with email 'bob@example.com'", (ctx) => {
+      user = findUser(ctx.step.values[0]);
+    });
+
+    when("they request a password reset", () => {
+      resetToken = requestPasswordReset(user.email);
+    });
+
+    then("a reset email is sent", () => {
+      expect(emailService.lastSentTo).toBe(user.email);
+    });
+
+    and("the token expires in '24' hours", (ctx) => {
+      expect(resetToken.expiresInHours).toBe(ctx.step.values[0]);
+    });
+  });
+
+  scenario("Reset with invalid token", () => {
+    given("an expired reset token", () => {
+      token = createExpiredToken();
+    });
+
+    when("the user submits a new password with the token", () => {
+      result = resetPassword(token, "new-password");
+    });
+
+    then("the reset fails", () => {
+      expect(result.success).toBe(false);
+    });
+
+    but("a helpful error message is shown", () => {
+      expect(result.error).toBe("Token expired. Please request a new reset link.");
+    });
+  });
+});
+```
+
+### Accessing scenario metadata {#accessing-metadata}
+
+```typescript
+import { feature, scenario, given } from "@swedevtools/livedoc-vitest";
+
+feature("Metadata Example", () => {
+  scenario(`Order Processing
+    @critical @api
+    Tests the core order processing pipeline
+  `, (ctx) => {
+    given("we inspect the scenario context", () => {
+      expect(ctx.scenario.title).toBe("Order Processing");
+      expect(ctx.scenario.tags).toEqual(["critical", "api"]);
+      expect(ctx.scenario.description).toContain("core order processing");
+    });
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`feature()`](./feature.mdx) — parent container for scenarios
+- [`scenarioOutline()`](./scenario-outline.mdx) — data-driven variant of scenario
+- [`background()`](./background.mdx) — shared setup across scenarios in a feature
+- [Steps: `given` / `when` / `then`](./steps.mdx) — the step functions used inside scenarios
+- [Context Object](./context.mdx) — full reference for `ctx.scenario`

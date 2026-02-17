@@ -1,0 +1,189 @@
+---
+sidebar_position: 2
+title: "AI Skill Setup"
+description: "Install the LiveDoc AI coding skill so your AI assistant writes correct BDD and Specification tests with proper patterns and value extraction."
+---
+
+# AI Skill Setup
+
+<p className="intro">
+This guide shows you how to install the LiveDoc AI coding skill for your
+preferred AI tool. Once installed, your AI assistant will understand
+LiveDoc's BDD and Specification patterns — writing tests with correct
+attributes, value extraction, and self-documenting titles.
+</p>
+
+:::info Prerequisites
+- .NET SDK 8.0+ installed
+- A dotnet tool manifest in your project (or willingness to create one)
+:::
+
+## Overview
+
+The LiveDoc AI skill is a set of instruction files that teach your AI
+coding assistant how to write LiveDoc xUnit tests correctly. The
+`SweDevTools.LiveDoc.Tool` CLI handles installation — placing the right
+files in the right locations for each supported AI tool.
+
+---
+
+## Step 1: Install the CLI Tool
+
+If you don't already have a local tool manifest, create one:
+
+```bash
+dotnet new tool-manifest
+```
+
+Then install the LiveDoc CLI tool:
+
+```bash
+dotnet tool install SweDevTools.LiveDoc.Tool
+```
+
+---
+
+## Step 2: Install the Skill
+
+### Interactive Mode
+
+Run the installer without arguments for an interactive experience:
+
+```bash
+dotnet livedoc install-skill
+```
+
+The CLI will prompt you to:
+1. Select your AI tool (Copilot, Claude Code, Roo Code, Cursor, or Windsurf)
+2. Choose the scope (project or user)
+3. Confirm the installation path
+
+### Non-Interactive Mode
+
+Specify the tool and scope directly:
+
+```bash
+# Install for GitHub Copilot at project scope
+dotnet livedoc install-skill --tool copilot --scope project
+
+# Install for Claude Code at user scope
+dotnet livedoc install-skill --tool claude --scope user
+
+# Install for ALL supported tools at project scope
+dotnet livedoc install-skill --all
+```
+
+---
+
+## Supported AI Tools
+
+| AI Tool                      | CLI Key      | Project Scope | User Scope |
+| ---------------------------- | ------------ | :-----------: | :--------: |
+| GitHub Copilot (VS Code/CLI) | `copilot`    | ✅            | ✅          |
+| Claude Code                  | `claude`     | ✅            | ✅          |
+| Roo Code                     | `roo`        | ✅            | ✅          |
+| Cursor                       | `cursor`     | ✅            | —          |
+| Windsurf                     | `windsurf`   | ✅            | —          |
+
+:::tip
+**Project scope** installs the skill files in your repository (committed
+to source control). Every developer on the team benefits automatically.
+
+**User scope** installs to your home directory. Use this when you want
+the skill available across all your projects.
+:::
+
+---
+
+## Where Files Are Installed
+
+The installer places skill instruction files in tool-specific locations:
+
+| AI Tool         | Project Scope Location                      | User Scope Location              |
+| --------------- | ------------------------------------------- | -------------------------------- |
+| GitHub Copilot  | `.github/instructions/`                     | `~/.github/instructions/`       |
+| Claude Code     | `.claude/`                                  | `~/.claude/`                     |
+| Roo Code        | `.roo/`                                     | `~/.roo/`                        |
+| Cursor          | `.cursor/rules/`                            | —                                |
+| Windsurf        | `.windsurf/rules/`                          | —                                |
+
+---
+
+## What the Skill Provides
+
+Once installed, your AI assistant will:
+
+- **Choose the correct base class** — `FeatureTest` for BDD, `SpecificationTest` for MSpec patterns
+- **Use correct attributes** — `[Feature]`/`[Scenario]`/`[ScenarioOutline]` or `[Specification]`/`[Rule]`/`[RuleOutline]`
+- **Write self-documenting tests** — all inputs and expected outputs embedded in step titles
+- **Extract values correctly** — using `ctx.Step.Values`, `ctx.Step.Params`, or method parameters instead of hardcoding
+- **Include descriptions** — adding `Description` to container attributes for context
+- **Organize namespaces** — structuring tests for clean viewer hierarchy
+
+### Example: Before and After
+
+**Without the skill**, an AI assistant might write:
+
+```csharp
+[Fact]
+public void TestShipping()
+{
+    var cart = new Cart { Country = "Australia", Total = 100 };
+    cart.Calculate();
+    Assert.Equal("Free", cart.ShippingType);
+}
+```
+
+**With the skill**, the same request produces:
+
+```csharp
+[Feature("Shipping Costs", Description = "Business rules for shipping rate calculation")]
+public class ShippingCostsTests : FeatureTest
+{
+    public ShippingCostsTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario]
+    public void Free_shipping_for_Australian_orders_over_100()
+    {
+        Given("the customer is from 'Australia'", ctx =>
+        {
+            _cart = new Cart { Country = ctx.Step!.Values[0].AsString() };
+        });
+
+        When("the order totals '100.00' dollars", ctx =>
+        {
+            _cart.Total = ctx.Step!.Values[0].AsDecimal();
+            _cart.Calculate();
+        });
+
+        Then("shipping type is 'Free'", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsString(), _cart.ShippingType);
+        });
+    }
+}
+```
+
+---
+
+## Verifying the Installation
+
+After installing, ask your AI assistant to write a LiveDoc test. It
+should:
+
+- [ ] Inherit from `FeatureTest` or `SpecificationTest`
+- [ ] Use `[Feature]`/`[Scenario]` or `[Specification]`/`[Rule]` attributes
+- [ ] Embed test data in step titles with single quotes
+- [ ] Extract values using `ctx.Step.Values` or `ctx.Step.Params`
+- [ ] Include `ITestOutputHelper` in the constructor
+
+If the assistant doesn't follow these patterns, verify the skill files
+were installed to the correct location for your tool.
+
+---
+
+## Related
+
+- [Getting Started](../learn/getting-started.mdx) — install LiveDoc and write your first test
+- [Best Practices](./best-practices.mdx) — patterns the AI skill enforces
+- [`[Feature]` Attribute](../reference/attributes.mdx#feature) — attribute reference

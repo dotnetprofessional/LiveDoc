@@ -1,0 +1,373 @@
+---
+sidebar_position: 6
+description: "Complete reference for LiveDocValue, LiveDocValueArray, and LiveDocValueDictionary — type-safe value extraction from step titles and rule titles."
+---
+
+# Value Extraction API
+
+<p className="intro">
+The value extraction API provides type-safe access to data embedded in step and
+rule titles. Quoted values (`'value'`) are accessed via `Values`, named parameters
+(`<name:value>`) via `Params`. Both support strong typing through `AsInt()`,
+`AsString()`, `AsBool()`, and tuple deconstruction.
+</p>
+
+```csharp
+// Step-level extraction (in FeatureTest)
+Given("a user with '100' credits and status 'active'", ctx =>
+{
+    var credits = ctx.Step!.Values[0].AsInt();       // 100
+    var status = ctx.Step!.Values[1].AsString();      // "active"
+});
+
+// Rule-level extraction (in SpecificationTest)
+[Rule("Adding '5' and '3' returns '8'")]
+public void Addition()
+{
+    var (a, b, expected) = Rule.Values.As<int, int, int>();
+    Assert.Equal(expected, a + b);
+}
+```
+
+---
+
+## Where Values Come From {#value-sources}
+
+Values are extracted from two syntaxes in title strings:
+
+| Syntax | Extraction API | Example Title | Access |
+|--------|---------------|---------------|--------|
+| `'value'` (quoted) | `Values[index]` | `"a cart with '5' items"` | `Values[0]` → `5` |
+| `<name:value>` (named) | `Params["name"]` | `"user <age:25> years"` | `Params["age"]` → `25` |
+
+Both syntaxes work identically on **steps** (via `ctx.Step`) and **rules** (via `Rule`):
+
+| Context | Values | Params |
+|---------|--------|--------|
+| Step (in `FeatureTest`) | `ctx.Step!.Values[i]` | `ctx.Step!.Params["name"]` |
+| Rule (in `SpecificationTest`) | `Rule.Values[i]` | `Rule.Params["name"]` |
+
+---
+
+## Reference {#reference}
+
+### `LiveDocValue` {#livedocvalue}
+
+A type-safe wrapper around a single extracted value. Provides conversion methods for common types.
+
+```csharp
+LiveDocValue value = ctx.Step!.Values[0];
+int num = value.AsInt();
+string str = value.AsString();
+```
+
+#### Conversion Methods {#conversion-methods}
+
+| Method | Returns | Example Input | Result |
+|--------|---------|---------------|--------|
+| `.AsString()` | `string` | `'hello'` | `"hello"` |
+| `.AsInt()` | `int` | `'42'` | `42` |
+| `.AsLong()` | `long` | `'9999999999'` | `9999999999L` |
+| `.AsDecimal()` | `decimal` | `'19.99'` | `19.99m` |
+| `.AsDouble()` | `double` | `'3.14'` | `3.14d` |
+| `.AsBool()` | `bool` | `'true'` | `true` |
+| `.AsDateTime()` | `DateTime` | `'2024-01-15'` | `DateTime(2024,1,15)` |
+| `.As<T>()` | `T` | varies | Converts to any parseable type |
+
+#### Properties {#value-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Raw` | `string` | The unconverted string value as it appeared in the title (without quotes). |
+
+#### Type Coercion Rules {#coercion-rules}
+
+- All numeric conversions use `CultureInfo.InvariantCulture` (decimal point is `.`).
+- `.AsBool()` accepts `"true"` / `"false"` (case-insensitive).
+- `.AsDateTime()` parses ISO 8601 and common date formats.
+- `.As<T>()` supports:
+  - **Enums**: `'Active'` → `Status.Active`
+  - **Guid**: `'550e8400-e29b-...'` → `Guid`
+  - **Any `IConvertible` type**
+
+```csharp
+Given("status is 'Active'", ctx =>
+{
+    var status = ctx.Step!.Values[0].As<OrderStatus>(); // Enum conversion
+    Assert.Equal(OrderStatus.Active, status);
+});
+```
+
+#### Error Handling {#value-errors}
+
+If conversion fails, a `LiveDocConversionException` is thrown with the step title for context:
+
+```
+LiveDocConversionException: Cannot convert 'abc' to Int32.
+  Step: "a cart with 'abc' items"
+```
+
+### `LiveDocValueArray` {#livedocvaluearray}
+
+Bounds-checked array of `LiveDocValue` instances, extracted from all quoted values in a title.
+
+```csharp
+LiveDocValueArray values = ctx.Step!.Values;
+```
+
+#### Indexer {#array-indexer}
+
+```csharp
+LiveDocValue this[int index]
+```
+
+Returns the value at the given position. Throws `LiveDocValueIndexException` if the index is out of bounds.
+
+```csharp
+Given("adding '5' and '3'", ctx =>
+{
+    var a = ctx.Step!.Values[0].AsInt(); // 5
+    var b = ctx.Step!.Values[1].AsInt(); // 3
+});
+```
+
+#### Properties {#array-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Length` | `int` | Number of extracted values. |
+| `Count` | `int` | Same as `Length`. |
+
+#### Tuple Deconstruction — `As<T1, T2, ...>()` {#tuple-deconstruction}
+
+Converts all values to a strongly-typed tuple in a single call. Supports 2 to 6 type parameters:
+
+```csharp
+// Two values
+var (name, age) = ctx.Step!.Values.As<string, int>();
+
+// Three values
+var (a, b, expected) = Rule.Values.As<int, int, int>();
+
+// Four values
+var (country, total, shipping, tax) =
+    ctx.Step!.Values.As<string, decimal, string, decimal>();
+
+// Five values
+var (v1, v2, v3, v4, v5) =
+    ctx.Step!.Values.As<string, int, bool, double, long>();
+
+// Six values
+var (v1, v2, v3, v4, v5, v6) =
+    ctx.Step!.Values.As<string, int, bool, double, long, decimal>();
+```
+
+:::caution
+The number of type parameters must match the number of quoted values in the title. If the title has 3 quoted values but you call `.As<T1, T2>()`, a `LiveDocValueIndexException` is thrown.
+:::
+
+#### `ToArray()` {#toarray}
+
+```csharp
+LiveDocValue[] ToArray()
+```
+
+Returns all values as a standard array for iteration:
+
+```csharp
+Given("items: '10', '20', '30'", ctx =>
+{
+    var items = ctx.Step!.Values.ToArray();
+    foreach (var item in items)
+    {
+        _cart.AddItem(item.AsInt());
+    }
+});
+```
+
+### `LiveDocValueDictionary` {#livedocvaluedictionary}
+
+Dictionary of named `LiveDocValue` instances, extracted from `<name:value>` syntax in titles.
+
+```csharp
+LiveDocValueDictionary params = ctx.Step!.Params;
+```
+
+#### Indexer {#dict-indexer}
+
+```csharp
+LiveDocValue this[string name]
+```
+
+Returns the value for the given parameter name. Throws `LiveDocParamNotFoundException` if the name doesn't exist.
+
+```csharp
+Given("a user with <email:alice@test.com> and <role:admin>", ctx =>
+{
+    var email = ctx.Step!.Params["email"].AsString(); // "alice@test.com"
+    var role = ctx.Step!.Params["role"].AsString();    // "admin"
+});
+```
+
+#### Methods {#dict-methods}
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `ContainsKey(string name)` | `bool` | Whether the parameter exists. |
+| `TryGetValue(string name, out LiveDocValue value)` | `bool` | Safe access without exception. |
+| `GetEnumerator()` | `IEnumerator<...>` | Iterate all parameters. |
+
+#### Properties {#dict-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Count` | `int` | Number of named parameters. |
+| `Keys` | `IEnumerable<string>` | All parameter names. |
+| `Values` | `IEnumerable<LiveDocValue>` | All parameter values. |
+| `Raw` | `IReadOnlyDictionary<string, string>` | Raw string key-value pairs. |
+
+---
+
+## Raw Access {#raw-access}
+
+Both `StepContext` and `RuleContext` expose raw (unconverted) string values:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ValuesRaw` | `string[]` | Quoted values as raw strings before conversion. |
+| `ParamsRaw` | `IReadOnlyDictionary<string, string>` | Named parameters as raw strings. |
+
+```csharp
+Given("a price of '19.99'", ctx =>
+{
+    string raw = ctx.Step!.ValuesRaw[0];     // "19.99" (string)
+    decimal typed = ctx.Step!.Values[0].AsDecimal(); // 19.99m (decimal)
+});
+
+[Rule("Setting <count:5> items")]
+public void Example_rule()
+{
+    string raw = Rule.ParamsRaw["count"];     // "5" (string)
+    int typed = Rule.Params["count"].AsInt(); // 5 (int)
+}
+```
+
+---
+
+## Usage {#usage}
+
+### Step values in FeatureTest {#step-values}
+
+```csharp
+[Scenario]
+public void Cart_total_with_tax()
+{
+    Given("a cart with '3' items at '9.99' each", ctx =>
+    {
+        var (count, price) = ctx.Step!.Values.As<int, decimal>();
+        for (int i = 0; i < count; i++)
+            _cart.AddItem(new CartItem { Price = price });
+    });
+
+    When("tax rate is '10' percent", ctx =>
+    {
+        _cart.TaxRate = ctx.Step!.Values[0].AsInt() / 100.0m;
+        _cart.Calculate();
+    });
+
+    Then("the total is '32.97'", ctx =>
+    {
+        Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _cart.Total);
+    });
+}
+```
+
+### Rule values in SpecificationTest {#rule-values}
+
+```csharp
+[Specification("URL Validation")]
+public class UrlSpec : SpecificationTest
+{
+    public UrlSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("'https://example.com' is a valid URL")]
+    public void Valid_url()
+    {
+        var url = Rule.Values[0].AsString();
+        Assert.True(Uri.IsWellFormedUriString(url, UriKind.Absolute));
+    }
+
+    [Rule("'not-a-url' is not a valid URL")]
+    public void Invalid_url()
+    {
+        var url = Rule.Values[0].AsString();
+        Assert.False(Uri.IsWellFormedUriString(url, UriKind.Absolute));
+    }
+}
+```
+
+### Named parameters for clarity {#named-params-usage}
+
+Named parameters make complex steps self-documenting:
+
+```csharp
+[Scenario]
+public void International_shipping()
+{
+    Given("an order from <country:Japan> weighing <weight:2.5> kg", ctx =>
+    {
+        _order = new Order
+        {
+            Country = ctx.Step!.Params["country"].AsString(),
+            WeightKg = ctx.Step!.Params["weight"].AsDouble()
+        };
+    });
+
+    Then("shipping cost is <cost:15.00> dollars", ctx =>
+    {
+        var expected = ctx.Step!.Params["cost"].AsDecimal();
+        Assert.Equal(expected, _order.CalculateShipping());
+    });
+}
+```
+
+### Mixed values and params {#mixed-extraction}
+
+Quoted values and named parameters can coexist in the same title:
+
+```csharp
+Given("user '42' has <role:admin> access", ctx =>
+{
+    var userId = ctx.Step!.Values[0].AsInt();       // 42 (from '42')
+    var role = ctx.Step!.Params["role"].AsString();  // "admin" (from <role:admin>)
+});
+```
+
+---
+
+## Exceptions {#exceptions}
+
+| Exception | Cause | Information |
+|-----------|-------|-------------|
+| `LiveDocConversionException` | Invalid type conversion (e.g., `'abc'.AsInt()`) | Includes step/rule title |
+| `LiveDocValueIndexException` | `Values[n]` index out of bounds | Includes `RequestedIndex`, `AvailableCount`, step title |
+| `LiveDocParamNotFoundException` | `Params["x"]` for non-existent key | Includes `ParamName`, `AvailableParams`, step title |
+
+```csharp
+// This throws LiveDocValueIndexException:
+// "Index 2 requested but only 1 value available in step: 'a cart with '5' items'"
+Given("a cart with '5' items", ctx =>
+{
+    var x = ctx.Step!.Values[2]; // ❌ Only index 0 exists
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [Step Methods](./step-methods.mdx) — where `ctx.Step.Values` is used
+- [`SpecificationTest`](./specification-test.mdx) — where `Rule.Values` is used
+- [Context](./context.mdx) — `StepContext` and `RuleContext` providing these APIs
+- [Value Extraction](../learn/value-extraction.mdx) — tutorial on extracting values
+- [Best Practices](../guides/best-practices.mdx) — patterns for self-documenting tests

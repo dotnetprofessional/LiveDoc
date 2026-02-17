@@ -1,0 +1,190 @@
+---
+sidebar_position: 6
+title: "specification()"
+description: "Top-level container for the Specification pattern. Groups related rules under a named specification with tags and description."
+---
+
+# `specification()`
+
+<p className="intro">
+`specification` is the top-level container in the Specification pattern — a simpler
+alternative to BDD when you need to express technical rules, domain constraints, or
+unit-level requirements without Given/When/Then ceremony.
+</p>
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("Password Validation", () => {
+  rule("Password must be at least 8 characters", () => {
+    expect(isValidPassword("short")).toBe(false);
+    expect(isValidPassword("longenough")).toBe(true);
+  });
+
+  rule("Password must contain a number", () => {
+    expect(isValidPassword("noNumbers")).toBe(false);
+    expect(isValidPassword("has1number")).toBe(true);
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `specification(title, fn)` {#specification}
+
+Registers a specification block that maps to a Vitest `describe()` call prefixed with `"Specification: "`.
+
+```typescript
+function specification(title: string, fn: (ctx: SpecificationCtx) => void): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — The specification title with optional tags and description. Parsed identically to `feature()`:
+  - **First line** → specification title
+  - **Lines starting with `@`** → tags (space-separated)
+  - **Remaining lines** → description text
+
+- **`fn`**: `(ctx: SpecificationCtx) => void` — Callback containing `rule()` and/or `ruleOutline()` calls. **Must not be `async`**.
+
+#### The `ctx` Parameter {#ctx}
+
+| Property             | Type                   | Description                            |
+| -------------------- | ---------------------- | -------------------------------------- |
+| `ctx.specification`  | `SpecificationContext` | `{ filename, title, description, tags }` |
+
+#### Returns {#returns}
+
+`void` — Specifications are registered as side effects.
+
+#### Caveats {#caveats}
+
+- The callback **must not be `async`**. Use async inside individual `rule()` callbacks.
+- Specifications are the outermost container in the specification pattern — they cannot be nested.
+- Do not mix `scenario()` inside a `specification()` — use `rule()` and `ruleOutline()` instead.
+
+---
+
+## Modifiers {#modifiers}
+
+### `specification.skip(title, fn)` {#skip}
+
+Skip this specification. All rules inside are marked as pending.
+
+```typescript
+specification.skip("Legacy Validation — migrating to new rules", () => {
+  rule("Old rule", () => { /* skipped */ });
+});
+```
+
+### `specification.only(title, fn)` {#only}
+
+Run only this specification. All other specifications and features are skipped.
+
+```typescript
+specification.only("Debugging this specification", () => {
+  rule("Focus rule", () => { /* only this runs */ });
+});
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Group related rules {#basic-usage}
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("Email Validation", () => {
+  rule("Email must contain an @ symbol", () => {
+    expect(isValidEmail("invalid")).toBe(false);
+    expect(isValidEmail("user@example.com")).toBe(true);
+  });
+
+  rule("Email must have a domain", () => {
+    expect(isValidEmail("user@")).toBe(false);
+    expect(isValidEmail("user@example.com")).toBe(true);
+  });
+
+  rule("Email domain must have a TLD", () => {
+    expect(isValidEmail("user@example")).toBe(false);
+    expect(isValidEmail("user@example.com")).toBe(true);
+  });
+});
+```
+
+### Tags and description {#tags-description}
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification(`Tax Calculation Rules
+  @finance @tax @critical
+  Business rules governing tax computation for domestic
+  and international orders
+`, (ctx) => {
+  rule("Domestic orders are taxed at the state rate", () => {
+    const tax = calculateTax({ state: "CA", amount: 100 });
+    expect(tax).toBe(7.25);
+  });
+
+  rule("International orders are tax-exempt", () => {
+    const tax = calculateTax({ country: "UK", amount: 100 });
+    expect(tax).toBe(0);
+  });
+});
+```
+
+### Accessing specification metadata {#accessing-metadata}
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification(`Inventory Management
+  @warehouse @v2
+  Rules for tracking stock levels across warehouses
+`, (ctx) => {
+  rule("Read specification context", () => {
+    expect(ctx.specification.title).toBe("Inventory Management");
+    expect(ctx.specification.tags).toEqual(["warehouse", "v2"]);
+    expect(ctx.specification.description).toContain("tracking stock levels");
+  });
+});
+```
+
+### Mixing rule and ruleOutline {#mixed-rules}
+
+```typescript
+import { specification, rule, ruleOutline } from "@swedevtools/livedoc-vitest";
+
+specification("Discount Engine", () => {
+  rule("No discount for orders under $50", () => {
+    expect(getDiscount(49)).toBe(0);
+  });
+
+  ruleOutline(`Discount tiers
+    Examples:
+    | spend | discount |
+    |    50 |        0 |
+    |   100 |        5 |
+    |   200 |       10 |
+    |   500 |       15 |
+  `, (ctx) => {
+    expect(getDiscount(ctx.example.spend)).toBe(ctx.example.discount);
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`rule()`](./rule.mdx) — individual test assertions within a specification
+- [`ruleOutline()`](./rule-outline.mdx) — data-driven rules with examples tables
+- [`feature()`](./feature.mdx) — BDD alternative for user-story-driven tests
+- [Context Object](./context.mdx) — full reference for `ctx.specification`

@@ -1,0 +1,318 @@
+---
+sidebar_position: 3
+description: "Complete reference for all LiveDoc xUnit attributes: Feature, Scenario, ScenarioOutline, Specification, Rule, RuleOutline, and their properties."
+---
+
+# Attributes
+
+<p className="intro">
+LiveDoc provides custom attributes that integrate with xUnit's test discovery.
+Class-level attributes define containers (features, specifications). Method-level
+attributes define test cases that inherit from xUnit's `[Fact]` or `[Theory]`.
+</p>
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+
+[Feature("Shopping Cart", Description = "Business rules for cart checkout.")]
+public class CartTests : FeatureTest
+{
+    public CartTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario("Free shipping for large orders")]
+    public void Free_shipping() { /* ... */ }
+
+    [ScenarioOutline("Calculate tax for different regions")]
+    [Example("AU", 10.0)]
+    [Example("US", 0.0)]
+    public void Tax_calculation(string region, double rate) { /* ... */ }
+}
+```
+
+---
+
+## Class-Level Attributes {#class-level}
+
+### `[Feature]` {#feature}
+
+Marks a test class as a BDD Feature. The class must inherit from [`FeatureTest`](./feature-test.mdx).
+
+```csharp
+[AttributeUsage(AttributeTargets.Class)]
+public class FeatureAttribute : Attribute
+```
+
+#### Parameters {#feature-parameters}
+
+- **`name`** *(optional)*: `string` — The feature title. If omitted, the class name is used with underscores converted to spaces.
+- **`Description`** *(named, optional)*: `string` — Multi-line description displayed in formatted output.
+
+```csharp
+// Explicit title
+[Feature("User Registration")]
+public class RegistrationTests : FeatureTest { }
+
+// Auto-derived title: "Registration Tests"
+[Feature]
+public class Registration_Tests : FeatureTest { }
+
+// With description
+[Feature("Order Processing", Description = @"
+    End-to-end order processing including validation,
+    payment capture, and fulfillment dispatch.")]
+public class OrderTests : FeatureTest { }
+```
+
+### `[Specification]` {#specification}
+
+Marks a test class as an MSpec Specification. The class must inherit from [`SpecificationTest`](./specification-test.mdx).
+
+```csharp
+[AttributeUsage(AttributeTargets.Class)]
+public class SpecificationAttribute : Attribute
+```
+
+#### Parameters {#specification-parameters}
+
+- **`title`** *(optional)*: `string` — The specification title. If omitted, the class name is used.
+- **`Description`** *(named, optional)*: `string` — Description displayed in formatted output.
+
+```csharp
+[Specification("Email Validation", Description = @"
+    Rules for validating email formats including
+    international domains and special characters.")]
+public class EmailSpec : SpecificationTest { }
+```
+
+---
+
+## Method-Level Attributes {#method-level}
+
+### `[Scenario]` {#scenario}
+
+Marks a method as a single BDD scenario. Inherits from xUnit's `FactAttribute`, so xUnit discovers it automatically.
+
+```csharp
+public class ScenarioAttribute : FactAttribute
+```
+
+#### Parameters {#scenario-parameters}
+
+- **`testMethodName`** *(optional)*: `string` — Display name in Test Explorer. Defaults to the method name via `[CallerMemberName]`.
+- **`Description`** *(named, optional)*: `string` — Additional context shown in formatted output.
+
+```csharp
+// Auto-named from method: "User logs in successfully"
+[Scenario]
+public void User_logs_in_successfully() { }
+
+// Explicit display name
+[Scenario("User logs in with valid credentials")]
+public void User_logs_in_successfully() { }
+
+// With description
+[Scenario(Description = "Tests the complete login flow for registered users")]
+public void User_logs_in_successfully() { }
+
+// Both title and description
+[Scenario("Login flow", Description = "Happy path for registered users")]
+public void User_logs_in_successfully() { }
+```
+
+:::info xUnit inheritance
+Because `[Scenario]` inherits from `[Fact]`, xUnit discovers and runs these methods with no custom test runner. They appear in Test Explorer alongside regular `[Fact]` tests.
+:::
+
+### `[ScenarioOutline]` {#scenario-outline}
+
+Marks a method as a data-driven BDD scenario. Inherits from xUnit's `TheoryAttribute`. Requires one or more `[Example]` attributes.
+
+```csharp
+public class ScenarioOutlineAttribute : TheoryAttribute
+```
+
+#### Parameters {#scenario-outline-parameters}
+
+- **`testMethodName`** *(optional)*: `string` — Display name. Defaults to method name.
+- **`Description`** *(named, optional)*: `string` — Description for formatted output.
+
+```csharp
+[ScenarioOutline]
+[Example("Alice", true)]
+[Example("Unknown", false)]
+public void User_authentication(string username, bool expected) { }
+
+[ScenarioOutline("Validate shipping rates")]
+[Example("AU", 100, "Free")]
+[Example("NZ", 100, "International")]
+public void Shipping_rates(string country, decimal total, string type) { }
+
+[ScenarioOutline(Description = "Covers all regional tax rules")]
+[Example("AU", 10.0)]
+[Example("US", 0.0)]
+public void Tax_rates(string region, double rate) { }
+```
+
+### `[Rule]` {#rule}
+
+Marks a method as a single MSpec rule. Inherits from xUnit's `FactAttribute`. Used in classes inheriting `SpecificationTest`.
+
+```csharp
+public class RuleAttribute : FactAttribute
+```
+
+#### Parameters {#rule-parameters}
+
+- **`description`** *(optional)*: `string` — The rule title with embedded values. If omitted, the method name is used.
+- **`testMethodName`** *(optional)*: `string` — Internal method name for CallerMemberName.
+- **`Description`** *(named, optional)*: `string` — Additional description shown in output.
+
+```csharp
+// Title with embedded values
+[Rule("Adding '5' and '3' returns '8'")]
+public void Addition() { }
+
+// Auto-named from method
+[Rule]
+public void Adding_positive_numbers_increases_the_total() { }
+
+// With named parameters
+[Rule("Subtracting <b:3> from <a:10> returns <result:7>")]
+public void Subtraction() { }
+```
+
+### `[RuleOutline]` {#rule-outline}
+
+Marks a method as a data-driven MSpec rule. Inherits from xUnit's `TheoryAttribute`. Requires `[Example]` attributes.
+
+```csharp
+public class RuleOutlineAttribute : TheoryAttribute
+```
+
+#### Parameters {#rule-outline-parameters}
+
+- **`description`** *(optional)*: `string` — Rule title with `<placeholder>` segments for display.
+- **`testMethodName`** *(optional)*: `string` — Internal method name.
+- **`Description`** *(named, optional)*: `string` — Additional description.
+
+```csharp
+[RuleOutline("Adding '<a>' and '<b>' returns '<result>'")]
+[Example(1, 2, 3)]
+[Example(5, 5, 10)]
+[Example(-1, 1, 0)]
+public void Addition_examples(int a, int b, int result) { }
+```
+
+### `[Example]` {#example-summary}
+
+Provides data rows for `[ScenarioOutline]` and `[RuleOutline]`. Inherits from xUnit's `DataAttribute`. See [`[Example]` Attribute](./example-attribute.mdx) for full details.
+
+```csharp
+[Example("Australia", 100.00, "Free")]
+```
+
+---
+
+## Attribute Inheritance from xUnit {#xunit-inheritance}
+
+LiveDoc attributes extend xUnit's native attributes, ensuring full compatibility with all xUnit tooling:
+
+| LiveDoc Attribute | xUnit Base | Discovery |
+|-------------------|------------|-----------|
+| `[Scenario]` | `FactAttribute` | Single test case |
+| `[ScenarioOutline]` | `TheoryAttribute` | One test case per `[Example]` |
+| `[Rule]` | `FactAttribute` | Single test case |
+| `[RuleOutline]` | `TheoryAttribute` | One test case per `[Example]` |
+| `[Example]` | `DataAttribute` | Data source for Theory |
+
+This means:
+- Tests appear in **Test Explorer** without custom adapters
+- All xUnit runners (`dotnet test`, VS, Rider) work automatically
+- `[Scenario]` tests can use `Skip = "reason"` just like `[Fact]`
+- `[ScenarioOutline]` tests support xUnit's theory data pipeline
+
+```csharp
+// Skip a scenario (inherited from FactAttribute)
+[Scenario(Skip = "Pending implementation")]
+public void Upcoming_feature() { }
+```
+
+---
+
+## Description Property {#descriptions}
+
+All attributes accept a `Description` named property. Descriptions appear in the formatted test output and LiveDoc Viewer, providing valuable context:
+
+```csharp
+[Feature("Checkout Flow", Description = @"
+    Business rules for the complete checkout process
+    including cart validation, payment, and confirmation.")]
+public class CheckoutTests : FeatureTest
+{
+    public CheckoutTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario("Apply coupon code", Description = @"
+        Validates that valid coupon codes reduce the total
+        and expired codes show an appropriate message.")]
+    public void Apply_coupon() { /* ... */ }
+}
+```
+
+**Output:**
+```
+Feature: Checkout Flow
+  Business rules for the complete checkout process
+  including cart validation, payment, and confirmation.
+
+  Scenario: Apply coupon code
+    Validates that valid coupon codes reduce the total
+    and expired codes show an appropriate message.
+
+    Given ...
+    When ...
+    Then ...
+```
+
+:::tip Best practice
+Always provide `Description` on `[Feature]` and `[Specification]` attributes. It costs nothing and makes the living documentation significantly more useful.
+:::
+
+---
+
+## Method Name Conventions {#method-names}
+
+### Automatic title derivation
+
+When no explicit title is provided, the method name is converted:
+- Underscores (`_`) become spaces
+- Example: `User_logs_in_successfully` → "User logs in successfully"
+
+### `_ALLCAPS` placeholder segments
+
+In `[ScenarioOutline]` and `[RuleOutline]`, `_ALLCAPS` segments in method names become `<placeholder>` markers matched to method parameters:
+
+```csharp
+[RuleOutline]
+[Example(10, 2, 5)]
+[Example(100, 10, 10)]
+public void Dividing_A_by_B_returns_RESULT(int a, int b, int result)
+{
+    Assert.Equal(result, a / b);
+}
+// Output: "Dividing '10' by '2' returns '5'"
+```
+
+**Matching rules:**
+- `_A` matches parameter `a`, `A`, or `_a` (case-insensitive)
+- Unmatched ALLCAPS segments remain as literal text
+- This is an alternative to providing an explicit title with `<param>` placeholders
+
+---
+
+## See Also {#see-also}
+
+- [`FeatureTest`](./feature-test.mdx) — base class for BDD tests
+- [`SpecificationTest`](./specification-test.mdx) — base class for MSpec tests
+- [`[Example]`](./example-attribute.mdx) — data rows for outlines
+- [Step Methods](./step-methods.mdx) — `Given()`, `When()`, `Then()`, `And()`, `But()`
+- [Best Practices](../guides/best-practices.mdx) — attribute usage patterns

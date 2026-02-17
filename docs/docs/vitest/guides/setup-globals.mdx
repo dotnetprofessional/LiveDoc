@@ -1,0 +1,210 @@
+---
+sidebar_position: 2
+description: "Enable globals mode for zero-import spec files that read like plain documentation."
+---
+
+# How to Enable Globals Mode
+
+<p className="intro">
+This guide shows you how to configure globals mode so your spec files need
+zero imports. By the end, you'll have ultra-clean spec files that read like
+plain-English documentation.
+</p>
+
+:::info Prerequisites
+- Node.js 18+
+- A Vitest project with `@swedevtools/livedoc-vitest` installed
+- Familiarity with [explicit imports setup](./setup-imports.mdx)
+:::
+
+## Overview
+
+Globals mode registers all LiveDoc keywords (`feature`, `scenario`, `given`,
+`when`, `then`, etc.) on `globalThis` via a setup file. Your spec files
+contain zero import statements — just pure Gherkin. The ESM thenable issue
+does not apply to `globalThis` properties, so `then` works as lowercase
+directly.
+
+## Step 1: Configure the Setup File
+
+Add the LiveDoc setup file to your Vitest configuration. This single line
+registers all keywords globally:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['**/*.Spec.ts'],
+    setupFiles: ['@swedevtools/livedoc-vitest/setup'],
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+    ],
+  },
+});
+```
+
+The key addition is `setupFiles: ['@swedevtools/livedoc-vitest/setup']`.
+
+## Step 2: Add TypeScript Declarations
+
+For full IntelliSense in your editor, add the LiveDoc globals type to your
+`tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
+  }
+}
+```
+
+## Step 3: Write a Spec Without Imports
+
+```typescript
+// tests/UserLogin.Spec.ts
+// No imports needed!
+
+feature("User Authentication", () => {
+  scenario("Successful login with valid credentials", () => {
+    given("a registered user with email 'alice@example.com'", (ctx) => {
+      const email = ctx.step.values[0]; // "alice@example.com"
+      // setup user
+    });
+
+    when("they enter the correct password", () => {
+      // perform login
+    });
+
+    then("they should see the dashboard", () => {
+      // assert redirect
+    });
+  });
+});
+```
+
+That's it — no imports, just specs.
+
+## Step 4: Run Your Tests
+
+```bash
+npx vitest run
+```
+
+Output is identical to the explicit imports approach.
+
+## Complete Example
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['**/*.Spec.ts'],
+    setupFiles: ['@swedevtools/livedoc-vitest/setup'],
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+    ],
+  },
+});
+```
+
+```json
+// tsconfig.json (relevant parts)
+{
+  "compilerOptions": {
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
+  }
+}
+```
+
+```typescript
+// tests/ShoppingCart.Spec.ts
+
+feature(`Shopping Cart
+    @checkout @critical
+    Core shopping cart operations for the e-commerce platform.
+    `, () => {
+
+  scenario("Adding an item increases the cart count", () => {
+    given("an empty cart", (ctx) => {
+      const cart = { items: [] as string[] };
+      ctx.scenario.given = cart;
+    });
+
+    when("the user adds 'Wireless Mouse' to the cart", (ctx) => {
+      const product = ctx.step.values[0];
+      ctx.scenario.given.items.push(product);
+    });
+
+    then("the cart contains '1' item", (ctx) => {
+      const expectedCount = ctx.step.values[0];
+      expect(ctx.scenario.given.items.length).toBe(expectedCount);
+    });
+  });
+});
+```
+
+## Common Variations
+
+### Adding Global Filter Configuration
+
+Create a custom setup file to configure LiveDoc options for all tests:
+
+```typescript
+// test/livedoc.setup.ts
+import { livedoc } from '@swedevtools/livedoc-vitest';
+
+livedoc.options.filters.include = ['@smoke'];
+livedoc.options.filters.exclude = ['@slow'];
+```
+
+Then add it after the globals setup file:
+
+```typescript
+// vitest.config.ts
+setupFiles: [
+  '@swedevtools/livedoc-vitest/setup',
+  './test/livedoc.setup.ts',
+],
+```
+
+### Explicit Imports vs. Globals — Tradeoffs
+
+| Aspect | Explicit Imports | Globals Mode |
+| ------ | --------------- | ------------ |
+| File readability | Good — imports visible | Best — zero boilerplate |
+| IDE autocomplete | Immediate — imports drive it | Requires `tsconfig.json` types |
+| Portability | Self-contained — works anywhere | Needs matching config |
+| Onboarding | Developers see dependencies | Developers must know globals exist |
+| Code review | Dependencies visible in diff | Cleaner diffs |
+| Refactoring | Rename-safe via imports | Global rename may miss files |
+
+**Recommendation**: Use **explicit imports** for team projects and libraries.
+Use **globals mode** for personal projects or when spec readability is the
+top priority.
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| `ReferenceError: feature is not defined` | Missing setup file | Add `'@swedevtools/livedoc-vitest/setup'` to `setupFiles` |
+| TypeScript errors on `given`, `when`, `then` | Missing type declarations | Add `"@swedevtools/livedoc-vitest/globals"` to `types` in `tsconfig.json` |
+| `globals: true` not set | Vitest requires it for global mode | Set `globals: true` in vitest config |
+| Setup file not found | Wrong path | Use the package path `@swedevtools/livedoc-vitest/setup`, not a local file |
+| `then` not working | Should work in globals mode | Verify setup file is loaded — `then` is lowercase on `globalThis` |
+
+## Related
+
+- [Setup: Explicit Imports](./setup-imports.mdx) — alternative approach with full imports
+- [Tags and Filtering](./tags-and-filtering.mdx) — configure global filters in setup files
+- [Best Practices](./best-practices.mdx) — choosing between imports and globals
+- [Configuration](../reference/configuration.mdx) — full configuration reference

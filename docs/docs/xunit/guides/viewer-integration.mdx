@@ -1,0 +1,156 @@
+---
+sidebar_position: 1
+title: "Viewer Integration"
+description: "Connect your xUnit tests to the LiveDoc Viewer for real-time, browser-based test result visualization."
+---
+
+# Viewer Integration
+
+<p className="intro">
+This guide shows you how to connect your LiveDoc xUnit tests to the
+LiveDoc Viewer — a real-time web UI that displays your test results as
+they execute. By the end, you'll have a live dashboard showing your
+features, scenarios, and specifications in the browser.
+</p>
+
+:::info Prerequisites
+- A .NET project with `SweDevTools.LiveDoc.xUnit` installed — see [Getting Started](../learn/getting-started.mdx)
+- Node.js 18+ (required for the viewer)
+:::
+
+## Overview
+
+The LiveDoc Viewer is a standalone web application that receives test
+results over HTTP. When you run your xUnit tests, the
+`LiveDocViewerReporter` sends results to the viewer in real time. The
+viewer renders them as a navigable feature/specification tree.
+
+```
+dotnet test  ──▶  LiveDocViewerReporter  ──▶  LiveDoc Viewer (browser)
+```
+
+---
+
+## Step 1: Install the Viewer
+
+Install the viewer CLI globally via npm:
+
+```bash
+npm install -g @swedevtools/livedoc-viewer
+```
+
+Start it:
+
+```bash
+livedoc-viewer
+```
+
+The viewer opens at `http://localhost:3100` by default.
+
+---
+
+## Step 2: Add the Assembly Attribute
+
+In your test project, register the viewer reporter with an assembly-level
+attribute. Add this to any `.cs` file in the project (a common convention
+is a dedicated `AssemblyInfo.cs` or at the top of your main test file):
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+
+[assembly: LiveDocViewerReporter("http://localhost:3100")]
+```
+
+This tells the LiveDoc framework to POST results to the viewer as each
+test completes.
+
+---
+
+## Step 3: Configure via `.runsettings` (Optional)
+
+For more control — especially in CI or multi-project setups — use a
+`.runsettings` file instead of (or in addition to) the assembly attribute:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <LiveDoc>
+    <ViewerUrl>http://localhost:3100</ViewerUrl>
+    <Project>my-dotnet-app</Project>
+    <Environment>local</Environment>
+  </LiveDoc>
+</RunSettings>
+```
+
+Run tests with the settings file:
+
+```bash
+dotnet test --settings my.runsettings
+```
+
+### Configuration Options
+
+| Setting         | Description                                        | Default                  |
+| --------------- | -------------------------------------------------- | ------------------------ |
+| `ViewerUrl`     | URL where the LiveDoc Viewer is listening           | `http://localhost:3100`  |
+| `Project`       | Project name displayed in the viewer                | Assembly name            |
+| `Environment`   | Environment label (e.g., `local`, `ci`, `staging`)  | `local`                  |
+
+:::tip
+The `.runsettings` configuration takes precedence over the assembly
+attribute. Use `.runsettings` when you need different settings per
+environment (local vs. CI) without changing code.
+:::
+
+---
+
+## Step 4: Run Your Tests
+
+With the viewer running, execute your tests:
+
+```bash
+dotnet test
+```
+
+Results appear in the browser as each test completes. The viewer
+organizes them by namespace hierarchy — mirroring the folder structure
+described in [Best Practices](./best-practices.mdx#namespace-organization).
+
+---
+
+## Complete Workflow
+
+Here's the full workflow from start to finish:
+
+```bash
+# Terminal 1: Start the viewer
+livedoc-viewer
+
+# Terminal 2: Run your tests
+dotnet test --settings my.runsettings
+```
+
+1. **Start the viewer** — open a terminal and run `livedoc-viewer`
+2. **Run your tests** — in a separate terminal, run `dotnet test`
+3. **View results** — open `http://localhost:3100` and watch results stream in
+
+---
+
+## Troubleshooting
+
+| Problem                             | Cause                                              | Solution                                                                 |
+| ----------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------ |
+| Results don't appear in viewer      | Reporter not registered                            | Verify the `[assembly: LiveDocViewerReporter(...)]` attribute is present |
+| Connection refused                  | Viewer not running or wrong port                   | Start `livedoc-viewer` first; check `ViewerUrl` matches the viewer port  |
+| Tests pass but viewer shows nothing | Firewall blocking localhost                        | Allow port 3100 through your firewall                                    |
+| Results appear but unorganized      | Flat namespace structure                           | Organize tests into nested namespaces — see [Best Practices](./best-practices.mdx#namespace-organization) |
+| Viewer shows stale results          | Browser cache or previous session data             | Refresh the browser or restart the viewer                                |
+| `Project` shows assembly name       | No `Project` configured                            | Set `<Project>` in `.runsettings` or pass it via the assembly attribute  |
+
+---
+
+## Related
+
+- [Getting Started](../learn/getting-started.mdx) — install LiveDoc and write your first test
+- [Best Practices](./best-practices.mdx) — namespace organization for report hierarchy
+- [Troubleshooting](./troubleshooting.mdx) — common xUnit issues and fixes

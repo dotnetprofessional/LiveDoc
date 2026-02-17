@@ -1,0 +1,317 @@
+---
+sidebar_position: 7
+description: "Migrate from the legacy livedoc-mocha package to @swedevtools/livedoc-vitest with step-by-step API mapping."
+---
+
+# How to Migrate from livedoc-mocha
+
+<p className="intro">
+This guide walks you through migrating from the legacy `livedoc-mocha` package
+to `@swedevtools/livedoc-vitest`. By the end, you'll have converted your specs
+to the new API with minimal disruption.
+</p>
+
+:::info Prerequisites
+- An existing project using `livedoc-mocha`
+- Node.js 18+
+- Vitest installed (`npm install -D vitest`)
+:::
+
+## Overview
+
+The Vitest-based LiveDoc preserves the same Gherkin DSL (`feature`, `scenario`,
+`given`, `when`, `then`) but changes the configuration, imports, context
+access, and reporter setup. Most spec files require only minor adjustments.
+
+## Step 1: Install the New Package
+
+```bash
+# Remove the old package
+npm uninstall livedoc-mocha
+
+# Install the new packages
+npm install -D vitest @swedevtools/livedoc-vitest
+```
+
+## Step 2: Replace the Configuration
+
+**Before (Mocha)**:
+
+```json
+// .mocharc.json
+{
+  "ui": "livedoc-mocha",
+  "require": ["livedoc-mocha/build/app/index"],
+  "spec": "**/*.Spec.ts"
+}
+```
+
+**After (Vitest)**:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['**/*.Spec.ts'],
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+    ],
+  },
+});
+```
+
+## Step 3: Update Imports
+
+**Before (Mocha)** — globals injected via Mocha UI, no imports needed:
+
+```typescript
+// No imports — feature, scenario, etc. were global
+feature("My Feature", () => {
+  scenario("My Scenario", () => {
+    given("something", () => { /* ... */ });
+  });
+});
+```
+
+**After (Vitest with explicit imports)**:
+
+```typescript
+import {
+  feature, scenario, given, when, Then as then, and, but,
+} from '@swedevtools/livedoc-vitest';
+
+feature("My Feature", () => {
+  scenario("My Scenario", () => {
+    given("something", () => { /* ... */ });
+  });
+});
+```
+
+Or use [globals mode](./setup-globals.mdx) to keep zero-import files.
+
+## Step 4: Update Context Access
+
+The biggest API change is how you access context objects. In Mocha, contexts
+were global variables. In Vitest, they are passed as callback parameters.
+
+### Feature Context
+
+```typescript
+// ❌ Before (Mocha) — global variable
+feature("My Feature", () => {
+  const title = featureContext.title;
+});
+
+// ✅ After (Vitest) — callback parameter
+feature("My Feature", (ctx) => {
+  const title = ctx.feature.title;
+});
+```
+
+### Scenario Context
+
+```typescript
+// ❌ Before (Mocha)
+scenario("My Scenario", () => {
+  const title = scenarioContext.title;
+  const givenData = scenarioContext.given;
+});
+
+// ✅ After (Vitest)
+scenario("My Scenario", (ctx) => {
+  const title = ctx.scenario.title;
+  const givenData = ctx.scenario.given;
+});
+```
+
+### Step Context
+
+```typescript
+// ❌ Before (Mocha)
+given("a user with '$1' items", () => {
+  const count = stepContext.values[0];
+  const table = stepContext.tableAsEntity;
+});
+
+// ✅ After (Vitest)
+given("a user with '$1' items", (ctx) => {
+  const count = ctx.step.values[0];
+  const table = ctx.step.tableAsEntity;
+});
+```
+
+### Scenario Outline Context
+
+```typescript
+// ❌ Before (Mocha)
+scenarioOutline(`Test
+    Examples:
+    | input | expected |
+    | foo   | true     |
+    `, () => {
+  const input = scenarioOutlineContext.example.input;
+});
+
+// ✅ After (Vitest)
+scenarioOutline(`Test
+    Examples:
+    | input | expected |
+    | foo   | true     |
+    `, (ctx) => {
+  when("checking <input>", (ctx) => {
+    const input = ctx.example.input;
+  });
+});
+```
+
+## Step 5: Update Reporter Configuration
+
+**Before (Mocha)** — reporter passed via CLI:
+
+```bash
+mocha --ui livedoc-mocha --reporter livedoc-mocha/reporter
+```
+
+**After (Vitest)** — reporter in config:
+
+```typescript
+// vitest.config.ts
+reporters: [
+  new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+],
+```
+
+## Step 6: Update Test Scripts
+
+```json
+// package.json
+{
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  }
+}
+```
+
+## Complete API Mapping
+
+| Mocha (Before) | Vitest (After) | Notes |
+| -------------- | -------------- | ----- |
+| `featureContext` | `ctx.feature` | Passed via callback parameter |
+| `scenarioContext` | `ctx.scenario` | Passed via callback parameter |
+| `stepContext` | `ctx.step` | Passed via callback parameter |
+| `scenarioOutlineContext` | `ctx.example` | Accessed in steps within outline |
+| `backgroundContext` | `ctx.background` | Passed via callback parameter |
+| `stepContext.values[0]` | `ctx.step.values[0]` | Same value extraction API |
+| `stepContext.tableAsEntity` | `ctx.step.tableAsEntity` | Same table API |
+| `stepContext.docString` | `ctx.step.docString` | Same doc string API |
+| `livedoc.options` | `livedoc.options` | Same options singleton |
+| `.mocharc.json` | `vitest.config.ts` | Configuration file |
+| `mocha --ui livedoc-mocha` | `npx vitest run` | Test runner command |
+
+## Complete Example
+
+**Before (Mocha)**:
+
+```typescript
+feature("Shopping Cart", () => {
+  scenario("Add item to cart", () => {
+    given("an empty cart", () => {
+      scenarioContext.given = { items: [] };
+    });
+
+    when("the user adds 'Widget'", () => {
+      const item = stepContext.values[0];
+      scenarioContext.given.items.push(item);
+    });
+
+    then("the cart has '1' item", () => {
+      const expected = stepContext.values[0];
+      expect(scenarioContext.given.items.length).to.equal(expected);
+    });
+  });
+});
+```
+
+**After (Vitest)**:
+
+```typescript
+import {
+  feature, scenario, given, when, Then as then,
+} from '@swedevtools/livedoc-vitest';
+
+feature("Shopping Cart", () => {
+  scenario("Add item to cart", (ctx) => {
+    given("an empty cart", (ctx) => {
+      ctx.scenario.given = { items: [] as string[] };
+    });
+
+    when("the user adds 'Widget'", (ctx) => {
+      const item = ctx.step.values[0];
+      ctx.scenario.given.items.push(item);
+    });
+
+    then("the cart has '1' item", (ctx) => {
+      const expected = ctx.step.values[0];
+      expect(ctx.scenario.given.items.length).toBe(expected);
+    });
+  });
+});
+```
+
+## Common Variations
+
+### Batch Find-and-Replace
+
+For large codebases, use these regex replacements:
+
+| Find | Replace |
+| ---- | ------- |
+| `featureContext\.` | `ctx.feature.` |
+| `scenarioContext\.` | `ctx.scenario.` |
+| `stepContext\.` | `ctx.step.` |
+| `scenarioOutlineContext\.example\.` | `ctx.example.` |
+| `backgroundContext\.` | `ctx.background.` |
+| `\.to\.equal\(` | `.toBe(` |
+| `\.to\.deep\.equal\(` | `.toEqual(` |
+| `\.to\.be\.true` | `.toBe(true)` |
+| `\.to\.be\.false` | `.toBe(false)` |
+
+:::caution
+Regex replacements need manual review. Ensure each callback receives the `ctx`
+parameter — the find-and-replace only updates property access, not function
+signatures.
+:::
+
+### Incremental Migration
+
+Migrate one spec file at a time. Vitest and Mocha can coexist temporarily if
+you maintain both configurations:
+
+1. Move one `.Spec.ts` file to Vitest format
+2. Run with `npx vitest run -- path/to/File.Spec.ts`
+3. Verify output matches expectations
+4. Repeat for the next file
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| `featureContext is not defined` | Global variables removed | Add `ctx` parameter to callbacks and use `ctx.feature` |
+| `stepContext is not defined` | Global variables removed | Add `ctx` parameter to step callbacks and use `ctx.step` |
+| `.to.equal is not a function` | Chai assertions (Mocha) vs Vitest | Replace with `.toBe()`, `.toEqual()`, etc. |
+| `Then` import error | ESM thenable issue | Use `Then as then` alias |
+| Tests not discovered | File pattern mismatch | Ensure `include: ['**/*.Spec.ts']` in vitest config |
+| Async errors | `async` on feature/scenario | Remove `async` from container callbacks — only steps support async |
+
+## Related
+
+- [Setup: Explicit Imports](./setup-imports.mdx) — full import setup
+- [Setup: Globals Mode](./setup-globals.mdx) — zero-import approach
+- [Troubleshooting](./troubleshooting.mdx) — common issues and fixes
+- [Getting Started](../learn/getting-started.mdx) — fresh start tutorial

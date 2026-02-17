@@ -1,0 +1,219 @@
+---
+sidebar_position: 1
+title: "Getting Started"
+description: "Install LiveDoc, create your first spec file, and see beautiful living documentation output in under 5 minutes."
+---
+
+# Getting Started
+
+<p className="intro">
+In this guide you'll install LiveDoc, write your first executable specification,
+and see human-readable test output in your terminal — all in about five minutes.
+</p>
+
+## What You'll Build
+
+By the end of this page you will have:
+
+- A working **Vitest + LiveDoc** project
+- A spec file using **Gherkin syntax** (Given / When / Then)
+- Beautiful, structured test output that doubles as living documentation
+
+---
+
+## Prerequisites
+
+- **Node.js 18+** installed
+- A package manager: `npm`, `yarn`, or `pnpm`
+- A terminal and a code editor (VS Code recommended)
+
+---
+
+## Step 1: Create a Project
+
+If you already have a project with Vitest, skip ahead to [Step 2](#step-2-install-livedoc).
+
+```bash
+mkdir my-livedoc-project && cd my-livedoc-project
+npm init -y
+```
+
+---
+
+## Step 2: Install LiveDoc
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="npm" label="npm" default>
+    ```bash
+    npm install --save-dev vitest @swedevtools/livedoc-vitest
+    ```
+  </TabItem>
+  <TabItem value="yarn" label="Yarn">
+    ```bash
+    yarn add --dev vitest @swedevtools/livedoc-vitest
+    ```
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+    ```bash
+    pnpm add --save-dev vitest @swedevtools/livedoc-vitest
+    ```
+  </TabItem>
+</Tabs>
+
+:::tip Already using Vitest?
+LiveDoc works alongside your existing Vitest configuration. You don't need to
+change anything — just add the package and start writing `.Spec.ts` files.
+:::
+
+---
+
+## Step 3: Configure Vitest
+
+Create (or update) a `vitest.config.ts` in your project root:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['**/*.Spec.ts'],
+    reporters: [new LiveDocSpecReporter()],
+  },
+});
+```
+
+**Key settings explained:**
+
+| Setting                        | Why                                                                 |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `globals: true`                | Makes `expect` available without importing — cleaner spec files     |
+| `include: ['**/*.Spec.ts']`    | LiveDoc specs use the `.Spec.ts` suffix by convention               |
+| `reporters: [LiveDocSpecReporter]` | Produces structured, Gherkin-style output instead of default dots |
+
+---
+
+## Step 4: Write Your First Spec
+
+Create a file called `tests/Calculator.Spec.ts`:
+
+```typescript
+// tests/Calculator.Spec.ts
+import {
+  feature,
+  scenario,
+  given,
+  when,
+  Then as then,
+  and,
+} from '@swedevtools/livedoc-vitest';
+
+feature('Calculator', () => {
+  scenario('Adding two numbers', () => {
+    let result = 0;
+
+    given("I have entered '50' into the calculator", (ctx) => {
+      result = ctx.step.values[0]; // 50 (auto-coerced to number)
+    });
+
+    and("I have entered '70' into the calculator", (ctx) => {
+      result += ctx.step.values[0]; // 70
+    });
+
+    when('I press add', () => {
+      // addition already happened in the steps above
+    });
+
+    then("the result should be '120'", (ctx) => {
+      const expected = ctx.step.values[0]; // 120
+      expect(result).toBe(expected);
+    });
+  });
+});
+```
+
+### Things to Notice
+
+| Pattern | Why |
+| --- | --- |
+| **`Then as then`** | ESM treats lowercase `then` as a thenable. The uppercase import + alias avoids this quirk. |
+| **`ctx.step.values`** | Quoted values like `'50'` are automatically extracted and type-coerced — see [Data Extraction](./data-extraction.mdx). |
+| **`.Spec.ts` suffix** | LiveDoc convention. Your Vitest `include` pattern matches this. |
+| **Lowercase keywords** | `given`, `when`, `then` — reads naturally in code while the output stays structured. |
+
+:::caution The `Then` import is required
+You **must** import `Then` with uppercase `T` and alias it. Writing
+`import { then }` directly will cause ESM module-resolution issues.
+:::
+
+---
+
+## Step 5: Run It 🎉
+
+```bash
+npx vitest run
+```
+
+You'll see output like this:
+
+```
+Feature: Calculator
+
+  Scenario: Adding two numbers
+    ✓ Given I have entered '50' into the calculator
+    ✓   And I have entered '70' into the calculator
+    ✓ When I press add
+    ✓ Then the result should be '120'
+
+──────────────────────────────────────────────────────
+LiveDoc Test Summary
+  ✓ 4 steps passed
+  1 feature, 1 scenario, 4 steps
+```
+
+Every step title appears in the output — that's **living documentation**.
+When the business rules change, the specs and their output change with them.
+
+---
+
+## Optional: VS Code Extension
+
+For the best authoring experience, install the **LiveDoc VS Code Extension**:
+
+→ [**LiveDoc for VS Code**](https://marketplace.visualstudio.com/items?itemName=dotNetProfessional.livedoc-vscode)
+
+It provides:
+
+- 📐 **Table formatting** — automatically align data tables with a keystroke
+- ✂️ **Snippets** — quickly scaffold features, scenarios, and steps
+- 🎨 **Syntax highlighting** — Gherkin keywords stand out in your spec files
+
+:::tip AI-assisted setup
+If you're using an AI coding assistant (GitHub Copilot, Cursor, or Windsurf)
+you can ask it to configure LiveDoc for you. The assistant can install packages,
+create the Vitest config, and scaffold your first spec file in one go.
+:::
+
+---
+
+## Recap
+
+- **Install** `vitest` and `@swedevtools/livedoc-vitest`
+- **Configure** Vitest with `include: ['**/*.Spec.ts']` and the `LiveDocSpecReporter`
+- **Write specs** using `feature` → `scenario` → `given` / `when` / `then`
+- **Import `Then as then`** to avoid the ESM thenable issue
+- **Run** with `npx vitest run` and enjoy structured, readable output
+
+---
+
+## Next Steps
+
+- **Next in this series**: [Your First Feature](./your-first-feature.mdx) — learn every BDD keyword with a hands-on walkthrough
+- **Deep dive**: [feature() Reference](../reference/feature.mdx) — full API details for the `feature` keyword
+- **Practical use**: [Setup: Imports](../guides/setup-imports.mdx) — all import patterns explained

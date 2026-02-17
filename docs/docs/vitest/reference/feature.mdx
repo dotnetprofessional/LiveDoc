@@ -1,0 +1,223 @@
+---
+sidebar_position: 1
+title: "feature()"
+description: "Top-level container for BDD scenarios. Groups related scenarios, backgrounds, and scenario outlines under a single feature with tags and description."
+---
+
+# `feature()`
+
+<p className="intro">
+`feature` is the top-level container in the BDD/Gherkin pattern. It groups related
+scenarios, backgrounds, and scenario outlines under a single named feature — the
+first building block of living documentation.
+</p>
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Shopping Cart", () => {
+  scenario("Adding an item", () => {
+    given("an empty cart", () => { /* setup */ });
+    when("the user adds a product", () => { /* action */ });
+    then("the cart contains '1' item", (ctx) => {
+      expect(cart.items).toHaveLength(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `feature(title, fn)` {#feature}
+
+Registers a feature block that maps to a Vitest `describe()` call prefixed with `"Feature: "`.
+
+```typescript
+function feature(title: string, fn: (ctx: FeatureCtx) => void): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — The feature title with optional tags and description. Parsed as follows:
+  - **First line** → feature title
+  - **Lines starting with `@`** → tags (space-separated on one line, e.g. `@smoke @regression`)
+  - **Remaining lines** → description text
+
+- **`fn`**: `(ctx: FeatureCtx) => void` — Callback containing scenarios, backgrounds, and/or scenario outlines. **Must not be `async`** — only steps and rules support async callbacks.
+
+#### The `ctx` Parameter {#ctx}
+
+The callback receives a context object with the following property:
+
+| Property      | Type             | Description                              |
+| ------------- | ---------------- | ---------------------------------------- |
+| `ctx.feature` | `FeatureContext` | `{ filename, title, description, tags }` |
+
+#### Returns {#returns}
+
+`void` — Features are registered as side effects. They do not return a value.
+
+#### Caveats {#caveats}
+
+- The callback **must not be `async`**. If you need async setup, put it inside a step (`given`, `when`, etc.).
+- Title parsing is whitespace-aware: the first non-empty line becomes the title, `@`-prefixed lines become tags, and all other lines become the description.
+- Features are the outermost container — they cannot be nested inside other features.
+
+---
+
+## Modifiers {#modifiers}
+
+### `feature.skip(title, fn)` {#skip}
+
+Skip this feature entirely. All scenarios inside it are marked as pending.
+
+```typescript
+feature.skip("Payment Processing — disabled until gateway is ready", () => {
+  scenario("Charge a card", () => { /* skipped */ });
+});
+```
+
+### `feature.only(title, fn)` {#only}
+
+Run only this feature. All other features in the test run are skipped.
+
+```typescript
+feature.only("Shopping Cart — debugging this feature", () => {
+  scenario("Add item", () => { /* only this runs */ });
+});
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Simple feature with a scenario {#basic-usage}
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("User Registration", () => {
+  scenario("Successful registration", () => {
+    given("a new user with email 'alice@example.com'", (ctx) => {
+      user = createUser(ctx.step.values[0]);
+    });
+
+    when("they submit the registration form", () => {
+      result = register(user);
+    });
+
+    then("the account is created", () => {
+      expect(result.success).toBe(true);
+    });
+  });
+});
+```
+
+### Tags and description {#tags-description}
+
+Tags enable filtering and the description provides business context. Both are embedded in the title string using a multi-line template literal.
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature(`Shopping Cart
+  @ecommerce @critical
+  As a customer
+  I want to manage my shopping cart
+  So that I can purchase items
+`, () => {
+  scenario("Adding an item to the cart", () => {
+    given("an empty cart", () => { /* ... */ });
+    when("the user adds a product", () => { /* ... */ });
+    then("the cart contains '1' item", () => { /* ... */ });
+  });
+});
+```
+
+The reporter output preserves the structure:
+
+```
+Feature: Shopping Cart  @ecommerce @critical
+  As a customer
+  I want to manage my shopping cart
+  So that I can purchase items
+
+  Scenario: Adding an item to the cart
+    ✓ given an empty cart
+    ✓ when the user adds a product
+    ✓ then the cart contains '1' item
+```
+
+### Multiple scenarios with background {#multiple-scenarios}
+
+```typescript
+import { feature, scenario, background, given, when, Then as then, and } from "@swedevtools/livedoc-vitest";
+
+feature("User Profile", () => {
+  background("User is authenticated", () => {
+    given("a registered user 'Alice'", () => {
+      currentUser = createAuthenticatedUser("Alice");
+    });
+  });
+
+  scenario("View profile", () => {
+    when("they navigate to '/profile'", () => {
+      page = navigate("/profile");
+    });
+
+    then("they see their name 'Alice'", (ctx) => {
+      expect(page.name).toBe(ctx.step.values[0]);
+    });
+  });
+
+  scenario("Edit profile", () => {
+    when("they update their name to 'Bob'", (ctx) => {
+      currentUser.name = ctx.step.values[0];
+      result = saveProfile(currentUser);
+    });
+
+    then("the profile is saved", () => {
+      expect(result.success).toBe(true);
+    });
+
+    and("the name is 'Bob'", (ctx) => {
+      expect(currentUser.name).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+### Accessing feature metadata {#accessing-metadata}
+
+```typescript
+import { feature, scenario, given } from "@swedevtools/livedoc-vitest";
+
+feature(`Inventory Management
+  @warehouse @v2
+  Tracks product stock levels across warehouses
+`, (ctx) => {
+  scenario("Read feature metadata", () => {
+    given("we inspect the feature context", () => {
+      expect(ctx.feature.title).toBe("Inventory Management");
+      expect(ctx.feature.tags).toEqual(["warehouse", "v2"]);
+      expect(ctx.feature.description).toContain("Tracks product stock levels");
+      // ctx.feature.filename is the path of the .Spec.ts file
+    });
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`scenario()`](./scenario.mdx) — define individual test cases within a feature
+- [`scenarioOutline()`](./scenario-outline.mdx) — data-driven scenarios with examples tables
+- [`background()`](./background.mdx) — shared setup that runs before each scenario
+- [`specification()`](./specification.mdx) — alternative container for technical rules
+- [Context Object](./context.mdx) — full reference for `ctx.feature` and all context properties
+- [Guide: Tags & Filtering](../guides/tags-and-filtering.mdx) — filter test runs by tags

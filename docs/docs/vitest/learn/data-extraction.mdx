@@ -1,0 +1,352 @@
+---
+sidebar_position: 4
+title: "Data Extraction"
+description: "Master LiveDoc's data extraction APIs — quoted values, named parameters, data tables, and doc strings — to write self-documenting specs."
+---
+
+# Data Extraction
+
+<p className="intro">
+LiveDoc automatically extracts and type-coerces data from your step and rule
+titles. This keeps test values visible in the documentation output while making
+them available as typed variables in your code.
+</p>
+
+## Why Data Extraction Matters
+
+The core principle of living documentation is that **readers see what was
+tested** without reading the implementation. Data extraction makes this possible:
+
+```typescript
+// ✅ Self-documenting — values visible in output
+given("the user has '$50.00' in their account", (ctx) => {
+  account.balance = ctx.step.values[0]; // 50 (number)
+});
+
+// ❌ Values hidden — output says nothing useful
+given('the user has money', () => {
+  account.balance = 50; // hidden from documentation
+});
+```
+
+---
+
+## Quoted Values
+
+Wrap any value in **single quotes** and it's automatically extracted into
+`ctx.step.values` (for steps) or `ctx.rule.values` (for rules):
+
+```typescript
+given("the user has '100' items and active is 'true'", (ctx) => {
+  const [count, isActive] = ctx.step.values;
+  expect(count).toBe(100);       // number
+  expect(isActive).toBe(true);   // boolean
+});
+```
+
+### Type Coercion Table
+
+LiveDoc coerces quoted values automatically:
+
+| Quoted Value | Extracted Type | Result |
+| --- | --- | --- |
+| `'42'` | `number` | `42` |
+| `'3.14'` | `number` | `3.14` |
+| `'-10'` | `number` | `-10` |
+| `'true'` | `boolean` | `true` |
+| `'false'` | `boolean` | `false` |
+| `'hello'` | `string` | `"hello"` |
+| `'2024-01-15'` | `string` | `"2024-01-15"` |
+| `'[1,2,3]'` | `array` | `[1, 2, 3]` |
+
+### Raw String Access
+
+If you need the original string before coercion, use `valuesRaw`:
+
+```typescript
+given("the price is '$9.99'", (ctx) => {
+  ctx.step.values[0];    // 9.99 (number)
+  ctx.step.valuesRaw[0]; // "$9.99" (string — includes the $)
+});
+```
+
+:::caution Avoid value drift
+**Never** hardcode values in your implementation that are already in the title.
+Always extract them using the context APIs:
+
+```typescript
+// ✅ CORRECT — value extracted from title
+then("the balance should be '300' dollars", (ctx) => {
+  expect(account.balance).toBe(ctx.step.values[0]); // uses 300
+});
+
+// ❌ WRONG — title says 300, code checks 200
+then("the balance should be '300' dollars", (ctx) => {
+  expect(account.balance).toBe(200); // value drift!
+});
+```
+:::
+
+---
+
+## Named Parameters
+
+For better readability, use the `<name:value>` syntax. Values are accessed
+by name via `ctx.step.params` (or `ctx.rule.params`):
+
+```typescript
+given('a rectangle with <width:10> and <height:5>', (ctx) => {
+  const { width, height } = ctx.step.params;
+  // width = 10 (number), height = 5 (number)
+  const area = width * height;
+  expect(area).toBe(50);
+});
+```
+
+### Named Parameter Features
+
+- **Type coercion** — same rules as quoted values
+- **Space removal** — `<user name:John>` becomes `ctx.step.params.username`
+- **Raw access** — use `ctx.step.paramsRaw` for the original string values
+- **Reporter support** — LiveDoc reporters highlight the value and hide the name/colon for clean output
+
+```typescript
+// The reporter shows: "a user with 30 years of experience"
+// (the "age:" prefix is hidden in output)
+given('a user with <age:30> years of experience', (ctx) => {
+  const age = ctx.step.params.age; // 30
+});
+```
+
+---
+
+## Data Tables
+
+Embed structured data directly in step titles using pipe-delimited tables.
+
+:::tip
+Install the [LiveDoc VS Code extension](https://marketplace.visualstudio.com/items?itemName=dotNetProfessional.livedoc-vscode) for **automatic table alignment** — just press the format shortcut and your tables are perfectly aligned.
+:::
+
+### Row-Based Tables (`ctx.step.table`)
+
+When a table has a header row, it's parsed as an **array of objects**:
+
+```typescript
+given(`the following users exist:
+  | name  | age | role  |
+  | Alice |  30 | admin |
+  | Bob   |  25 | user  |
+  | Carol |  35 | user  |
+`, (ctx) => {
+  const users = ctx.step.table;
+  // [
+  //   { name: "Alice", age: 30, role: "admin" },
+  //   { name: "Bob",   age: 25, role: "user" },
+  //   { name: "Carol", age: 35, role: "user" }
+  // ]
+
+  expect(users).toHaveLength(3);
+  expect(users[0].name).toBe('Alice');
+  expect(users[0].age).toBe(30);
+});
+```
+
+The first row becomes the **property names**. Values are type-coerced (numbers,
+booleans, etc.) just like quoted values.
+
+### Entity Tables (`ctx.step.tableAsEntity`)
+
+When a table has exactly **two columns**, you can read it as a key-value object:
+
+```typescript
+given(`a product with the following details:
+  | name     | Widget Pro |
+  | price    |      29.99 |
+  | inStock  |       true |
+  | quantity |        150 |
+`, (ctx) => {
+  const product = ctx.step.tableAsEntity;
+  // { name: "Widget Pro", price: 29.99, inStock: true, quantity: 150 }
+
+  expect(product.name).toBe('Widget Pro');
+  expect(product.price).toBe(29.99);
+  expect(product.inStock).toBe(true);
+});
+```
+
+The **first column** is the key, the **second column** is the value.
+
+### Single-Column Lists (`ctx.step.tableAsSingleList`)
+
+A table with one column is parsed as a **flat array**:
+
+```typescript
+given(`the following status codes are valid:
+  | 200 |
+  | 201 |
+  | 204 |
+  | 304 |
+`, (ctx) => {
+  const codes = ctx.step.tableAsSingleList;
+  // [200, 201, 204, 304]
+
+  expect(codes).toContain(200);
+  expect(codes).toContain(304);
+});
+```
+
+### Raw 2D Array (`ctx.step.dataTable`)
+
+For full control, `dataTable` gives you the raw 2D array with no
+transformations applied:
+
+```typescript
+given(`a grid:
+  | a | b | c |
+  | 1 | 2 | 3 |
+  | 4 | 5 | 6 |
+`, (ctx) => {
+  const grid = ctx.step.dataTable;
+  // [["a", "b", "c"], ["1", "2", "3"], ["4", "5", "6"]]
+});
+```
+
+---
+
+## Doc Strings
+
+For multi-line content — JSON, XML, Markdown, or plain text — use
+triple-quoted doc strings:
+
+### Raw Doc String (`ctx.step.docString`)
+
+```typescript
+when(`the user submits the following markdown:
+  """
+  # Welcome
+
+  This is a **test** document with:
+  - Bullet points
+  - And *formatting*
+  """
+`, (ctx) => {
+  const markdown = ctx.step.docString;
+  expect(markdown).toContain('# Welcome');
+  expect(markdown).toContain('**test**');
+});
+```
+
+### Parsed JSON (`ctx.step.docStringAsEntity`)
+
+When the doc string contains valid JSON, access the parsed object directly:
+
+```typescript
+given(`the API returns the following response:
+  """
+  {
+    "id": 42,
+    "name": "Alice",
+    "roles": ["admin", "user"],
+    "active": true
+  }
+  """
+`, (ctx) => {
+  const data = ctx.step.docStringAsEntity;
+  // { id: 42, name: "Alice", roles: ["admin", "user"], active: true }
+
+  expect(data.id).toBe(42);
+  expect(data.name).toBe('Alice');
+  expect(data.roles).toContain('admin');
+  expect(data.active).toBe(true);
+});
+```
+
+:::info
+If the doc string isn't valid JSON, `docStringAsEntity` returns `undefined`.
+Always use `docString` for non-JSON content.
+:::
+
+---
+
+## Combining Techniques
+
+You can mix quoted values, tables, and doc strings in a single step:
+
+```typescript
+given(`a user named 'Alice' with the following permissions:
+  | read   |
+  | write  |
+  | delete |
+`, (ctx) => {
+  const name = ctx.step.values[0];              // "Alice"
+  const perms = ctx.step.tableAsSingleList;     // ["read", "write", "delete"]
+
+  expect(name).toBe('Alice');
+  expect(perms).toHaveLength(3);
+});
+```
+
+Named parameters work alongside tables too:
+
+```typescript
+given(`a <role:admin> user with access to:
+  | dashboard |
+  | settings  |
+  | users     |
+`, (ctx) => {
+  const role = ctx.step.params.role;             // "admin"
+  const pages = ctx.step.tableAsSingleList;      // ["dashboard", "settings", "users"]
+});
+```
+
+---
+
+## Quick Reference: All Data APIs
+
+### Step Context (`ctx.step`)
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `values` | `any[]` | Quoted values, type-coerced |
+| `valuesRaw` | `string[]` | Quoted values as raw strings |
+| `params` | `Record<string, any>` | Named `<n:v>` values, type-coerced |
+| `paramsRaw` | `Record<string, string>` | Named values as raw strings |
+| `table` | `object[]` | Row-based table (header = keys) |
+| `tableAsEntity` | `object` | Two-column table as key-value object |
+| `tableAsSingleList` | `any[]` | Single-column table as flat array |
+| `dataTable` | `string[][]` | Raw 2D array (no coercion) |
+| `docString` | `string` | Raw doc string content |
+| `docStringAsEntity` | `object \| undefined` | Parsed JSON, or `undefined` |
+
+### Rule Context (`ctx.rule`)
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `values` | `any[]` | Quoted values from the rule title |
+| `valuesRaw` | `string[]` | Raw string values |
+| `params` | `Record<string, any>` | Named values, type-coerced |
+| `paramsRaw` | `Record<string, string>` | Named values as raw strings |
+
+:::info
+For full details on each property, see the [Data APIs Reference](../reference/data-apis.mdx).
+:::
+
+---
+
+## Recap
+
+- **Quoted values** (`'...'`) are extracted into `ctx.step.values` with automatic type coercion
+- **Named parameters** (`<name:value>`) give you readable, named access via `ctx.step.params`
+- **Data tables** come in three flavors: row-based, entity (key-value), and single-column
+- **Doc strings** (`"""..."""`) embed multi-line content — with optional JSON parsing
+- **Always extract values from titles** — never hardcode values that appear in step names
+- Rules use the same patterns via `ctx.rule.values` and `ctx.rule.params`
+
+---
+
+## Next Steps
+
+- **Next in this series**: [Scenario Outlines](./scenario-outlines.mdx) — data-driven testing with Examples tables
+- **Deep dive**: [Data APIs Reference](../reference/data-apis.mdx) — exhaustive property documentation
+- **Practical use**: [Best Practices](../guides/best-practices.mdx) — patterns for clean, maintainable specs

@@ -1,0 +1,304 @@
+---
+sidebar_position: 5
+description: "The core LiveDoc principle: every test input and expected output must appear in the step title, making tests self-documenting and eliminating value drift."
+---
+
+# Self-Documenting Tests
+
+<p className="intro">
+The most important principle in LiveDoc: every test input and expected output belongs in the step
+title, not hidden in code. When you read a specification, you should see exactly what was tested —
+without ever opening the source file.
+</p>
+
+## The Core Principle: Values in Titles
+
+In a [living documentation](./living-documentation.mdx) system, the test title *is* the documentation. Stakeholders, QA engineers, and future developers read titles to understand what was tested and what was proven. If the inputs and expected outputs are buried in the implementation code, the documentation is incomplete — it describes the *shape* of the behavior without showing the *substance*.
+
+LiveDoc enforces a simple rule: **embed all inputs and expected outputs directly in the step or rule title**. This makes every test a complete, self-contained statement of fact:
+
+```
+✅ Self-documenting:
+  Given a user with balance '500' dollars
+  When they withdraw '200' dollars
+  Then the remaining balance is '300' dollars
+
+❌ NOT self-documenting:
+  Given a user with some balance
+  When they withdraw some amount
+  Then the remaining balance is correct
+```
+
+The first version is a specification. A product owner can read it and know exactly what was tested. The second version is a test — it verifies behavior, but it documents nothing. You'd need to open the source code to understand what "some balance" means or what "correct" looks like.
+
+## Why This Matters
+
+### For Documentation Quality
+
+The entire promise of living documentation depends on this principle. When LiveDoc generates a report — in the [Viewer](/viewer/learn/getting-started), in VS Code, or as an exported document — it renders the test titles. If those titles contain the full picture, the report is a complete specification. If they don't, the report is an outline at best.
+
+Consider two versions of the same feature in a LiveDoc report:
+
+```
+Version A (self-documenting):
+  Feature: Currency Conversion
+    ✓ Converting '100' USD to EUR at rate '0.85' returns '85.00' EUR
+    ✓ Converting '0' USD to EUR returns '0.00' EUR
+    ✓ Converting with a negative rate throws an error
+
+Version B (opaque):
+  Feature: Currency Conversion
+    ✓ Converting USD to EUR works correctly
+    ✓ Converting zero works
+    ✓ Negative rate is handled
+```
+
+Version A is a specification. Version B is a checklist. The difference is entirely in whether values appear in titles.
+
+### For Collaboration
+
+When specifications are self-documenting, stakeholders can review them meaningfully. A product owner can look at Version A and say "what about converting at rate 1.0?" or "shouldn't we test amounts with decimals?" Those conversations happen because the data is visible. With Version B, the same stakeholder would need a developer to explain what "works correctly" actually verifies.
+
+### For Maintenance
+
+Self-documenting tests are easier to debug when they fail. A failure in "Converting '100' USD to EUR at rate '0.85' returns '85.00' EUR" tells you exactly what inputs produced the wrong result. A failure in "Converting USD to EUR works correctly" tells you nothing — you need to read the test code and possibly add logging to understand what happened.
+
+## The Danger: Value Drift
+
+**Value drift** occurs when the title says one thing but the code does another. It's the silent killer of living documentation.
+
+### How Value Drift Happens
+
+It starts innocently. A developer writes a well-titled test:
+
+```
+Then the balance should be '300' dollars
+```
+
+Later, the business rule changes — the balance should now be `280` after fees. The developer updates the assertion in the code but forgets to update the title:
+
+```
+// Title says 300, code checks 280 — VALUE DRIFT!
+Then the balance should be '300' dollars → code asserts 280
+```
+
+The test still passes. The code is correct. But the documentation now *lies*. Anyone reading the specification sees "300" and believes it, while the system actually produces 280.
+
+### Why It's Dangerous
+
+Value drift is particularly insidious because:
+
+1. **It's invisible** — The test passes, so CI doesn't catch it. Code review might miss it because the title looks reasonable.
+2. **It compounds** — Once drift starts, it spreads. If one title is wrong, developers lose trust in all titles and stop keeping them accurate.
+3. **It defeats the purpose** — Living documentation that contains incorrect values is worse than no documentation at all, because people *trust* it.
+
+## LiveDoc's Solution: Value Extraction APIs
+
+LiveDoc provides value extraction APIs that solve value drift at its root. Instead of hardcoding values in *both* the title and the code, you declare them in the title and *extract* them in the code. This creates a single source of truth.
+
+Both SDKs implement this concept, but the API differs to match each platform's idioms:
+
+### TypeScript/Vitest
+
+```typescript
+// ✅ CORRECT: Values declared once (in the title) and extracted
+given("a user with balance '500' dollars", (ctx) => {
+    account.balance = ctx.step.values[0]; // Extracts 500 from the title
+});
+
+then("the balance should be '300' dollars", (ctx) => {
+    expect(account.balance).toBe(ctx.step.values[0]); // Extracts 300 from the title
+});
+
+// ❌ WRONG: Values hardcoded in both places — drift risk
+given("a user with balance '500' dollars", (ctx) => {
+    account.balance = 500; // If title changes to 600, this stays 500
+});
+
+// ❌ WORST: Values hidden entirely — not self-documenting
+given("a user with some balance", (ctx) => {
+    account.balance = 500; // Reader has no idea this is 500
+});
+```
+
+### C#/xUnit
+
+```csharp
+// ✅ CORRECT: Values declared once (in the title) and extracted
+[Rule("Adding '5' and '3' returns '8'")]
+public void Addition()
+{
+    var (a, b, expected) = Rule.Values.As<int, int, int>();
+    Assert.Equal(expected, a + b); // Uses 5, 3, and 8 from the title
+}
+
+// ❌ WRONG: Values hardcoded — drift risk
+[Rule("Adding '5' and '3' returns '8'")]
+public void Addition()
+{
+    Assert.Equal(8, 5 + 3); // If title changes, these don't
+}
+
+// ❌ WORST: Values hidden — not self-documenting
+[Rule("Adding numbers works")]
+public void Addition()
+{
+    Assert.Equal(8, 5 + 3); // What numbers? Reader can't tell from the title
+}
+```
+
+The key insight is that **extraction eliminates drift**. When the code reads values from the title, changing the title automatically changes the test behavior. There's only one place to update, and it's the place that matters for documentation.
+
+## Named Parameters for Clarity
+
+Quoted values work well for simple cases, but when a step has multiple values, it can be unclear which is which. **Named parameters** solve this with explicit labels:
+
+### TypeScript/Vitest
+
+```typescript
+// Quoted values — position-dependent
+given("a transfer of '500' from account '1001' to account '2002'", (ctx) => {
+    const [amount, from, to] = ctx.step.values; // Which is which? Must count positions
+});
+
+// Named parameters — self-documenting
+given("a transfer of <amount:500> from account <from:1001> to account <to:2002>", (ctx) => {
+    const { amount, from, to } = ctx.step.params; // Crystal clear
+});
+```
+
+### C#/xUnit
+
+```csharp
+// Named parameters provide clarity in C# as well
+[Rule("A transfer of <amount:500> from <source:1001> to <target:2002>")]
+public void TransferFunds()
+{
+    var amount = Rule.Params["amount"].As<decimal>(); // 500
+    var source = Rule.Params["source"].As<int>();     // 1001
+    var target = Rule.Params["target"].As<int>();     // 2002
+}
+```
+
+Named parameters have two advantages over quoted values:
+
+1. **Readability** — The parameter name documents the *role* of each value, both in the specification output and in the code.
+2. **Robustness** — If you reorder or add parameters, named access still works. Positional access (`values[0]`) would break.
+
+## Self-Documenting Tests in Data-Driven Scenarios
+
+The principle extends naturally to [data-driven tests](./data-driven-tests.mdx). In ScenarioOutline and RuleOutline, values come from Examples tables, and placeholders in titles make each iteration self-documenting:
+
+```
+Scenario Outline: Applying discount codes
+  Given the cart total is $<price>
+  When the user applies code '<code>'
+  Then the total becomes $<expected>
+
+  Examples:
+  | price  | code   | expected |
+  | 100.00 | SAVE10 | 90.00    |
+  | 100.00 | SAVE20 | 80.00    |
+  | 250.00 | HALF   | 125.00   |
+```
+
+Each row produces a complete, self-documenting scenario in the report:
+
+```
+✓ Applying discount codes
+  ✓ Given the cart total is $100.00
+    When the user applies code 'SAVE10'
+    Then the total becomes $90.00
+  ✓ Given the cart total is $100.00
+    When the user applies code 'SAVE20'
+    Then the total becomes $80.00
+```
+
+The values come from the Examples table — there's no way for drift to occur because the data is defined in one place and flows through the template automatically.
+
+## Best Practices
+
+### 1. Write Titles First
+
+Before writing any implementation code, write the title. Ask yourself: "If someone reads only this title, will they know exactly what was tested?" If not, add more detail.
+
+### 2. Include Both Inputs AND Outputs
+
+A common mistake is documenting inputs but not expected outputs:
+
+```
+❌ Incomplete: Given a user with balance '500' dollars
+                When they withdraw '200' dollars
+                Then the balance is updated     ← What is it updated TO?
+
+✅ Complete:   Given a user with balance '500' dollars
+                When they withdraw '200' dollars
+                Then the balance should be '300' dollars
+```
+
+### 3. Always Extract, Never Hardcode
+
+Once a value appears in a title, use the extraction API to get it. Never duplicate the value in the code body:
+
+**TypeScript/Vitest:**
+```typescript
+// ✅ Extract from the title
+then("the result is '42'", (ctx) => {
+    expect(result).toBe(ctx.step.values[0]);
+});
+
+// ❌ Hardcode alongside the title
+then("the result is '42'", () => {
+    expect(result).toBe(42); // Redundant and drift-prone
+});
+```
+
+**C#/xUnit:**
+```csharp
+// ✅ Extract from the title
+[Then("the result is '42'")]
+public void ThenResult()
+{
+    Assert.Equal(Step.Values.As<int>(), result);
+}
+
+// ❌ Hardcode alongside the title
+[Then("the result is '42'")]
+public void ThenResult()
+{
+    Assert.Equal(42, result); // Redundant and drift-prone
+}
+```
+
+### 4. Use Named Parameters for Complex Steps
+
+When a step has more than two values, switch from quoted values to named parameters. The small syntax overhead pays for itself in readability and maintainability.
+
+### 5. Review Titles in Pull Requests
+
+Make test titles a first-class review concern. When reviewing a PR, read the test titles as documentation. Do they tell a complete story? Are the values realistic? Could a stakeholder understand them?
+
+## How Self-Documenting Tests Enable the LiveDoc Ecosystem
+
+The self-documenting principle is what makes the rest of the LiveDoc ecosystem work:
+
+- **[The Viewer](/viewer/learn/getting-started)** renders test titles as browsable specifications. If titles contain complete information, the Viewer is useful. If they don't, it's just a fancy test runner.
+- **[The Reporting Model](./reporting-model.mdx)** captures titles, values, and execution results in a structured format. Self-documenting titles mean the model contains complete specifications, not just test names.
+- **[Test Organization](./test-organization.mdx)** determines how specifications are grouped and navigated. Self-documenting titles within that structure create a coherent, browsable documentation hierarchy.
+
+Without self-documenting tests, LiveDoc is just another test framework. *With* them, it's a living documentation system.
+
+## Recap
+
+- **Embed all inputs and expected outputs in step/rule titles** — the title is the documentation.
+- **Value drift** occurs when titles and code disagree — it makes documentation unreliable.
+- LiveDoc's **value extraction APIs** prevent drift by making the title the single source of truth. In TypeScript: `ctx.step.values`, `ctx.step.params`; in C#: `Step.Values`, `Rule.Values`, `Step.Params`. See [Vitest: Data Extraction](/vitest/learn/data-extraction) or [xUnit: Value Extraction](/xunit/learn/value-extraction) for full API details.
+- **Named parameters** (`<name:value>`) add clarity and robustness for complex steps.
+- This principle makes [data-driven tests](./data-driven-tests.mdx) inherently self-documenting.
+- Self-documenting tests are what make the Viewer, reports, and the entire LiveDoc ecosystem valuable.
+
+## Next Steps
+
+- **Next in this series**: [Reporting Model](./reporting-model.mdx) — how test results are structured for visualization
+- **Hands-on**: [Vitest: Data Extraction](/vitest/learn/data-extraction) or [xUnit: Value Extraction](/xunit/learn/value-extraction)
+- **Context**: [Living Documentation](./living-documentation.mdx) · [Data-Driven Tests](./data-driven-tests.mdx)

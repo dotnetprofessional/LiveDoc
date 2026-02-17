@@ -1,0 +1,345 @@
+---
+sidebar_position: 11
+title: "Reporters"
+description: "Configure LiveDoc reporters: LiveDocSpecReporter for CLI output, JsonReporter for CI export, LiveDocViewerReporter for web UI, and LiveDocServerReporter for auto-discovery."
+---
+
+# Reporters
+
+<p className="intro">
+LiveDoc provides reporters that transform raw Vitest results into beautiful,
+structured output — from colored CLI output to JSON exports and real-time web
+visualization.
+</p>
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+      }),
+    ],
+  },
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `LiveDocSpecReporter` {#livedocspecreporter}
+
+The primary CLI reporter. Formats test results in Gherkin-style output with features, scenarios, and steps.
+
+```typescript
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+new LiveDocSpecReporter(options?: LiveDocSpecReporterOptions)
+```
+
+#### Options {#spec-reporter-options}
+
+| Option             | Type               | Default                    | Description                                              |
+| ------------------ | ------------------ | -------------------------- | -------------------------------------------------------- |
+| `detailLevel`      | `string`           | `"spec+summary+headers"`  | Controls what is displayed. Combine flags with `+`.      |
+| `output`           | `string`           | `undefined`                | File path to write output (in addition to console).      |
+| `removeHeaderText` | `string`           | `undefined`                | Prefix to strip from file paths in headers (useful for monorepos). |
+| `colors`           | `boolean`          | `true`                     | Enable/disable ANSI colors in output.                    |
+| `postReporters`    | `PostReporter[]`   | `[]`                       | Additional reporters to run after test completion.        |
+| `json-output`      | `string`           | `undefined`                | File path for JSON output (used with `JsonReporter`).    |
+
+#### Detail Level Flags {#detail-level-flags}
+
+Combine flags with `+` to control output verbosity.
+
+| Flag      | Description                                       |
+| --------- | ------------------------------------------------- |
+| `spec`    | Show individual steps with pass/fail status       |
+| `summary` | Show totals summary at the end                    |
+| `headers` | Show feature and scenario names                   |
+| `list`    | Compact list format                               |
+| `auto`    | Automatic detail level based on test count        |
+| `silent`  | No console output (useful when only using post-reporters) |
+
+**Common combinations:**
+
+```typescript
+// Full output (default) — show everything
+detailLevel: "spec+summary+headers"
+
+// Summary only — just totals
+detailLevel: "summary"
+
+// Headers and summary — no individual steps
+detailLevel: "headers+summary"
+
+// Silent — only post-reporters produce output
+detailLevel: "silent"
+```
+
+#### Console Output Example {#console-output}
+
+```
+Feature: Shopping Cart  @ecommerce
+
+  Scenario: Adding an item
+    ✓ given an empty cart
+    ✓ when the user adds a product
+    ✓ then the cart contains 1 item
+
+──────────────────────────────────────────────────────
+LiveDoc Test Summary
+  ✓ 3 steps passed
+  1 feature, 1 scenario, 3 steps
+```
+
+---
+
+### `JsonReporter` {#jsonreporter}
+
+Post-reporter that writes test results to a JSON file. Used as a `postReporter` inside `LiveDocSpecReporter`.
+
+```typescript
+import { LiveDocSpecReporter, JsonReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+new JsonReporter()
+```
+
+#### Configuration {#json-config}
+
+The JSON output file path is set via the `json-output` option on `LiveDocSpecReporter`:
+
+```typescript
+new LiveDocSpecReporter({
+  detailLevel: "spec+summary+headers",
+  postReporters: [new JsonReporter()],
+  "json-output": "./livedoc-results.json",
+})
+```
+
+#### JSON Output Contents {#json-contents}
+
+The JSON file includes:
+- All features with their scenarios and steps
+- All specifications with their rules
+- Pass/fail status and execution timing
+- Error messages and stack traces
+- Tags and metadata
+
+---
+
+### `LiveDocViewerReporter` {#livedocviewerreporter}
+
+Post-reporter that sends test results to a LiveDoc Viewer web UI via HTTP POST.
+
+```typescript
+import { LiveDocViewerReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+new LiveDocViewerReporter(options?: LiveDocViewerOptions)
+```
+
+#### Options {#viewer-options}
+
+| Option        | Type      | Default                      | Description                                      |
+| ------------- | --------- | ---------------------------- | ------------------------------------------------ |
+| `server`      | `string`  | `"http://localhost:3100"`    | Viewer server URL                                |
+| `project`     | `string`  | `"default"`                  | Project name for grouping results                |
+| `environment` | `string`  | `"local"`                    | Environment label (e.g., `"local"`, `"ci"`)      |
+| `timeout`     | `number`  | `5000`                       | HTTP request timeout in milliseconds             |
+| `silent`      | `boolean` | `true`                       | If `true`, fails silently when server is unavailable |
+
+#### Example {#viewer-example}
+
+```typescript
+import { LiveDocSpecReporter, LiveDocViewerReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+new LiveDocSpecReporter({
+  detailLevel: "spec+summary+headers",
+  postReporters: [
+    new LiveDocViewerReporter({
+      server: "http://localhost:3100",
+      project: "my-project",
+      environment: "local",
+    }),
+  ],
+})
+```
+
+---
+
+### `LiveDocServerReporter` {#livedocserverreporter}
+
+Standalone reporter that auto-discovers a running LiveDoc server and posts results. Unlike `LiveDocViewerReporter`, this is used as a top-level reporter (not a post-reporter).
+
+```typescript
+import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
+
+new LiveDocServerReporter()
+```
+
+If no LiveDoc server is found, the reporter silently disables itself.
+
+#### Example {#server-example}
+
+```typescript
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: "spec+summary+headers" }),
+      new LiveDocServerReporter(),
+    ],
+  },
+});
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: CLI output only {#basic-usage}
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+      }),
+    ],
+  },
+});
+```
+
+### CLI with JSON export for CI {#ci-export}
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter, JsonReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+        postReporters: [new JsonReporter()],
+        "json-output": "./livedoc-results.json",
+      }),
+    ],
+  },
+});
+```
+
+### Full stack: CLI + JSON + Viewer + Server {#full-stack}
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import {
+  LiveDocSpecReporter,
+  JsonReporter,
+  LiveDocViewerReporter,
+} from "@swedevtools/livedoc-vitest/reporter";
+import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+        postReporters: [
+          new JsonReporter(),
+          new LiveDocViewerReporter({
+            server: "http://localhost:3100",
+            project: "my-project",
+            environment: "local",
+          }),
+        ],
+        "json-output": "./livedoc-results.json",
+      }),
+      new LiveDocServerReporter(),
+    ],
+  },
+});
+```
+
+### Output to file for CI logs {#file-output}
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+        output: "./test-output.txt",
+      }),
+    ],
+  },
+});
+```
+
+### VS Code–safe configuration {#vscode-safe}
+
+The VS Code Vitest extension can conflict with custom reporters. Detect the environment and fall back:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+const isVSCodeVitest = !!(
+  process.env.VITEST_VSCODE ||
+  process.env.VSCODE_PID ||
+  process.env.VSCODE_IPC_HOOK
+);
+
+export default defineConfig({
+  test: {
+    reporters: isVSCodeVitest
+      ? undefined
+      : [
+          new LiveDocSpecReporter({
+            detailLevel: "spec+summary+headers",
+          }),
+        ],
+  },
+});
+```
+
+### Monorepo path cleanup {#monorepo-paths}
+
+Strip path prefixes from file headers for cleaner output in monorepos:
+
+```typescript
+new LiveDocSpecReporter({
+  detailLevel: "spec+summary+headers",
+  removeHeaderText: "packages/",
+})
+// Before: packages/auth/tests/Login.Spec.ts
+// After:  auth/tests/Login.Spec.ts
+```
+
+---
+
+## See Also {#see-also}
+
+- [Configuration](./configuration.mdx) — full `vitest.config.ts` reference
+- [Guide: CI/CD Integration](../guides/ci-cd.mdx) — using reporters in continuous integration
+- [Guide: Viewer Integration](../guides/viewer-integration.mdx) — setting up the LiveDoc Viewer
+- [Guide: Custom Reporters](../guides/custom-reporters.mdx) — building your own reporter

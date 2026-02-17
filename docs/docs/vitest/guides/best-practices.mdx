@@ -1,0 +1,300 @@
+---
+sidebar_position: 9
+description: "Patterns for writing maintainable, self-documenting LiveDoc specs — file organization, value extraction, and choosing BDD vs Specification."
+---
+
+# Best Practices
+
+<p className="intro">
+This guide covers proven patterns for writing maintainable, self-documenting
+LiveDoc specs. Follow these practices to keep your test suite readable,
+reliable, and valuable as living documentation.
+</p>
+
+:::info Prerequisites
+- A working LiveDoc Vitest setup ([imports](./setup-imports.mdx) or [globals](./setup-globals.mdx))
+- Familiarity with BDD and Specification patterns ([Your First Feature](../learn/your-first-feature.mdx), [Your First Spec](../learn/your-first-spec.mdx))
+:::
+
+## Embed All Values in Step Titles
+
+This is the most important LiveDoc practice. **Every input and expected output
+must appear in the step title** — never hidden inside the implementation.
+
+```typescript
+// ✅ BEST: Values visible in the step title, extracted via context
+given("a user with balance '500' dollars", (ctx) => {
+  account.balance = ctx.step.values[0]; // 500
+});
+
+then("the balance should be '300' dollars", (ctx) => {
+  expect(account.balance).toBe(ctx.step.values[0]); // 300
+});
+
+// ✅ EVEN BETTER: Named parameters for clarity
+given("a user with <balance:500> dollars", (ctx) => {
+  account.balance = ctx.step.params.balance; // 500
+});
+
+// ❌ BAD: Value drift — title says 500, code uses 200
+given("a user with balance '500' dollars", (ctx) => {
+  account.balance = 200; // WRONG — doesn't match title
+});
+
+// ❌ WORSE: Hidden values — not living documentation
+given("a user with some balance", () => {
+  account.balance = 500; // Reader can't see this in the report
+});
+```
+
+**Why this matters**: LiveDoc produces human-readable reports. If values are
+hidden in code, readers see steps like "a user with some balance" — which tells
+them nothing. When values are in the title, the report becomes a complete
+specification.
+
+## Always Add Descriptions
+
+Descriptions provide context that helps future readers (and your future self)
+understand *why* a feature or specification exists:
+
+```typescript
+feature(`Shopping Cart Checkout
+    @checkout @critical
+    Business rules for the shopping cart checkout flow.
+    Covers GST calculation, shipping tiers, and discount codes.
+    `, () => {
+  // scenarios...
+});
+
+specification(`Email Validation
+    @validation
+    Rules for validating email addresses across formats.
+    Includes edge cases for international domains (IDN) and
+    plus-addressing (user+tag@domain.com).
+    `, () => {
+  // rules...
+});
+```
+
+Descriptions appear in LiveDoc reports and the Viewer UI. They cost nothing to
+add and dramatically improve comprehension.
+
+## Choose the Right Pattern
+
+### Use BDD/Gherkin When...
+
+- Stakeholders need to read the tests
+- You're testing user-facing behavior or workflows
+- Tests describe business rules in domain language
+- You want living documentation for the team
+
+```typescript
+feature("Account Withdrawal", () => {
+  scenario("Sufficient funds", () => {
+    given("an account with balance '$1000'", (ctx) => { /* ... */ });
+    when("the holder withdraws '$200'", (ctx) => { /* ... */ });
+    then("the balance is '$800'", (ctx) => { /* ... */ });
+  });
+});
+```
+
+### Use Specification/Rule When...
+
+- Tests are developer-focused (APIs, utilities, algorithms)
+- You want compact, direct assertions
+- Many data-driven variations are needed
+- No Given/When/Then ceremony is needed
+
+```typescript
+specification("URL Parser", () => {
+  rule("Extracts hostname from 'https://example.com/path'", (ctx) => {
+    const url = ctx.rule.values[0]; // "https://example.com/path"
+    expect(parseHostname(url)).toBe("example.com");
+  });
+
+  ruleOutline(`Handles various protocols
+      Examples:
+      | url                      | protocol |
+      | https://example.com      | https    |
+      | http://example.com       | http     |
+      | ftp://files.example.com  | ftp      |
+      `, (ctx) => {
+    expect(parseProtocol(ctx.example.url)).toBe(ctx.example.protocol);
+  });
+});
+```
+
+### Quick Decision Guide
+
+| Aspect | BDD/Gherkin | Specification |
+| ------ | ----------- | ------------- |
+| Audience | Business + Technical | Technical only |
+| Verbosity | Higher (structured steps) | Lower (direct code) |
+| Best for | Workflows, user stories | Units, edge cases |
+| Data-driven | `scenarioOutline` | `ruleOutline` |
+| Collaboration | Discovery workshops | Code reviews |
+
+**Tip**: Mix patterns in the same project — use `feature` for acceptance tests
+and `specification` for unit tests.
+
+## Organize Files by Domain
+
+Structure your test files to mirror your domain, not your source code
+directory. This creates a navigable hierarchy in the LiveDoc Viewer:
+
+```
+tests/
+├── Checkout/
+│   ├── Cart.Spec.ts
+│   ├── Payment.Spec.ts
+│   └── Discounts.Spec.ts
+├── Shipping/
+│   ├── DomesticShipping.Spec.ts
+│   └── InternationalShipping.Spec.ts
+├── Auth/
+│   ├── Login.Spec.ts
+│   └── Registration.Spec.ts
+└── Admin/
+    └── UserManagement.Spec.ts
+```
+
+:::caution
+Avoid putting all spec files in a single flat directory — this creates an
+unreadable list in the Viewer. Group by feature area.
+:::
+
+## One Concept Per Scenario
+
+Each scenario should test a single behavior. If you find yourself adding
+multiple `when` steps, consider splitting into separate scenarios:
+
+```typescript
+// ❌ Too much in one scenario
+scenario("Full checkout flow", () => {
+  given("items in the cart", () => { /* ... */ });
+  when("the user enters shipping info", () => { /* ... */ });
+  and("the user enters payment info", () => { /* ... */ });
+  and("the user confirms the order", () => { /* ... */ });
+  then("the order is placed", () => { /* ... */ });
+  and("the user receives a confirmation email", () => { /* ... */ });
+  and("inventory is updated", () => { /* ... */ });
+});
+
+// ✅ Focused scenarios
+scenario("Place an order with valid payment", () => {
+  given("a cart with '2' items", (ctx) => { /* ... */ });
+  when("the user completes checkout", () => { /* ... */ });
+  then("the order status is 'confirmed'", (ctx) => { /* ... */ });
+});
+
+scenario("Order confirmation triggers email", () => {
+  given("a confirmed order for 'alice@example.com'", (ctx) => { /* ... */ });
+  when("the order is processed", () => { /* ... */ });
+  then("a confirmation email is sent to 'alice@example.com'", (ctx) => { /* ... */ });
+});
+```
+
+## Use Descriptive Names
+
+Scenario names should describe the *behavior*, not the test:
+
+```typescript
+// ❌ Vague names
+scenario("Test case 1", () => { /* ... */ });
+scenario("It works", () => { /* ... */ });
+scenario("Edge case", () => { /* ... */ });
+
+// ✅ Descriptive names
+scenario("Applying a 20% discount reduces the total", () => { /* ... */ });
+scenario("Expired coupon codes are rejected with an error", () => { /* ... */ });
+scenario("Zero-quantity items are removed from the cart", () => { /* ... */ });
+```
+
+## Use `scenarioOutline` for Data Variations
+
+When testing the same behavior with different inputs, use `scenarioOutline`
+instead of duplicating scenarios:
+
+```typescript
+// ❌ Duplicated scenarios
+scenario("Valid email: user@example.com", () => { /* ... */ });
+scenario("Valid email: test@domain.org", () => { /* ... */ });
+scenario("Invalid email: missing-at-sign", () => { /* ... */ });
+
+// ✅ Data-driven with scenarioOutline
+scenarioOutline(`Email validation
+    Examples:
+    | email           | valid |
+    | user@example.com | true  |
+    | test@domain.org  | true  |
+    | missing-at-sign  | false |
+    | @no-local-part   | false |
+    `, (ctx) => {
+  when("validating '<email>'", (ctx) => {
+    result = validateEmail(ctx.example.email);
+  });
+  then("the result is '<valid>'", (ctx) => {
+    expect(result).toBe(ctx.example.valid);
+  });
+});
+```
+
+## Use Background for Shared Setup
+
+Extract common `given` steps into a `background`:
+
+```typescript
+feature("Order Management", () => {
+  background("Authenticated user with items", () => {
+    given("a logged-in user 'Alice'", () => {
+      // setup auth
+    });
+    given("a cart with '3' items", (ctx) => {
+      // setup cart
+    });
+  });
+
+  scenario("View order summary", () => {
+    when("Alice views the order summary", () => { /* ... */ });
+    then("'3' items are displayed", (ctx) => { /* ... */ });
+  });
+
+  scenario("Apply discount code", () => {
+    when("Alice applies code 'SAVE10'", (ctx) => { /* ... */ });
+    then("the total is reduced by '10' percent", (ctx) => { /* ... */ });
+  });
+});
+```
+
+## Tag Strategically
+
+Use a consistent tagging convention across your team:
+
+| Tag Pattern | Purpose | Example |
+| ----------- | ------- | ------- |
+| `@smoke` | Quick sanity checks for CI | `scenario("Login @smoke", ...)` |
+| `@slow` | Tests over 10 seconds | `scenario("Bulk import @slow", ...)` |
+| `@wip` | Work in progress | `feature("New Feature @wip", ...)` |
+| `@team-X` | Team ownership | `feature("Payments @team-payments", ...)` |
+| `@layer` | Architecture layer | `feature("API @api", ...)` |
+
+## Summary Checklist
+
+- [ ] All test data appears in step titles (self-documenting)
+- [ ] Values extracted via `ctx.step.values`, `ctx.step.params`, or `ctx.example`
+- [ ] Descriptions on `feature` and `specification` blocks
+- [ ] One concept per scenario
+- [ ] Files organized by domain, not by source directory
+- [ ] `scenarioOutline` / `ruleOutline` for data variations
+- [ ] `background` for shared setup steps
+- [ ] Consistent tagging convention
+- [ ] File names end in `.Spec.ts`
+- [ ] `Then` imported as uppercase, aliased to lowercase
+
+## Related
+
+- [Setup: Explicit Imports](./setup-imports.mdx) — recommended import pattern
+- [Tags and Filtering](./tags-and-filtering.mdx) — tag filtering configuration
+- [Data APIs](../reference/data-apis.mdx) — value extraction reference
+- [Your First Feature](../learn/your-first-feature.mdx) — BDD pattern tutorial
+- [Your First Spec](../learn/your-first-spec.mdx) — Specification pattern tutorial

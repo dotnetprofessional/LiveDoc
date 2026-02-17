@@ -1,0 +1,321 @@
+---
+sidebar_position: 5
+title: "Troubleshooting"
+description: "Solutions for common LiveDoc xUnit issues — missing tests, formatting problems, parameter mismatches, and xUnit analyzer warnings."
+---
+
+# Troubleshooting
+
+<p className="intro">
+This page covers the most common issues you'll encounter when working
+with LiveDoc xUnit tests, along with their causes and fixes.
+</p>
+
+---
+
+## Test Not Discovered {#test-not-discovered}
+
+**Symptom:** Your test method doesn't appear in Test Explorer or isn't
+run by `dotnet test`.
+
+**Cause:** The method is missing a LiveDoc test attribute. LiveDoc
+attributes (`[Scenario]`, `[ScenarioOutline]`, `[Rule]`, `[RuleOutline]`)
+inherit from xUnit's `[Fact]` and `[Theory]` — without them, xUnit
+doesn't know the method is a test.
+
+**Fix:** Add the appropriate attribute:
+
+```csharp
+// ❌ Missing attribute — xUnit ignores this method
+public void Customer_gets_discount()
+{
+    Given("...", () => { });
+}
+
+// ✅ Attribute present — xUnit discovers this test
+[Scenario]
+public void Customer_gets_discount()
+{
+    Given("...", () => { });
+}
+```
+
+| Pattern       | Single test attribute  | Data-driven attribute    |
+| ------------- | ---------------------- | ------------------------ |
+| BDD           | `[Scenario]`           | `[ScenarioOutline]`      |
+| Specification | `[Rule]`               | `[RuleOutline]`          |
+
+---
+
+## Output Not Formatted {#output-not-formatted}
+
+**Symptom:** Tests run and pass, but the output in Test Explorer shows
+plain text instead of Gherkin-formatted results (no indented
+Given/When/Then steps).
+
+**Cause:** The test class doesn't inherit from the correct LiveDoc base
+class. The base class wires up the `ITestOutputHelper` to produce
+formatted output.
+
+**Fix:** Inherit from `FeatureTest` (for BDD) or `SpecificationTest`
+(for MSpec), and pass `ITestOutputHelper` to the base constructor:
+
+```csharp
+// ❌ No base class — steps execute but output is unformatted
+[Feature("Shopping Cart")]
+public class CartTests
+{
+    public CartTests(ITestOutputHelper output) { }
+}
+
+// ✅ Correct base class — output is Gherkin-formatted
+[Feature("Shopping Cart")]
+public class CartTests : FeatureTest
+{
+    public CartTests(ITestOutputHelper output) : base(output) { }
+}
+```
+
+---
+
+## Wrong Base Class {#wrong-base-class}
+
+**Symptom:** Compilation errors, missing step methods, or incorrect
+formatted output structure.
+
+**Cause:** Using `FeatureTest` with `[Specification]`/`[Rule]` attributes,
+or `SpecificationTest` with `[Feature]`/`[Scenario]` attributes.
+
+**Fix:** Match the base class to the pattern:
+
+| Pattern       | Correct Base Class    | Attributes                                       |
+| ------------- | --------------------- | ------------------------------------------------ |
+| BDD           | `FeatureTest`         | `[Feature]`, `[Scenario]`, `[ScenarioOutline]`   |
+| Specification | `SpecificationTest`   | `[Specification]`, `[Rule]`, `[RuleOutline]`     |
+
+```csharp
+// ❌ Mismatch: BDD attributes with Specification base class
+[Feature("Cart")]
+public class CartTests : SpecificationTest { ... }  // Wrong!
+
+// ✅ Correct: BDD attributes with FeatureTest
+[Feature("Cart")]
+public class CartTests : FeatureTest { ... }
+
+// ✅ Correct: Specification attributes with SpecificationTest
+[Specification("Calculator")]
+public class CalcSpec : SpecificationTest { ... }
+```
+
+---
+
+## ScenarioOutline Parameter Mismatch {#parameter-mismatch}
+
+**Symptom:** `System.InvalidOperationException` or unexpected placeholder
+text in output (e.g., `<country>` appears literally instead of being
+replaced).
+
+**Cause:** The `<placeholder>` names in step titles don't match the
+method parameter names.
+
+**Fix:** Ensure placeholders match parameter names exactly
+(case-insensitive):
+
+```csharp
+// ❌ Mismatch: placeholder says "customerCountry", parameter says "country"
+[ScenarioOutline]
+[Example("Australia", 100.00)]
+public void Shipping(string country, decimal total)
+{
+    Given("the customer is from <customerCountry>", () =>  // Won't be replaced!
+    {
+        _cart.Country = country;
+    });
+}
+
+// ✅ Match: placeholder matches parameter name
+[ScenarioOutline]
+[Example("Australia", 100.00)]
+public void Shipping(string country, decimal total)
+{
+    Given("the customer is from <country>", () =>
+    {
+        _cart.Country = country;
+    });
+}
+```
+
+:::tip
+Placeholder matching is case-insensitive — `<Country>` matches a
+parameter named `country`.
+:::
+
+---
+
+## Example Count Mismatch {#example-count-mismatch}
+
+**Symptom:** `System.ArgumentException` at test discovery, or fewer
+examples appear in Test Explorer than expected.
+
+**Cause:** The number of values in an `[Example]` attribute doesn't match
+the number of method parameters.
+
+**Fix:** Ensure every `[Example]` has exactly the same number of values
+as the method has parameters:
+
+```csharp
+// ❌ 3 parameters but Example has only 2 values
+[ScenarioOutline]
+[Example("Australia", 100.00)]  // Missing third value!
+public void Shipping(string country, decimal total, string expected)
+{ ... }
+
+// ✅ 3 parameters, 3 values per Example
+[ScenarioOutline]
+[Example("Australia", 100.00, "Free")]
+[Example("New Zealand", 50.00, "International")]
+public void Shipping(string country, decimal total, string expected)
+{ ... }
+```
+
+Also verify that the types are compatible — a `string` parameter won't
+accept an `int` value without implicit conversion.
+
+---
+
+## Value Extraction Errors {#value-extraction}
+
+### `LiveDocValueIndexException`
+
+**Symptom:** `LiveDocValueIndexException: Index N is out of range`
+
+**Cause:** Accessing `ctx.Step.Values[N]` where there aren't enough
+quoted values in the step title.
+
+**Fix:** Count the single-quoted values in your step title and ensure
+the index is valid:
+
+```csharp
+// ❌ Title has 1 quoted value but code accesses index 1 (second value)
+Given("the price is '100'", ctx =>
+{
+    var price = ctx.Step!.Values[0].AsDecimal();   // OK: index 0
+    var tax = ctx.Step!.Values[1].AsDecimal();     // ERROR: no index 1
+});
+
+// ✅ Title has 2 quoted values
+Given("the price is '100' with tax '10'", ctx =>
+{
+    var price = ctx.Step!.Values[0].AsDecimal();   // 100
+    var tax = ctx.Step!.Values[1].AsDecimal();     // 10
+});
+```
+
+### `LiveDocParamNotFoundException`
+
+**Symptom:** `LiveDocParamNotFoundException: Parameter 'x' not found`
+
+**Cause:** Accessing `ctx.Step.Params["x"]` but the step title doesn't
+contain a `<x:value>` named parameter.
+
+**Fix:** Add the named parameter to the step title:
+
+```csharp
+// ❌ No named parameter "tax" in title
+Given("the price is <price:100>", ctx =>
+{
+    var tax = ctx.Step!.Params["tax"].AsDecimal();  // ERROR
+});
+
+// ✅ Both named parameters present
+Given("the price is <price:100> with tax <tax:10>", ctx =>
+{
+    var price = ctx.Step!.Params["price"].AsDecimal();
+    var tax = ctx.Step!.Params["tax"].AsDecimal();
+});
+```
+
+### `LiveDocConversionException`
+
+**Symptom:** `LiveDocConversionException: Cannot convert 'abc' to Int32`
+
+**Cause:** The quoted value in the step title can't be parsed to the
+requested type.
+
+**Fix:** Ensure the value in the title matches the expected type:
+
+```csharp
+// ❌ "abc" can't be parsed as int
+Given("the quantity is 'abc'", ctx =>
+{
+    var qty = ctx.Step!.Values[0].AsInt();  // ERROR
+});
+
+// ✅ "5" can be parsed as int
+Given("the quantity is '5'", ctx =>
+{
+    var qty = ctx.Step!.Values[0].AsInt();  // OK: 5
+});
+```
+
+---
+
+## xUnit Analyzer Warnings {#analyzer-warnings}
+
+### `xUnit1004: Test methods should not be skipped`
+
+This warning fires on `[Fact(Skip = "...")]`. It doesn't apply to
+LiveDoc attributes, but if you see it on a `[Scenario]` or `[Rule]`
+test, it's likely an xUnit analyzer false positive.
+
+**Fix:** Suppress the warning for LiveDoc test files if it's noisy:
+
+```csharp
+#pragma warning disable xUnit1004
+[Scenario(Skip = "Pending implementation")]
+public void Future_feature() { }
+#pragma warning restore xUnit1004
+```
+
+### `xUnit1013: Public method should be marked as test`
+
+**Symptom:** Warning on public helper methods in test classes.
+
+**Fix:** Make helper methods `private` or `protected`, or suppress the
+warning:
+
+```csharp
+// ✅ Make helpers private
+private void SetupCart(string country, decimal total)
+{
+    _cart = new Cart { Country = country, Total = total };
+}
+```
+
+### `xUnit1031: Do not use Assert.Same on value types`
+
+This is a standard xUnit warning unrelated to LiveDoc. Follow the xUnit
+analyzer's guidance — use `Assert.Equal` for value type comparisons.
+
+---
+
+## Quick Diagnostic Checklist
+
+When a test isn't working as expected, check these in order:
+
+1. **Attribute present?** — `[Scenario]`, `[Rule]`, etc.
+2. **Base class correct?** — `FeatureTest` or `SpecificationTest`
+3. **Constructor correct?** — Accepts `ITestOutputHelper`, passes to `base(output)`
+4. **Example counts match?** — Same number of `[Example]` values as method parameters
+5. **Placeholders match?** — `<name>` in step titles matches parameter names
+6. **Value quotes correct?** — Single quotes around values: `'100'`, not `"100"`
+7. **Index in range?** — `Values[N]` doesn't exceed the number of quoted values
+
+---
+
+## Related
+
+- [Attributes](../reference/attributes.mdx) — full attribute reference
+- [Value Extraction API](../reference/value-extraction-api.mdx) — `Values`, `Params`, and type conversion
+- [Debugging](./debugging.mdx) — step-by-step debugging techniques
+- [Best Practices](./best-practices.mdx) — patterns that prevent common issues

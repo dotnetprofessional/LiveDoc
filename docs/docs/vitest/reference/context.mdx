@@ -1,0 +1,318 @@
+---
+sidebar_position: 9
+title: "Context Object (ctx)"
+description: "Complete reference for the ctx parameter: ctx.feature, ctx.scenario, ctx.step, ctx.example, ctx.specification, ctx.rule, ctx.background, and ctx.afterBackground."
+---
+
+# Context Object (`ctx`)
+
+<p className="intro">
+Every callback in LiveDoc receives a `ctx` parameter — a dynamic context object
+that provides read-only metadata about the current feature, scenario, step, rule,
+or specification. The available properties depend on where the callback is used.
+</p>
+
+```typescript
+import { feature, scenario, given } from "@swedevtools/livedoc-vitest";
+
+feature("Shopping Cart @ecommerce", (ctx) => {
+  // ctx.feature is available here
+  scenario("Add an item", (ctx) => {
+    // ctx.feature + ctx.scenario available here
+    given("an empty cart", (ctx) => {
+      // ctx.feature + ctx.scenario + ctx.step available here
+      console.log(ctx.feature.title);   // "Shopping Cart"
+      console.log(ctx.feature.tags);    // ["ecommerce"]
+      console.log(ctx.step.title);      // "an empty cart"
+    });
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### Context Availability by Location {#availability}
+
+| Property                 | `feature` | `scenario` | steps | `background` | `scenarioOutline` | `specification` | `rule` | `ruleOutline` |
+| ------------------------ | :-------: | :--------: | :---: | :----------: | :----------------: | :-------------: | :----: | :-----------: |
+| `ctx.feature`            |     ✓     |     ✓      |   ✓   |      ✓       |         ✓          |                 |        |               |
+| `ctx.scenario`           |           |     ✓      |   ✓   |              |         ✓          |                 |        |               |
+| `ctx.step`               |           |            |   ✓   |      ✓ (steps) |       ✓ (steps)    |                 |   ✓    |               |
+| `ctx.example`            |           |            |       |              |         ✓          |                 |        |       ✓       |
+| `ctx.background`         |           |            |       |      ✓       |                    |                 |        |               |
+| `ctx.afterBackground(fn)`|           |            |       |      ✓       |                    |                 |        |               |
+| `ctx.specification`      |           |            |       |              |                    |        ✓        |   ✓    |       ✓       |
+| `ctx.rule`               |           |            |       |              |                    |                 |   ✓    |       ✓       |
+
+---
+
+## `ctx.feature` {#feature}
+
+### `FeatureContext` {#feature-context}
+
+Available in `feature()`, `scenario()`, `scenarioOutline()`, `background()`, and all step callbacks within a feature.
+
+| Property      | Type       | Description                                 |
+| ------------- | ---------- | ------------------------------------------- |
+| `filename`    | `string`   | File path of the `.Spec.ts` file            |
+| `title`       | `string`   | Feature title (first line of title string)  |
+| `description` | `string`   | Description text (non-tag, non-title lines) |
+| `tags`        | `string[]` | Tags extracted from `@`-prefixed lines      |
+
+```typescript
+feature(`Shopping Cart
+  @ecommerce @critical
+  As a customer I want to manage my cart
+`, (ctx) => {
+  scenario("Metadata", () => {
+    given("we inspect the feature", () => {
+      expect(ctx.feature.title).toBe("Shopping Cart");
+      expect(ctx.feature.tags).toEqual(["ecommerce", "critical"]);
+      expect(ctx.feature.description).toContain("manage my cart");
+      expect(ctx.feature.filename).toContain(".Spec.ts");
+    });
+  });
+});
+```
+
+---
+
+## `ctx.scenario` {#scenario}
+
+### `ScenarioContext` {#scenario-context}
+
+Available in `scenario()`, `scenarioOutline()`, and all step callbacks within them.
+
+| Property      | Type            | Description                                  |
+| ------------- | --------------- | -------------------------------------------- |
+| `title`       | `string`        | Scenario title                               |
+| `description` | `string`        | Description text                             |
+| `tags`        | `string[]`      | Tags extracted from the title                |
+| `given`       | `StepContext?`   | The first `given` step context (if any)      |
+| `and`         | `StepContext[]` | Array of `and` step contexts                 |
+| `steps`       | `StepContext[]` | All steps in the scenario                    |
+
+```typescript
+scenario(`Process a refund
+  @payments @regression
+  Customer requests a refund within 30 days
+`, (ctx) => {
+  given("a completed order", () => {
+    expect(ctx.scenario.title).toBe("Process a refund");
+    expect(ctx.scenario.tags).toEqual(["payments", "regression"]);
+  });
+});
+```
+
+---
+
+## `ctx.step` {#step}
+
+### `StepContext` {#step-context}
+
+Available in all step callbacks (`given`, `when`, `then`, `and`, `but`) and in `rule()` callbacks.
+
+| Property            | Type                     | Description                                                |
+| ------------------- | ------------------------ | ---------------------------------------------------------- |
+| `title`             | `string`                 | The step title as written                                  |
+| `displayTitle`      | `string`                 | Title with secondary bindings resolved                     |
+| `type`              | `string`                 | Step type: `"given"`, `"when"`, `"then"`, `"and"`, `"but"` |
+| `values`            | `any[]`                  | Type-coerced quoted values from the title                  |
+| `valuesRaw`         | `string[]`               | Raw string values before coercion                          |
+| `params`            | `Record<string, any>`    | Type-coerced named parameters from `<name:value>`          |
+| `paramsRaw`         | `Record<string, string>` | Raw string named parameters                                |
+| `docString`         | `string`                 | Raw doc string content (from `"""..."""`)                   |
+| `docStringAsEntity` | `any`                    | Parsed JSON from doc string, or `undefined`                |
+| `table`             | `object[]`               | Multi-column table: array of row objects (header keys)     |
+| `tableAsEntity`     | `object`                 | Two-column table as key-value object                       |
+| `tableAsSingleList` | `any[]`                  | Single-column table as flat array                          |
+| `dataTable`         | `any[][]`                | Raw 2D array of table data                                 |
+
+```typescript
+given("user has '100' items and active is 'true'", (ctx) => {
+  expect(ctx.step.values).toEqual([100, true]);
+  expect(ctx.step.valuesRaw).toEqual(["100", "true"]);
+  expect(ctx.step.type).toBe("given");
+});
+```
+
+See [Data Extraction APIs](./data-apis.mdx) for complete details on each property.
+
+---
+
+## `ctx.example` {#example}
+
+### Example Row Data {#example-data}
+
+Available in `scenarioOutline()` and `ruleOutline()` callbacks. Contains the current row from the Examples table as a key-value object.
+
+| Property          | Type   | Description                                    |
+| ----------------- | ------ | ---------------------------------------------- |
+| `[columnName]`    | `any`  | Value from the current row, keyed by header name. Auto-coerced. |
+
+```typescript
+scenarioOutline(`Pricing
+  Examples:
+  | quantity | price | total |
+  |        2 | 10.00 | 20.00 |
+  |        5 |  7.50 | 37.50 |
+`, (ctx) => {
+  then("the total is '<total>'", () => {
+    // ctx.example.quantity = 2 (number)
+    // ctx.example.price = 10.00 (number)
+    // ctx.example.total = 20.00 (number)
+    expect(ctx.example.quantity * ctx.example.price).toBe(ctx.example.total);
+  });
+});
+```
+
+---
+
+## `ctx.background` {#background}
+
+### `BackgroundContext` {#background-context}
+
+Available inside `background()` callbacks. Extends `ScenarioContext`.
+
+| Property      | Type       | Description                       |
+| ------------- | ---------- | --------------------------------- |
+| `title`       | `string`   | Background title                  |
+| `description` | `string`   | Description text                  |
+| `tags`        | `string[]` | Tags (if any)                     |
+
+```typescript
+background("Common setup", (ctx) => {
+  given("a database connection", () => {
+    expect(ctx.background.title).toBe("Common setup");
+  });
+});
+```
+
+---
+
+## `ctx.afterBackground()` {#afterbackground}
+
+### Cleanup Registration {#afterbackground-fn}
+
+Available **only** inside `background()` callbacks. Registers a function that runs after each scenario completes.
+
+```typescript
+function ctx.afterBackground(fn: () => void): void
+```
+
+| Parameter | Type         | Description                                              |
+| --------- | ------------ | -------------------------------------------------------- |
+| `fn`      | `() => void` | Cleanup function, called once after each scenario finishes |
+
+```typescript
+background("Database setup", (ctx) => {
+  let db: Database;
+
+  given("a database connection", () => {
+    db = openDatabase();
+  });
+
+  ctx.afterBackground(() => {
+    db.rollback();
+    db.close();
+  });
+});
+```
+
+See [`background()`](./background.mdx) for complete usage examples.
+
+---
+
+## `ctx.specification` {#specification}
+
+### `SpecificationContext` {#specification-context}
+
+Available in `specification()`, `rule()`, and `ruleOutline()` callbacks.
+
+| Property      | Type       | Description                                       |
+| ------------- | ---------- | ------------------------------------------------- |
+| `filename`    | `string`   | File path of the `.Spec.ts` file                  |
+| `title`       | `string`   | Specification title                               |
+| `description` | `string`   | Description text                                  |
+| `tags`        | `string[]` | Tags extracted from `@`-prefixed lines            |
+
+```typescript
+specification(`Password Rules
+  @security @auth
+  Requirements for password complexity
+`, (ctx) => {
+  rule("Read specification metadata", () => {
+    expect(ctx.specification.title).toBe("Password Rules");
+    expect(ctx.specification.tags).toEqual(["security", "auth"]);
+  });
+});
+```
+
+---
+
+## `ctx.rule` {#rule}
+
+### `RuleContext` {#rule-context}
+
+Available in `rule()` and `ruleOutline()` callbacks.
+
+| Property        | Type                     | Description                                          |
+| --------------- | ------------------------ | ---------------------------------------------------- |
+| `title`         | `string`                 | Rule title                                           |
+| `description`   | `string`                 | Description text                                     |
+| `tags`          | `string[]`               | Tags                                                 |
+| `specification` | `SpecificationContext`   | Reference to the parent specification                |
+| `values`        | `any[]`                  | Type-coerced quoted values from the rule title       |
+| `valuesRaw`     | `string[]`               | Raw string values before coercion                    |
+| `params`        | `Record<string, any>`    | Type-coerced named parameters from `<name:value>`    |
+| `paramsRaw`     | `Record<string, string>` | Raw string named parameters                          |
+
+```typescript
+specification("Calculator", () => {
+  rule("Adding '5' and '3' returns '8'", (ctx) => {
+    expect(ctx.rule.values).toEqual([5, 3, 8]);
+    expect(ctx.rule.valuesRaw).toEqual(["5", "3", "8"]);
+    expect(ctx.rule.specification.title).toBe("Calculator");
+  });
+
+  rule("Reversing <input:hello> gives <expected:olleh>", (ctx) => {
+    expect(ctx.rule.params).toEqual({ input: "hello", expected: "olleh" });
+    expect(ctx.rule.paramsRaw).toEqual({ input: "hello", expected: "olleh" });
+  });
+});
+```
+
+---
+
+## How Context is Built {#how-it-works}
+
+The `ctx` object uses JavaScript getters that resolve dynamically based on the current execution state:
+
+```typescript
+// Simplified internal implementation
+const ctx = {
+  get feature()  { return currentFeature?.getFeatureContext(); },
+  get scenario() { return currentScenario?.getScenarioContext(); },
+  get step()     { return currentStep?.getStepContext(); },
+  // ...
+};
+```
+
+This means:
+- Properties reflect the **current** execution scope, even in async code
+- Properties not relevant to the current scope return `undefined`
+- The context is **read-only** — modifying it has no effect
+
+---
+
+## See Also {#see-also}
+
+- [Data Extraction APIs](./data-apis.mdx) — detailed reference for `ctx.step.values`, `table`, `docString`, etc.
+- [`feature()`](./feature.mdx) — where `ctx.feature` originates
+- [`scenario()`](./scenario.mdx) — where `ctx.scenario` originates
+- [Steps](./steps.mdx) — where `ctx.step` is most used
+- [`rule()`](./rule.mdx) — where `ctx.rule` is available
+- [`specification()`](./specification.mdx) — where `ctx.specification` is available
+- [`background()`](./background.mdx) — where `ctx.afterBackground()` is available

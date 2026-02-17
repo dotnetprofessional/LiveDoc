@@ -1,0 +1,307 @@
+---
+sidebar_position: 6
+description: "Run LiveDoc tests in CI pipelines with JSON export, artifact upload, and GitHub Actions examples."
+---
+
+# How to Run LiveDoc in CI/CD
+
+<p className="intro">
+This guide shows you how to integrate LiveDoc tests into your CI/CD pipeline.
+By the end, you'll have a GitHub Actions workflow that runs tests, exports
+JSON results, and uploads artifacts.
+</p>
+
+:::info Prerequisites
+- A working LiveDoc Vitest setup ([imports](./setup-imports.mdx) or [globals](./setup-globals.mdx))
+- A CI environment (GitHub Actions, GitLab CI, or similar)
+:::
+
+## Overview
+
+LiveDoc tests run with standard `npx vitest run` in CI — no special
+configuration needed. Add JSON export and tag filtering for production
+pipelines.
+
+## Step 1: Configure JSON Export
+
+Add the `JsonReporter` as a post reporter to generate a machine-readable
+results file:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    include: ['**/*.Spec.ts'],
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: 'spec+summary+headers',
+        postReporters: [new JsonReporter()],
+        'json-output': './test-results/livedoc-results.json',
+      }),
+    ],
+  },
+});
+```
+
+The JSON file contains all features, scenarios, steps, pass/fail status,
+timing data, error messages, and tags.
+
+## Step 2: Add CI-Specific Tag Filtering
+
+Skip slow or flaky tests in CI using environment-based filtering:
+
+```typescript
+// test/livedoc.setup.ts
+import { livedoc } from '@swedevtools/livedoc-vitest';
+
+if (process.env.CI === 'true') {
+  livedoc.options.filters.exclude = ['@slow', '@flaky'];
+}
+
+if (process.env.SMOKE_ONLY === 'true') {
+  livedoc.options.filters.include = ['@smoke'];
+}
+```
+
+Register in your config:
+
+```typescript
+// vitest.config.ts
+setupFiles: ['./test/livedoc.setup.ts'],
+```
+
+## Step 3: Create a GitHub Actions Workflow
+
+```yaml
+# .github/workflows/livedoc-tests.yml
+name: LiveDoc Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run LiveDoc tests
+        run: npx vitest run
+        env:
+          CI: 'true'
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: livedoc-results
+          path: test-results/livedoc-results.json
+          retention-days: 30
+```
+
+The `if: always()` on the upload step ensures results are captured even when
+tests fail.
+
+## Step 4: Write Output to a Log File
+
+For human-readable test output in CI logs, add file output:
+
+```typescript
+new LiveDocSpecReporter({
+  detailLevel: 'spec+summary+headers',
+  output: './test-results/test-output.txt',
+  postReporters: [new JsonReporter()],
+  'json-output': './test-results/livedoc-results.json',
+})
+```
+
+Upload both files as artifacts:
+
+```yaml
+- name: Upload test results
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: livedoc-results
+    path: test-results/
+```
+
+## Complete Example
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    include: ['**/*.Spec.ts'],
+    setupFiles: ['./test/livedoc.setup.ts'],
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: 'spec+summary+headers',
+        output: './test-results/test-output.txt',
+        postReporters: [new JsonReporter()],
+        'json-output': './test-results/livedoc-results.json',
+      }),
+    ],
+  },
+});
+```
+
+```typescript
+// test/livedoc.setup.ts
+import { livedoc } from '@swedevtools/livedoc-vitest';
+
+if (process.env.CI === 'true') {
+  livedoc.options.filters.exclude = ['@slow', '@flaky'];
+}
+```
+
+```yaml
+# .github/workflows/livedoc-tests.yml
+name: LiveDoc Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run LiveDoc tests
+        run: npx vitest run
+        env:
+          CI: 'true'
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: livedoc-results
+          path: test-results/
+          retention-days: 30
+```
+
+## Common Variations
+
+### Smoke Test Job
+
+Run a fast subset in a separate job:
+
+```yaml
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Run smoke tests
+        run: npx vitest run
+        env:
+          SMOKE_ONLY: 'true'
+
+  full:
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Run all tests
+        run: npx vitest run
+        env:
+          CI: 'true'
+```
+
+### pnpm Monorepo
+
+For pnpm workspaces, adjust the install and run commands:
+
+```yaml
+- uses: pnpm/action-setup@v4
+  with:
+    version: 9
+
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20
+    cache: pnpm
+
+- run: pnpm install --frozen-lockfile
+
+- name: Run LiveDoc tests
+  run: pnpm --filter @swedevtools/livedoc-vitest test
+  env:
+    CI: 'true'
+```
+
+### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+livedoc-tests:
+  image: node:20
+  stage: test
+  script:
+    - npm ci
+    - npx vitest run
+  variables:
+    CI: 'true'
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+    expire_in: 30 days
+```
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| JSON file not created | Output directory missing | Create `test-results/` in your project or use `mkdir -p test-results` in CI |
+| Tests pass locally, fail in CI | Environment differences | Check Node.js version, ensure `CI=true` is set, verify dependencies |
+| No test output in CI logs | `detailLevel: 'silent'` | Change to `'spec+summary+headers'` for visible output |
+| Artifact upload fails | Wrong path | Verify the `path` in `upload-artifact` matches your `json-output` path |
+| Slow tests in CI | No tag filtering | Add `@slow` tags and exclude them with `livedoc.options.filters.exclude` |
+
+## Related
+
+- [Tags and Filtering](./tags-and-filtering.mdx) — environment-based tag filtering
+- [Custom Reporters](./custom-reporters.mdx) — build CI-specific reporters
+- [Viewer Integration](./viewer-integration.mdx) — visualize results from CI
+- [Reporters Reference](../reference/reporters.mdx) — JSON reporter API

@@ -1,0 +1,399 @@
+---
+sidebar_position: 12
+title: "Configuration"
+description: "Complete vitest.config.ts reference for LiveDoc: file patterns, reporters, globals mode, environment settings, and setup files."
+---
+
+# Configuration
+
+<p className="intro">
+LiveDoc is configured through the standard `vitest.config.ts` file. This page
+documents every configuration option relevant to LiveDoc — file inclusion patterns,
+reporter setup, globals mode, and environment settings.
+</p>
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    include: ["**/*.Spec.ts"],
+    globals: true,
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+      }),
+    ],
+  },
+});
+```
+
+---
+
+## Reference {#reference}
+
+### File Inclusion {#file-inclusion}
+
+#### `test.include` {#include}
+
+Glob patterns that determine which files Vitest treats as test files.
+
+```typescript
+include: string[]
+```
+
+**Default (Vitest):** `["**/*.{test,spec}.{js,ts,jsx,tsx}"]`
+
+**LiveDoc convention:**
+
+```typescript
+include: ["**/*.Spec.ts"]
+```
+
+LiveDoc spec files use the `.Spec.ts` extension (capital S) by convention. This distinguishes them from regular Vitest test files.
+
+:::caution File Naming Convention
+LiveDoc spec files **must** end in `.Spec.ts` (e.g., `UserAuth.Spec.ts`, `ShoppingCart.Spec.ts`). The capital `S` is intentional and required for the LiveDoc toolchain to recognize them.
+:::
+
+#### `test.exclude` {#exclude}
+
+Glob patterns for files to exclude from test discovery.
+
+```typescript
+exclude: string[]
+```
+
+**Default:** `["**/node_modules/**", "**/dist/**"]`
+
+```typescript
+// Exclude legacy tests during migration
+exclude: ["**/node_modules/**", "**/dist/**", "**/legacy/**"]
+```
+
+---
+
+### Reporters {#reporters}
+
+#### `test.reporters` {#reporters-config}
+
+Array of reporter instances. LiveDoc reporters replace Vitest's default reporter.
+
+```typescript
+reporters: Reporter[]
+```
+
+See [Reporters](./reporters.mdx) for the full reference on each reporter.
+
+```typescript
+import { LiveDocSpecReporter, JsonReporter } from "@swedevtools/livedoc-vitest/reporter";
+import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+        postReporters: [new JsonReporter()],
+        "json-output": "./livedoc-results.json",
+      }),
+      new LiveDocServerReporter(),
+    ],
+  },
+});
+```
+
+---
+
+### Globals Mode {#globals-mode}
+
+#### `test.globals` {#globals}
+
+When `true`, LiveDoc keywords are available globally without imports.
+
+```typescript
+globals: boolean
+```
+
+**Default:** `false`
+
+```typescript
+export default defineConfig({
+  test: {
+    globals: true,
+  },
+});
+```
+
+**With globals enabled**, you can write specs without import statements:
+
+```typescript
+// No import needed — all keywords are global
+feature("Shopping Cart", () => {
+  scenario("Add item", () => {
+    given("an empty cart", () => { /* ... */ });
+    when("a product is added", () => { /* ... */ });
+    then("the cart has 1 item", () => { /* ... */ }); // lowercase `then` works!
+  });
+});
+```
+
+:::tip Globals mode resolves the `Then` import issue
+When `globals: true` is set, lowercase `then` is registered as a global — no need for the `import { Then as then }` alias.
+:::
+
+**Without globals** (explicit imports):
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Shopping Cart", () => {
+  // ...
+});
+```
+
+**TypeScript configuration for globals:**
+
+Add LiveDoc types to your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["vitest/globals", "@swedevtools/livedoc-vitest/globals"]
+  }
+}
+```
+
+---
+
+### Environment {#environment}
+
+#### `test.environment` {#test-environment}
+
+The execution environment for tests.
+
+```typescript
+environment: "node" | "jsdom" | "happy-dom" | "edge-runtime"
+```
+
+**Default:** `"node"`
+
+```typescript
+// For DOM-dependent tests (e.g., React components)
+export default defineConfig({
+  test: {
+    environment: "jsdom",
+  },
+});
+```
+
+Most LiveDoc specs test business logic and run fine with `"node"`. Use `"jsdom"` or `"happy-dom"` only if your specs exercise DOM APIs.
+
+---
+
+### Setup Files {#setup-files}
+
+#### `test.setupFiles` {#setup-files-config}
+
+Files that run before each test file. Use for global setup like registering LiveDoc globals, configuring test utilities, or seeding databases.
+
+```typescript
+setupFiles: string | string[]
+```
+
+```typescript
+export default defineConfig({
+  test: {
+    setupFiles: ["./tests/setup.ts"],
+  },
+});
+```
+
+**Example setup file:**
+
+```typescript
+// tests/setup.ts
+import { expect } from "vitest";
+
+// Add custom matchers
+expect.extend({
+  toBeValidEmail(received: string) {
+    const pass = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(received);
+    return {
+      pass,
+      message: () => `expected ${received} to be a valid email`,
+    };
+  },
+});
+```
+
+---
+
+### Thread Configuration {#threads}
+
+#### `test.pool` and `test.poolOptions` {#pool}
+
+Controls how tests are parallelized. LiveDoc works with all Vitest pool options.
+
+```typescript
+pool: "threads" | "forks" | "vmThreads"
+```
+
+**Default:** `"forks"`
+
+```typescript
+export default defineConfig({
+  test: {
+    pool: "forks",
+    poolOptions: {
+      forks: {
+        singleFork: true, // Run all tests in a single process
+      },
+    },
+  },
+});
+```
+
+:::info Single fork for ordered output
+If you need deterministic reporter output (e.g., features printed in file order), use `singleFork: true`. This runs tests sequentially in one process.
+:::
+
+---
+
+## Usage {#usage}
+
+### Minimal configuration {#minimal}
+
+The simplest working configuration:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    include: ["**/*.Spec.ts"],
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+      }),
+    ],
+  },
+});
+```
+
+### Full-featured configuration {#full-featured}
+
+A complete configuration with all common options:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from "vitest/config";
+import {
+  LiveDocSpecReporter,
+  JsonReporter,
+  LiveDocViewerReporter,
+} from "@swedevtools/livedoc-vitest/reporter";
+import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
+
+const isVSCodeVitest = !!(
+  process.env.VITEST_VSCODE ||
+  process.env.VSCODE_PID ||
+  process.env.VSCODE_IPC_HOOK
+);
+
+export default defineConfig({
+  test: {
+    include: ["**/*.Spec.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    globals: true,
+    environment: "node",
+    setupFiles: ["./tests/setup.ts"],
+    reporters: isVSCodeVitest
+      ? undefined
+      : [
+          new LiveDocSpecReporter({
+            detailLevel: "spec+summary+headers",
+            colors: true,
+            postReporters: [
+              new JsonReporter(),
+              new LiveDocViewerReporter({
+                server: "http://localhost:3100",
+                project: "my-project",
+              }),
+            ],
+            "json-output": "./livedoc-results.json",
+          }),
+          new LiveDocServerReporter(),
+        ],
+  },
+});
+```
+
+### Monorepo per-package configuration {#monorepo}
+
+In a monorepo, each package has its own `vitest.config.ts`:
+
+```typescript
+// packages/auth/vitest.config.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    include: ["**/*.Spec.ts"],
+    globals: true,
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+        removeHeaderText: "packages/auth/",
+      }),
+    ],
+  },
+});
+```
+
+### CI/CD configuration {#ci-cd}
+
+Optimized for continuous integration — JSON output, no colors, file logging:
+
+```typescript
+// vitest.config.ci.ts
+import { defineConfig } from "vitest/config";
+import { LiveDocSpecReporter, JsonReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    include: ["**/*.Spec.ts"],
+    globals: true,
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+        colors: false,
+        output: "./test-output.txt",
+        postReporters: [new JsonReporter()],
+        "json-output": "./livedoc-results.json",
+      }),
+    ],
+  },
+});
+```
+
+Run with:
+
+```bash
+vitest run --config vitest.config.ci.ts
+```
+
+---
+
+## See Also {#see-also}
+
+- [Reporters](./reporters.mdx) — full reference for each reporter
+- [Learn: Getting Started](../learn/getting-started.mdx) — initial setup walkthrough
+- [Guide: Setup with Globals](../guides/setup-globals.mdx) — detailed globals mode guide
+- [Guide: Setup with Imports](../guides/setup-imports.mdx) — explicit import setup guide
+- [Guide: CI/CD Integration](../guides/ci-cd.mdx) — CI pipeline configuration

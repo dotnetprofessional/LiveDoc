@@ -1,0 +1,179 @@
+---
+sidebar_position: 1
+title: "VS Code Extension"
+description: "Install and use the LiveDoc VS Code extension — code snippets, table formatting, and viewer integration for BDD testing."
+---
+
+# VS Code Extension
+
+<p className="intro">
+The LiveDoc VS Code extension provides code snippets, data table formatting,
+and viewer integration to streamline BDD test authoring with
+<code>@swedevtools/livedoc-vitest</code>.
+</p>
+
+---
+
+## Features
+
+### Code Snippets
+
+Type a snippet prefix and press **Tab** to scaffold BDD constructs instantly:
+
+| Snippet                | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
+| `ld-feature`           | Adds a basic feature definition                      |
+| `ld-background`        | Adds a basic background definition                   |
+| `ld-scenario`          | Adds a basic scenario definition                     |
+| `ld-scenario-outline`  | Adds a basic scenario outline definition             |
+| `ld-given`             | Adds a basic given step definition                   |
+| `ld-when`              | Adds a basic when step definition                    |
+| `ld-then`              | Adds a basic then step definition                    |
+| `ld-and`               | Adds a basic and step definition                     |
+| `ld-but`               | Adds a basic but step definition                     |
+| `ld-step`              | Adds a step where you choose the keyword type        |
+| `ld-step-datatable`    | Adds a step with a 2×1 data table                    |
+| `ld-step-datatable-4x` | Adds a step with a 4×1 data table                    |
+| `ld-step-docString`    | Adds a step with a docString block                   |
+
+> **Example: Scaffolding a Feature**
+>
+> 1. Open a `.Spec.ts` file
+> 2. Type `ld-feature` and press **Tab**
+> 3. Fill in the feature title, then use `ld-scenario` for test cases
+> 4. Add steps with `ld-given`, `ld-when`, `ld-then`
+>
+> **Result**: A fully structured feature with proper imports in seconds.
+
+### Data Table Formatting
+
+The **Format Data Tables** command aligns and styles Gherkin data tables in
+your spec files. Pipe-delimited tables are padded for readability:
+
+**Before:**
+
+```
+| name | age | active |
+| Alice | 30 | true |
+| Bob | 25 | false |
+```
+
+**After:**
+
+```
+| name  | age | active |
+| Alice |  30 | true   |
+| Bob   |  25 | false  |
+```
+
+### Commands
+
+| Command                        | Description                                    |
+| ------------------------------ | ---------------------------------------------- |
+| `LiveDoc: Format Data Tables`  | Formats all data tables in the active document |
+| `LiveDoc: Open Viewer`         | Opens the LiveDoc Viewer (shared UI webview)   |
+
+Access commands via the **Command Palette** (`Ctrl+Shift+P` / `Cmd+Shift+P`).
+
+---
+
+## Installation
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="marketplace" label="VS Code Marketplace" default>
+
+1. Open VS Code
+2. Go to the **Extensions** view (`Ctrl+Shift+X` / `Cmd+Shift+X`)
+3. Search for **"livedoc"**
+4. Click **Install**
+
+  </TabItem>
+  <TabItem value="vsix" label="From VSIX (local build)">
+
+```bash
+# Build the extension
+cd packages/vscode
+pnpm install
+pnpm run package
+
+# Install the generated .vsix file
+code --install-extension livedoc-0.0.1.vsix
+```
+
+  </TabItem>
+</Tabs>
+
+---
+
+## Usage
+
+### Setting Up Your Project
+
+The extension works with the [`@swedevtools/livedoc-vitest`](/vitest/learn/getting-started) testing library:
+
+```bash
+npm install --save-dev vitest @swedevtools/livedoc-vitest
+```
+
+### Writing BDD Tests with Snippets
+
+1. Create a new `.Spec.ts` file (e.g., `UserAuth.Spec.ts`)
+2. Type `ld-feature` and press **Tab** to scaffold the feature
+3. Fill in the feature title and description
+4. Use `ld-scenario` to add test scenarios
+5. Add steps with `ld-given`, `ld-when`, `ld-then`
+
+### Example Test
+
+```typescript
+import {
+  feature, scenario, given, when, Then as then,
+} from '@swedevtools/livedoc-vitest';
+
+feature(`User Authentication
+    As a user
+    I want to log in to the system
+    So that I can access my account
+`, () => {
+
+  scenario('Successful login with valid credentials', () => {
+    given("I am on the login page", () => {
+      // Navigate to login page
+    });
+
+    when("I enter valid credentials", () => {
+      // Enter username and password
+    });
+
+    then("I should be logged in successfully", () => {
+      expect(isLoggedIn).toBe(true);
+    });
+  });
+});
+```
+
+### Using the Viewer
+
+Run `LiveDoc: Open Viewer` from the Command Palette to open the LiveDoc Viewer
+directly inside VS Code as a webview panel. This connects to a running viewer
+instance and displays test results without leaving your editor.
+
+---
+
+## Key Takeaways
+
+- **Snippets** (`ld-feature`, `ld-scenario`, etc.) let you scaffold BDD tests in seconds
+- **Format Data Tables** keeps your Gherkin tables clean and aligned
+- **Open Viewer** brings the test dashboard into VS Code
+- Install from the **Marketplace** by searching "livedoc"
+
+---
+
+## Next Steps
+
+- **Development**: [Development Guide](./development.mdx) — build and debug the extension locally
+- **Vitest SDK**: [Getting Started](/vitest/learn/getting-started) — set up the testing framework
+- **Viewer**: [Viewer Getting Started](/viewer/learn/getting-started) — visualize test results

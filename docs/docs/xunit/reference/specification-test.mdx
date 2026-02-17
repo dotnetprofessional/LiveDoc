@@ -1,0 +1,297 @@
+---
+sidebar_position: 2
+description: "SpecificationTest is the base class for MSpec-style tests, providing direct assertion rules without Gherkin ceremony."
+---
+
+# `SpecificationTest`
+
+<p className="intro">
+`SpecificationTest` is the base class for MSpec-style specification tests. Rules
+contain direct assertions — no Given/When/Then steps. Values are embedded in rule
+titles and extracted via `Rule.Values` and `Rule.Params`.
+</p>
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+[Specification("Email Validation")]
+public class EmailValidationSpec : SpecificationTest
+{
+    public EmailValidationSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("'user@example.com' is a valid email")]
+    public void Valid_email()
+    {
+        var email = Rule.Values[0].AsString();
+        Assert.True(EmailValidator.IsValid(email));
+    }
+}
+```
+
+---
+
+## Reference {#reference}
+
+### Constructor {#constructor}
+
+```csharp
+protected SpecificationTest(ITestOutputHelper output)
+```
+
+Every class inheriting `SpecificationTest` must accept an `ITestOutputHelper` and pass it to `base(output)`. This produces formatted specification output in Test Explorer.
+
+#### Parameters {#constructor-parameters}
+
+- **`output`**: `ITestOutputHelper` — The xUnit output helper injected by the test runner.
+
+```csharp
+[Specification("Calculator")]
+public class CalculatorSpec : SpecificationTest
+{
+    public CalculatorSpec(ITestOutputHelper output) : base(output) { }
+}
+```
+
+### Properties {#properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Specification` | `SpecificationContext` | Metadata about the current specification (title, description, tags). |
+| `Rule` | `RuleContext` | Metadata and values for the currently executing rule. Provides `Values`, `Params`, `ValuesRaw`, and `ParamsRaw`. |
+| `Example` | `dynamic` | Dynamic access to the current `[Example]` row in a `[RuleOutline]`. |
+
+### `Rule` Property {#rule-property}
+
+The `Rule` property is the primary API for extracting values from rule titles. It mirrors the step-level `ctx.Step` API used in `FeatureTest`.
+
+```csharp
+// Quoted values: 'value' syntax
+[Rule("Adding '5' and '3' returns '8'")]
+public void Addition()
+{
+    var a = Rule.Values[0].AsInt();      // 5
+    var b = Rule.Values[1].AsInt();      // 3
+    var expected = Rule.Values[2].AsInt(); // 8
+    Assert.Equal(expected, a + b);
+}
+```
+
+| Sub-property | Type | Description |
+|--------------|------|-------------|
+| `Rule.Values` | `LiveDocValueArray` | Ordered array of quoted values from the rule title. |
+| `Rule.ValuesRaw` | `string[]` | Raw string values before type conversion. |
+| `Rule.Params` | `LiveDocValueDictionary` | Named parameters from `<name:value>` syntax. |
+| `Rule.ParamsRaw` | `IReadOnlyDictionary<string, string>` | Raw string parameters before conversion. |
+
+### `IDisposable` {#idisposable}
+
+Like `FeatureTest`, `SpecificationTest` implements `IDisposable` and flushes formatted output on disposal:
+
+```
+Specification: Email Validation
+
+  Rule: 'user@example.com' is a valid email
+    ✓ passing (2ms)
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Simple rules {#basic-usage}
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+[Specification("String Operations", Description = @"
+    Rules for standard string manipulation operations.")]
+public class StringSpec : SpecificationTest
+{
+    public StringSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("Reversing 'hello' returns 'olleh'")]
+    public void Reverse_string()
+    {
+        var (input, expected) = Rule.Values.As<string, string>();
+        var result = new string(input.Reverse().ToArray());
+        Assert.Equal(expected, result);
+    }
+
+    [Rule("Uppercasing 'hello' returns 'HELLO'")]
+    public void Uppercase_string()
+    {
+        var (input, expected) = Rule.Values.As<string, string>();
+        Assert.Equal(expected, input.ToUpper());
+    }
+}
+```
+
+### Named parameters with `Rule.Params` {#named-params}
+
+```csharp
+[Specification("Temperature Conversion")]
+public class TempSpec : SpecificationTest
+{
+    public TempSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("Converting <celsius:100> °C to Fahrenheit gives <fahrenheit:212>")]
+    public void Celsius_to_fahrenheit()
+    {
+        var celsius = Rule.Params["celsius"].AsDouble();
+        var expected = Rule.Params["fahrenheit"].AsDouble();
+        var result = celsius * 9.0 / 5.0 + 32;
+        Assert.Equal(expected, result, precision: 2);
+    }
+}
+```
+
+### Tuple deconstruction {#tuple-deconstruction}
+
+Use `Rule.Values.As<T1, T2, ...>()` for clean multi-value extraction:
+
+```csharp
+[Specification("Arithmetic")]
+public class ArithmeticSpec : SpecificationTest
+{
+    public ArithmeticSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("Adding '5' and '3' returns '8'")]
+    public void Addition()
+    {
+        var (a, b, expected) = Rule.Values.As<int, int, int>();
+        Assert.Equal(expected, a + b);
+    }
+
+    [Rule("Dividing '10.0' by '3.0' returns '3.33'")]
+    public void Division_with_precision()
+    {
+        var (a, b, expected) = Rule.Values.As<decimal, decimal, decimal>();
+        Assert.Equal(expected, Math.Round(a / b, 2));
+    }
+}
+```
+
+### RuleOutline with Examples {#rule-outline}
+
+Data-driven rules work the same as `ScenarioOutline` — method parameters are injected by xUnit:
+
+```csharp
+[Specification("Discount Rules")]
+public class DiscountSpec : SpecificationTest
+{
+    public DiscountSpec(ITestOutputHelper output) : base(output) { }
+
+    [RuleOutline("A cart with '<itemCount>' items gets '<discount>' percent off")]
+    [Example(1, 0)]
+    [Example(5, 10)]
+    [Example(10, 20)]
+    public void Volume_discount(int itemCount, int discount)
+    {
+        var actual = DiscountEngine.Calculate(itemCount);
+        Assert.Equal(discount, actual);
+    }
+}
+```
+
+### Method name placeholders {#method-name-placeholders}
+
+When no explicit title is provided, `_ALLCAPS` segments in the method name become placeholders:
+
+```csharp
+[RuleOutline]
+[Example(10, 2, 5)]
+[Example(100, 4, 25)]
+public void Dividing_A_by_B_returns_RESULT(int a, int b, int result)
+{
+    Assert.Equal(result, a / b);
+}
+// Output: "Dividing '10' by '2' returns '5'"
+```
+
+### Async rules {#async-rules}
+
+```csharp
+[Rule("Fetching user '42' returns 'Alice'")]
+public async Task Fetch_user_by_id()
+{
+    var (id, expectedName) = Rule.Values.As<int, string>();
+    var user = await _repository.GetByIdAsync(id);
+    Assert.Equal(expectedName, user.Name);
+}
+```
+
+### Specification with description {#with-description}
+
+```csharp
+[Specification("Password Policy", Description = @"
+    Organizational password strength requirements.
+    Minimum 8 characters, must include uppercase,
+    lowercase, digit, and special character.")]
+public class PasswordSpec : SpecificationTest
+{
+    public PasswordSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("'Abc12345!' meets the policy")]
+    public void Strong_password()
+    {
+        var password = Rule.Values[0].AsString();
+        Assert.True(PasswordPolicy.IsStrong(password));
+    }
+
+    [Rule("'abc' does not meet the policy")]
+    public void Weak_password()
+    {
+        var password = Rule.Values[0].AsString();
+        Assert.False(PasswordPolicy.IsStrong(password));
+    }
+}
+```
+
+---
+
+## FeatureTest vs. SpecificationTest {#comparison}
+
+| Aspect | `FeatureTest` | `SpecificationTest` |
+|--------|---------------|---------------------|
+| Pattern | BDD / Gherkin | MSpec / Specification |
+| Structure | Given / When / Then steps | Direct assertions in rules |
+| Best for | Workflows, user stories, acceptance tests | Units, edge cases, technical components |
+| Data-driven | `[ScenarioOutline]` + `[Example]` | `[RuleOutline]` + `[Example]` |
+| Value extraction | `ctx.Step.Values` / `ctx.Step.Params` | `Rule.Values` / `Rule.Params` |
+| Audience | Business + Technical | Technical |
+
+:::tip When to choose which
+Use `FeatureTest` when stakeholders need to read the tests. Use `SpecificationTest` for developer-facing rules where Gherkin ceremony adds noise without value. You can mix both patterns in the same project.
+:::
+
+---
+
+## Formatted Output {#formatted-output}
+
+```
+Specification: Password Policy
+  Organizational password strength requirements.
+  Minimum 8 characters, must include uppercase,
+  lowercase, digit, and special character.
+
+  Rule: 'Abc12345!' meets the policy
+    ✓ passing (1ms)
+
+  Rule: 'abc' does not meet the policy
+    ✓ passing (1ms)
+```
+
+---
+
+## See Also {#see-also}
+
+- [`FeatureTest`](./feature-test.mdx) — the BDD/Gherkin-style alternative
+- [Attributes](./attributes.mdx) — `[Specification]`, `[Rule]`, `[RuleOutline]` details
+- [`[Example]`](./example-attribute.mdx) — data rows for `[RuleOutline]`
+- [Value Extraction API](./value-extraction-api.mdx) — `LiveDocValue`, `As<T>()`, type conversions
+- [Context](./context.mdx) — `RuleContext`, `SpecificationContext`
+- [Your First Spec](../learn/your-first-spec.mdx) — step-by-step tutorial
