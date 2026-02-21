@@ -6,7 +6,7 @@ This example demonstrates how to create a custom Vitest reporter. It shows a sim
 
 ```bash
 # From the repository root
-cd examples/custom-reporter
+cd packages/vitest/examples/custom-reporter
 
 # Install dependencies
 pnpm install

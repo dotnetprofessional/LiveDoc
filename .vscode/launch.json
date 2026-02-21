@@ -81,9 +81,9 @@
             "request": "launch",
             "autoAttachChildProcesses": true,
             "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
-            "program": "${workspaceFolder}/examples/custom-reporter/node_modules/vitest/vitest.mjs",
+            "program": "${workspaceFolder}/packages/vitest/examples/custom-reporter/node_modules/vitest/vitest.mjs",
             "args": ["run"],
-            "cwd": "${workspaceFolder}/examples/custom-reporter",
+            "cwd": "${workspaceFolder}/packages/vitest/examples/custom-reporter",
             "console": "integratedTerminal"
         },
         {
@@ -92,9 +92,9 @@
             "request": "launch",
             "autoAttachChildProcesses": true,
             "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
-            "program": "${workspaceFolder}/examples/vitest-sample/node_modules/vitest/vitest.mjs",
+            "program": "${workspaceFolder}/packages/vitest/examples/vitest-sample/node_modules/vitest/vitest.mjs",
             "args": ["run"],
-            "cwd": "${workspaceFolder}/examples/vitest-sample",
+            "cwd": "${workspaceFolder}/packages/vitest/examples/vitest-sample",
             "console": "integratedTerminal"
         }
     ],
