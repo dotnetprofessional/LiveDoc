@@ -304,46 +304,46 @@ pnpm --filter @swedevtools/livedoc-vitest test:watch
 
 ### BDD/Gherkin Context
 
-| Property | Type | Description |
-| --- | --- | --- |
-| `ctx.feature` | `FeatureContext` | `{filename, title, description, tags}` |
-| `ctx.scenario` | `ScenarioContext` | `{title, description, tags, given?, steps}` |
-| `ctx.step` | `StepContext` | `{title, type, values, docString, table, ...}` |
-| `ctx.example` | `object` | Current example row (scenarioOutline only) |
-| `ctx.background` | `BackgroundContext` | Background metadata |
-| `ctx.afterBackground(fn)` | function | Register cleanup (background only) |
+|         Property          |        Type         |                  Description                   |
+| ---                       | ---                 | ---                                            |
+| `ctx.feature`             | `FeatureContext`    | `{filename, title, description, tags}`         |
+| `ctx.scenario`            | `ScenarioContext`   | `{title, description, tags, given?, steps}`    |
+| `ctx.step`                | `StepContext`       | `{title, type, values, docString, table, ...}` |
+| `ctx.example`             | `object`            | Current example row (scenarioOutline only)     |
+| `ctx.background`          | `BackgroundContext` | Background metadata                            |
+| `ctx.afterBackground(fn)` | function            | Register cleanup (background only)             |
 
 ### Specification Context
 
-| Property | Type | Description |
-| --- | --- | --- |
-| `ctx.specification` | `SpecificationContext` | `{title, description, tags}` |
-| `ctx.rule` | `RuleContext` | `{title, description, tags, specification, values, valuesRaw, params, paramsRaw}` |
-| `ctx.example` | `object` | Current example row (ruleOutline only) |
+|      Property       |          Type          |                                    Description                                    |
+| ---                 | ---                    | ---                                                                               |
+| `ctx.specification` | `SpecificationContext` | `{title, description, tags}`                                                      |
+| `ctx.rule`          | `RuleContext`          | `{title, description, tags, specification, values, valuesRaw, params, paramsRaw}` |
+| `ctx.example`       | `object`               | Current example row (ruleOutline only)                                            |
 
 ### RuleContext Properties
 
-| Property | Returns |
-| --- | --- |
-| `values` | Coerced quoted values array (from rule/ruleOutline title) |
-| `valuesRaw` | Raw string values |
-| `params` | Coerced named values object `<n:v>` |
-| `paramsRaw` | Raw named values string object |
+| Property    | Returns                                                   |
+| ---         | ---                                                       |
+| `values`    | Coerced quoted values array (from rule/ruleOutline title) |
+| `valuesRaw` | Raw string values                                         |
+| `params`    | Coerced named values object `<n:v>`                       |
+| `paramsRaw` | Raw named values string object                            |
 
 ### StepContext Properties
 
-| Property | Returns |
-| --- | --- |
-| `values` | Coerced quoted values array |
-| `valuesRaw` | Raw string values |
-| `params` | Coerced named values object `<n:v>` |
-| `paramsRaw` | Raw named values string object |
-| `docString` | Raw doc string content |
-| `docStringAsEntity` | Parsed JSON or undefined |
-| `table` | Headers as keys, array of row objects |
-| `tableAsEntity` | 2-col table as single object |
-| `tableAsSingleList` | First column as flat array |
-| `dataTable` | Raw 2D array |
+| Property            | Returns                               |
+| ---                 | ---                                   |
+| `values`            | Coerced quoted values array           |
+| `valuesRaw`         | Raw string values                     |
+| `params`            | Coerced named values object `<n:v>`   |
+| `paramsRaw`         | Raw named values string object        |
+| `docString`         | Raw doc string content                |
+| `docStringAsEntity` | Parsed JSON or undefined              |
+| `table`             | Headers as keys, array of row objects |
+| `tableAsEntity`     | 2-col table as single object          |
+| `tableAsSingleList` | First column as flat array            |
+| `dataTable`         | Raw 2D array                          |
 
 ## Validation
 - [ ] All test data appears in step title strings (self-documenting)
