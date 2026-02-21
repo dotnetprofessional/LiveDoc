@@ -3,33 +3,28 @@
 ║              AI-Powered Test Authoring Skills                   ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-LiveDoc includes AI skills that help your coding assistant (Copilot,
-Claude Code, Cursor, Windsurf, Roo Code) write better BDD and
-Specification tests — with correct patterns, value extraction, and
-living documentation best practices.
+LiveDoc includes AI skills that teach Copilot, Claude, Cursor and
+other AI tools how to write great BDD and Specification tests.
 
-QUICK SETUP (one-time)
-──────────────────────
+SETUP — one command from your project directory:
 
-1. Add a local tool manifest (skip if you already have one):
+    dotnet msbuild -t:LiveDoc
 
-     dotnet new tool-manifest
+You'll see a menu to choose your AI tool(s):
 
-2. Install the LiveDoc CLI tool:
+    1. GitHub Copilot
+    2. Claude Code
+    3. Roo Code
+    4. Cursor
+    5. Windsurf
+    A. All of the above
 
-     dotnet tool install SweDevTools.LiveDoc.Tool
+CI / non-interactive:
 
-3. Install the AI skill for your coding tool:
+    dotnet msbuild -t:LiveDoc -p:LiveDocTool=copilot
+    dotnet msbuild -t:LiveDoc -p:LiveDocTool=all
 
-     dotnet livedoc install-skill
-
-   This will ask which AI tool(s) you use and where to install.
-
-NON-INTERACTIVE (CI / scripts)
-──────────────────────────────
-
-     dotnet livedoc install-skill --tool copilot --scope project
-     dotnet livedoc install-skill --all
+Commit the generated files to share with your team.
 
 For more information:
   https://github.com/dotnetprofessional/LiveDoc

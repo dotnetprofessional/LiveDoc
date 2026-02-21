@@ -278,6 +278,12 @@ export class LiveDocGrammarParser {
         ruleOutline.tags = parser.tags;
         ruleOutline.tables = parser.tables;
 
+        // Extract values and params from rule outline title (same as rule parsing)
+        ruleOutline.valuesRaw = parser.quotedValues;
+        ruleOutline.values = parser.coerceValues(ruleOutline.valuesRaw);
+        ruleOutline.paramsRaw = parser.namedValues;
+        ruleOutline.params = parser.coerceNamedValues(ruleOutline.paramsRaw);
+
         this.addRuleExamples(ruleOutline, parser);
 
         specification.rules.push(ruleOutline);

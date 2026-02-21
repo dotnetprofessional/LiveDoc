@@ -30,6 +30,11 @@ export class RuleExample extends Rule {
         const baseContext = super.getRuleContext();
         return {
             ...baseContext,
+            // Pull values/params from the parent ruleOutline (where parsing populates them)
+            values: this.ruleOutline.values,
+            valuesRaw: this.ruleOutline.valuesRaw,
+            params: this.ruleOutline.params,
+            paramsRaw: this.ruleOutline.paramsRaw,
             example: this.example,
             exampleRaw: this.exampleRaw
         };

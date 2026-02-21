@@ -84,6 +84,47 @@
   line-height: 1.6;
 }
 
+/* ─── Landing Page: AI Demo ────────────────────────── */
+
+.ai-demo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  align-items: start;
+}
+
+.ai-demo-prompt,
+.ai-demo-output {
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.ai-demo-prompt {
+  border-left: 3px solid var(--ifm-color-primary);
+  background: var(--ifm-color-emphasis-100);
+}
+
+.ai-demo-output {
+  border-left: 3px solid #22c55e;
+}
+
+.ai-demo-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+@media (max-width: 768px) {
+  .ai-demo {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ─── Landing Page: Before / After Comparison ──────── */
 
 .comparison-grid {

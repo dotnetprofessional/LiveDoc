@@ -11,6 +11,7 @@ description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-sty
 - Writing BDD feature/scenario tests or MSpec specification/rule tests in TypeScript
 - Adding scenarioOutline or ruleOutline data-driven tests
 - Extracting values from step titles using `ctx.step.values`, `ctx.step.params`, or `ctx.example`
+- Extracting values from rule/ruleOutline titles using `ctx.rule.values` and `ctx.rule.params`
 - Debugging or fixing LiveDoc Vitest test failures
 
 ## Do not use this skill when
@@ -208,7 +209,7 @@ scenarioOutline(`Validate inputs
 });
 ```
 
-**Rule value extraction** — rules support the same `'quoted values'` and `<name:value>` patterns as steps, accessible via `ctx.rule.values` and `ctx.rule.params`:
+**Rule value extraction** — both `rule` and `ruleOutline` support the same `'quoted values'` and `<name:value>` patterns as steps, accessible via `ctx.rule.values` and `ctx.rule.params`:
 
 ```typescript
 specification("Calculator Rules", () => {
@@ -223,6 +224,29 @@ specification("Calculator Rules", () => {
         const a = ctx.rule.params.a;             // 10
         const b = ctx.rule.params.b;             // 3
         expect(a - b).toBe(ctx.rule.params.expected);
+    });
+
+    // RuleOutline — title values + example table data (both accessible)
+    ruleOutline(`Discount of '10' percent applies to orders over '100' dollars
+        Examples:
+        | orderTotal | expectedDiscount |
+        |        150 |               15 |
+        |        200 |               20 |
+        `, (ctx) => {
+        const [discountPct, threshold] = ctx.rule.values; // From title: [10, 100]
+        const discount = ctx.example.orderTotal * (discountPct / 100); // From table
+        expect(discount).toBe(ctx.example.expectedDiscount);
+    });
+
+    // RuleOutline with named params
+    ruleOutline(`Applying <operation:multiply> with factor <factor:3>
+        Examples:
+        | input | expected |
+        |     5 |       15 |
+        |    10 |       30 |
+        `, (ctx) => {
+        expect(ctx.rule.params.operation).toBe("multiply"); // From title
+        expect(ctx.example.input * ctx.rule.params.factor).toBe(ctx.example.expected); // Mixed
     });
 });
 ```
@@ -294,8 +318,17 @@ pnpm --filter @swedevtools/livedoc-vitest test:watch
 | Property | Type | Description |
 | --- | --- | --- |
 | `ctx.specification` | `SpecificationContext` | `{title, description, tags}` |
-| `ctx.rule` | `RuleContext` | `{title, description, tags, specification}` |
+| `ctx.rule` | `RuleContext` | `{title, description, tags, specification, values, valuesRaw, params, paramsRaw}` |
 | `ctx.example` | `object` | Current example row (ruleOutline only) |
+
+### RuleContext Properties
+
+| Property | Returns |
+| --- | --- |
+| `values` | Coerced quoted values array (from rule/ruleOutline title) |
+| `valuesRaw` | Raw string values |
+| `params` | Coerced named values object `<n:v>` |
+| `paramsRaw` | Raw named values string object |
 
 ### StepContext Properties
 

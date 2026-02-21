@@ -11,6 +11,7 @@ description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-sty
 - Writing BDD feature/scenario tests or MSpec specification/rule tests in C#
 - Adding ScenarioOutline or RuleOutline data-driven tests with `[Example]` attributes
 - Extracting values from step titles using `ctx.Step.Values`, `ctx.Step.Params`, or method parameters
+- Extracting values from Rule/RuleOutline titles using `Rule.Values` and `Rule.Params`
 - Debugging or fixing LiveDoc xUnit test failures
 
 ## Do not use this skill when
@@ -199,7 +200,7 @@ Example data is **automatically injected** — method parameters are typed by xU
 
 ### 6. Write Specification rules
 
-Rules must also follow the self-documenting principle — **embed values in the rule title**, not hidden in code. Rules support **inline value extraction** via `Rule.Values` and `Rule.Params`, mirroring how steps use `ctx.Step.Values`.
+Rules must also follow the self-documenting principle — **embed values in the rule title**, not hidden in code. Both `[Rule]` and `[RuleOutline]` support **inline value extraction** via `Rule.Values` and `Rule.Params`, mirroring how steps use `ctx.Step.Values`.
 
 ```csharp
 [Specification("Calculator Operations", Description = @"
@@ -227,7 +228,7 @@ public class CalculatorSpec : SpecificationTest
         Assert.Equal(expected, a - b);
     }
 
-    // ✅ CORRECT: RuleOutline makes all variations visible
+    // ✅ CORRECT: RuleOutline with Example data via method parameters
     [RuleOutline("Adding '<a>' and '<b>' returns '<result>'")]
     [Example(1, 2, 3)]
     [Example(5, 5, 10)]
@@ -235,6 +236,17 @@ public class CalculatorSpec : SpecificationTest
     public void Addition_examples(int a, int b, int result)
     {
         Assert.Equal(result, a + b);
+    }
+
+    // ✅ CORRECT: RuleOutline with title value extraction + Example data
+    // Rule.Values/Params from title are accessible alongside Example parameters
+    [RuleOutline("Discount of '10' percent on orders over '100' dollars")]
+    [Example(150, 15)]
+    [Example(200, 20)]
+    public void Discount_examples(int orderTotal, int expectedDiscount)
+    {
+        var (discountPct, threshold) = Rule.Values.As<int, int>(); // From title
+        Assert.Equal(expectedDiscount, orderTotal * discountPct / 100); // Mixed
     }
 }
 

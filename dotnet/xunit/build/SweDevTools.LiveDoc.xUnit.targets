@@ -1,10 +1,27 @@
 <Project>
   <!--
-    One-time build warning prompting developers to install the LiveDoc AI skill.
-    Suppressed once .livedoc-skill-installed sentinel file exists in the project root.
+    LiveDoc AI Skill Installer.
+    Invoked explicitly: dotnet msbuild -t:LiveDoc
+    NOT run during normal builds.
   -->
-  <Target Name="LiveDocSkillInstallReminder" BeforeTargets="BeforeBuild"
-          Condition="!Exists('$(MSBuildProjectDirectory)\.livedoc-skill-installed')">
-    <Warning Text="[LiveDoc] AI coding skills are available for this project. Run 'dotnet livedoc install-skill' to set up test-authoring guidance for your AI tool (Copilot, Claude Code, Cursor, etc.). See: https://github.com/dotnetprofessional/LiveDoc" />
+  <PropertyGroup>
+    <LiveDocToolsDir>$(MSBuildThisFileDirectory)..\tools\</LiveDocToolsDir>
+  </PropertyGroup>
+
+  <Target Name="LiveDoc">
+    <!-- Windows -->
+    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' == ''"
+          Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(LiveDocToolsDir)livedoc-setup.ps1&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' != ''"
+          Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(LiveDocToolsDir)livedoc-setup.ps1&quot; -Tool $(LiveDocTool)"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <!-- Mac / Linux -->
+    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' == ''"
+          Command="bash &quot;$(LiveDocToolsDir)livedoc-setup.sh&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' != ''"
+          Command="bash &quot;$(LiveDocToolsDir)livedoc-setup.sh&quot; --tool $(LiveDocTool)"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 </Project>

@@ -25,8 +25,9 @@ results over HTTP. When you run your xUnit tests, the
 `LiveDocViewerReporter` sends results to the viewer in real time. The
 viewer renders them as a navigable feature/specification tree.
 
-```
-dotnet test  ──▶  LiveDocViewerReporter  ──▶  LiveDoc Viewer (browser)
+```mermaid
+graph LR
+    DT["dotnet test"] --> Reporter["LiveDocViewerReporter"] --> Viewer["LiveDoc Viewer<br/>(browser)"]
 ```
 
 ---

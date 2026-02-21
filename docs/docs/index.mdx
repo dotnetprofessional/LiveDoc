@@ -73,6 +73,53 @@ The LiveDoc spec on the right executes as a real test *and* generates browsable 
 
 ---
 
+## "Looks Great, But I Don't Have Time to Learn Gherkin"
+
+You don't need to. LiveDoc ships with **AI coding skills** for both SDKs — when you install the package, your AI assistant already knows how to write LiveDoc tests. Just describe what you want to test:
+
+<div className="ai-demo">
+
+<div className="ai-demo-prompt">
+<div className="ai-demo-label">🧑 You say:</div>
+
+*"Write a spec for the discount logic — 10% off orders over $100, 20% off over $200, free shipping over $150"*
+
+</div>
+
+<div className="ai-demo-output">
+<div className="ai-demo-label">🤖 Your AI writes:</div>
+
+```
+Feature: Order Discounts
+  Scenario: Small order gets no discount
+    Given a cart with total '$75.00'
+    When the order is placed
+    Then the discount is '$0.00'
+    And shipping is '$9.95'
+
+  Scenario: Medium order gets 10% off
+    Given a cart with total '$120.00'
+    When the order is placed
+    Then the discount is '$12.00'
+    And shipping is '$9.95'
+
+  Scenario: Large order gets 20% off and free shipping
+    Given a cart with total '$250.00'
+    When the order is placed
+    Then the discount is '$50.00'
+    And shipping is '$0.00'
+```
+
+</div>
+
+</div>
+
+The AI doesn't just produce syntactically correct tests — it produces **well-structured living documentation** with values in titles, edge cases covered, and clear business language. The built-in skills teach it LiveDoc's patterns, value extraction, and self-documenting conventions.
+
+This works with any AI coding tool — **GitHub Copilot**, **Cursor**, **Claude Code**, and others. The skills are installed alongside the SDK, so there's nothing extra to set up.
+
+---
+
 ## Why LiveDoc?
 
 <div className="features-grid">
@@ -111,8 +158,8 @@ The LiveDoc spec on the right executes as a real test *and* generates browsable 
 
 <div className="workflow-step">
 <div className="workflow-number">1</div>
-<h3>Write Specs</h3>
-<p>Author BDD features or specification rules in TypeScript or C#. Your tests are the single source of truth.</p>
+<h3>Describe</h3>
+<p>Tell your AI assistant what to test — or write specs yourself. The built-in AI skills handle LiveDoc patterns automatically.</p>
 </div>
 
 <div className="workflow-connector">→</div>

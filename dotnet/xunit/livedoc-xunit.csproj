@@ -9,7 +9,7 @@
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
-    <Version>0.1.1-beta1</Version>
+    <Version>0.1.4-beta1</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -41,6 +41,13 @@
   <ItemGroup>
     <None Include="readme.txt" Pack="true" PackagePath="" />
     <None Include="build\SweDevTools.LiveDoc.xUnit.targets" Pack="true" PackagePath="build\" />
+  </ItemGroup>
+
+  <!-- Bundle AI skill files and setup script in the NuGet package -->
+  <ItemGroup>
+    <None Include="tools\skills\**\*" Pack="true" PackagePath="tools\skills\" />
+    <None Include="tools\livedoc-setup.ps1" Pack="true" PackagePath="tools\" />
+    <None Include="tools\livedoc-setup.sh" Pack="true" PackagePath="tools\" />
   </ItemGroup>
 
 </Project>

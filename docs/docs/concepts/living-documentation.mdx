@@ -18,16 +18,13 @@ Then the code changes. A new edge case is handled differently. A parameter is re
 
 This is **documentation drift** — the inevitable divergence between what the documentation says and what the code actually does. It's not a failure of discipline; it's a failure of architecture. When documentation and code are separate artifacts, drift isn't a risk — it's a certainty.
 
-```
-Traditional approach:
-
-  Spec (Word/Confluence)  ──────────────────▶  Stale within weeks
-         │
-         ▼
-  Code (source files)     ──────────────────▶  Keeps evolving
-         │
-         ▼
-  Tests (assertions only) ──────────────────▶  Pass/fail, no documentation value
+```mermaid
+graph TD
+    Spec["📄 Spec<br/>(Word / Confluence)"] -->|"separate artifact"| Code["💻 Code<br/>(source files)"]
+    Code -->|"separate artifact"| Tests["🧪 Tests<br/>(assertions only)"]
+    Spec -.-|"❌ Stale within weeks"| Drift["Documentation Drift"]
+    Code -.-|"✅ Keeps evolving"| Reality["Reality"]
+    Tests -.-|"⚠️ Pass/fail only"| NoDoc["No documentation value"]
 ```
 
 ## The Solution: Tests ARE the Documentation
@@ -36,14 +33,12 @@ What if the documentation *was* the code? What if the specification itself execu
 
 That's the core insight behind **living documentation**: your tests don't just *verify* behavior — they *describe* it. When written with the right structure and vocabulary, a test suite becomes a browsable, hierarchical, always-accurate specification of your entire system.
 
-```
-LiveDoc approach:
-
-  Executable Specification (.Spec.ts / .cs)
-         │
-         ├──▶  Runs as a test    ──▶  Catches regressions
-         │
-         └──▶  Outputs docs      ──▶  Always accurate
+```mermaid
+graph LR
+    Spec["📝 Executable Specification<br/>(.Spec.ts / .cs)"] -->|"runs as"| Test["🧪 Test"]
+    Spec -->|"outputs"| Docs["📖 Documentation"]
+    Test -->|"catches"| Regressions["✅ Regressions"]
+    Docs -->|"always"| Accurate["✅ Accurate"]
 ```
 
 The key difference is that there's **one artifact, not two**. The specification and the test are the same file. If the behavior changes, the test must change — and when the test changes, the documentation updates automatically.

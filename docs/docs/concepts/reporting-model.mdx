@@ -18,20 +18,20 @@ When a LiveDoc test runs, it doesn't just produce a pass/fail result. It generat
 
 The **reporting model** defines the shape of that structured document. It's a protocol — a contract between producers (the SDKs) and consumers (the Viewer, VS Code extension, and any custom tooling). As long as both sides agree on the model, they're interchangeable:
 
-```
-Producers                        Consumer
-┌──────────────────┐             ┌──────────────────┐
-│  livedoc-vitest  │──┐         │                  │
-│  (TypeScript)    │  │   ┌───▶ │  LiveDoc Viewer  │
-└──────────────────┘  │   │     │  (React app)     │
-                      ├───┤     └──────────────────┘
-┌──────────────────┐  │   │     ┌──────────────────┐
-│  LiveDoc.xUnit   │──┘   └───▶ │  VS Code Ext.   │
-│  (C#)            │             │                  │
-└──────────────────┘             └──────────────────┘
-            │                           ▲
-            └───────────────────────────┘
-              Same model (Protocol 3.0)
+```mermaid
+graph LR
+    subgraph Producers
+        V["@swedevtools/livedoc-vitest<br/>(TypeScript)"]
+        X["SweDevTools.LiveDoc.xUnit<br/>(C#)"]
+    end
+    subgraph Consumers
+        Viewer["LiveDoc Viewer<br/>(React app)"]
+        VSCode["VS Code Extension"]
+    end
+    V -->|"Protocol 3.0"| Viewer
+    V -->|"Protocol 3.0"| VSCode
+    X -->|"Protocol 3.0"| Viewer
+    X -->|"Protocol 3.0"| VSCode
 ```
 
 This is the key architectural insight: **one model, many producers, many consumers**. Adding a new SDK (say, for Python or Go) only requires implementing the producer side of the protocol. The Viewer and all other consumers work automatically.

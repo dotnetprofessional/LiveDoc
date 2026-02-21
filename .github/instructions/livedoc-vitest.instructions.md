@@ -212,7 +212,7 @@ specification("Math Operations", () => {
 
 ### ruleOutline(title, fn)
 
-Data-driven rules with Examples table. Access data via `ctx.example`.
+Data-driven rules with Examples table. Access table data via `ctx.example`. Title values via `ctx.rule.values`/`ctx.rule.params`.
 
 ```typescript
 specification("Email Validation", () => {
@@ -227,11 +227,24 @@ specification("Email Validation", () => {
         const result = isValidEmail(ctx.example.email);
         expect(result).toBe(ctx.example.valid);
     });
+
+    // Title value extraction works in ruleOutline too
+    ruleOutline(`Discount of '10' percent applies to orders over '100' dollars
+        Examples:
+        | orderTotal | expectedDiscount |
+        |        150 |               15 |
+        |        200 |               20 |
+        `, (ctx) => {
+        const [discountPct, threshold] = ctx.rule.values; // From title: [10, 100]
+        const discount = ctx.example.orderTotal * (discountPct / 100); // From table
+        expect(discount).toBe(ctx.example.expectedDiscount);
+    });
 });
 ```
 
 - Examples table parsed from title (same format as scenarioOutline)
-- Access values via `ctx.example.columnName`
+- Access table values via `ctx.example.columnName`
+- Access title values via `ctx.rule.values`, `ctx.rule.params` (same as `rule`)
 - Supports `.skip()` and `.only()` modifiers
 
 ### Specification Context

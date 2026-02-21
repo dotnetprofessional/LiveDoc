@@ -349,6 +349,79 @@ specification("Rule Mixed Values and Params", () => {
 });
 
 // =============================================================================
+// RuleOutline Value Extraction Tests
+// =============================================================================
+
+specification("RuleOutline Value Extraction", () => {
+    ruleOutline(`Discount of '10' percent applies to orders over '100' dollars
+        Examples:
+        | orderTotal | expectedDiscount |
+        |        150 |               15 |
+        |        200 |               20 |
+        `, (ctx) => {
+        // Values from the ruleOutline title
+        const [discountPct, threshold] = ctx.rule.values;
+        expect(discountPct).toBe(10);
+        expect(threshold).toBe(100);
+
+        // Example data from the table
+        const discount = ctx.example.orderTotal * (discountPct / 100);
+        expect(discount).toBe(ctx.example.expectedDiscount);
+    });
+
+    ruleOutline(`Raw values are strings: '42' stays '42'
+        Examples:
+        | item |
+        | one  |
+        `, (ctx) => {
+        expect(ctx.rule.valuesRaw[0]).toBe("42");
+        expect(ctx.rule.valuesRaw[1]).toBe("42");
+        expect(typeof ctx.rule.valuesRaw[0]).toBe("string");
+    });
+});
+
+specification("RuleOutline Named Parameter Extraction", () => {
+    ruleOutline(`Applying <operation:multiply> with factor <factor:3>
+        Examples:
+        | input | expected |
+        |     5 |       15 |
+        |    10 |       30 |
+        `, (ctx) => {
+        expect(ctx.rule.params.operation).toBe("multiply");
+        expect(ctx.rule.params.factor).toBe(3);
+        expect(ctx.example.input * ctx.rule.params.factor).toBe(ctx.example.expected);
+    });
+
+    ruleOutline(`Raw params are strings: <count:42>
+        Examples:
+        | item |
+        | one  |
+        `, (ctx) => {
+        expect(ctx.rule.paramsRaw.count).toBe("42");
+        expect(typeof ctx.rule.paramsRaw.count).toBe("string");
+    });
+});
+
+specification("RuleOutline Mixed Values and Params", () => {
+    ruleOutline(`Adding <base:10> to '5' returns <expected:15>
+        Examples:
+        | multiplier | result |
+        |          1 |     15 |
+        |          2 |     30 |
+        `, (ctx) => {
+        // Quoted values from title
+        expect(ctx.rule.values.length).toBe(1);
+        expect(ctx.rule.values[0]).toBe(5);
+        // Named params from title
+        expect(ctx.rule.params.base).toBe(10);
+        expect(ctx.rule.params.expected).toBe(15);
+        // Example data from table
+        const result = (ctx.rule.params.base + ctx.rule.values[0]) * ctx.example.multiplier;
+        expect(result).toBe(ctx.example.result);
+    });
+});
+
+// =============================================================================
 // Error Handling Tests (using standard vitest for meta-testing)
 // =============================================================================
 

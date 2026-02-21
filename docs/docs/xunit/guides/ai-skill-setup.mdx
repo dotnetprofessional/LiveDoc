@@ -7,90 +7,52 @@ description: "Install the LiveDoc AI coding skill so your AI assistant writes co
 # AI Skill Setup
 
 <p className="intro">
-This guide shows you how to install the LiveDoc AI coding skill for your
-preferred AI tool. Once installed, your AI assistant will understand
-LiveDoc's BDD and Specification patterns — writing tests with correct
-attributes, value extraction, and self-documenting titles.
+LiveDoc ships with AI coding skills that teach your AI assistant how to write
+correct BDD and Specification tests. The skill files are bundled with the NuGet
+package — no extra tools to install.
 </p>
 
-:::info Prerequisites
-- .NET SDK 8.0+ installed
-- A dotnet tool manifest in your project (or willingness to create one)
-:::
+## One Command
 
-## Overview
-
-The LiveDoc AI skill is a set of instruction files that teach your AI
-coding assistant how to write LiveDoc xUnit tests correctly. The
-`SweDevTools.LiveDoc.Tool` CLI handles installation — placing the right
-files in the right locations for each supported AI tool.
-
----
-
-## Step 1: Install the CLI Tool
-
-If you don't already have a local tool manifest, create one:
+From your test project directory, run:
 
 ```bash
-dotnet new tool-manifest
+dotnet msbuild -t:LiveDocInstallSkills
 ```
 
-Then install the LiveDoc CLI tool:
+This installs skill files for **all supported AI tools** into your project. Commit them to share with your team.
+
+### Options
+
+Install for a specific tool only:
 
 ```bash
-dotnet tool install SweDevTools.LiveDoc.Tool
+dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot
 ```
 
----
-
-## Step 2: Install the Skill
-
-### Interactive Mode
-
-Run the installer without arguments for an interactive experience:
+Install to your home directory (personal, all projects):
 
 ```bash
-dotnet livedoc install-skill
-```
-
-The CLI will prompt you to:
-1. Select your AI tool (Copilot, Claude Code, Roo Code, Cursor, or Windsurf)
-2. Choose the scope (project or user)
-3. Confirm the installation path
-
-### Non-Interactive Mode
-
-Specify the tool and scope directly:
-
-```bash
-# Install for GitHub Copilot at project scope
-dotnet livedoc install-skill --tool copilot --scope project
-
-# Install for Claude Code at user scope
-dotnet livedoc install-skill --tool claude --scope user
-
-# Install for ALL supported tools at project scope
-dotnet livedoc install-skill --all
+dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocScope=user
 ```
 
 ---
 
 ## Supported AI Tools
 
-| AI Tool                      | CLI Key      | Project Scope | User Scope |
-| ---------------------------- | ------------ | :-----------: | :--------: |
-| GitHub Copilot (VS Code/CLI) | `copilot`    | ✅            | ✅          |
-| Claude Code                  | `claude`     | ✅            | ✅          |
-| Roo Code                     | `roo`        | ✅            | ✅          |
-| Cursor                       | `cursor`     | ✅            | —          |
-| Windsurf                     | `windsurf`   | ✅            | —          |
+| AI Tool                      | Project Scope | User Scope |
+| ---------------------------- | :-----------: | :--------: |
+| GitHub Copilot (VS Code/CLI) | ✅            | ✅          |
+| Claude Code                  | ✅            | ✅          |
+| Roo Code                     | ✅            | ✅          |
+| Cursor                       | ✅            | —          |
+| Windsurf                     | ✅            | —          |
 
 :::tip
-**Project scope** installs the skill files in your repository (committed
-to source control). Every developer on the team benefits automatically.
+**Project scope** installs skill files in your repository. Commit them and
+every developer on the team benefits automatically.
 
-**User scope** installs to your home directory. Use this when you want
-the skill available across all your projects.
+**User scope** installs to your home directory — available across all your projects.
 :::
 
 ---
@@ -101,11 +63,27 @@ The installer places skill instruction files in tool-specific locations:
 
 | AI Tool         | Project Scope Location                      | User Scope Location              |
 | --------------- | ------------------------------------------- | -------------------------------- |
-| GitHub Copilot  | `.github/instructions/`                     | `~/.github/instructions/`       |
-| Claude Code     | `.claude/`                                  | `~/.claude/`                     |
-| Roo Code        | `.roo/`                                     | `~/.roo/`                        |
-| Cursor          | `.cursor/rules/`                            | —                                |
-| Windsurf        | `.windsurf/rules/`                          | —                                |
+| GitHub Copilot  | `.github/skills/livedoc-xunit/`             | `~/.copilot/skills/livedoc-xunit/` |
+| Claude Code     | `.claude/skills/livedoc-xunit/`             | `~/.claude/skills/livedoc-xunit/`  |
+| Roo Code        | `.roo/skills/livedoc-xunit/`                | `~/.roo/skills/livedoc-xunit/`     |
+| Cursor          | `.cursor/rules/livedoc-xunit/`              | —                                |
+| Windsurf        | `.windsurf/rules/livedoc-xunit/`            | —                                |
+
+### Manual Fallback
+
+If the MSBuild target doesn't work in your environment, you can copy the files manually.
+The skill files are bundled in the NuGet package under `tools/skills/`. Find them in your
+NuGet cache:
+
+```bash
+# Typical locations:
+~/.nuget/packages/swedevtools.livedoc.xunit/<version>/tools/skills/
+# Or on Windows:
+%USERPROFILE%\.nuget\packages\swedevtools.livedoc.xunit\<version>\tools\skills\
+```
+
+Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`) to the appropriate directory
+from the table above.
 
 ---
 
@@ -116,7 +94,7 @@ Once installed, your AI assistant will:
 - **Choose the correct base class** — `FeatureTest` for BDD, `SpecificationTest` for MSpec patterns
 - **Use correct attributes** — `[Feature]`/`[Scenario]`/`[ScenarioOutline]` or `[Specification]`/`[Rule]`/`[RuleOutline]`
 - **Write self-documenting tests** — all inputs and expected outputs embedded in step titles
-- **Extract values correctly** — using `ctx.Step.Values`, `ctx.Step.Params`, or method parameters instead of hardcoding
+- **Extract values correctly** — using `ctx.Step.Values`, `Rule.Values`, `Rule.Params`, or method parameters
 - **Include descriptions** — adding `Description` to container attributes for context
 - **Organize namespaces** — structuring tests for clean viewer hierarchy
 
@@ -168,8 +146,7 @@ public class ShippingCostsTests : FeatureTest
 
 ## Verifying the Installation
 
-After installing, ask your AI assistant to write a LiveDoc test. It
-should:
+After installing, ask your AI assistant to write a LiveDoc test. It should:
 
 - [ ] Inherit from `FeatureTest` or `SpecificationTest`
 - [ ] Use `[Feature]`/`[Scenario]` or `[Specification]`/`[Rule]` attributes
