@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 import { program } from 'commander';
+import { readFileSync } from 'node:fs';
 import { startServer } from './server/index.js';
+
+const packageJsonUrl = new URL('../package.json', import.meta.url);
+const packageJson = JSON.parse(readFileSync(packageJsonUrl, 'utf8')) as { version: string };
 
 program
   .name('livedoc-viewer')
   .description('LiveDoc BDD Test Results Viewer - Real-time test visualization')
-  .version('1.0.0')
+  .version(packageJson.version)
   .option('-p, --port <port>', 'Port to run server on', '3100')
   .option('-H, --host <host>', 'Host to bind to', 'localhost')
   .option('--no-open', 'Do not open browser automatically')

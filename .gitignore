@@ -12,6 +12,7 @@ npm-debug.log
 /releases
 /mochawesome-reports
 _temp
+.tmp/**/*
 
 # pnpm
 .pnpm-store

@@ -54,7 +54,7 @@ public class LiveDocTestFrameworkExecutor : XunitTestFrameworkExecutor
             DiagnosticMessageSink,
             liveDocSink,
             executionOptions);
-        
+
         await assemblyRunner.RunAsync();
 
         // Try to flush here first — has more time than ProcessExit handler
@@ -124,6 +124,7 @@ public class LiveDocMessageSink : IMessageSink
                 ReportTestResult(skipped.Test, Reporter.Models.Status.Skipped, 0, 
                     new Reporter.Models.ErrorInfo { Message = skipped.Reason });
                 break;
+
         }
     }
 
@@ -189,7 +190,7 @@ public class LiveDocMessageSink : IMessageSink
 
                 _reporter.BufferOutlineExample(testCaseId, testId, kind, templateTitle, rowId, parameters, args);
                 _reporter.AddOutlineExampleResult(testId, rowId, testId, status, durationMs, error);
-                _reporter.RecordResult(status);
+                _reporter.RecordResult(status, testCaseId);
             }
             else
             {
@@ -200,7 +201,7 @@ public class LiveDocMessageSink : IMessageSink
 
                 _reporter.BufferTest(testCaseId, testId, kind, testTitle);
                 _reporter.UpdateTestExecution(testId, status, durationMs, error);
-                _reporter.RecordResult(status);
+                _reporter.RecordResult(status, testCaseId);
             }
         }
         else
@@ -214,7 +215,7 @@ public class LiveDocMessageSink : IMessageSink
                 FormatTestCaseTitle(className), path: path);
             _reporter.BufferTest(testCaseId, testId, "Test", displayName);
             _reporter.UpdateTestExecution(testId, status, durationMs, error);
-            _reporter.RecordResult(status);
+            _reporter.RecordResult(status, testCaseId);
         }
     }
 

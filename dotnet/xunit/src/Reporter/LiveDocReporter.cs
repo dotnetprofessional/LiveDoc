@@ -45,6 +45,7 @@ public class LiveDocReporter : IDisposable
             MaxConnectionsPerServer = 50,
             ConnectTimeout = TimeSpan.FromSeconds(5)
         });
+        _client.Timeout = TimeSpan.FromMinutes(5);
         
         if (_config.IsEnabled)
         {
@@ -82,6 +83,9 @@ public class LiveDocReporter : IDisposable
     {
         if (!_config.IsEnabled)
             return null;
+
+        if (_runId != null)
+            return _runId;
 
         try
         {
@@ -146,28 +150,38 @@ public class LiveDocReporter : IDisposable
     /// Upserts multiple test cases in a single batch request, optionally completing the run.
     /// Combines batch + complete into one HTTP call to fit within ProcessExit timeout.
     /// </summary>
-    public async Task UpsertTestCasesBatchAsync(
+    public async Task<bool> UpsertTestCasesBatchAsync(
         IEnumerable<TestCase> testCases, 
         CompleteRunRequest? complete = null,
         CancellationToken cancellationToken = default)
     {
         if (!_config.IsEnabled || _runId == null)
-            return;
+            return false;
 
         try
         {
+            var payload = testCases.ToList();
             var request = complete != null
-                ? (object)new { testCases = testCases.ToList(), complete }
-                : new { testCases = testCases.ToList() };
+                ? (object)new { testCases = payload, complete }
+                : new { testCases = payload };
             var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
             var content = new ByteArrayContent(json);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
             var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v3/runs/{_runId}/testcases/batch") { Content = content };
-            await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var response = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                LogWarning($"Failed to batch upsert test cases: {response.StatusCode}");
+                return false;
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
             LogWarning($"Failed to batch upsert test cases: {ex.Message}");
+            return false;
         }
     }
 
@@ -299,7 +313,16 @@ public class LiveDocReporter : IDisposable
     /// </summary>
     protected virtual void LogWarning(string message)
     {
-        System.Diagnostics.Debug.WriteLine($"[LiveDoc] Warning: {message}");
+        var line = $"[LiveDoc] Warning: {message}";
+        System.Diagnostics.Debug.WriteLine(line);
+        try
+        {
+            Console.Error.WriteLine(line);
+        }
+        catch
+        {
+            // Ignore console logging failures.
+        }
     }
 
     public void Dispose()

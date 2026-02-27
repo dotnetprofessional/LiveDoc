@@ -137,6 +137,45 @@ function generateSvg(parsedLines, title) {
         return `    <text x="${PAD_X}" y="${y}" font-family="${FONT}" font-size="${FONT_SIZE}"${tl}>${renderSegments(line.segments)}</text>`;
     }).join('\n');
 
+    // Draw vertical connector lines behind text to bridge inter-row gaps in │
+    const vertChars = new Set('│┬┴┼├┤┌┐└┘');
+    const tableGroups = [];
+    let grp = null;
+    parsedLines.forEach((line, i) => {
+        if (hasBoxChars(line.plainText)) {
+            if (!grp) grp = { start: i, end: i };
+            else grp.end = i;
+        } else {
+            if (grp) { tableGroups.push(grp); grp = null; }
+        }
+    });
+    if (grp) tableGroups.push(grp);
+
+    const connectors = [];
+    for (const g of tableGroups) {
+        if (g.end - g.start < 1) continue;
+        // Collect all character positions with vertical box-drawing chars
+        const pipePos = new Set();
+        for (let r = g.start; r <= g.end; r++) {
+            const text = parsedLines[r].plainText;
+            for (let j = 0; j < text.length; j++) {
+                if (vertChars.has(text[j])) pipePos.add(j);
+            }
+        }
+        // Span precisely from first row glyph top to last row glyph bottom
+        const firstBaseline = TITLE_H + PAD_Y + (g.start + 1) * LINE_H;
+        const lastBaseline = TITLE_H + PAD_Y + (g.end + 1) * LINE_H;
+        const topY = firstBaseline - FONT_SIZE * 0.72;
+        const bottomY = lastBaseline + FONT_SIZE * 0.18;
+        for (const p of pipePos) {
+            const cx = PAD_X + (p + 0.5) * CHAR_W;
+            connectors.push(
+                `    <line x1="${cx.toFixed(1)}" y1="${topY.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${bottomY.toFixed(1)}" stroke="${ANSI_MAP[90]}" stroke-width="1"/>`
+            );
+        }
+    }
+    const connectorEls = connectors.length ? '\n' + connectors.join('\n') : '';
+
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs><style>text{white-space:pre;}</style></defs>
   <rect width="${width}" height="${height}" rx="10" fill="${BG}" stroke="${BORDER_COLOR}" stroke-width="1"/>
@@ -145,7 +184,7 @@ function generateSvg(parsedLines, title) {
   <circle cx="18" cy="18" r="6" fill="#f38ba8"/>
   <circle cx="38" cy="18" r="6" fill="#f9e2af"/>
   <circle cx="58" cy="18" r="6" fill="#a6e3a1"/>
-  <text x="${width / 2}" y="22" font-family="'SF Pro','Segoe UI',system-ui,sans-serif" font-size="12" fill="${GRAY}" text-anchor="middle">${escapeXml(title)}</text>
+  <text x="${width / 2}" y="22" font-family="'SF Pro','Segoe UI',system-ui,sans-serif" font-size="12" fill="${GRAY}" text-anchor="middle">${escapeXml(title)}</text>${connectorEls}
 ${textEls}
 </svg>`;
 }
@@ -195,15 +234,16 @@ function findSummaryTable(lines) {
 // ============================================================
 console.log('Generating terminal SVG screenshots...\n');
 
-// 1. vitest-first-run.svg — BDD steps only (no summary table)
-const bdd = loadRawFile('raw-bdd-output.txt');
-if (bdd) {
-    const si = findSummaryTable(bdd);
-    const cut = si > 2 ? si - 2 : bdd.length;
-    saveSvg('vitest-first-run.svg', bdd.slice(0, cut), 'npx vitest run');
+// 1. vitest-first-run.svg — Calculator only (matches getting-started.mdx)
+const calc = loadRawFile('raw-calculator-output.txt');
+if (calc) {
+    const si = findSummaryTable(calc);
+    const cut = si > 2 ? si - 2 : calc.length;
+    saveSvg('vitest-first-run.svg', calc.slice(0, cut), 'npx vitest run');
 }
 
-// 2. terminal-output-hero.svg — Full BDD with summary table
+// 2. terminal-output-hero.svg — Full BDD with summary table (ATM + Calculator)
+const bdd = loadRawFile('raw-bdd-output.txt');
 if (bdd) {
     saveSvg('terminal-output-hero.svg', bdd, 'npx vitest run — LiveDoc BDD Output');
 }
@@ -214,11 +254,6 @@ if (spec) {
     const si = findSummaryTable(spec);
     const cut = si > 2 ? si - 2 : spec.length;
     saveSvg('reporter-spec-output.svg', spec.slice(0, Math.min(cut, 70)), 'LiveDocSpecReporter — spec+summary+headers');
-}
-
-// 4. vitest-spec-output.svg — Full spec output
-if (spec) {
-    saveSvg('vitest-spec-output.svg', spec.slice(0, 80), 'LiveDocSpecReporter — Specification Pattern');
 }
 
 // 5. reporter-detail-list.svg
@@ -241,13 +276,19 @@ if (tutorial) {
     saveSvg('vitest-tutorial-output.svg', clean.slice(0, 70), 'npx vitest run — Tutorial: Beautiful Tea Shipping Costs');
 }
 
-// 8. vitest-feature-output.svg
-const feature = loadRawFile('raw-feature-output.txt');
-if (feature) {
-    saveSvg('vitest-feature-output.svg', feature, 'npx vitest run — Feature Test');
+// 8. vitest-feature-output.svg — User Auth (matches your-first-feature.mdx)
+const userAuth = loadRawFile('raw-userauth-output.txt');
+if (userAuth) {
+    saveSvg('vitest-feature-output.svg', userAuth, 'npx vitest run — User Authentication');
 }
 
-// 9. vitest-scenario-outline.svg
+// 9. vitest-spec-output.svg — Password Validation (matches your-first-spec.mdx)
+const password = loadRawFile('raw-password-output.txt');
+if (password) {
+    saveSvg('vitest-spec-output.svg', password, 'npx vitest run — Password Validation');
+}
+
+// 10. vitest-scenario-outline.svg
 if (tutorial) {
     const ex3 = tutorial.findIndex(l => /Example:\s*3/.test(l.plainText));
     const outline = ex3 > 0 ? tutorial.slice(0, ex3) : tutorial.slice(0, 50);

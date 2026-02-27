@@ -1,6 +1,6 @@
 {
   "name": "@swedevtools/livedoc-viewer",
-  "version": "1.0.0",
+  "version": "0.0.3",
   "description": "LiveDoc BDD Test Results Viewer - Real-time test visualization",
   "author": "Garry McGlennon",
   "license": "MIT",
@@ -32,11 +32,12 @@
     "start": "node dist/server/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json",
     "clean": "rimraf dist",
-    "pack:local": "pnpm pack"
+    "pack:local": "pnpm pack --config.node-linker=hoisted"
   },
   "dependencies": {
     "@swedevtools/livedoc-schema": "^1.0.0",
     "@swedevtools/livedoc-server": "^1.0.0",
+    "@hono/node-server": "^1.19.7",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -50,6 +51,7 @@
     "clsx": "^2.1.1",
     "commander": "^12.1.0",
     "framer-motion": "^12.23.26",
+    "hono": "^4.11.1",
     "lucide-react": "^0.330.0",
     "open": "^10.2.0",
     "react": "^19.2.3",
@@ -58,6 +60,8 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "ws": "^8.18.3",
+    "zod": "^3.24.3",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
@@ -76,6 +80,36 @@
   },
   "files": [
     "dist"
+  ],
+  "bundleDependencies": [
+    "@swedevtools/livedoc-schema",
+    "@swedevtools/livedoc-server",
+    "@hono/node-server",
+    "@radix-ui/react-collapsible",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-progress",
+    "@radix-ui/react-scroll-area",
+    "@radix-ui/react-separator",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-tooltip",
+    "class-variance-authority",
+    "clsx",
+    "commander",
+    "framer-motion",
+    "hono",
+    "lucide-react",
+    "open",
+    "react",
+    "react-dom",
+    "react-markdown",
+    "remark-gfm",
+    "tailwind-merge",
+    "tailwindcss-animate",
+    "ws",
+    "zod",
+    "zustand"
   ],
   "keywords": [
     "livedoc",

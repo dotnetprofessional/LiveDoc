@@ -138,3 +138,12 @@ export function renderTitle(text: string, highlightValues?: Record<string, strin
 
   return text;
 }
+
+export function stripLeadingKindLabel(text: string, kindLabel: string): string {
+  const title = String(text ?? '');
+  const label = String(kindLabel ?? '').trim();
+  if (!label) return title;
+
+  const pattern = new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*`, 'i');
+  return title.replace(pattern, '');
+}

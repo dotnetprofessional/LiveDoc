@@ -810,7 +810,7 @@ public class LiveDocContext : IDisposable
                         _outlineId, _outlineRowId, _outlineId,
                         finalStatus, durationMs, error);
                 }
-                _runReporter.RecordResult(finalStatus);
+                _runReporter.RecordResult(finalStatus, _testCaseId);
             }
             else if (_scenarioId != null)
             {
@@ -819,7 +819,7 @@ public class LiveDocContext : IDisposable
                     _runReporter.SetTestSteps(_scenarioId, reportedSteps);
 
                 _runReporter.UpdateTestExecution(_scenarioId, finalStatus, durationMs, error);
-                _runReporter.RecordResult(finalStatus);
+                _runReporter.RecordResult(finalStatus, _testCaseId);
             }
         }
     }

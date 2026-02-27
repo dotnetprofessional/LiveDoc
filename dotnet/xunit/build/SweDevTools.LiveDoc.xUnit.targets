@@ -1,5 +1,16 @@
 <Project>
   <!--
+    LiveDoc test logger: register the logger DLL so VSTest discovers it.
+    Usage: dotnet test ~~logger LiveDoc
+  -->
+  <PropertyGroup>
+    <_LiveDocLoggerDir>$(MSBuildThisFileDirectory)net8.0\</_LiveDocLoggerDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <VSTestTestAdaptersPaths Include="$(_LiveDocLoggerDir)" />
+  </ItemGroup>
+
+  <!--
     LiveDoc AI Skill Installer.
     Invoked explicitly: dotnet msbuild -t:LiveDoc
     NOT run during normal builds.

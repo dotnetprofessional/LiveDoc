@@ -31,6 +31,74 @@ $pkgJson = Get-Content (Join-Path $viewerDir 'package.json') -Raw | ConvertFrom-
 $packageName = $pkgJson.name
 $version = $pkgJson.version
 
+function Ensure-RuntimeDepsPresent {
+    param(
+        [string]$ViewerDir,
+        [object]$PkgJson
+    )
+
+    $depsToBundle = @('commander', 'hono', '@hono/node-server', 'ws', 'zod', 'open')
+    $missing = @()
+
+    foreach ($dep in $depsToBundle) {
+        $relative = "node_modules\" + $dep.Replace('/', '\')
+        $depPath = Join-Path $ViewerDir $relative
+        $manifestPath = Join-Path $depPath 'package.json'
+        if (-not (Test-Path $manifestPath)) {
+            $missing += $dep
+        }
+    }
+
+    if ($missing.Count -eq 0) {
+        return
+    }
+
+    Write-Host "`n→ Materializing runtime deps for bundling..." -ForegroundColor White
+    $stageDir = Join-Path ([System.IO.Path]::GetTempPath()) 'livedoc-viewer-pack-runtime-deps'
+    if (Test-Path $stageDir) {
+        Remove-Item -Path $stageDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+    $installArgs = @('install', '--prefix', $stageDir, '--no-package-lock', '--no-audit', '--fund', 'false')
+    foreach ($dep in $missing) {
+        $depVersion = $PkgJson.dependencies.PSObject.Properties[$dep].Value
+        if (-not $depVersion) {
+            throw "Dependency '$dep' is missing from $($PkgJson.name) dependencies."
+        }
+        $installArgs += "$dep@$depVersion"
+    }
+
+    & npm @installArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "npm install failed when materializing runtime dependencies."
+    }
+
+    foreach ($dep in $missing) {
+        $relative = "node_modules\" + $dep.Replace('/', '\')
+        $src = Join-Path $stageDir $relative
+        $dest = Join-Path $ViewerDir $relative
+
+        if (-not (Test-Path $src)) {
+            throw "Expected dependency folder not found: $src"
+        }
+
+        $destParent = Split-Path -Path $dest -Parent
+        if (-not (Test-Path $destParent)) {
+            New-Item -ItemType Directory -Path $destParent -Force | Out-Null
+        }
+
+        if (Test-Path $dest) {
+            Remove-Item -Path $dest -Recurse -Force
+        }
+
+        Copy-Item -Path $src -Destination $dest -Recurse -Force
+        Write-Host "  ✓ hydrated $dep" -ForegroundColor Green
+    }
+
+    Remove-Item -Path $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host ""
 Write-Host "══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  Packing: $packageName@$version" -ForegroundColor Cyan
@@ -46,7 +114,8 @@ if (-not (Test-Path $outputDir)) {
 Write-Host "`n→ Creating npm tarball..." -ForegroundColor White
 Push-Location $viewerDir
 try {
-    pnpm pack
+    Ensure-RuntimeDepsPresent -ViewerDir $viewerDir -PkgJson $pkgJson
+    pnpm pack --config.node-linker=hoisted
     if ($LASTEXITCODE -ne 0) {
         throw "pnpm pack failed"
     }

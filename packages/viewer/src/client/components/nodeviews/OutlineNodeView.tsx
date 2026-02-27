@@ -3,7 +3,7 @@ import { CheckCircle2, HelpCircle, Layers, XCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../../lib/utils';
-import { renderTitle } from '../../lib/title-utils';
+import { renderTitle, stripLeadingKindLabel } from '../../lib/title-utils';
 import { Markdown } from '../Markdown';
 import { StepList } from '../StepList';
 import { Card, CardContent, CardHeader } from '../ui/card';
@@ -231,7 +231,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     <div className="space-y-2">
       <ScenarioBlock
         label={label}
-        title={renderTitle(String(node.title ?? ''), selectedValues)}
+        title={renderTitle(stripLeadingKindLabel(String(node.title ?? ''), label), selectedValues)}
         status={(node as any).execution?.status as Status | undefined}
         description={node.description}
         tags={node.tags}

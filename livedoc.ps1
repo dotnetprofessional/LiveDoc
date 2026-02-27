@@ -735,7 +735,7 @@ foreach ($p in $packages) {
                 Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('build', $dotnetSlnLocal)
             }.GetNewClosure())),
             (New-MenuItem -Label 'Test' -HotKey '2' -Action ({
-                Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal)
+                Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal, '--logger', 'LiveDoc')
             }.GetNewClosure())),
             (New-MenuItem -Label 'Test (with Viewer)' -HotKey '3' -Action ({
                 $serverUrl = 'http://localhost:19275'
@@ -746,7 +746,7 @@ foreach ($p in $packages) {
                 $env:LIVEDOC_PROJECT = 'LiveDoc.xUnit'
                 $env:LIVEDOC_ENVIRONMENT = 'local'
                 try {
-                    Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal)
+                    Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal, '--logger', 'LiveDoc')
                 } finally {
                     Remove-Item Env:\LIVEDOC_SERVER_URL -ErrorAction SilentlyContinue
                     Remove-Item Env:\LIVEDOC_PROJECT -ErrorAction SilentlyContinue

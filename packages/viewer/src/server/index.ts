@@ -8,12 +8,32 @@ import { createServer, type LiveDocServer } from '@swedevtools/livedoc-server';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promises as fs } from 'fs';
+import { spawn } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Static file directory (built React app)
 function getStaticDir(): string {
   return path.resolve(__dirname, '../client');
+}
+
+function openBrowser(url: string): void {
+  const command =
+    process.platform === 'win32'
+      ? { cmd: process.env.ComSpec ?? 'cmd.exe', args: ['/c', 'start', '', url] }
+      : process.platform === 'darwin'
+        ? { cmd: 'open', args: [url] }
+        : { cmd: 'xdg-open', args: [url] };
+
+  const child = spawn(command.cmd, command.args, {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  child.on('error', (error) => {
+    console.warn(`Unable to open browser automatically: ${error.message}`);
+  });
+  child.unref();
 }
 
 export interface ViewerServerOptions {
@@ -126,8 +146,7 @@ export async function startViewerServer(options: ViewerServerOptions = {}) {
 `);
   
   if (options.open) {
-    const open = await import('open');
-    await open.default(`http://${host}:${actualPort}`);
+    openBrowser(`http://${host}:${actualPort}`);
   }
   
   // Graceful shutdown handler

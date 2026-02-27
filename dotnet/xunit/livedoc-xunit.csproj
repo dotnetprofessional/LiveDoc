@@ -9,7 +9,7 @@
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
-    <Version>0.1.4-beta1</Version>
+    <Version>0.1.7-beta1</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -35,6 +35,9 @@
     <Compile Remove="tests\**" />
     <EmbeddedResource Remove="tests\**" />
     <None Remove="tests\**" />
+    <Compile Remove="logger\**" />
+    <EmbeddedResource Remove="logger\**" />
+    <None Remove="logger\**" />
   </ItemGroup>
 
   <!-- Include readme.txt and MSBuild targets in the NuGet package -->
@@ -48,6 +51,12 @@
     <None Include="tools\skills\**\*" Pack="true" PackagePath="tools\skills\" />
     <None Include="tools\livedoc-setup.ps1" Pack="true" PackagePath="tools\" />
     <None Include="tools\livedoc-setup.sh" Pack="true" PackagePath="tools\" />
+  </ItemGroup>
+
+  <!-- Bundle the console logger DLL so VSTest can discover it -->
+  <ItemGroup>
+    <None Include="logger\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
+          Pack="true" PackagePath="build\net8.0\" />
   </ItemGroup>
 
 </Project>

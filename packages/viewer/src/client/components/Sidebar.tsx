@@ -168,13 +168,18 @@ export function Sidebar() {
   const navTreeForSidebar = React.useMemo(() => {
     // The nav-tree builder always returns a synthetic Root group (group:/) so
     // root-level documents (no path segments) still have a place to live.
-    // For the Explorer-like sidebar UX, keep Root visible (so users can open it)
-    // while also showing its descendants at the same level (no mandatory expand).
+    // For the Explorer-like sidebar UX:
+    // - hide Root when it has no direct containers
+    // - otherwise keep Root visible while also showing descendants at the same level
+    //   (no mandatory expand).
     const maybeRoot = navTree.length === 1 && navTree[0]?.kind === 'Group' && navTree[0]?.id === 'group:/'
       ? navTree[0]
       : undefined;
 
     if (!maybeRoot) return navTree;
+
+    const hasRootLevelContainers = maybeRoot.children.some((child) => child.kind !== 'Group');
+    if (!hasRootLevelContainers) return maybeRoot.children;
 
     return [maybeRoot, ...maybeRoot.children];
   }, [navTree]);

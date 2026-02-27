@@ -32,6 +32,8 @@ public class LiveDocTestRunReporter : IDisposable
     private int _passedCount;
     private int _failedCount;
     private int _skippedCount;
+    private const int BatchChunkSize = 25;
+    private readonly SemaphoreSlim _runStartLock = new(1, 1);
 
     /// <summary>
     /// Gets the singleton instance.
@@ -80,6 +82,9 @@ public class LiveDocTestRunReporter : IDisposable
             }
             else
             {
+                if (!HasBufferedResults())
+                    return;
+
                 _flushTask = FlushCoreAsync();
                 task = _flushTask;
             }
@@ -105,6 +110,9 @@ public class LiveDocTestRunReporter : IDisposable
             }
             else
             {
+                if (!HasBufferedResults())
+                    return;
+
                 _flushTask = FlushCoreAsync();
                 task = _flushTask;
             }
@@ -112,80 +120,148 @@ public class LiveDocTestRunReporter : IDisposable
         await task;
     }
 
+    private bool HasBufferedResults()
+    {
+        return _reporter.RunId != null
+            || !_testCases.IsEmpty
+            || !_tests.IsEmpty
+            || _totalCount > 0;
+    }
+
+    private async Task<string?> EnsureRunStartedAsync()
+    {
+        if (!_reporter.IsEnabled)
+            return null;
+
+        if (_reporter.RunId != null)
+            return _reporter.RunId;
+
+        await _runStartLock.WaitAsync();
+        try
+        {
+            if (_reporter.RunId != null)
+                return _reporter.RunId;
+
+            return await _reporter.StartRunAsync();
+        }
+        finally
+        {
+            _runStartLock.Release();
+        }
+    }
+
+    private TestCase BuildTestCasePayload(TestCase testCase)
+    {
+        // Gather tests belonging to this test case
+        var testsForCase = _testToTestCase
+            .Where(t => t.Value == testCase.Id)
+            .Select(t => _tests.TryGetValue(t.Key, out var test) ? test : null)
+            .Where(t => t != null)
+            .ToList();
+
+        testCase.Tests = testsForCase!;
+
+        // Finalize outline stats from their exampleResults before sending
+        foreach (var test in testsForCase)
+        {
+            if (test is ScenarioOutlineTest sot)
+                FinalizeOutlineStats(sot.Statistics, sot.ExampleResults, sot.Execution);
+            else if (test is RuleOutlineTest rot)
+                FinalizeOutlineStats(rot.Statistics, rot.ExampleResults, rot.Execution);
+        }
+
+        // Compute test case statistics
+        int totalTests = 0, passed = 0, failed = 0, skipped = 0, pending = 0;
+        foreach (var test in testsForCase)
+        {
+            if (test is ScenarioOutlineTest outline)
+            {
+                totalTests += outline.Statistics.Total;
+                passed += outline.Statistics.Passed;
+                failed += outline.Statistics.Failed;
+                skipped += outline.Statistics.Skipped;
+                pending += outline.Statistics.Pending;
+            }
+            else if (test is RuleOutlineTest ruleOutline)
+            {
+                totalTests += ruleOutline.Statistics.Total;
+                passed += ruleOutline.Statistics.Passed;
+                failed += ruleOutline.Statistics.Failed;
+                skipped += ruleOutline.Statistics.Skipped;
+                pending += ruleOutline.Statistics.Pending;
+            }
+            else
+            {
+                totalTests++;
+                var s = test!.Execution.Status;
+                if (s == Models.Status.Passed) passed++;
+                else if (s == Models.Status.Failed) failed++;
+                else if (s == Models.Status.Skipped) skipped++;
+                else pending++;
+            }
+        }
+
+        testCase.Statistics = new Statistics
+        {
+            Total = totalTests,
+            Passed = passed,
+            Failed = failed,
+            Skipped = skipped,
+            Pending = pending
+        };
+
+        return testCase;
+    }
+
+    private void PublishTestCaseRealtime(string testCaseId)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var runId = await EnsureRunStartedAsync();
+                if (runId == null) return;
+
+                if (!_testCases.TryGetValue(testCaseId, out var testCase))
+                    return;
+
+                var payload = BuildTestCasePayload(testCase);
+                await _reporter.UpsertTestCaseAsync(payload);
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    Console.Error.WriteLine($"[LiveDoc] Warning: Realtime testcase upsert failed: {ex.Message}");
+                }
+                catch
+                {
+                    // Ignore logging failures.
+                }
+            }
+        });
+    }
+
     private async Task FlushCoreAsync()
     {
         try
         {
             // Start the run
-            var runId = await _reporter.StartRunAsync();
+            var runId = await EnsureRunStartedAsync();
             if (runId == null)
+            {
+                lock (_flushLock)
+                {
+                    _flushTask = null;
+                }
                 return;
+            }
 
             // Prepare all test cases with their accumulated tests
             var upsertPayloads = new List<TestCase>();
             foreach (var kvp in _testCases)
             {
-                var testCase = kvp.Value;
-
-                // Gather tests belonging to this test case
-                var testsForCase = _testToTestCase
-                    .Where(t => t.Value == testCase.Id)
-                    .Select(t => _tests.TryGetValue(t.Key, out var test) ? test : null)
-                    .Where(t => t != null)
-                    .ToList();
-
-                testCase.Tests = testsForCase!;
-
-                // Finalize outline stats from their exampleResults before sending
-                foreach (var test in testsForCase)
-                {
-                    if (test is ScenarioOutlineTest sot)
-                        FinalizeOutlineStats(sot.Statistics, sot.ExampleResults, sot.Execution);
-                    else if (test is RuleOutlineTest rot)
-                        FinalizeOutlineStats(rot.Statistics, rot.ExampleResults, rot.Execution);
-                }
-
-                // Compute test case statistics
-                int totalTests = 0, passed = 0, failed = 0, skipped = 0, pending = 0;
-                foreach (var test in testsForCase)
-                {
-                    if (test is ScenarioOutlineTest outline)
-                    {
-                        totalTests += outline.Statistics.Total;
-                        passed += outline.Statistics.Passed;
-                        failed += outline.Statistics.Failed;
-                        skipped += outline.Statistics.Skipped;
-                        pending += outline.Statistics.Pending;
-                    }
-                    else if (test is RuleOutlineTest ruleOutline)
-                    {
-                        totalTests += ruleOutline.Statistics.Total;
-                        passed += ruleOutline.Statistics.Passed;
-                        failed += ruleOutline.Statistics.Failed;
-                        skipped += ruleOutline.Statistics.Skipped;
-                        pending += ruleOutline.Statistics.Pending;
-                    }
-                    else
-                    {
-                        totalTests++;
-                        var s = test!.Execution.Status;
-                        if (s == Models.Status.Passed) passed++;
-                        else if (s == Models.Status.Failed) failed++;
-                        else if (s == Models.Status.Skipped) skipped++;
-                        else pending++;
-                    }
-                }
-
-                testCase.Statistics = new Statistics
-                {
-                    Total = totalTests,
-                    Passed = passed,
-                    Failed = failed,
-                    Skipped = skipped,
-                    Pending = pending
-                };
-
-                upsertPayloads.Add(testCase);
+                upsertPayloads.Add(BuildTestCasePayload(kvp.Value));
             }
 
             // Send all test cases AND complete the run in a single HTTP request
@@ -206,11 +282,61 @@ public class LiveDocTestRunReporter : IDisposable
                 Summary = summary
             };
 
-            await _reporter.UpsertTestCasesBatchAsync(upsertPayloads, complete);
+            if (upsertPayloads.Count == 0)
+            {
+                var completed = await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
+                if (!completed)
+                {
+                    await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
+                }
+                return;
+            }
+
+            var allBatchRequestsSucceeded = true;
+            for (int i = 0; i < upsertPayloads.Count; i += BatchChunkSize)
+            {
+                var chunk = upsertPayloads.Skip(i).Take(BatchChunkSize).ToList();
+                var isLastChunk = i + BatchChunkSize >= upsertPayloads.Count;
+                var chunkComplete = isLastChunk ? complete : null;
+
+                var chunkOk = await _reporter.UpsertTestCasesBatchAsync(chunk, chunkComplete);
+                if (!chunkOk)
+                {
+                    allBatchRequestsSucceeded = false;
+                    break;
+                }
+            }
+
+            if (!allBatchRequestsSucceeded)
+            {
+                // Fallback to per-testcase upserts to salvage partial failures caused by payload size/shape.
+                foreach (var testCase in upsertPayloads)
+                {
+                    await _reporter.UpsertTestCaseAsync(testCase);
+                }
+
+                var completed = await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
+                if (!completed)
+                {
+                    await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
+                }
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // Don't let reporting errors affect test exit
+            try
+            {
+                Console.Error.WriteLine($"[LiveDoc] Warning: Failed to flush and complete run: {ex.Message}");
+            }
+            catch
+            {
+                // Ignore logging failures.
+            }
+
+            lock (_flushLock)
+            {
+                _flushTask = null;
+            }
         }
     }
 
@@ -483,7 +609,7 @@ public class LiveDocTestRunReporter : IDisposable
     /// <summary>
     /// Records a test result for run summary statistics.
     /// </summary>
-    public void RecordResult(Models.Status status)
+    public void RecordResult(Models.Status status, string? testCaseId = null)
     {
         Interlocked.Increment(ref _totalCount);
         switch (status)
@@ -497,6 +623,11 @@ public class LiveDocTestRunReporter : IDisposable
             case Models.Status.Skipped:
                 Interlocked.Increment(ref _skippedCount);
                 break;
+        }
+
+        if (!string.IsNullOrWhiteSpace(testCaseId))
+        {
+            PublishTestCaseRealtime(testCaseId);
         }
     }
 
@@ -560,10 +691,25 @@ public class LiveDocTestRunReporter : IDisposable
     /// </summary>
     public static string DerivePathFromNames(string fullClassName, string assemblyName)
     {
-        // Strip assembly prefix
-        var relativeName = fullClassName.StartsWith(assemblyName + ".", StringComparison.Ordinal)
-            ? fullClassName.Substring(assemblyName.Length + 1)
-            : fullClassName;
+        var relativeName = fullClassName;
+
+        if (!string.IsNullOrWhiteSpace(assemblyName))
+        {
+            var marker = assemblyName + ".";
+
+            if (relativeName.StartsWith(marker, StringComparison.Ordinal))
+            {
+                relativeName = relativeName.Substring(marker.Length);
+            }
+            else
+            {
+                var markerIndex = relativeName.IndexOf(marker, StringComparison.Ordinal);
+                if (markerIndex >= 0)
+                {
+                    relativeName = relativeName.Substring(markerIndex + marker.Length);
+                }
+            }
+        }
 
         // Convert dots to slashes
         return relativeName.Replace('.', '/') + ".cs";

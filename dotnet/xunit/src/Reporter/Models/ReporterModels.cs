@@ -90,10 +90,29 @@ public class TypedValue
         {
             DateTime dt => dt.ToString("O"),
             DateTimeOffset dto => dto.ToString("O"),
-            _ => value
+            Type typeValue => typeValue.FullName ?? typeValue.Name,
+            _ => ToJsonSafeValue(value)
         };
 
         return new TypedValue { Value = displayValue, Type = type };
+    }
+
+    private static object? ToJsonSafeValue(object value)
+    {
+        if (value is string or bool or int or long or short or byte or uint or ulong or ushort or sbyte
+            or float or double or decimal)
+        {
+            return value;
+        }
+
+        try
+        {
+            return JsonSerializer.SerializeToElement(value);
+        }
+        catch
+        {
+            return value.ToString();
+        }
     }
 }
 

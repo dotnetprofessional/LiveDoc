@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SweDevTools.LiveDoc.xUnit.Logger</RootNamespace>
+    <AssemblyName>SweDevTools.LiveDoc.xUnit.TestLogger</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.TestPlatform.ObjectModel" Version="17.11.0" />
+  </ItemGroup>
+
+</Project>

@@ -219,6 +219,57 @@ function patchOutlineExampleResults(test: AnyTest, outlineId: string, results: A
   return test;
 }
 
+function emptyStatistics(): Statistics {
+  return { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
+}
+
+function summarizeRun(run: TestRunV3): Statistics {
+  const summary = emptyStatistics();
+
+  const addStatus = (status: Status) => {
+    summary.total += 1;
+    if (status === 'passed') summary.passed += 1;
+    else if (status === 'failed' || status === 'timedOut') summary.failed += 1;
+    else if (status === 'skipped' || status === 'cancelled') summary.skipped += 1;
+    else summary.pending += 1;
+  };
+
+  for (const doc of run.documents ?? []) {
+    const stats = (doc as any).statistics as Statistics | undefined;
+    if (stats) {
+      summary.total += Number(stats.total) || 0;
+      summary.passed += Number(stats.passed) || 0;
+      summary.failed += Number(stats.failed) || 0;
+      summary.pending += Number(stats.pending) || 0;
+      summary.skipped += Number(stats.skipped) || 0;
+      continue;
+    }
+
+    for (const test of doc.tests ?? []) {
+      addStatus(((test as any)?.execution?.status ?? 'pending') as Status);
+    }
+  }
+
+  return summary;
+}
+
+function withDerivedRunState(run: TestRunV3): TestRunV3 {
+  const summary = summarizeRun(run);
+  const derivedStatus: Status =
+    summary.failed > 0
+      ? 'failed'
+      : summary.pending > 0
+        ? 'running'
+        : summary.total > 0
+          ? 'passed'
+          : run.status === 'running'
+            ? 'running'
+            : 'pending';
+
+  const isTerminal = run.status === 'passed' || run.status === 'failed' || run.status === 'cancelled' || run.status === 'timedOut';
+  return { ...run, summary, status: isTerminal ? run.status : derivedStatus };
+}
+
 export const useStore = create<AppState>((set, get) => ({
   // Initial state
   runs: [],
@@ -352,7 +403,7 @@ export const useStore = create<AppState>((set, get) => ({
       ? docs.map((d) => (d.id === testCase.id ? testCase : d))
       : [...docs, testCase];
 
-    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
+    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
     const newRuns = [...state.runs];
     newRuns[runIndex] = makeRunState(nextRun);
     return { runs: newRuns };
@@ -364,7 +415,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     const existing = state.runs[runIndex];
     const nextDocs = (existing.run.documents ?? []).map((d) => (d.id === testCaseId ? replaceTestInTestCase(d, test) : d));
-    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
+    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
 
     const newRuns = [...state.runs];
     newRuns[runIndex] = makeRunState(nextRun);
@@ -388,7 +439,7 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
 
-    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
+    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
     const newRuns = [...state.runs];
     newRuns[runIndex] = makeRunState(nextRun);
     return { runs: newRuns };
@@ -411,7 +462,7 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
 
-    const nextRun: TestRunV3 = { ...existing.run, documents: nextDocs };
+    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
     const newRuns = [...state.runs];
     newRuns[runIndex] = makeRunState(nextRun);
     return { runs: newRuns };

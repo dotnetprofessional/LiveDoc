@@ -1,7 +1,7 @@
 import type { AnyTest, Statistics, Status, StepTest, TestCase } from '@swedevtools/livedoc-schema';
 import { StepList } from './StepList';
 import { useStore } from '../store';
-import { renderTitle } from '../lib/title-utils';
+import { renderTitle, stripLeadingKindLabel } from '../lib/title-utils';
 import { cn } from '../lib/utils';
 import { useMemo } from 'react';
 import { buildGroupedNavTree, findNavPath, NavItem } from '../lib/nav-tree';
@@ -165,7 +165,7 @@ export function NodeView({ node }: NodeViewProps) {
         <div className="space-y-3">
           <ScenarioBlock
             label="Background"
-            title={renderTitle(background.title)}
+            title={renderTitle(stripLeadingKindLabel(String(background.title ?? ''), 'Background'))}
             status={(background as any).execution?.status as Status | undefined}
             description={background.description}
             tags={(background as any).tags}
@@ -182,7 +182,7 @@ export function NodeView({ node }: NodeViewProps) {
         <div className="space-y-3">
           <ScenarioBlock
             label="Scenario"
-            title={renderTitle(node.title, highlightValues)}
+            title={renderTitle(stripLeadingKindLabel(String(node.title ?? ''), 'Scenario'), highlightValues)}
             status={(node as any).execution?.status as Status | undefined}
             description={node.description}
             tags={node.tags}
@@ -200,7 +200,7 @@ export function NodeView({ node }: NodeViewProps) {
         <div className="space-y-3">
           <ScenarioBlock
             label="Rule"
-            title={renderTitle(node.title)}
+            title={renderTitle(stripLeadingKindLabel(String(node.title ?? ''), 'Rule'))}
             status={(node as any).execution?.status as Status | undefined}
             description={node.description}
             tags={node.tags}
