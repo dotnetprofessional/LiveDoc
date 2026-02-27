@@ -36,6 +36,8 @@ export default defineConfig({
 
 The primary CLI reporter. Formats test results in Gherkin-style output with features, scenarios, and steps.
 
+![LiveDocSpecReporter Output](/img/screenshots/reporter-spec-output.svg)
+
 ```typescript
 import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
 
@@ -56,6 +58,14 @@ new LiveDocSpecReporter(options?: LiveDocSpecReporterOptions)
 #### Detail Level Flags {#detail-level-flags}
 
 Combine flags with `+` to control output verbosity.
+
+**Summary detail level:**
+
+![Summary Detail Level](/img/screenshots/reporter-detail-summary.svg)
+
+**List detail level (with individual rule/scenario results):**
+
+![List Detail Level](/img/screenshots/reporter-detail-list.svg)
 
 | Flag      | Description                                       |
 | --------- | ------------------------------------------------- |

@@ -84,7 +84,7 @@ const config: Config = {
           label: 'VS Code',
         },
         {
-          href: 'https://github.com/nickvdyck/livedoc',
+          href: 'https://github.com/dotnetprofessional/LiveDoc',
           label: 'GitHub',
           position: 'right',
         },
@@ -110,7 +110,7 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'GitHub', href: 'https://github.com/nickvdyck/livedoc' },
+            { label: 'GitHub', href: 'https://github.com/dotnetprofessional/LiveDoc' },
           ],
         },
       ],

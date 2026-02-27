@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test-js:
+    name: Node.js ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 22]
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Test vitest package
+        run: pnpm --filter @swedevtools/livedoc-vitest test
+
+      - name: Test server package
+        run: pnpm --filter @swedevtools/livedoc-server test
+
+      - name: Typecheck schema
+        run: pnpm --filter @swedevtools/livedoc-schema typecheck
+
+      - name: Typecheck viewer
+        run: pnpm --filter @swedevtools/livedoc-viewer typecheck
+
+  build-and-test-dotnet:
+    name: .NET
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: dotnet/xunit
+
+      - name: Build
+        run: dotnet build --no-restore
+        working-directory: dotnet/xunit
+
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
+        working-directory: dotnet/xunit

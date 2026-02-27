@@ -1,20 +1,15 @@
 # livedoc-vscode
 
-VS Code extension providing tools and snippets for working with LiveDoc BDD testing framework.
+VS Code extension providing tools and snippets for working with the LiveDoc BDD testing framework.
 
-* [Features](#features)
-* [Installation](#installation)
-* [Using](#using)
-* [Development](#development)
-* [Configuration](#configuration)
-
-![Demo](https://raw.githubusercontent.com/dotnetprofessional/LiveDoc/master/packages/livedoc-vscode/images/demo.gif)
+📖 **[Full Documentation →](http://livedoc.swedevtools.com/docs/vscode/overview)**
 
 ## Features
 
-* Formatting of Scenario Outline tables and Data Tables with styling
-* Code snippets for BDD constructs
-* Activity bar explorer for test results
+- **Data Table Formatting** — Auto-format Scenario Outline and Data Tables with alignment
+- **Code Snippets** — Quickly scaffold BDD constructs
+- **Activity Bar Explorer** — Browse test results in the sidebar
+- **Integrated Viewer** — Open the LiveDoc Viewer directly in VS Code
 
 ### Code Snippets
 
@@ -36,179 +31,28 @@ VS Code extension providing tools and snippets for working with LiveDoc BDD test
 
 ### Commands
 
-- `LiveDoc: Format Data Tables` - Formats all data tables in the active document
-- `LiveDoc: Open Viewer` - Opens the LiveDoc Viewer (shared UI webview)
+- `LiveDoc: Format Data Tables` — Formats all data tables in the active document
+- `LiveDoc: Open Viewer` — Opens the LiveDoc Viewer (shared UI webview)
 
 ## Installation
 
 ### From VS Code Marketplace
 
-Search for "livedoc" in the VS Code Extensions view.
+Search for "livedoc" in the VS Code Extensions view (`Ctrl+Shift+X`).
 
 ### From VSIX (Local Build)
 
 ```bash
-# Build the extension
 cd packages/vscode
-pnpm install
-pnpm run package
-
-# Install the generated .vsix file
+pnpm install && pnpm run package
 code --install-extension livedoc-0.0.1.vsix
 ```
 
-## Using
+## Documentation
 
-This extension works with the [@swedevtools/livedoc-vitest](../vitest/README.md) testing library.
+📖 **[Full documentation at livedoc.swedevtools.com →](http://livedoc.swedevtools.com/docs/vscode/overview)**
 
-### Setup Your Project
-
-```bash
-npm install @swedevtools/livedoc-vitest vitest --save-dev
-```
-
-### Write BDD Tests
-
-Use the snippets to quickly scaffold your tests:
-
-1. Type `ld-feature` and press Tab
-2. Fill in your feature description
-3. Use `ld-scenario` for each test scenario
-4. Add steps with `ld-given`, `ld-when`, `ld-then`
-
-### Example Test
-
-```typescript
-import { feature, scenario, given, when, then } from "@swedevtools/livedoc-vitest";
-import { expect } from "vitest";
-
-feature(`User Authentication
-    As a user
-    I want to log in to the system
-    So that I can access my account
-`, () => {
-    scenario("Successful login with valid credentials", () => {
-        given("I am on the login page", () => {
-            // Navigate to login page
-        });
-
-        when("I enter valid credentials", () => {
-            // Enter username and password
-        });
-
-        then("I should be logged in successfully", () => {
-            expect(isLoggedIn).toBe(true);
-        });
-    });
-});
-```
-
-## Development
-
-### Prerequisites
-
-- Node.js 18+
-- pnpm 9+
-- VS Code
-
-### Running Locally
-
-1. **Clone the repository and install dependencies:**
-
-   ```bash
-   git clone https://github.com/dotnetprofessional/LiveDoc.git
-   cd LiveDoc
-   pnpm install
-   ```
-
-2. **Navigate to the VS Code extension:**
-
-   ```bash
-   cd packages/vscode
-   ```
-
-3. **Build the extension:**
-
-   ```bash
-   pnpm run compile
-   ```
-
-4. **Launch in VS Code:**
-
-   **Option A: Using VS Code's Extension Host (Recommended)**
-   
-   - Open the `packages/vscode` folder in VS Code
-   - Press `F5` to launch the Extension Development Host
-   - A new VS Code window will open with the extension loaded
-   
-   **Option B: Using the Watch Mode**
-   
-   ```bash
-   # Start the TypeScript watcher
-   pnpm run watch
-   
-   # Then press F5 in VS Code to launch
-   ```
-
-5. **Testing changes:**
-   
-   - Make changes to the extension source code
-   - The watch task will automatically recompile
-   - Press `Ctrl+R` (or `Cmd+R` on Mac) in the Extension Development Host to reload
-
-### Project Structure
-
-```
-packages/vscode/
-├── src/
-│   ├── extension.ts              # Extension entry point
-│   ├── ExecutionResultOutline/   # Test results tree view
-│   ├── reporter/                 # WebView reporter components
-│   └── tableFormatter/           # Data table formatting
-├── snippets/
-│   └── livedoc.json              # Code snippet definitions
-├── images/                       # Icons and images
-├── .vscode/
-│   ├── launch.json               # Debug configurations
-│   └── tasks.json                # Build tasks
-├── package.json                  # Extension manifest
-└── tsconfig.json                 # TypeScript configuration
-```
-
-### Debugging
-
-1. Set breakpoints in your TypeScript code
-2. Press `F5` to start debugging
-3. The Extension Development Host will launch
-4. Trigger your extension features to hit breakpoints
-
-### Running Tests
-
-```bash
-pnpm test
-```
-
-### Packaging for Distribution
-
-```bash
-# Create a .vsix package
-pnpm run package
-
-# This generates: livedoc-{version}.vsix
-```
-
-## Configuration
-
-*Configuration options coming soon.*
-
-## Related Packages
-
-- [@swedevtools/livedoc-vitest](../vitest/README.md) - The main BDD testing framework for Vitest
-- [@swedevtools/livedoc-viewer](../viewer/README.md) - Web-based test results viewer
-
-## Contributing
-
-See the main [LiveDoc repository](https://github.com/dotnetprofessional/LiveDoc) for contribution guidelines.
+Covers features, usage workflow, development setup, debugging, project structure, and packaging.
 
 ## License
 
