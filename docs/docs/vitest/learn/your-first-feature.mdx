@@ -269,29 +269,9 @@ but('the card is not charged until shipping', () => { /* ... */ });
 
 When you run `npx vitest run`, the feature above produces:
 
-```
-Feature: User Authentication
-  As a registered user
-  I want to log in with my credentials
-  So that I can access my account
-
-  Background: A registered user exists
-    Given a user named 'alice' with password 'secret123'
-
-  Scenario: Successful login with valid credentials
-    ✓ Given the user enters username 'alice'
-    ✓   And the user enters password 'secret123'
-    ✓ When the user submits the login form
-    ✓ Then the user is logged in
-    ✓   And no error message is displayed
-
-  Scenario: Failed login with wrong password
-    ✓ Given the user enters username 'alice'
-    ✓   And the user enters password 'wrongpass'
-    ✓ When the user submits the login form
-    ✓ Then the user is not logged in
-    ✓   But an error message says 'Wrong password'
-```
+<div style={{borderRadius: '8px', overflow: 'hidden'}}>
+  <img src="/img/screenshots/vitest-feature-output.svg" alt="User Authentication feature terminal output" style={{width: '100%'}} />
+</div>
 
 Notice how the output reads like a **specification document**, not a list of
 test function names. That's the power of living documentation.

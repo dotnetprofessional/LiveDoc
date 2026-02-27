@@ -259,23 +259,9 @@ complete guide to data-driven testing patterns.
 
 Running `npx vitest run` produces:
 
-```
-Specification: Password Validation Rules
-  Business rules for acceptable passwords
-
-  ✓ Passwords must be at least '8' characters long
-  ✓ Passwords must contain at least one number
-  ✓ Passwords must contain at least one uppercase letter
-  ✓ Valid passwords are accepted
-
-Specification: Australian Tax Brackets
-
-  Rule Outline: Tax rate is determined by income
-    ✓ Example: income=10000, expectedRate=0
-    ✓ Example: income=30000, expectedRate=0.19
-    ✓ Example: income=80000, expectedRate=0.325
-    ✓ Example: income=150000, expectedRate=0.37
-```
+<div style={{borderRadius: '8px', overflow: 'hidden'}}>
+  <img src="/img/screenshots/vitest-spec-output.svg" alt="Password Validation and Australian Tax Brackets terminal output" style={{width: '100%'}} />
+</div>
 
 Compare this to a traditional test output:
 

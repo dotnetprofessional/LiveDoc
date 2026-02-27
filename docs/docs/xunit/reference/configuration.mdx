@@ -142,15 +142,83 @@ LiveDoc attributes inherit from xUnit's native `FactAttribute` and `TheoryAttrib
 - **Standard filtering works** — use `--filter` with xUnit's trait system.
 
 ```bash
-# Run all tests
-dotnet test
+# Run all tests with BDD console output
+dotnet test --logger LiveDoc
 
 # Run specific test class
-dotnet test --filter "FullyQualifiedName~ShoppingCartTests"
+dotnet test --logger LiveDoc --filter "FullyQualifiedName~ShoppingCartTests"
 
 # Run specific test method
-dotnet test --filter "FullyQualifiedName~Free_shipping_in_Australia"
+dotnet test --logger LiveDoc --filter "FullyQualifiedName~Free_shipping_in_Australia"
 ```
+
+---
+
+### Console Logger {#console-logger}
+
+The LiveDoc console logger produces BDD-formatted output grouped by Feature and Specification when running from the command line. It activates via the standard `--logger` flag:
+
+```bash
+dotnet test --logger LiveDoc
+```
+
+**Sample output:**
+
+```
+  Feature: Shipping Costs
+    ✓ Scenario: Free shipping in Australia
+    ✓ Scenario Outline: Calculate shipping (3 examples)
+
+  Specification: Cart Validation
+    ✓ Rule: Empty cart cannot be checked out
+    ✓ Rule: Cart total must be positive
+
+  Tests: 4 passed (42ms)
+```
+
+The logger is **automatically available** when the `SweDevTools.LiveDoc.xUnit` NuGet package is installed — no extra packages or configuration needed. The package's `.targets` file registers the logger with the VSTest adapter system.
+
+#### How It Works
+
+```mermaid
+graph LR
+    A[dotnet test] -->|--logger LiveDoc| B[VSTest Host]
+    B --> C[LiveDoc Console Logger]
+    B --> D[xUnit Test Runner]
+    D -->|test results| C
+    C -->|grouped BDD output| E[Terminal]
+```
+
+The logger reads each test result's output messages (written by `ITestOutputHelper`) to extract Feature and Specification headings, then groups and formats them into a clean tree view with ANSI color support.
+
+| Output Element | Color | Meaning |
+|---|---|---|
+| Feature / Specification heading | Yellow | Groups related tests |
+| `✓` Passed test | Green | Test succeeded |
+| `✗` Failed test | Red | Test failed (error shown below) |
+| `○` Skipped test | Cyan | Test was skipped |
+| Summary line | White | Total counts and duration |
+
+#### CI/CD Usage {#console-logger-ci}
+
+The logger works in CI pipelines. Combine it with other loggers for machine-readable output:
+
+```bash
+# BDD output for humans + TRX for CI systems
+dotnet test --logger LiveDoc --logger "trx;LogFileName=results.trx"
+```
+
+```yaml
+# GitHub Actions example
+- name: Run tests
+  run: dotnet test --logger LiveDoc --logger "trx;LogFileName=results.trx"
+```
+
+:::info Console vs. Test Explorer
+The console logger shows the **Feature → Scenario** hierarchy at a glance.
+For **step-level detail** (Given / When / Then), use Visual Studio's Test Explorer
+detail panel or the [LiveDoc Viewer](../guides/viewer-integration.mdx).
+:::
 
 #### Test Explorer Display {#test-explorer}
 
@@ -215,7 +283,7 @@ namespace MyApp.Tests
 
 ### Basic: Zero configuration {#zero-config}
 
-LiveDoc works with no configuration file. Tests run with `dotnet test` and produce formatted output in Test Explorer:
+LiveDoc works with no configuration file. Tests run with `dotnet test --logger LiveDoc` and produce formatted BDD output in the terminal. Step-level detail appears in Visual Studio's Test Explorer detail panel:
 
 ```csharp
 using SweDevTools.LiveDoc.xUnit;
@@ -237,7 +305,7 @@ public class MyTests : FeatureTest
 ```
 
 ```bash
-dotnet test
+dotnet test --logger LiveDoc
 ```
 
 ### LiveDoc Viewer integration {#viewer-integration}
@@ -296,7 +364,7 @@ For CI pipelines, use `.runsettings` with environment-specific values:
 ```yaml
 # GitHub Actions example
 - name: Run tests
-  run: dotnet test --settings .runsettings.ci
+  run: dotnet test --logger LiveDoc --settings .runsettings.ci
 ```
 
 ---

@@ -126,25 +126,27 @@ formats the test output that appears in your IDE and test reports.
 ## Step 4: Run It 🎉
 
 ```bash
-dotnet test
+dotnet test --logger LiveDoc
 ```
 
-You'll see output like this in the test detail panel:
+The `--logger LiveDoc` flag activates LiveDoc's console reporter, which groups results by Feature and Specification:
 
 ```
-Feature: Calculator
+  Feature: Calculator
+    ✓ Scenario: Adding two numbers
+    ✓ Scenario: Subtracting two numbers
 
-  Scenario: Adding two numbers
-    Given I have entered '50' into the calculator
-      And I have entered '70' into the calculator
-    When I press equals
-    Then the result should be '120'
-
-    ✓ 4 passing (12ms)
+  Tests: 2 passed (18ms)
 ```
 
-Every step title appears in the output — that's **living documentation**.
-When the business rules change, the tests and their output change with them.
+:::tip Console Logger vs. Test Explorer
+The console logger shows the **Feature → Scenario/Rule** hierarchy at a glance.
+For **step-level detail** (Given / When / Then), click a test in Visual Studio's
+Test Explorer — the full BDD output appears in the detail panel.
+:::
+
+Without the logger flag, `dotnet test` still works — you just get the standard
+xUnit output instead of the grouped BDD view.
 
 ---
 
@@ -175,18 +177,20 @@ public void Subtracting_two_numbers()
 }
 ```
 
-Run `dotnet test` again — both scenarios appear under the same feature heading:
+Run `dotnet test --logger LiveDoc` again — both scenarios appear under the same feature heading:
+
+```
+  Feature: Calculator
+    ✓ Scenario: Adding two numbers
+    ✓ Scenario: Subtracting two numbers
+
+  Tests: 2 passed (18ms)
+```
+
+Click either test in Visual Studio's Test Explorer detail panel to see the full step output:
 
 ```
 Feature: Calculator
-
-  Scenario: Adding two numbers
-    Given I have entered '50' into the calculator
-      And I have entered '70' into the calculator
-    When I press equals
-    Then the result should be '120'
-
-    ✓ 4 passing (12ms)
 
   Scenario: Subtracting two numbers
     Given I have entered '100' into the calculator
@@ -246,7 +250,7 @@ flat, hard-to-navigate list in the viewer.
 - **Mark tests** with `[Scenario]` — it inherits from `[Fact]`
 - **Write steps** with `Given()` / `When()` / `Then()` / `And()` / `But()`
 - **Constructor** must accept `ITestOutputHelper` and pass it to `base(output)`
-- **Run** with `dotnet test` and enjoy structured, readable output
+- **Run** with `dotnet test --logger LiveDoc` and enjoy structured, readable output
 
 ---
 
