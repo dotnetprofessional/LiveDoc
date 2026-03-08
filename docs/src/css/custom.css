@@ -300,16 +300,6 @@
   margin-bottom: 1.5rem;
 }
 
-/* ─── Feature Card Highlight Variant ──────────────── */
-
-.feature-card--highlight {
-  background: rgba(37, 99, 235, 0.03);
-}
-
-[data-theme='dark'] .feature-card--highlight {
-  background: rgba(59, 130, 246, 0.06);
-}
-
 /* ─── Featured Callout (Homepage) ─────────────────── */
 
 .featured-callout {
