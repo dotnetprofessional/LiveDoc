@@ -65,6 +65,38 @@ public abstract class LiveDocTestBase : IDisposable
             }
         }
 
+        // Async fallback: after await, the stack shows the state machine's
+        // MoveNext() instead of the original method. Check for compiler-
+        // generated state machine types nested inside our test class.
+        if (testMethod == null)
+        {
+            for (int i = 0; i < stackTrace.FrameCount; i++)
+            {
+                var method = stackTrace.GetFrame(i)?.GetMethod();
+                var declaringType = method?.DeclaringType;
+
+                if (declaringType != null &&
+                    declaringType.DeclaringType == GetType() &&
+                    declaringType.Name.StartsWith("<"))
+                {
+                    // State machine names are like <MethodName>d__N
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        declaringType.Name, @"^<(.+)>d__\d+$");
+                    if (match.Success)
+                    {
+                        var originalName = match.Groups[1].Value;
+                        var original = GetType().GetMethod(originalName,
+                            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        if (original != null)
+                        {
+                            testMethod = original;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         _context = new LiveDocContext(_output, GetType(), testMethod);
     }
 
