@@ -6,43 +6,83 @@ using Xunit;
 namespace SweDevTools.LiveDoc.xUnit.Journeys;
 
 /// <summary>
+/// Configuration for <see cref="JourneyFixtureBase"/>. All properties have sensible defaults
+/// except <see cref="ServerProject"/> and <see cref="JourneysPath"/> which must be set.
+/// </summary>
+public record JourneyConfig
+{
+    /// <summary>
+    /// Relative path from the test project to the server project directory.
+    /// <b>Required</b> — no default.
+    /// </summary>
+    /// <example><c>ServerProject = "../../src/MyApi"</c></example>
+    public required string ServerProject { get; init; }
+
+    /// <summary>
+    /// Relative path from the test project to the journeys directory.
+    /// <b>Required</b> — no default.
+    /// </summary>
+    /// <example><c>JourneysPath = "../../journeys"</c></example>
+    public required string JourneysPath { get; init; }
+
+    /// <summary>Sets <c>ASPNETCORE_ENVIRONMENT</c> and <c>DOTNET_ENVIRONMENT</c>. Default: <c>"Test"</c></summary>
+    public string ServerEnvironment { get; init; } = "Test";
+
+    /// <summary>httpYac environment name (maps to .env files). Default: <c>"local"</c></summary>
+    public string HttpYacEnvironment { get; init; } = "local";
+
+    /// <summary>How long to wait for the server to start. Default: 30 seconds.</summary>
+    public TimeSpan StartupTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>Additional args appended to <c>dotnet run --project {path}</c>. Default: <c>"--no-launch-profile"</c></summary>
+    public string ServerArguments { get; init; } = "--no-launch-profile";
+}
+
+/// <summary>
 /// Base class for journey test fixtures. Manages the server lifecycle, httpYac execution,
 /// response file loading, and capture mode.
 /// <para>
-/// <b>Convention over configuration</b>: provides fully working defaults for the common
-/// ASP.NET Core scenario. Override virtual members only when your project differs from
-/// the standard pattern.
+/// Override <see cref="Configure"/> to provide your project settings. All other behavior
+/// has sensible defaults — override virtual methods only for advanced scenarios.
 /// </para>
 /// </summary>
 /// <remarks>
-/// <b>Minimal usage</b> — just specify paths:
+/// <b>Minimal usage</b>:
 /// <code>
 /// public class JourneyServerFixture : JourneyFixtureBase
 /// {
-///     public JourneyServerFixture()
-///         : base(serverProject: "../src/MyApi", journeysDir: "../../journeys") { }
+///     protected override JourneyConfig Configure() =&gt; new()
+///     {
+///         ServerProject = "../../src/MyApi",
+///         JourneysPath  = "../../journeys",
+///     };
 /// }
 /// </code>
 ///
-/// <b>Defaults provided</b>:
-/// <list type="table">
-///   <listheader><term>Concern</term><description>Default</description></listheader>
-///   <item><term>Port</term><description>Random ephemeral port via TcpListener</description></item>
-///   <item><term>Server start</term><description><c>dotnet run --project {path} --no-launch-profile</c></description></item>
-///   <item><term>Env vars</term><description><c>ASPNETCORE_URLS</c> and <c>ASPNETCORE_ENVIRONMENT=Test</c></description></item>
-///   <item><term>Startup detection</term><description>Monitors stdout for Kestrel's "Now listening on"</description></item>
-///   <item><term>httpYac variables</term><description><c>baseUrl</c> auto-set to <c>http://localhost:{port}</c></description></item>
-///   <item><term>Cleanup</term><description>Kills process tree on dispose</description></item>
-/// </list>
+/// <b>Custom environment</b>:
+/// <code>
+/// public class JourneyServerFixture : JourneyFixtureBase
+/// {
+///     protected override JourneyConfig Configure() =&gt; new()
+///     {
+///         ServerProject     = "../../src/MyApi",
+///         JourneysPath      = "../../journeys",
+///         ServerEnvironment = "Development",
+///         StartupTimeout    = TimeSpan.FromSeconds(60),
+///     };
+/// }
+/// </code>
 /// </remarks>
 public class JourneyFixtureBase : IAsyncLifetime
 {
     private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-9;]*m", RegexOptions.Compiled);
 
-    private readonly string _serverProjectRelativePath;
-    private readonly string _journeysDirRelativePath;
     private Process? _serverProcess;
     private string? _tempDataDir;
+    private JourneyConfig? _config;
+
+    /// <summary>The resolved configuration for this fixture.</summary>
+    protected JourneyConfig Config => _config ??= Configure();
 
     /// <summary>Base URL of the running server (e.g., http://localhost:5123).</summary>
     public string BaseUrl => $"http://localhost:{Port}";
@@ -50,26 +90,28 @@ public class JourneyFixtureBase : IAsyncLifetime
     /// <summary>Port the server is listening on.</summary>
     public int Port { get; private set; }
 
-    /// <summary>Absolute path to the journeys directory.</summary>
+    /// <summary>Absolute path to the journeys directory (resolved during initialization).</summary>
     public string JourneysDir { get; private set; } = "";
 
     /// <summary>True when <c>JOURNEY_CAPTURE=true</c> — saves response bodies as contract files.</summary>
     public static bool IsCaptureMode =>
         string.Equals(Environment.GetEnvironmentVariable("JOURNEY_CAPTURE"), "true", StringComparison.OrdinalIgnoreCase);
 
-    // ── Constructor ────────────────────────────────────────────────
+    /// <summary>
+    /// Path to the temporary data directory created for this test run.
+    /// Useful in <see cref="ConfigureServerProcess"/> to isolate server data between runs.
+    /// </summary>
+    protected string TempDataDir => _tempDataDir ?? throw new InvalidOperationException("Fixture not initialized");
+
+    // ── Configuration ──────────────────────────────────────────────
 
     /// <summary>
-    /// Creates a journey fixture with paths to the server project and journeys directory.
-    /// Both paths are relative to the test project root (the directory containing the .csproj).
+    /// Returns the configuration for this fixture. Override to set your project paths
+    /// and any non-default settings.
     /// </summary>
-    /// <param name="serverProject">Relative path from test project to the server .csproj directory (e.g., "../src/MyApi").</param>
-    /// <param name="journeysDir">Relative path from test project to the journeys directory (e.g., "../../journeys").</param>
-    protected JourneyFixtureBase(string serverProject, string journeysDir)
-    {
-        _serverProjectRelativePath = serverProject;
-        _journeysDirRelativePath = journeysDir;
-    }
+    protected virtual JourneyConfig Configure() =>
+        throw new InvalidOperationException(
+            $"{GetType().Name} must override Configure() to provide ServerProject and JourneysPath.");
 
     // ── xUnit Lifecycle ────────────────────────────────────────────
 
@@ -81,18 +123,22 @@ public class JourneyFixtureBase : IAsyncLifetime
         Port = FindAvailablePort();
 
         var testProjectDir = FindProjectRoot();
-        var serverProjectDir = Path.GetFullPath(Path.Combine(testProjectDir, _serverProjectRelativePath));
-        JourneysDir = Path.GetFullPath(Path.Combine(testProjectDir, _journeysDirRelativePath));
+        var serverProjectDir = Path.GetFullPath(Path.Combine(testProjectDir, Config.ServerProject));
+        JourneysDir = Path.GetFullPath(Path.Combine(testProjectDir, Config.JourneysPath));
 
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --project \"{serverProjectDir}\" --no-launch-profile",
+            Arguments = $"run --project \"{serverProjectDir}\" {Config.ServerArguments}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        psi.Environment["ASPNETCORE_URLS"] = $"http://localhost:{Port}";
+        psi.Environment["ASPNETCORE_ENVIRONMENT"] = Config.ServerEnvironment;
+        psi.Environment["DOTNET_ENVIRONMENT"] = Config.ServerEnvironment;
 
         ConfigureServerProcess(psi);
 
@@ -106,7 +152,7 @@ public class JourneyFixtureBase : IAsyncLifetime
             catch { /* best effort */ }
         };
 
-        await WaitForStartupAsync(_serverProcess, StartupTimeout);
+        await WaitForStartupAsync(_serverProcess, Config.StartupTimeout);
     }
 
     public virtual async Task DisposeAsync()
@@ -125,24 +171,17 @@ public class JourneyFixtureBase : IAsyncLifetime
         }
     }
 
-    // ── Virtual Configuration Points ───────────────────────────────
+    // ── Virtual Methods (advanced scenarios only) ──────────────────
 
     /// <summary>
-    /// Configures the server process before it starts. Override to add custom environment
-    /// variables or change command-line arguments.
-    /// <para>Default: sets <c>ASPNETCORE_URLS</c> to <c>http://localhost:{Port}</c>
-    /// and <c>ASPNETCORE_ENVIRONMENT</c> to <c>Test</c>.</para>
+    /// Hook to add project-specific environment variables or modify the process
+    /// before it starts. Called after the base class applies config.
+    /// <para>Default: no-op.</para>
     /// </summary>
-    protected virtual void ConfigureServerProcess(ProcessStartInfo psi)
-    {
-        psi.Environment["ASPNETCORE_URLS"] = $"http://localhost:{Port}";
-        psi.Environment["ASPNETCORE_ENVIRONMENT"] = "Test";
-        psi.Environment["DOTNET_ENVIRONMENT"] = "Test";
-    }
+    protected virtual void ConfigureServerProcess(ProcessStartInfo psi) { }
 
     /// <summary>
-    /// Determines if a line from server stdout/stderr indicates the server is ready.
-    /// Override for non-Kestrel servers that emit different startup messages.
+    /// Determines if a server output line indicates the server is ready.
     /// <para>Default: detects Kestrel's "Now listening on" or "Application started".</para>
     /// </summary>
     protected virtual bool IsServerReady(string outputLine)
@@ -152,39 +191,16 @@ public class JourneyFixtureBase : IAsyncLifetime
     }
 
     /// <summary>
-    /// Returns variables to pass to httpYac via --var CLI args.
-    /// Override to add project-specific variables (tokens, API keys, etc.).
-    /// <para>Default: <c>{ "baseUrl": "http://localhost:{Port}" }</c></para>
+    /// Returns variables to pass to httpYac via <c>--var</c> CLI args.
+    /// <para>Default: <c>{ "baseUrl": BaseUrl }</c></para>
     /// </summary>
     protected virtual Dictionary<string, string> GetHttpYacVariables()
     {
-        return new Dictionary<string, string>
-        {
-            ["baseUrl"] = BaseUrl
-        };
+        return new Dictionary<string, string> { ["baseUrl"] = BaseUrl };
     }
 
     /// <summary>
-    /// How long to wait for the server to start before timing out.
-    /// <para>Default: 30 seconds.</para>
-    /// </summary>
-    protected virtual TimeSpan StartupTimeout => TimeSpan.FromSeconds(30);
-
-    /// <summary>
-    /// The httpYac environment name to use (maps to .env files in the journeys directory).
-    /// <para>Default: "local"</para>
-    /// </summary>
-    protected virtual string HttpYacEnvironment => "local";
-
-    /// <summary>
-    /// Path to the temporary data directory created for this test run.
-    /// Available for use in <see cref="ConfigureServerProcess"/> to isolate server data.
-    /// </summary>
-    protected string TempDataDir => _tempDataDir ?? throw new InvalidOperationException("Fixture not initialized");
-
-    /// <summary>
-    /// Called after each line of server output is read. Override to extract values
-    /// from startup logs (e.g., tokens, connection strings).
+    /// Called for each line of server output. Override to extract startup values.
     /// <para>Default: no-op.</para>
     /// </summary>
     protected virtual void OnServerOutputLine(string line) { }
@@ -193,9 +209,7 @@ public class JourneyFixtureBase : IAsyncLifetime
 
     /// <summary>
     /// Runs a journey .http file via httpYac CLI and returns per-step results.
-    /// When <see cref="IsCaptureMode"/> is true, saves response bodies as .Response.json files.
     /// </summary>
-    /// <param name="relativePath">Path to the .http file relative to the journeys directory.</param>
     public async Task<JourneyResult> RunJourneyAsync(string relativePath)
     {
         var httpFilePath = Path.Combine(JourneysDir, relativePath);
@@ -209,8 +223,8 @@ public class JourneyFixtureBase : IAsyncLifetime
         {
             FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "npx",
             Arguments = OperatingSystem.IsWindows()
-                ? $"/c npx httpyac send \"{httpFilePath}\" --all -e {HttpYacEnvironment} --bail {varArgs}"
-                : $"httpyac send \"{httpFilePath}\" --all -e {HttpYacEnvironment} --bail {varArgs}",
+                ? $"/c npx httpyac send \"{httpFilePath}\" --all -e {Config.HttpYacEnvironment} --bail {varArgs}"
+                : $"httpyac send \"{httpFilePath}\" --all -e {Config.HttpYacEnvironment} --bail {varArgs}",
             WorkingDirectory = JourneysDir,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -237,8 +251,6 @@ public class JourneyFixtureBase : IAsyncLifetime
     /// <summary>
     /// Loads a response contract file (<c>{stepName}.Response.json</c>) from a journey folder.
     /// </summary>
-    /// <param name="journeyFolder">Journey subfolder relative to the journeys directory.</param>
-    /// <param name="stepName">The @name of the step whose response to load.</param>
     public string LoadResponseFile(string journeyFolder, string stepName)
     {
         var path = Path.Combine(JourneysDir, journeyFolder, $"{stepName}.Response.json");
@@ -265,10 +277,7 @@ public class JourneyFixtureBase : IAsyncLifetime
                 var formatted = JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(filePath, formatted);
             }
-            catch
-            {
-                // Skip invalid JSON
-            }
+            catch { /* Skip invalid JSON */ }
         }
     }
 
@@ -284,8 +293,7 @@ public class JourneyFixtureBase : IAsyncLifetime
                 var line = await process.StandardError.ReadLineAsync(cts.Token);
                 if (line == null) break;
                 stderrLines.Add(line);
-                var clean = StripAnsi(line);
-                OnServerOutputLine(clean);
+                OnServerOutputLine(StripAnsi(line));
             }
         }, cts.Token);
 
@@ -301,7 +309,6 @@ public class JourneyFixtureBase : IAsyncLifetime
 
                 if (IsServerReady(clean))
                 {
-                    // Give stderr a moment to catch up
                     await Task.Delay(500, cts.Token);
                     foreach (var errLine in stderrLines)
                         OnServerOutputLine(StripAnsi(errLine));
@@ -309,12 +316,10 @@ public class JourneyFixtureBase : IAsyncLifetime
                 }
             }
 
-            // Stdout ended — check stderr
             await Task.Delay(2000, cts.Token);
             foreach (var errLine in stderrLines)
             {
-                var clean = StripAnsi(errLine);
-                if (IsServerReady(clean))
+                if (IsServerReady(StripAnsi(errLine)))
                     return;
             }
         }

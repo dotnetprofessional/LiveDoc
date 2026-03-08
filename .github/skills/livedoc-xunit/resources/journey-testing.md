@@ -439,40 +439,45 @@ The library ships `JourneyFixtureBase` in `SweDevTools.LiveDoc.xUnit.Journeys` w
 - Response contract loading (`LoadResponseFile()`)
 - Capture mode (when `JOURNEY_CAPTURE=true`)
 
-**Minimal fixture** — just specify paths to your server project and journeys folder:
+**Minimal fixture** — override `Configure()` with your project paths:
 
 ```csharp
 using SweDevTools.LiveDoc.xUnit.Journeys;
 
 public class JourneyServerFixture : JourneyFixtureBase
 {
-    public JourneyServerFixture()
-        : base(serverProject: "../../src/MyApi", journeysDir: "../../journeys") { }
+    protected override JourneyConfig Configure() => new()
+    {
+        ServerProject = "../../src/MyApi",
+        JourneysPath  = "../../journeys",
+    };
 }
 ```
 
-**Defaults provided:**
-| Concern | Default |
-| --- | --- |
-| Port | Random ephemeral port via `TcpListener` |
-| Server start | `dotnet run --project {path} --no-launch-profile` |
-| Env vars | `ASPNETCORE_URLS=http://localhost:{port}`, `ASPNETCORE_ENVIRONMENT=Test` |
-| Startup detection | Monitors stdout for "Now listening on" (standard Kestrel) |
-| httpYac variables | `baseUrl` auto-set to `http://localhost:{port}` |
-| Capture mode | `JOURNEY_CAPTURE=true` env var saves `.Response.json` files |
+**JourneyConfig properties** (all have defaults except the two required paths):
 
-**Override points** (only when project differs from defaults):
-
-| Virtual Member | Default | When to Override |
+| Property | Default | Description |
 | --- | --- | --- |
-| `ConfigureServerProcess(psi)` | Sets `ASPNETCORE_URLS` + env=Test | Custom env vars, non-standard port config |
+| `ServerProject` | **required** | Relative path to server project directory |
+| `JourneysPath` | **required** | Relative path to journeys directory |
+| `ServerEnvironment` | `"Test"` | Sets `ASPNETCORE_ENVIRONMENT` and `DOTNET_ENVIRONMENT` |
+| `HttpYacEnvironment` | `"local"` | httpYac environment name |
+| `StartupTimeout` | 30 seconds | How long to wait for server startup |
+| `ServerArguments` | `"--no-launch-profile"` | Extra args for `dotnet run` |
+
+**Automatic behavior** (no config needed):
+- Random ephemeral port, `ASPNETCORE_URLS` auto-set, Kestrel startup detection, `baseUrl` httpYac variable, capture mode, process cleanup
+
+**Virtual method overrides** (advanced scenarios only):
+
+| Method | Default | When to Override |
+| --- | --- | --- |
+| `ConfigureServerProcess(psi)` | No-op | Add custom env vars to server process |
 | `IsServerReady(line)` | Detects "Now listening on" | Non-Kestrel server |
 | `GetHttpYacVariables()` | `{ "baseUrl": BaseUrl }` | Additional variables (tokens, API keys) |
 | `OnServerOutputLine(line)` | No-op | Extract values from startup logs |
-| `StartupTimeout` | 30 seconds | Slow-starting servers |
-| `HttpYacEnvironment` | `"local"` | Different httpYac env name |
 
-**Adding custom variables:**
+**Adding custom httpYac variables:**
 ```csharp
 protected override Dictionary<string, string> GetHttpYacVariables()
 {

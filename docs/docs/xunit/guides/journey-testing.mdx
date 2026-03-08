@@ -567,7 +567,7 @@ but prefer plain kebab-case folder names — ordering is only within a `.http` f
 
 The generated tests need a **fixture class** that starts your server and provides
 journey execution. The LiveDoc library ships all the heavy lifting — you just
-create a small subclass that specifies your project paths.
+create a small subclass with a `Configure()` override.
 
 ### Quick Start: Minimal Fixture {#minimal-fixture}
 
@@ -580,76 +580,83 @@ namespace MyProject.Specs.Journeys;
 
 public class JourneyServerFixture : JourneyFixtureBase
 {
-    public JourneyServerFixture()
-        : base(
-            serverProject: "../../src/MyProject.Api",  // relative to test .csproj
-            journeysDir: "../../journeys"              // relative to test .csproj
-        ) { }
+    protected override JourneyConfig Configure() => new()
+    {
+        ServerProject = "../../src/MyProject.Api",  // relative to test .csproj
+        JourneysPath  = "../../journeys",           // relative to test .csproj
+    };
 }
 ```
 
-**That's it.** The `JourneyFixtureBase` provides:
+**That's it.** Everything else has sensible defaults:
 
-| Concern | Default |
+| Setting | Default |
 | --- | --- |
-| **Port** | Random ephemeral port via `TcpListener` |
-| **Server start** | `dotnet run --project {path} --no-launch-profile` |
-| **Environment** | `ASPNETCORE_URLS=http://localhost:{port}`, `ASPNETCORE_ENVIRONMENT=Test` |
-| **Startup detection** | Monitors stdout for Kestrel's "Now listening on" signal |
-| **httpYac variables** | `baseUrl` automatically set to `http://localhost:{port}` |
-| **Capture mode** | Checks `JOURNEY_CAPTURE=true` env var, saves `.Response.json` files |
-| **Cleanup** | Kills server process tree on dispose |
+| `ServerEnvironment` | `"Test"` — sets `ASPNETCORE_ENVIRONMENT` and `DOTNET_ENVIRONMENT` |
+| `HttpYacEnvironment` | `"local"` — httpYac environment name |
+| `StartupTimeout` | 30 seconds |
+| `ServerArguments` | `"--no-launch-profile"` |
 
-### Adding Custom Variables {#custom-vars}
+Plus automatic behavior:
+- **Port**: Random ephemeral port via `TcpListener`
+- **URL binding**: `ASPNETCORE_URLS=http://localhost:{port}`
+- **Startup detection**: Monitors stdout for Kestrel's "Now listening on"
+- **httpYac variables**: `baseUrl` auto-set to `http://localhost:{port}`
+- **Capture mode**: `JOURNEY_CAPTURE=true` env var saves `.Response.json` files
+- **Cleanup**: Kills server process tree on dispose
+
+### Customizing Config {#custom-config}
+
+Override any defaults directly in the config:
+
+```csharp title="Journeys/JourneyServerFixture.cs"
+public class JourneyServerFixture : JourneyFixtureBase
+{
+    protected override JourneyConfig Configure() => new()
+    {
+        ServerProject     = "../../src/MyProject.Api",
+        JourneysPath      = "../../journeys",
+        ServerEnvironment = "Development",               // override default "Test"
+        StartupTimeout    = TimeSpan.FromSeconds(60),    // slow-starting server
+    };
+}
+```
+
+### Adding Custom httpYac Variables {#custom-vars}
 
 If your `.http` files reference variables beyond `baseUrl`, override `GetHttpYacVariables()`:
 
-```csharp title="Journeys/JourneyServerFixture.cs"
-public class JourneyServerFixture : JourneyFixtureBase
+```csharp
+protected override Dictionary<string, string> GetHttpYacVariables()
 {
-    public JourneyServerFixture()
-        : base("../../src/MyProject.Api", "../../journeys") { }
-
-    protected override Dictionary<string, string> GetHttpYacVariables()
-    {
-        var vars = base.GetHttpYacVariables(); // includes baseUrl
-        vars["adminToken"] = "test-token-123";
-        vars["apiKey"] = "test-key";
-        return vars;
-    }
+    var vars = base.GetHttpYacVariables(); // includes baseUrl
+    vars["adminToken"] = "test-token-123";
+    vars["apiKey"] = "test-key";
+    return vars;
 }
 ```
 
-### Custom Server Configuration {#custom-config}
+### Adding Custom Environment Variables {#custom-env}
 
-Override `ConfigureServerProcess()` to set additional environment variables or
-change server startup behavior:
+Override `ConfigureServerProcess()` to set additional environment variables on the
+server process:
 
-```csharp title="Journeys/JourneyServerFixture.cs"
-public class JourneyServerFixture : JourneyFixtureBase
+```csharp
+protected override void ConfigureServerProcess(ProcessStartInfo psi)
 {
-    public JourneyServerFixture()
-        : base("../../src/MyProject.Api", "../../journeys") { }
-
-    protected override void ConfigureServerProcess(ProcessStartInfo psi)
-    {
-        base.ConfigureServerProcess(psi); // sets ASPNETCORE_URLS + ASPNETCORE_ENVIRONMENT
-        psi.Environment["MY_APP__ConnectionString"] = "Server=localhost;Database=TestDb";
-        psi.Environment["MY_APP__DataDir"] = TempDataDir; // isolated per test run
-    }
+    psi.Environment["MY_APP__ConnectionString"] = "Server=localhost;Database=TestDb";
+    psi.Environment["MY_APP__DataDir"] = TempDataDir; // isolated per test run
 }
 ```
 
 :::tip
-The `TempDataDir` property provides a unique temporary directory created for each
-test run — perfect for isolating server data so test runs don't interfere with
-each other.
+`TempDataDir` provides a unique temporary directory per test run — perfect for
+isolating server data.
 :::
 
 ### Custom Startup Detection {#custom-startup}
 
-If your server doesn't use standard Kestrel output (or you need to detect a
-different startup signal), override `IsServerReady()`:
+For non-Kestrel servers, override `IsServerReady()`:
 
 ```csharp
 protected override bool IsServerReady(string outputLine)
@@ -658,63 +665,35 @@ protected override bool IsServerReady(string outputLine)
 
 ### Extracting Values from Server Output {#output-extraction}
 
-Override `OnServerOutputLine()` to capture values from server startup logs
-(e.g., generated tokens, connection strings):
+Override `OnServerOutputLine()` to capture values from startup logs:
 
 ```csharp
-public class JourneyServerFixture : JourneyFixtureBase
+private string? _adminToken;
+public string AdminToken => _adminToken ?? throw new InvalidOperationException("Token not captured");
+
+protected override void OnServerOutputLine(string line)
 {
-    private string? _adminToken;
-    public string AdminToken => _adminToken ?? throw new InvalidOperationException("Token not captured");
-
-    public JourneyServerFixture()
-        : base("../../src/MyProject.Api", "../../journeys") { }
-
-    protected override void OnServerOutputLine(string line)
+    if (_adminToken != null) return;
+    if (line.Contains("Admin token:", StringComparison.OrdinalIgnoreCase))
     {
-        if (_adminToken != null) return;
-        if (line.Contains("Admin token:", StringComparison.OrdinalIgnoreCase))
-        {
-            var marker = "Admin token:";
-            var idx = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-            if (idx >= 0)
-                _adminToken = line[(idx + marker.Length)..].Trim();
-        }
-    }
-
-    protected override Dictionary<string, string> GetHttpYacVariables()
-    {
-        var vars = base.GetHttpYacVariables();
-        vars["adminToken"] = AdminToken;
-        return vars;
+        var idx = line.IndexOf("Admin token:", StringComparison.OrdinalIgnoreCase);
+        _adminToken = line[(idx + "Admin token:".Length)..].Trim();
     }
 }
 ```
 
 ### Library-Provided Classes Reference {#library-classes}
 
-All of these ship in the `SweDevTools.LiveDoc.xUnit.Journeys` namespace:
+All ship in the `SweDevTools.LiveDoc.xUnit.Journeys` namespace:
 
 | Class | Purpose |
 | --- | --- |
 | `JourneyFixtureBase` | Server lifecycle, httpYac execution, response loading, capture mode |
+| `JourneyConfig` | Configuration record with `ServerProject`, `JourneysPath`, and defaults |
 | `JourneyResult` | Parses httpYac output into per-step results — `Parse(exitCode, output)` |
 | `StepResult` | Per-step result with `Name`, `Passed`, `StatusCode`, `ResponseBody` |
 | `JsonAssertions` | Deep JSON comparison — `IsComparable(actual, expected, rules)` |
 | `PropertyRules` | Loads and matches property rules — `PropertyRules.Load(filePath)` |
-| `JsonAssertionException` | Thrown on JSON comparison failure |
-| `JourneyAssertionException` | Thrown on step assertion failure |
-
-### Full Override Reference {#override-reference}
-
-| Virtual Member | Type | Default | When to Override |
-| --- | --- | --- | --- |
-| `ConfigureServerProcess(psi)` | `void` | Sets `ASPNETCORE_URLS` + `ASPNETCORE_ENVIRONMENT=Test` | Custom env vars, non-standard port config |
-| `IsServerReady(line)` | `bool` | Checks for "Now listening on" / "Application started" | Non-Kestrel server |
-| `GetHttpYacVariables()` | `Dictionary` | `{ "baseUrl": BaseUrl }` | Additional httpYac variables |
-| `StartupTimeout` | `TimeSpan` | 30 seconds | Slow-starting servers |
-| `HttpYacEnvironment` | `string` | `"local"` | Different httpYac env name |
-| `OnServerOutputLine(line)` | `void` | No-op | Extract tokens/values from startup logs |
 
 ---
 
