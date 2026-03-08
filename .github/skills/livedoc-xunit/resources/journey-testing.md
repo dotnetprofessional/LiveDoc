@@ -82,6 +82,7 @@ X-Admin-Token: {{adminToken}}
 3. **`??` lines are httpYac assertions** — they run during both manual and automated execution
 4. **Steps without a BDD comment** (like cleanup requests) are still executed but don't appear in the test's BDD output
 5. **Variable syntax**: `{{variableName}}` for env vars, `{{requestName.field}}` for captured responses, `{{$processEnv VAR}}` for system env vars
+6. **Every scenario must have a `Then` step** — proper Gherkin requires at least Given/When/Then. A `Then` may be a pure documentation step (no `@name`), e.g., `# Then the server reports a healthy status`, to mark where the validation logically occurs
 
 ### Complete CRUD Journey Example
 
@@ -507,3 +508,5 @@ protected override Dictionary<string, string> GetHttpYacVariables()
 - If journey tests fail with "httpYac not found", run `npm install --save-dev httpyac`
 - If `.Journey.cs` files aren't generated, verify `LiveDocJourneysEnabled=true` and the `.http` file has BDD comments
 - If response contract assertions fail, check `property-rules.txt` covers dynamic fields and `.Response.json` matches current API shape
+- If you see "Server process exited before startup completed", the server may be crashing on startup — check the server project builds and runs independently with `dotnet run --project path/to/server`
+- **ASP.NET Core stderr**: Kestrel logs "Now listening on" to **stderr** by default (via the `Microsoft.Hosting.Lifetime` logger). `JourneyFixtureBase` monitors both stdout and stderr in parallel, so this is handled automatically. If you override `IsServerReady()`, your check is applied to lines from both streams.
