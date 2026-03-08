@@ -217,12 +217,51 @@ npm install -D @swedevtools/livedoc-vitest
 ### .NET — xUnit
 
 Living documentation for .NET projects via xUnit integration.
+Includes **Journey Testing** — end-to-end API flows in `.http` files with auto-generated test classes.
 
 ```bash
 dotnet add package SweDevTools.LiveDoc.xUnit
 ```
 
-**[Get Started →](/xunit/learn/getting-started)**
+**[Get Started →](/xunit/learn/getting-started)** · [Journey Testing →](/xunit/guides/journey-testing)
+
+</div>
+
+</div>
+
+---
+
+## Featured: Journey Testing <span className="badge badge--dotnet">xUnit</span>
+
+<div className="featured-callout">
+
+<div className="featured-callout-text">
+
+Write your API test flows in standard **`.http` files** with BDD annotations — use them for manual exploration in VS Code *and* as automated regression tests. LiveDoc generates xUnit test classes, validates response contracts against `.Response.json` snapshots, and handles dynamic fields with property rules.
+
+**[See the Journey Testing guide →](/xunit/guides/journey-testing)**
+
+</div>
+
+<div className="featured-callout-code">
+
+```http
+# Feature: User Management
+# Scenario: Create and retrieve a user
+
+# Given I create a new user
+# @name createUser
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{ "name": "Alice", "email": "alice@test.com" }
+
+###
+
+# Then I can retrieve the user
+# @name getUser
+GET {{baseUrl}}/api/users/{{createUser.id}}
+```
 
 </div>
 

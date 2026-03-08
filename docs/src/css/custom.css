@@ -299,3 +299,56 @@
   padding-left: 1rem;
   margin-bottom: 1.5rem;
 }
+
+/* ─── Feature Card Highlight Variant ──────────────── */
+
+.feature-card--highlight {
+  border: 1px solid var(--ifm-color-primary-light);
+  border-left: 3px solid var(--ifm-color-primary);
+  background: rgba(37, 99, 235, 0.03);
+}
+
+[data-theme='dark'] .feature-card--highlight {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+/* ─── Featured Callout (Homepage) ─────────────────── */
+
+.featured-callout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+
+.featured-callout-text {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.featured-callout-code {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .featured-callout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Badge ───────────────────────────────────────── */
+
+.badge--dotnet {
+  display: inline-block;
+  font-size: 0.65em;
+  font-weight: 600;
+  background: #512bd4;
+  color: #fff;
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+  letter-spacing: 0.02em;
+}

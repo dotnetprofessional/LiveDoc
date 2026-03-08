@@ -70,6 +70,11 @@ const sidebars: SidebarsConfig = {
   ],
   xunit: [
     {
+      type: 'doc',
+      id: 'xunit/index',
+      label: 'Overview',
+    },
+    {
       type: 'category',
       label: 'Learn',
       collapsed: false,
