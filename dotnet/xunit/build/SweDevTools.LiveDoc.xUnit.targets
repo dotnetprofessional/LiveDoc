@@ -103,8 +103,9 @@
     Journey capture mode.
     Runs .http files via httpYac and saves response bodies as .Response.json contract files.
     Invoke explicitly:
-      dotnet msbuild -t:LiveDocCaptureJourneys -p:LiveDocCaptureVars="--var baseUrl=http://localhost:5000 --var adminToken=my-token"
+      dotnet msbuild -t:LiveDocCaptureJourneys -p:LiveDocCaptureVars="~~var baseUrl=http://localhost:5000 ~~var adminToken=my-token"
     Use -p:LiveDocCaptureOverwrite=true to overwrite existing .Response.json files.
+    (Note: replace ~~ with double-dash in actual commands)
   -->
   <PropertyGroup>
     <LiveDocCaptureEnv Condition="'$(LiveDocCaptureEnv)' == ''">local</LiveDocCaptureEnv>

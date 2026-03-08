@@ -9,6 +9,25 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
+  <!-- LiveDoc Journey Generation (dog-fooding our own feature) -->
+  <PropertyGroup>
+    <LiveDocJourneysEnabled>true</LiveDocJourneysEnabled>
+    <LiveDocJourneysDir>$(MSBuildProjectDirectory)\Journeys\sample-journeys</LiveDocJourneysDir>
+    <LiveDocJourneyOutputDir>$(MSBuildProjectDirectory)\Journeys\Generated</LiveDocJourneyOutputDir>
+    <LiveDocJourneyBaseNamespace>SweDevTools.LiveDoc.xUnit.Tests.Journeys.Generated</LiveDocJourneyBaseNamespace>
+    <LiveDocJourneyInfrastructureNamespace>SweDevTools.LiveDoc.xUnit.Tests.Journeys</LiveDocJourneyInfrastructureNamespace>
+    <LiveDocJourneyFixtureType>SampleApiFixture</LiveDocJourneyFixtureType>
+    <LiveDocHttpYacEnsure>off</LiveDocHttpYacEnsure>
+  </PropertyGroup>
+
+  <!-- Import LiveDoc targets (normally comes via NuGet; in dev we import directly) -->
+  <Import Project="..\build\SweDevTools.LiveDoc.xUnit.targets" />
+
+  <!-- Override tool path to use dev build output (NuGet package uses a different layout) -->
+  <PropertyGroup>
+    <_LiveDocJourneyTool>$(MSBuildProjectDirectory)\..\tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.dll</_LiveDocJourneyTool>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />

@@ -4,114 +4,57 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Feature("Journey Fixture Integration",
-    Description = "End-to-end validation that JourneyFixtureBase starts a real server, runs httpYac journeys, and validates response contracts.")]
+[Specification(Description = "Validates JourneyFixtureBase infrastructure: port assignment, URL construction, and response file loading.")]
 [Trait("Category", "Integration")]
-public class JourneyFixture_Integration_Spec : FeatureTest, IClassFixture<SampleApiFixture>
+public class JourneyFixture_Integration_Spec : SpecificationTest, IClassFixture<SampleApiFixture>
 {
     private readonly SampleApiFixture _server;
-    private readonly PropertyRules _propertyRules;
 
     public JourneyFixture_Integration_Spec(ITestOutputHelper output, SampleApiFixture server)
         : base(output)
     {
         _server = server;
-        _propertyRules = JsonAssertions.LoadPropertyRules(
-            Path.Combine(server.JourneysDir, "property-rules.txt"));
     }
 
-    [Scenario("Health check journey validates server is running")]
-    public async Task Health_check_journey()
+    [Rule("Fixture assigns a positive ephemeral port")]
+    public void Assigns_positive_port()
     {
-        var run = await _server.RunJourneyAsync("health-check/_health-check.http");
-
-        When("checking the health endpoint", ctx =>
-        {
-            run.AssertStep("healthCheck", step =>
-            {
-                Assert.Equal(200, step.StatusCode);
-
-                var expected = _server.LoadResponseFile("health-check", "healthCheck");
-                Assert.False(string.IsNullOrWhiteSpace(step.ResponseBody),
-                    "Step 'healthCheck' has a response contract but returned no body");
-                JsonAssertions.IsComparable(step.ResponseBody!, expected, _propertyRules, "healthCheck");
-            });
-        });
+        Assert.True(_server.Port > 0, "Port should be a positive number");
     }
 
-    [Scenario("Items CRUD journey creates, reads, and deletes")]
-    public async Task Items_crud_journey()
+    [Rule("Base URL uses the assigned port")]
+    public void Base_url_uses_port()
     {
-        var run = await _server.RunJourneyAsync("items/_items.http");
-
-        Given("a new item is created", ctx =>
-        {
-            run.AssertStep("createItem", step =>
-            {
-                Assert.Equal(201, step.StatusCode);
-
-                var expected = _server.LoadResponseFile("items", "createItem");
-                Assert.False(string.IsNullOrWhiteSpace(step.ResponseBody),
-                    "Step 'createItem' has a response contract but returned no body");
-                JsonAssertions.IsComparable(step.ResponseBody!, expected, _propertyRules, "createItem");
-            });
-        });
-
-        When("retrieving the created item", ctx =>
-        {
-            run.AssertStep("getItem", step =>
-            {
-                Assert.Equal(200, step.StatusCode);
-
-                var expected = _server.LoadResponseFile("items", "getItem");
-                Assert.False(string.IsNullOrWhiteSpace(step.ResponseBody),
-                    "Step 'getItem' has a response contract but returned no body");
-                JsonAssertions.IsComparable(step.ResponseBody!, expected, _propertyRules, "getItem");
-            });
-        });
-
-        And("deleting the item", ctx =>
-        {
-            run.AssertStep("deleteItem");
-        });
-
-        Then("the item is no longer found", ctx =>
-        {
-            run.AssertStep("verifyDeleted", step =>
-            {
-                Assert.Equal(404, step.StatusCode);
-            });
-        });
+        Assert.Equal($"http://localhost:{_server.Port}", _server.BaseUrl);
     }
 
-    [Scenario("Fixture provides correct base URL and port")]
-    public void Fixture_provides_base_url()
+    [Rule("LoadResponseFile returns contract JSON from journey folder")]
+    public void Load_response_file_returns_json()
     {
-        Given("the fixture has started", ctx =>
-        {
-            Assert.True(_server.Port > 0, "Port should be a positive number");
-        });
-
-        Then("the base URL uses the assigned port", ctx =>
-        {
-            Assert.Equal($"http://localhost:{_server.Port}", _server.BaseUrl);
-        });
+        var json = _server.LoadResponseFile("health-check", "healthCheck");
+        Assert.False(string.IsNullOrWhiteSpace(json));
+        Assert.Contains("healthy", json);
     }
 
-    [Scenario("LoadResponseFile loads contract JSON from journey folder")]
-    public void Load_response_file()
+    [Rule("LoadResponseFile throws FileNotFoundException for missing contract")]
+    public void Load_response_file_throws_for_missing()
     {
-        When("loading a known response contract", ctx =>
-        {
-            var json = _server.LoadResponseFile("health-check", "healthCheck");
-            Assert.False(string.IsNullOrWhiteSpace(json));
-            Assert.Contains("healthy", json);
-        });
+        Assert.Throws<FileNotFoundException>(() =>
+            _server.LoadResponseFile("health-check", "nonExistentStep"));
+    }
 
-        Then("loading a non-existent contract throws FileNotFoundException", ctx =>
-        {
-            Assert.Throws<FileNotFoundException>(() =>
-                _server.LoadResponseFile("health-check", "nonExistentStep"));
-        });
+    [Rule("JourneysDir resolves to an absolute path containing the sample journeys")]
+    public void Journeys_dir_resolves()
+    {
+        Assert.True(Path.IsPathRooted(_server.JourneysDir));
+        Assert.True(Directory.Exists(_server.JourneysDir));
+        Assert.True(File.Exists(Path.Combine(_server.JourneysDir, "property-rules.txt")));
+    }
+
+    [Rule("IsCaptureMode reflects the JOURNEY_CAPTURE environment variable")]
+    public void Capture_mode_reflects_env_var()
+    {
+        // In normal test runs, capture mode should be off
+        Assert.False(SampleApiFixture.IsCaptureMode);
     }
 }
