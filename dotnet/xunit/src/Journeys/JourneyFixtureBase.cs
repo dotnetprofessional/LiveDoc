@@ -284,20 +284,26 @@ public class JourneyFixtureBase : IAsyncLifetime
     private async Task WaitForStartupAsync(Process process, TimeSpan timeout)
     {
         var cts = new CancellationTokenSource(timeout);
+        var ready = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var stderrLines = new List<string>();
+        // Monitor stderr — ASP.NET Core logs "Now listening on" here by default
         var stderrTask = Task.Run(async () =>
         {
             while (!cts.Token.IsCancellationRequested)
             {
                 var line = await process.StandardError.ReadLineAsync(cts.Token);
                 if (line == null) break;
-                stderrLines.Add(line);
-                OnServerOutputLine(StripAnsi(line));
+
+                var clean = StripAnsi(line);
+                OnServerOutputLine(clean);
+
+                if (IsServerReady(clean))
+                    ready.TrySetResult(true);
             }
         }, cts.Token);
 
-        try
+        // Monitor stdout — some servers log here instead
+        var stdoutTask = Task.Run(async () =>
         {
             while (!cts.Token.IsCancellationRequested)
             {
@@ -308,29 +314,29 @@ public class JourneyFixtureBase : IAsyncLifetime
                 OnServerOutputLine(clean);
 
                 if (IsServerReady(clean))
-                {
-                    await Task.Delay(500, cts.Token);
-                    foreach (var errLine in stderrLines)
-                        OnServerOutputLine(StripAnsi(errLine));
-                    return;
-                }
+                    ready.TrySetResult(true);
             }
+        }, cts.Token);
 
-            await Task.Delay(2000, cts.Token);
-            foreach (var errLine in stderrLines)
-            {
-                if (IsServerReady(StripAnsi(errLine)))
-                    return;
-            }
-        }
-        catch (OperationCanceledException)
+        try
         {
-            var combined = string.Join("\n", stderrLines.Take(20));
-            throw new TimeoutException(
-                $"Server did not start within {timeout.TotalSeconds}s.\nStderr (first 20 lines):\n{combined}");
+            var completed = await Task.WhenAny(ready.Task, Task.Delay(timeout, cts.Token));
+            if (completed == ready.Task && ready.Task.Result)
+            {
+                await Task.Delay(500, cts.Token);
+                return;
+            }
         }
+        catch (OperationCanceledException) { }
 
-        throw new InvalidOperationException("Server process exited before startup completed");
+        if (ready.Task.IsCompletedSuccessfully)
+            return;
+
+        if (process.HasExited)
+            throw new InvalidOperationException("Server process exited before startup completed");
+
+        throw new TimeoutException(
+            $"Server did not start within {timeout.TotalSeconds}s.");
     }
 
     private static int FindAvailablePort()

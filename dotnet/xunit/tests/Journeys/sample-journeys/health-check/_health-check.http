@@ -8,3 +8,7 @@
 GET {{baseUrl}}/health
 
 ?? status == 200
+
+###
+
+# Then the server reports a healthy status

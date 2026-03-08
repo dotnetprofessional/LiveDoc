@@ -38,5 +38,6 @@ public class HealthCheck_Journey : FeatureTest, IClassFixture<SampleApiFixture>
                 JsonAssertions.IsComparable(step.ResponseBody, expected, _propertyRules, "healthCheck");
             });
         });
+        Then("the server reports a healthy status", ctx => { });
     }
 }
