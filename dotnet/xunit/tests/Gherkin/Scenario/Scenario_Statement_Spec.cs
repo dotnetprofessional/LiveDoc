@@ -76,7 +76,7 @@ public class Scenario_Statement_Spec : SpecificationTest
 /// Helper fixture class for Scenario_Statement_Spec tests.
 /// Not a real test - just provides methods to inspect via reflection.
 /// </summary>
-[Feature]
+[Feature("Scenario Statement Fixtures")]
 public class Scenario_Statement_Fixtures : FeatureTest
 {
     public Scenario_Statement_Fixtures(ITestOutputHelper output) : base(output) { }

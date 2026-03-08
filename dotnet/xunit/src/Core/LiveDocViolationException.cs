@@ -124,6 +124,16 @@ public class LiveDocViolationException : Exception
             "A class cannot have both [Feature] and [Specification] attributes. Choose one paradigm per test class.");
     }
 
+    public static LiveDocViolationException FeatureMissingTitle(string testClass, string testMethod)
+    {
+        return new LiveDocViolationException(
+            ViolationType.FeatureMissingTitle,
+            testClass,
+            testMethod,
+            "Feature is missing an explicit title. Features are business-facing documentation and must have a descriptive title. " +
+            "Use [Feature(\"My Feature Name\")] instead of [Feature].");
+    }
+
     #endregion
 }
 
@@ -155,5 +165,11 @@ public enum ViolationType
     /// <summary>
     /// Both [Feature] and [Specification] on the same class.
     /// </summary>
-    MixedClassAttributes
+    MixedClassAttributes,
+
+    /// <summary>
+    /// [Feature] is missing an explicit title. Features are business-facing
+    /// documentation and must have a descriptive title.
+    /// </summary>
+    FeatureMissingTitle
 }

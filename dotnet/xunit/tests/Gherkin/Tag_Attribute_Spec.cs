@@ -137,7 +137,7 @@ public class Tag_Attribute_Spec : SpecificationTest
 #region Test Fixtures
 
 [Tag("feature-tag")]
-[Feature]
+[Feature("Tag Class Helper")]
 public class ClassWithTags : FeatureTest
 {
     public ClassWithTags(ITestOutputHelper output) : base(output) { }
@@ -145,13 +145,13 @@ public class ClassWithTags : FeatureTest
 
 [Tag("smoke, regression")]
 [Tag("integration")]
-[Feature]
+[Feature("Tag Multiple Helper")]
 public class ClassWithMultipleTags : FeatureTest
 {
     public ClassWithMultipleTags(ITestOutputHelper output) : base(output) { }
 }
 
-[Feature]
+[Feature("Tag Method Helper")]
 public class ClassWithMethodTags : FeatureTest
 {
     public ClassWithMethodTags(ITestOutputHelper output) : base(output) { }
@@ -162,7 +162,7 @@ public class ClassWithMethodTags : FeatureTest
 }
 
 [Tag("class-tag")]
-[Feature]
+[Feature("Tag Merge Helper")]
 public class ClassWithBothTags : FeatureTest
 {
     public ClassWithBothTags(ITestOutputHelper output) : base(output) { }
@@ -173,7 +173,7 @@ public class ClassWithBothTags : FeatureTest
 }
 
 [Tag("smoke")]
-[Feature]
+[Feature("Tag Dedup Helper")]
 public class ClassWithDuplicateTags : FeatureTest
 {
     public ClassWithDuplicateTags(ITestOutputHelper output) : base(output) { }
@@ -184,7 +184,7 @@ public class ClassWithDuplicateTags : FeatureTest
 }
 
 [Tag("SMOKE")]
-[Feature]
+[Feature("Tag Case Dedup Helper")]
 public class ClassWithCaseDuplicates : FeatureTest
 {
     public ClassWithCaseDuplicates(ITestOutputHelper output) : base(output) { }
@@ -194,7 +194,7 @@ public class ClassWithCaseDuplicates : FeatureTest
     public void Tagged_method() { }
 }
 
-[Feature]
+[Feature("Tag Empty Helper")]
 public class ClassWithoutTags : FeatureTest
 {
     public ClassWithoutTags(ITestOutputHelper output) : base(output) { }

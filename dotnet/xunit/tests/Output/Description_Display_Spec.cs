@@ -7,7 +7,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Output;
 /// <summary>
 /// Tests that verify the description is displayed in test output.
 /// </summary>
-[Feature(Description = @"
+[Feature("Description Display", Description = @"
     This feature tests that descriptions are displayed correctly.
     The description should appear below the Feature header.
 ")]

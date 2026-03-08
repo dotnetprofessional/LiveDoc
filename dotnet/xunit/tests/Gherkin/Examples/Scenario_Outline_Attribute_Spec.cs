@@ -69,7 +69,7 @@ public class Scenario_Outline_Attribute_Spec : SpecificationTest
 /// Helper fixture class for Scenario_Outline_Attribute_Spec tests.
 /// Not a real test - just provides methods to inspect via reflection.
 /// </summary>
-[Feature]
+[Feature("Scenario Outline Attribute Fixtures")]
 public class Scenario_Outline_Attribute_Fixtures : FeatureTest
 {
     public Scenario_Outline_Attribute_Fixtures(ITestOutputHelper output) : base(output) { }

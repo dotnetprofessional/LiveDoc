@@ -10,7 +10,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Steps;
 /// Step statements can include named values using the <name:value> syntax.
 /// These values are extracted and made available via ctx.Step.Params["name"].
 /// </summary>
-[Feature(Description = @"
+[Feature("Step Named Values", Description = @"
     Named values in step descriptions use the <name:value> syntax.
     They are extracted and accessible via ctx.Step.Params dictionary.
     The display title shows only the value (name is removed).

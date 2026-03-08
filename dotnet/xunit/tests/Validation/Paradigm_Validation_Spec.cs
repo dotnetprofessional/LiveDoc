@@ -52,6 +52,12 @@ public class Paradigm_Validation_Spec : SpecificationTest
         Assert.True(Enum.IsDefined(typeof(ViolationType), ViolationType.MixedClassAttributes));
     }
 
+    [Rule("ViolationType enum includes FeatureMissingTitle")]
+    public void ViolationType_includes_FeatureMissingTitle()
+    {
+        Assert.True(Enum.IsDefined(typeof(ViolationType), ViolationType.FeatureMissingTitle));
+    }
+
     #endregion
 
     #region Violation Messages
@@ -104,6 +110,16 @@ public class Paradigm_Validation_Spec : SpecificationTest
         Assert.Contains("[Feature]", violation.Message);
         Assert.Contains("[Specification]", violation.Message);
         Assert.Contains("cannot have both", violation.Message);
+    }
+
+    [Rule("FeatureMissingTitle violation suggests explicit title")]
+    public void FeatureMissingTitle_suggests_explicit_title()
+    {
+        var violation = LiveDocViolationException.FeatureMissingTitle("TestClass", "TestMethod");
+        
+        Assert.Contains("missing an explicit title", violation.Message);
+        Assert.Contains("[Feature(\"My Feature Name\")]", violation.Message);
+        Assert.Equal(ViolationType.FeatureMissingTitle, violation.ViolationType);
     }
 
     #endregion

@@ -93,13 +93,13 @@ public class Feature_Statement_Spec : SpecificationTest
 
 #region Test Fixtures
 
-[Feature]
+[Feature("Sample Feature Tests")]
 public class SampleFeatureTests : FeatureTest
 {
     public SampleFeatureTests(ITestOutputHelper output) : base(output) { }
 }
 
-[Feature]
+[Feature("Sample Feature Tests")]
 public class Sample_Feature_Tests : FeatureTest
 {
     public Sample_Feature_Tests(ITestOutputHelper output) : base(output) { }
@@ -111,14 +111,14 @@ public class NamedFeatureTests : FeatureTest
     public NamedFeatureTests(ITestOutputHelper output) : base(output) { }
 }
 
-[Feature(Description = "This is a detailed description of the feature.")]
+[Feature("Described Feature", Description = "This is a detailed description of the feature.")]
 public class DescribedFeatureTests : FeatureTest
 {
     public DescribedFeatureTests(ITestOutputHelper output) : base(output) { }
 }
 
 [Tag("smoke, regression")]
-[Feature]
+[Feature("Tagged Feature Tests")]
 public class TaggedFeatureTests : FeatureTest
 {
     public TaggedFeatureTests(ITestOutputHelper output) : base(output) { }

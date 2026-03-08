@@ -10,7 +10,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Examples;
 /// Tests for the [ScenarioOutline] attribute and Example data binding.
 /// Validates parameterized scenarios with multiple example rows.
 /// </summary>
-[Feature(Description = @"
+[Feature("Scenario Outline", Description = @"
     ScenarioOutline enables data-driven BDD scenarios via [Example] rows.
     Each example row runs the scenario with different parameters, validating
     type preservation, string handling, and multi-assertion support.")]

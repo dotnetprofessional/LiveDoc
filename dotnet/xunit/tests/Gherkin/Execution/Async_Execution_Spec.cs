@@ -10,7 +10,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Execution;
 /// Tests for async/await support in LiveDoc tests.
 /// Validates that steps can use async operations.
 /// </summary>
-[Feature(Description = @"
+[Feature("Async Execution", Description = @"
     Steps in LiveDoc scenarios support async/await. Given, When, and Then
     steps can each be asynchronous, and async works with context access
     and scenario outlines.")]

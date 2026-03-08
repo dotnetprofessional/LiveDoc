@@ -10,7 +10,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Steps;
 /// Quoted and named values can be converted to various types
 /// using the .AsInt(), .AsDecimal(), .As<T>() methods.
 /// </summary>
-[Feature(Description = @"
+[Feature("Step Type Conversion", Description = @"
     Extracted quoted and named values support type conversion via
     .AsInt(), .AsDecimal(), .AsBool(), .AsDateTime(), .As<T>(), and
     array parsing. Invalid conversions throw LiveDocConversionException.")]

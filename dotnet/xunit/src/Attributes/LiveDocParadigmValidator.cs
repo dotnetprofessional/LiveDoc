@@ -22,8 +22,14 @@ internal static class LiveDocParadigmValidator
         var className = testClass.Name;
         var methodName = testMethod.Method.Name;
 
-        // Check for [Specification] on the class - invalid for Gherkin methods
+        var hasFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
         var hasSpecification = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
+
+        // Check for mixed paradigms — both [Feature] and [Specification]
+        if (hasFeature && hasSpecification)
+            return LiveDocViolationException.MixedClassAttributes(className);
+
+        // Check for [Specification] on the class - invalid for Gherkin methods
         if (hasSpecification)
         {
             return attributeName == "ScenarioOutline"
@@ -32,13 +38,17 @@ internal static class LiveDocParadigmValidator
         }
 
         // Check for [Feature] on the class - required for Gherkin methods
-        var hasFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
         if (!hasFeature)
         {
             return attributeName == "ScenarioOutline"
                 ? LiveDocViolationException.ScenarioOutlineWithoutFeature(className, methodName)
                 : LiveDocViolationException.ScenarioWithoutFeature(className, methodName);
         }
+
+        // Check that [Feature] has an explicit title
+        var featureAttr = testClass.GetCustomAttributes(typeof(FeatureAttribute)).First();
+        if (!HasExplicitFeatureTitle(featureAttr))
+            return LiveDocViolationException.FeatureMissingTitle(className, methodName);
 
         return null; // Valid
     }
@@ -55,8 +65,14 @@ internal static class LiveDocParadigmValidator
         var className = testClass.Name;
         var methodName = testMethod.Method.Name;
 
-        // Check for [Feature] on the class - invalid for Specification methods
         var hasFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
+        var hasSpecification = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
+
+        // Check for mixed paradigms — both [Feature] and [Specification]
+        if (hasFeature && hasSpecification)
+            return LiveDocViolationException.MixedClassAttributes(className);
+
+        // Check for [Feature] on the class - invalid for Specification methods
         if (hasFeature)
         {
             return attributeName == "RuleOutline"
@@ -65,7 +81,6 @@ internal static class LiveDocParadigmValidator
         }
 
         // Check for [Specification] on the class - required for Specification methods
-        var hasSpecification = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
         if (!hasSpecification)
         {
             return attributeName == "RuleOutline"
@@ -90,5 +105,28 @@ internal static class LiveDocParadigmValidator
             TestMethodDisplayOptions.None,
             testMethod,
             violation.Message);
+    }
+
+    /// <summary>
+    /// Checks whether a FeatureAttribute has an explicit (non-empty) title.
+    /// </summary>
+    private static bool HasExplicitFeatureTitle(IAttributeInfo featureAttr)
+    {
+        // Check constructor argument: [Feature("Title")]
+        var ctorArgs = featureAttr.GetConstructorArguments().ToList();
+        var name = ctorArgs.Count > 0 ? ctorArgs[0] as string : null;
+        if (!string.IsNullOrWhiteSpace(name))
+            return true;
+
+        // Check named property: [Feature(Name = "Title")]
+        try
+        {
+            name = featureAttr.GetNamedArgument<string>("Name");
+            if (!string.IsNullOrWhiteSpace(name))
+                return true;
+        }
+        catch { /* Property not set */ }
+
+        return false;
     }
 }
