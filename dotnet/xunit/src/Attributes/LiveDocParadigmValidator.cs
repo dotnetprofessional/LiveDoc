@@ -6,30 +6,31 @@ using Xunit.Sdk;
 namespace SweDevTools.LiveDoc.xUnit;
 
 /// <summary>
-/// Helper class for validating LiveDoc paradigm usage at test discovery time.
+/// Validates LiveDoc paradigm usage. Public <c>Type</c>-based methods enable
+/// negative testing; internal <c>ITestMethod</c>-based methods are called
+/// during xUnit discovery.
 /// </summary>
-internal static class LiveDocParadigmValidator
+public static class LiveDocParadigmValidator
 {
+    // ── Public API (testable with plain reflection) ────────────────
+
     /// <summary>
-    /// Validates that a Scenario or ScenarioOutline is used correctly.
+    /// Validates that a Gherkin method ([Scenario] or [ScenarioOutline]) is used correctly
+    /// on the given class. Returns a violation if invalid, null if valid.
     /// </summary>
-    /// <param name="testMethod">The test method being discovered.</param>
-    /// <param name="attributeName">The attribute name for error messages.</param>
-    /// <returns>A violation exception if invalid, null if valid.</returns>
-    public static LiveDocViolationException? ValidateGherkinMethod(ITestMethod testMethod, string attributeName)
+    /// <param name="testClassType">The test class <see cref="Type"/>.</param>
+    /// <param name="methodName">The test method name (for error messages).</param>
+    /// <param name="attributeName">The attribute being validated: <c>"Scenario"</c> or <c>"ScenarioOutline"</c>.</param>
+    public static LiveDocViolationException? ValidateGherkinMethod(
+        Type testClassType, string methodName, string attributeName = "Scenario")
     {
-        var testClass = testMethod.TestClass.Class;
-        var className = testClass.Name;
-        var methodName = testMethod.Method.Name;
+        var className = testClassType.Name;
+        var hasFeature = Attribute.IsDefined(testClassType, typeof(FeatureAttribute));
+        var hasSpecification = Attribute.IsDefined(testClassType, typeof(SpecificationAttribute));
 
-        var hasFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
-        var hasSpecification = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
-
-        // Check for mixed paradigms — both [Feature] and [Specification]
         if (hasFeature && hasSpecification)
             return LiveDocViolationException.MixedClassAttributes(className);
 
-        // Check for [Specification] on the class - invalid for Gherkin methods
         if (hasSpecification)
         {
             return attributeName == "ScenarioOutline"
@@ -37,7 +38,6 @@ internal static class LiveDocParadigmValidator
                 : LiveDocViolationException.ScenarioInSpecification(className, methodName);
         }
 
-        // Check for [Feature] on the class - required for Gherkin methods
         if (!hasFeature)
         {
             return attributeName == "ScenarioOutline"
@@ -45,34 +45,30 @@ internal static class LiveDocParadigmValidator
                 : LiveDocViolationException.ScenarioWithoutFeature(className, methodName);
         }
 
-        // Check that [Feature] has an explicit title
-        var featureAttr = testClass.GetCustomAttributes(typeof(FeatureAttribute)).First();
-        if (!HasExplicitFeatureTitle(featureAttr))
+        var featureAttr = (FeatureAttribute)Attribute.GetCustomAttribute(testClassType, typeof(FeatureAttribute))!;
+        if (string.IsNullOrWhiteSpace(featureAttr.Name))
             return LiveDocViolationException.FeatureMissingTitle(className, methodName);
 
-        return null; // Valid
+        return null;
     }
 
     /// <summary>
-    /// Validates that a Rule or RuleOutline is used correctly.
+    /// Validates that a Specification method ([Rule] or [RuleOutline]) is used correctly
+    /// on the given class. Returns a violation if invalid, null if valid.
     /// </summary>
-    /// <param name="testMethod">The test method being discovered.</param>
-    /// <param name="attributeName">The attribute name for error messages.</param>
-    /// <returns>A violation exception if invalid, null if valid.</returns>
-    public static LiveDocViolationException? ValidateSpecificationMethod(ITestMethod testMethod, string attributeName)
+    /// <param name="testClassType">The test class <see cref="Type"/>.</param>
+    /// <param name="methodName">The test method name (for error messages).</param>
+    /// <param name="attributeName">The attribute being validated: <c>"Rule"</c> or <c>"RuleOutline"</c>.</param>
+    public static LiveDocViolationException? ValidateSpecificationMethod(
+        Type testClassType, string methodName, string attributeName = "Rule")
     {
-        var testClass = testMethod.TestClass.Class;
-        var className = testClass.Name;
-        var methodName = testMethod.Method.Name;
+        var className = testClassType.Name;
+        var hasFeature = Attribute.IsDefined(testClassType, typeof(FeatureAttribute));
+        var hasSpecification = Attribute.IsDefined(testClassType, typeof(SpecificationAttribute));
 
-        var hasFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
-        var hasSpecification = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
-
-        // Check for mixed paradigms — both [Feature] and [Specification]
         if (hasFeature && hasSpecification)
             return LiveDocViolationException.MixedClassAttributes(className);
 
-        // Check for [Feature] on the class - invalid for Specification methods
         if (hasFeature)
         {
             return attributeName == "RuleOutline"
@@ -80,7 +76,6 @@ internal static class LiveDocParadigmValidator
                 : LiveDocViolationException.RuleInFeature(className, methodName);
         }
 
-        // Check for [Specification] on the class - required for Specification methods
         if (!hasSpecification)
         {
             return attributeName == "RuleOutline"
@@ -88,13 +83,39 @@ internal static class LiveDocParadigmValidator
                 : LiveDocViolationException.RuleWithoutSpecification(className, methodName);
         }
 
-        return null; // Valid
+        return null;
+    }
+
+    // ── Internal API (xUnit discovery pipeline) ────────────────────
+
+    /// <summary>
+    /// Validates a Gherkin method during xUnit test discovery.
+    /// </summary>
+    internal static LiveDocViolationException? ValidateGherkinMethod(ITestMethod testMethod, string attributeName)
+    {
+        if (testMethod.TestClass.Class is IReflectionTypeInfo rti)
+            return ValidateGherkinMethod(rti.Type, testMethod.Method.Name, attributeName);
+
+        // Fallback for non-reflection discovery (rare)
+        return ValidateGherkinMethodFromTypeInfo(testMethod.TestClass.Class, testMethod.Method.Name, attributeName);
+    }
+
+    /// <summary>
+    /// Validates a Specification method during xUnit test discovery.
+    /// </summary>
+    internal static LiveDocViolationException? ValidateSpecificationMethod(ITestMethod testMethod, string attributeName)
+    {
+        if (testMethod.TestClass.Class is IReflectionTypeInfo rti)
+            return ValidateSpecificationMethod(rti.Type, testMethod.Method.Name, attributeName);
+
+        // Fallback for non-reflection discovery (rare)
+        return ValidateSpecificationMethodFromTypeInfo(testMethod.TestClass.Class, testMethod.Method.Name, attributeName);
     }
 
     /// <summary>
     /// Creates a failing test case that reports a violation.
     /// </summary>
-    public static IXunitTestCase CreateViolationTestCase(
+    internal static IXunitTestCase CreateViolationTestCase(
         IMessageSink diagnosticMessageSink,
         ITestMethod testMethod,
         LiveDocViolationException violation)
@@ -107,18 +128,65 @@ internal static class LiveDocParadigmValidator
             violation.Message);
     }
 
-    /// <summary>
-    /// Checks whether a FeatureAttribute has an explicit (non-empty) title.
-    /// </summary>
+    // ── Fallback for non-reflection discovery ──────────────────────
+
+    private static LiveDocViolationException? ValidateGherkinMethodFromTypeInfo(
+        ITypeInfo testClass, string methodName, string attributeName)
+    {
+        var className = testClass.Name;
+        var hasFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
+        var hasSpecification = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
+
+        if (hasFeature && hasSpecification)
+            return LiveDocViolationException.MixedClassAttributes(className);
+
+        if (hasSpecification)
+            return attributeName == "ScenarioOutline"
+                ? LiveDocViolationException.ScenarioOutlineInSpecification(className, methodName)
+                : LiveDocViolationException.ScenarioInSpecification(className, methodName);
+
+        if (!hasFeature)
+            return attributeName == "ScenarioOutline"
+                ? LiveDocViolationException.ScenarioOutlineWithoutFeature(className, methodName)
+                : LiveDocViolationException.ScenarioWithoutFeature(className, methodName);
+
+        var featureAttr = testClass.GetCustomAttributes(typeof(FeatureAttribute)).First();
+        if (!HasExplicitFeatureTitle(featureAttr))
+            return LiveDocViolationException.FeatureMissingTitle(className, methodName);
+
+        return null;
+    }
+
+    private static LiveDocViolationException? ValidateSpecificationMethodFromTypeInfo(
+        ITypeInfo testClass, string methodName, string attributeName)
+    {
+        var className = testClass.Name;
+        var hasFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
+        var hasSpecification = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
+
+        if (hasFeature && hasSpecification)
+            return LiveDocViolationException.MixedClassAttributes(className);
+
+        if (hasFeature)
+            return attributeName == "RuleOutline"
+                ? LiveDocViolationException.RuleOutlineInFeature(className, methodName)
+                : LiveDocViolationException.RuleInFeature(className, methodName);
+
+        if (!hasSpecification)
+            return attributeName == "RuleOutline"
+                ? LiveDocViolationException.RuleOutlineWithoutSpecification(className, methodName)
+                : LiveDocViolationException.RuleWithoutSpecification(className, methodName);
+
+        return null;
+    }
+
     private static bool HasExplicitFeatureTitle(IAttributeInfo featureAttr)
     {
-        // Check constructor argument: [Feature("Title")]
         var ctorArgs = featureAttr.GetConstructorArguments().ToList();
         var name = ctorArgs.Count > 0 ? ctorArgs[0] as string : null;
         if (!string.IsNullOrWhiteSpace(name))
             return true;
 
-        // Check named property: [Feature(Name = "Title")]
         try
         {
             name = featureAttr.GetNamedArgument<string>("Name");
