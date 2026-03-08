@@ -100,6 +100,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Guides',
       items: [
+        'xunit/guides/journey-testing',
         'xunit/guides/viewer-integration',
         'xunit/guides/ai-skill-setup',
         'xunit/guides/debugging',

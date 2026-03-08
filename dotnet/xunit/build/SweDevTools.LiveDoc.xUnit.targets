@@ -35,4 +35,96 @@
           Command="bash &quot;$(LiveDocToolsDir)livedoc-setup.sh&quot; --tool $(LiveDocTool)"
           WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
+
+  <!--
+    Journey scaffolding support.
+    Enables .http -> .Journey.cs generation using the packaged journey generator tool.
+  -->
+  <PropertyGroup>
+    <LiveDocJourneysEnabled Condition="'$(LiveDocJourneysEnabled)' == ''">false</LiveDocJourneysEnabled>
+    <LiveDocJourneyMode Condition="'$(LiveDocJourneyMode)' == ''">scaffold</LiveDocJourneyMode>
+    <LiveDocJourneysDir Condition="'$(LiveDocJourneysDir)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\journeys'))</LiveDocJourneysDir>
+    <LiveDocJourneyOutputDir Condition="'$(LiveDocJourneyOutputDir)' == ''">$(MSBuildProjectDirectory)\Journeys</LiveDocJourneyOutputDir>
+    <LiveDocJourneyBaseNamespace Condition="'$(LiveDocJourneyBaseNamespace)' == ''">$(RootNamespace).Journeys</LiveDocJourneyBaseNamespace>
+    <LiveDocJourneyInfrastructureNamespace Condition="'$(LiveDocJourneyInfrastructureNamespace)' == ''">$(LiveDocJourneyBaseNamespace).Infrastructure</LiveDocJourneyInfrastructureNamespace>
+    <LiveDocJourneyFixtureType Condition="'$(LiveDocJourneyFixtureType)' == ''">JourneyServerFixture</LiveDocJourneyFixtureType>
+    <LiveDocHttpYacEnsure Condition="'$(LiveDocHttpYacEnsure)' == ''">check</LiveDocHttpYacEnsure>
+
+    <_LiveDocJourneyToolDir>$(MSBuildThisFileDirectory)..\tools\journey-generator\net8.0\</_LiveDocJourneyToolDir>
+    <_LiveDocJourneyTool>$(_LiveDocJourneyToolDir)SweDevTools.LiveDoc.xUnit.JourneyGenerator.dll</_LiveDocJourneyTool>
+  </PropertyGroup>
+
+  <Target Name="LiveDocEnsureHttpYac"
+          Condition="'$(LiveDocJourneysEnabled)' == 'true' And Exists('$(LiveDocJourneysDir)') And '$(LiveDocHttpYacEnsure)' != 'off'">
+    <Exec Command="npx --no-install httpyac --version"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          IgnoreExitCode="true"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_LiveDocHttpYacExitCode" />
+    </Exec>
+
+    <Exec Condition="'$(_LiveDocHttpYacExitCode)' != '0' And '$(LiveDocHttpYacEnsure)' == 'auto-install'"
+          Command="npm install --save-dev httpyac"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" />
+
+    <Exec Condition="'$(_LiveDocHttpYacExitCode)' != '0' And '$(LiveDocHttpYacEnsure)' == 'auto-install'"
+          Command="npx --no-install httpyac --version"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          IgnoreExitCode="true"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_LiveDocHttpYacExitCode" />
+    </Exec>
+
+    <Error Condition="'$(_LiveDocHttpYacExitCode)' != '0'"
+           Text="LiveDoc journeys require httpYac CLI. Install with 'npm install --save-dev httpyac', set LiveDocHttpYacEnsure=auto-install, or disable checks with LiveDocHttpYacEnsure=off." />
+  </Target>
+
+  <Target Name="LiveDocScaffoldJourneyTests"
+          BeforeTargets="CoreCompile"
+          DependsOnTargets="LiveDocEnsureHttpYac"
+          Condition="'$(LiveDocJourneysEnabled)' == 'true' And Exists('$(LiveDocJourneysDir)')">
+    <Error Condition="!Exists('$(_LiveDocJourneyTool)')"
+           Text="LiveDoc journey generator tool was not found in package at '$(_LiveDocJourneyTool)'." />
+
+    <MakeDir Directories="$(LiveDocJourneyOutputDir)" />
+    <Exec Command="dotnet &quot;$(_LiveDocJourneyTool)&quot; $(LiveDocJourneyMode) &quot;$(LiveDocJourneysDir)&quot; &quot;$(LiveDocJourneyOutputDir)&quot; --base-namespace &quot;$(LiveDocJourneyBaseNamespace)&quot; --infrastructure-namespace &quot;$(LiveDocJourneyInfrastructureNamespace)&quot; --fixture-type &quot;$(LiveDocJourneyFixtureType)&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="high" />
+  </Target>
+
+  <!--
+    Journey capture mode.
+    Runs .http files via httpYac and saves response bodies as .Response.json contract files.
+    Invoke explicitly:
+      dotnet msbuild -t:LiveDocCaptureJourneys -p:LiveDocCaptureVars="--var baseUrl=http://localhost:5000 --var adminToken=my-token"
+    Use -p:LiveDocCaptureOverwrite=true to overwrite existing .Response.json files.
+  -->
+  <PropertyGroup>
+    <LiveDocCaptureEnv Condition="'$(LiveDocCaptureEnv)' == ''">local</LiveDocCaptureEnv>
+    <LiveDocCaptureOverwrite Condition="'$(LiveDocCaptureOverwrite)' == ''">false</LiveDocCaptureOverwrite>
+  </PropertyGroup>
+
+  <Target Name="LiveDocCaptureJourneys"
+          DependsOnTargets="LiveDocEnsureHttpYac"
+          Condition="Exists('$(LiveDocJourneysDir)')">
+    <Error Condition="!Exists('$(_LiveDocJourneyTool)')"
+           Text="LiveDoc journey generator tool was not found in package at '$(_LiveDocJourneyTool)'." />
+
+    <Exec Condition="'$(LiveDocCaptureOverwrite)' == 'true'"
+          Command="dotnet &quot;$(_LiveDocJourneyTool)&quot; capture &quot;$(LiveDocJourneysDir)&quot; --env $(LiveDocCaptureEnv) --overwrite $(LiveDocCaptureVars)"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" />
+
+    <Exec Condition="'$(LiveDocCaptureOverwrite)' != 'true'"
+          Command="dotnet &quot;$(_LiveDocJourneyTool)&quot; capture &quot;$(LiveDocJourneysDir)&quot; --env $(LiveDocCaptureEnv) $(LiveDocCaptureVars)"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" />
+  </Target>
 </Project>

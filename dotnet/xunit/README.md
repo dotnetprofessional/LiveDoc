@@ -69,6 +69,43 @@ Supports GitHub Copilot, Claude Code, Roo Code, Cursor, and Windsurf. See the [A
 
 ---
 
+## Journey Scaffolding from `.http` files
+
+The package includes a journey generator executable and MSBuild target that can scaffold LiveDoc xUnit tests from annotated `.http` files.
+
+Enable it in your test project:
+
+```xml
+<PropertyGroup>
+  <LiveDocJourneysEnabled>true</LiveDocJourneysEnabled>
+  <LiveDocJourneysDir>$(MSBuildProjectDirectory)\..\..\journeys</LiveDocJourneysDir>
+  <LiveDocJourneyOutputDir>$(MSBuildProjectDirectory)\Journeys</LiveDocJourneyOutputDir>
+  <LiveDocJourneyBaseNamespace>MyProject.Specs.Journeys</LiveDocJourneyBaseNamespace>
+  <LiveDocJourneyInfrastructureNamespace>MyProject.Specs.Journeys.Infrastructure</LiveDocJourneyInfrastructureNamespace>
+  <LiveDocJourneyFixtureType>JourneyServerFixture</LiveDocJourneyFixtureType>
+  <LiveDocJourneyMode>scaffold</LiveDocJourneyMode>
+  <LiveDocHttpYacEnsure>check</LiveDocHttpYacEnsure>
+</PropertyGroup>
+```
+
+- `LiveDocJourneyMode`: `scaffold`, `validate`, or `force`
+- `LiveDocHttpYacEnsure`: `check`, `auto-install`, or `off`
+
+The generated journey tests expect the configured fixture type to expose the same runtime API used by the reference pattern (`RunJourneyAsync`, `LoadResponseFile`, `JourneysDir`).
+
+### Capture Mode
+
+Auto-generate `.Response.json` contract files by running journeys against a live server:
+
+```bash
+dotnet msbuild -t:LiveDocCaptureJourneys \
+  -p:LiveDocCaptureVars="--var baseUrl=http://localhost:5000 --var adminToken=my-token"
+```
+
+This runs each `.http` file via httpYac, captures response bodies, and saves them as contract files. Use `-p:LiveDocCaptureOverwrite=true` to regenerate existing contracts.
+
+---
+
 ## Documentation
 
 📖 **[Full documentation at livedoc.swedevtools.com →](http://livedoc.swedevtools.com/docs/xunit/learn/getting-started)**

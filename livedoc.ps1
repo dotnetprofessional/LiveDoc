@@ -583,7 +583,7 @@ if ($Command -eq 'docs-serve') {
     }
     Write-Host ""
     Write-Host "Starting preview server..." -ForegroundColor Cyan
-    Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'serve')
+    Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'serve', '--port', '4000')
     return
 }
 
@@ -615,7 +615,7 @@ $packageMenuItems.Add((New-MenuItem -Label 'Dev All (Viewer + Server)' -HotKey '
 $docsChildren = @(
     (New-MenuItem -Label 'Dev Server (hot reload)' -HotKey '1' -Action ({
         $docsDir = Join-Path $repoRoot 'docs'
-        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'start')
+        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'start', '--port', '4000')
     }.GetNewClosure())),
     (New-MenuItem -Label 'Build (production)' -HotKey '2' -Action ({
         $docsDir = Join-Path $repoRoot 'docs'
@@ -631,7 +631,7 @@ $docsChildren = @(
         }
         Write-Host ""
         Write-Host "Starting preview server..." -ForegroundColor Cyan
-        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'serve')
+        Invoke-InDirectory -WorkingDirectory $docsDir -Executable 'npx' -Arguments @('docusaurus', 'serve', '--port', '4000')
     }.GetNewClosure())),
     (New-MenuItem -Label 'Clear Cache' -HotKey '4' -Action ({
         $docsDir = Join-Path $repoRoot 'docs'
