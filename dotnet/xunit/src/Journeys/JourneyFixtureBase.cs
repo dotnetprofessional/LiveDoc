@@ -129,7 +129,7 @@ public class JourneyFixtureBase : IAsyncLifetime
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --project \"{serverProjectDir}\" {Config.ServerArguments}",
+            Arguments = $"run --project \"{serverProjectDir}\" -p:UseSharedCompilation=false {Config.ServerArguments}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
