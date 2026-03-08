@@ -283,60 +283,55 @@ public class JourneyFixtureBase : IAsyncLifetime
 
     private async Task WaitForStartupAsync(Process process, TimeSpan timeout)
     {
-        var cts = new CancellationTokenSource(timeout);
         var ready = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var outputLines = new System.Collections.Concurrent.ConcurrentQueue<string>();
 
-        // Monitor stderr — ASP.NET Core logs "Now listening on" here by default
-        var stderrTask = Task.Run(async () =>
+        async Task MonitorStream(System.IO.StreamReader stream)
         {
-            while (!cts.Token.IsCancellationRequested)
+            while (true)
             {
-                var line = await process.StandardError.ReadLineAsync(cts.Token);
+                string? line;
+                try { line = await stream.ReadLineAsync(); }
+                catch { break; }
                 if (line == null) break;
 
                 var clean = StripAnsi(line);
+                outputLines.Enqueue(clean);
                 OnServerOutputLine(clean);
 
                 if (IsServerReady(clean))
                     ready.TrySetResult(true);
-            }
-        }, cts.Token);
-
-        // Monitor stdout — some servers log here instead
-        var stdoutTask = Task.Run(async () =>
-        {
-            while (!cts.Token.IsCancellationRequested)
-            {
-                var line = await process.StandardOutput.ReadLineAsync(cts.Token);
-                if (line == null) break;
-
-                var clean = StripAnsi(line);
-                OnServerOutputLine(clean);
-
-                if (IsServerReady(clean))
-                    ready.TrySetResult(true);
-            }
-        }, cts.Token);
-
-        try
-        {
-            var completed = await Task.WhenAny(ready.Task, Task.Delay(timeout, cts.Token));
-            if (completed == ready.Task && ready.Task.Result)
-            {
-                await Task.Delay(500, cts.Token);
-                return;
             }
         }
-        catch (OperationCanceledException) { }
 
-        if (ready.Task.IsCompletedSuccessfully)
+        // Monitor both streams — ASP.NET Core logs "Now listening on" to stderr by default
+        var stderrTask = MonitorStream(process.StandardError);
+        var stdoutTask = MonitorStream(process.StandardOutput);
+
+        // When both streams close the process has exited
+        var processExited = Task.WhenAll(stderrTask, stdoutTask);
+
+        var completed = await Task.WhenAny(ready.Task, processExited, Task.Delay(timeout));
+
+        if (completed == ready.Task)
+        {
+            await Task.Delay(500); // brief settle time
             return;
+        }
+
+        // Not ready — build diagnostic message
+        await Task.Delay(200); // let any trailing output arrive
+        var output = string.Join("\n", outputLines);
+        var diagnostics = string.IsNullOrEmpty(output) ? "(no output captured)" : output;
 
         if (process.HasExited)
-            throw new InvalidOperationException("Server process exited before startup completed");
+            throw new InvalidOperationException(
+                $"Server process exited with code {process.ExitCode} before startup completed.\n" +
+                $"Server output:\n{diagnostics}");
 
         throw new TimeoutException(
-            $"Server did not start within {timeout.TotalSeconds}s.");
+            $"Server did not start within {timeout.TotalSeconds}s.\n" +
+            $"Server output:\n{diagnostics}");
     }
 
     private static int FindAvailablePort()
