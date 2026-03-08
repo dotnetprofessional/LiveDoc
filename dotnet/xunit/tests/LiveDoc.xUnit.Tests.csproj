@@ -23,6 +23,19 @@
   <!-- Reference the main library -->
   <ItemGroup>
     <ProjectReference Include="..\livedoc-xunit.csproj" />
+    <ProjectReference Include="..\tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj" />
+  </ItemGroup>
+
+  <!-- Exclude SampleApi (separate project, compiled independently) -->
+  <ItemGroup>
+    <Compile Remove="SampleApi\**" />
+    <Content Remove="SampleApi\**" />
+    <None Remove="SampleApi\**" />
+  </ItemGroup>
+
+  <!-- Copy journey test data to output -->
+  <ItemGroup>
+    <None Include="Journeys\sample-journeys\**" CopyToOutputDirectory="PreserveNewest" LinkBase="sample-journeys" />
   </ItemGroup>
 
 </Project>

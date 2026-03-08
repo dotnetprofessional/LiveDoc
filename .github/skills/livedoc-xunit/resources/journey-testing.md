@@ -473,7 +473,7 @@ public class JourneyServerFixture : JourneyFixtureBase
 | Method | Default | When to Override |
 | --- | --- | --- |
 | `ConfigureServerProcess(psi)` | No-op | Add custom env vars to server process |
-| `IsServerReady(line)` | Detects "Now listening on" | Non-Kestrel server |
+| `IsServerReady(line)` | Detects "Now listening on" or "Application started" | Non-Kestrel server |
 | `GetHttpYacVariables()` | `{ "baseUrl": BaseUrl }` | Additional variables (tokens, API keys) |
 | `OnServerOutputLine(line)` | No-op | Extract values from startup logs |
 

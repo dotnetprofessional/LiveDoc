@@ -1,0 +1,5 @@
+# Dynamic fields that change each run
+timestamp: exists
+createdAt: exists
+created_at: exists
+id: type number, > 0
