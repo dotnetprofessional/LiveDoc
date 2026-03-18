@@ -176,7 +176,17 @@ export function SummaryView({ run }: SummaryViewProps) {
             {runModel.project || 'Test Results'}
           </h1>
           <p className="text-muted-foreground mt-3 max-w-2xl text-lg font-medium leading-relaxed">
-            Latest execution health and organization overview.
+            {status === 'running' ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                </span>
+                Run in progress — results are updating live
+              </span>
+            ) : (
+              'Latest execution health and organization overview.'
+            )}
           </p>
         </div>
 
@@ -204,7 +214,7 @@ export function SummaryView({ run }: SummaryViewProps) {
             <CardDescription>Real-time metrics from the latest test run</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <StatsBar summary={summary} duration={duration} ruleViolations={ruleViolationItems.totalViolations} size="lg" />
+            <StatsBar summary={summary} duration={duration} ruleViolations={ruleViolationItems.totalViolations} isRunning={status === 'running'} size="lg" />
           </CardContent>
         </Card>
 

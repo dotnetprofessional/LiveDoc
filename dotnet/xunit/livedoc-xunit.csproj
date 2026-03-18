@@ -38,6 +38,9 @@
     <Compile Remove="logger\**" />
     <EmbeddedResource Remove="logger\**" />
     <None Remove="logger\**" />
+    <Compile Remove="tools\journey-generator\**" />
+    <EmbeddedResource Remove="tools\journey-generator\**" />
+    <None Remove="tools\journey-generator\**" />
   </ItemGroup>
 
   <!-- Include readme.txt and MSBuild targets in the NuGet package -->
@@ -53,10 +56,26 @@
     <None Include="tools\livedoc-setup.sh" Pack="true" PackagePath="tools\" />
   </ItemGroup>
 
+  <!-- Bundle journey generator tool assets in the NuGet package -->
+  <ItemGroup>
+    <None Include="tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.dll"
+          Pack="true" PackagePath="tools\journey-generator\net8.0\" />
+    <None Include="tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.deps.json"
+          Pack="true" PackagePath="tools\journey-generator\net8.0\" />
+    <None Include="tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.runtimeconfig.json"
+          Pack="true" PackagePath="tools\journey-generator\net8.0\" />
+  </ItemGroup>
+
   <!-- Bundle the console logger DLL so VSTest can discover it -->
   <ItemGroup>
     <None Include="logger\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
           Pack="true" PackagePath="build\net8.0\" />
   </ItemGroup>
+
+  <Target Name="BuildJourneyGeneratorTool" BeforeTargets="Pack">
+    <MSBuild Projects="tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
 
 </Project>

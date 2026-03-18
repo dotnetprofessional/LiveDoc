@@ -7,6 +7,7 @@ import { Moon, Sun, Bell } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
 import { GlobalFilter } from "./GlobalFilter"
 import { Badge } from "./ui/badge"
+import { RunProgressBanner } from "./RunProgressBanner"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true)
@@ -57,11 +58,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               >
                 Live: {connectionLabel}
               </Badge>
-              {latestIsRunning && (
-                <span className="rounded-full border px-2 py-1 text-foreground">
-                  Run in progress
-                </span>
-              )}
               {hasNewLiveRun && (
                 <Button
                   variant="outline"
@@ -105,6 +101,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
+
+        {/* Run progress indicator */}
+        <RunProgressBanner />
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto scroll-smooth">

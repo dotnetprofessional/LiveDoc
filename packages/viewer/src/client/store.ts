@@ -255,19 +255,25 @@ function summarizeRun(run: TestRunV3): Statistics {
 
 function withDerivedRunState(run: TestRunV3): TestRunV3 {
   const summary = summarizeRun(run);
+  const isTerminal = run.status === 'passed' || run.status === 'failed' || run.status === 'cancelled' || run.status === 'timedOut';
+
+  if (isTerminal) {
+    return { ...run, summary, status: run.status };
+  }
+
+  // Run is still active — never derive 'passed' until run:v3:completed arrives
   const derivedStatus: Status =
     summary.failed > 0
       ? 'failed'
-      : summary.pending > 0
+      : run.status === 'running'
         ? 'running'
-        : summary.total > 0
-          ? 'passed'
-          : run.status === 'running'
-            ? 'running'
+        : summary.pending > 0
+          ? 'running'
+          : summary.total > 0
+            ? 'passed'
             : 'pending';
 
-  const isTerminal = run.status === 'passed' || run.status === 'failed' || run.status === 'cancelled' || run.status === 'timedOut';
-  return { ...run, summary, status: isTerminal ? run.status : derivedStatus };
+  return { ...run, summary, status: derivedStatus };
 }
 
 export const useStore = create<AppState>((set, get) => ({

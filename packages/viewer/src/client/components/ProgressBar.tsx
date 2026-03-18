@@ -66,6 +66,7 @@ export interface StatusProgressBarProps {
   failed: number;
   pending?: number;
   skipped?: number;
+  isRunning?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -78,6 +79,7 @@ export function StatusProgressBar({
   failed,
   pending = 0,
   skipped = 0,
+  isRunning = false,
   size = 'sm',
   className,
 }: StatusProgressBarProps) {
@@ -88,5 +90,25 @@ export function StatusProgressBar({
     { value: skipped, color: 'bg-muted-foreground/30', label: `${skipped} skipped` },
   ].filter(s => s.value > 0);
 
-  return <ProgressBar segments={segments} size={size} className={className} />;
+  return (
+    <div className="relative">
+      <ProgressBar segments={segments} size={size} className={className} />
+      {isRunning && (
+        <div
+          className={cn(
+            'absolute inset-0 rounded-full overflow-hidden pointer-events-none',
+          )}
+        >
+          <div
+            className="w-full h-full opacity-20"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(255,255,255,0.15) 10px, rgba(255,255,255,0.15) 20px)',
+              backgroundSize: '40px 100%',
+              animation: 'progress-stripe 0.8s linear infinite',
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
 }

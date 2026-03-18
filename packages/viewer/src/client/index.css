@@ -110,3 +110,14 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-muted-foreground/20 rounded-full border-2 border-transparent bg-clip-padding hover:bg-muted-foreground/40;
 }
+
+/* Run-in-progress shimmer animation */
+@keyframes shimmer-slide {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes progress-stripe {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
+}

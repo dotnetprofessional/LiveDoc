@@ -7,11 +7,12 @@ interface StatsBarProps {
   summary?: Statistics;
   duration?: number;
   ruleViolations?: number;
+  isRunning?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-export function StatsBar({ summary, duration, ruleViolations, size = 'md', className }: StatsBarProps) {
+export function StatsBar({ summary, duration, ruleViolations, isRunning = false, size = 'md', className }: StatsBarProps) {
   const safeSummary: Statistics = summary ?? { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
   const { passed, failed, pending, skipped, total } = safeSummary;
 
@@ -41,6 +42,7 @@ export function StatsBar({ summary, duration, ruleViolations, size = 'md', class
           failed={failed}
           pending={pending}
           skipped={skipped}
+          isRunning={isRunning}
           size="sm"
           className="w-16"
         />
@@ -86,6 +88,7 @@ export function StatsBar({ summary, duration, ruleViolations, size = 'md', class
         failed={failed}
         pending={pending}
         skipped={skipped}
+        isRunning={isRunning}
         size="lg"
         className="shadow-inner"
       />
