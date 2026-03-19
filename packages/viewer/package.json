@@ -35,8 +35,8 @@
     "pack:local": "pnpm pack --config.node-linker=hoisted"
   },
   "dependencies": {
-    "@swedevtools/livedoc-schema": "^1.0.0",
-    "@swedevtools/livedoc-server": "^1.0.0",
+    "@swedevtools/livedoc-schema": "workspace:*",
+    "@swedevtools/livedoc-server": "workspace:*",
     "@hono/node-server": "^1.19.7",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",

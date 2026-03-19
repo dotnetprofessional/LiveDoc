@@ -88,6 +88,7 @@
     "publish:release": "npm publish"
   },
   "devDependencies": {
+    "@swedevtools/livedoc-schema": "workspace:*",
     "@swedevtools/livedoc-server": "workspace:^",
     "@types/chai": "^5.2.3",
     "@types/fs-extra": "^11.0.4",
@@ -112,7 +113,6 @@
     }
   },
   "dependencies": {
-    "@swedevtools/livedoc-schema": "workspace:*",
     "@types/diff": "^7.0.2",
     "chalk": "^5.6.2",
     "cli-table3": "^0.6.5",

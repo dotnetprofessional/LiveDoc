@@ -72,9 +72,15 @@
           Pack="true" PackagePath="build\net8.0\" />
   </ItemGroup>
 
-  <Target Name="BuildJourneyGeneratorTool" BeforeTargets="Pack">
+  <Target Name="BuildJourneyGeneratorTool" BeforeTargets="GenerateNuspec">
     <MSBuild Projects="tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj"
-             Targets="Build"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="BuildLoggerTool" BeforeTargets="GenerateNuspec">
+    <MSBuild Projects="logger\LiveDoc.TestLogger.csproj"
+             Targets="Restore;Build"
              Properties="Configuration=$(Configuration)" />
   </Target>
 

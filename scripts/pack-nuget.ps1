@@ -46,11 +46,11 @@ if (-not (Test-Path $outputDir)) {
     New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 }
 
-# Run dotnet pack
+# Pack (sub-project builds are handled by MSBuild targets in the csproj)
 Write-Host "`n→ Running dotnet pack..." -ForegroundColor White
 Push-Location $xunitDir
 try {
-    dotnet pack $csproj -c $Configuration -o $outputDir --no-restore
+    dotnet pack $csproj -c $Configuration -o $outputDir
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet pack failed with exit code $LASTEXITCODE"
     }
@@ -59,7 +59,7 @@ try {
 }
 
 # List output
-$nupkgs = Get-ChildItem -Path $outputDir -Filter "*.nupkg"
+$nupkgs = @(Get-ChildItem -Path $outputDir -Filter "*.nupkg")
 if ($nupkgs.Count -gt 0) {
     Write-Host "`n✓ Package(s) created:" -ForegroundColor Green
     foreach ($pkg in $nupkgs) {
