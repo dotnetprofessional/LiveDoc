@@ -344,6 +344,57 @@ pnpm --filter @swedevtools/livedoc-vitest test:watch
 | `tableAsEntity`     | 2-col table as single object          |
 | `tableAsSingleList` | First column as flat array            |
 | `dataTable`         | Raw 2D array                          |
+| `attachments`       | Read-only `Attachment[]` on current step |
+
+### Step Attachment API
+
+Attach files, screenshots, and data to steps for enhanced test documentation and debugging. Attachments flow through the reporter and appear in the LiveDoc Viewer.
+
+#### Methods
+
+**`ctx.step.attach(base64Data, options?)`** — Attach arbitrary data to the current step
+- `base64Data`: string — Base64-encoded content
+- `options.mimeType`: string — MIME type (default: `'application/octet-stream'`)
+- `options.kind`: `'image' | 'screenshot' | 'file'` — Attachment kind (default: `'file'`)
+- `options.title`: string — Optional display title
+
+**`ctx.step.attachScreenshot(base64Data, title?)`** — Attach a screenshot (convenience wrapper)
+- Shorthand for `attach()` with `kind='screenshot'` and `mimeType='image/png'`
+- `base64Data`: string — Base64-encoded PNG data
+- `title`: string (optional) — Display title
+
+**`ctx.step.attachJSON(data, title?)`** — Attach JSON data
+- Shorthand for `attach()` with `kind='file'` and `mimeType='application/json'`
+- `data`: any — Will be JSON.stringify'd with pretty-printing; if already a string, used as-is
+- `title`: string (optional) — Display title
+
+#### Example
+
+```typescript
+scenario("Capturing API response data", () => {
+    let response: Response;
+
+    when("calling the users API endpoint", async (ctx) => {
+        response = await fetch("/api/users");
+        const json = await response.json();
+        ctx.step.attachJSON(json, "API Response");
+    });
+
+    then("the response should contain user data", (ctx) => {
+        // Attachments are visible in the LiveDoc Viewer
+        expect(ctx.step.attachments).toHaveLength(0); // attachments are on the 'when' step
+    });
+});
+
+scenario("Capturing a screenshot during UX testing", () => {
+    when("viewing the login page", async (ctx) => {
+        const screenshot = await page.screenshot(); // Playwright returns Buffer
+        ctx.step.attachScreenshot(screenshot.toString("base64"), "Login Page");
+    });
+});
+```
+
+Attachments appear in step execution traces and are accessible via `ctx.step.attachments` (read-only array) for assertion or inspection.
 
 ## Validation
 - [ ] All test data appears in step title strings (self-documenting)
