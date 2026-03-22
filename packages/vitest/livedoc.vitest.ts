@@ -1,7 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import LiveDocServerReporter from './_src/app/reporter/LiveDocServerReporter';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -26,7 +25,6 @@ export default defineConfig({
       ? undefined  // Let Vitest use its default
       : [
           ['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'spec+summary+headers' }],
-          new LiveDocServerReporter()
         ],
     coverage: {
       provider: 'v8',

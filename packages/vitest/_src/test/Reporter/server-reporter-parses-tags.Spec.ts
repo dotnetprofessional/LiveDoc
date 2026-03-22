@@ -1,7 +1,7 @@
 require('chai').should();
 
 import { expect } from "vitest";
-import LiveDocServerReporter from "../../app/reporter/LiveDocServerReporter";
+import LiveDocSpecReporter from "../../app/reporter/LiveDocSpecReporter";
 import { feature, scenario, given, when, Then as then } from "../../app/livedoc";
 
 feature("Server reporter parses tags from title blocks", () => {
@@ -33,6 +33,15 @@ feature("Server reporter parses tags from title blocks", () => {
                                 {
                                     type: "test",
                                     name: "Given something",
+                                    meta: {
+                                        livedoc: {
+                                            kind: "step",
+                                            step: {
+                                                type: "given",
+                                                rawTitle: "something"
+                                            }
+                                        }
+                                    },
                                     result: { state: "pass", duration: 1 }
                                 }
                             ]
@@ -52,7 +61,7 @@ feature("Server reporter parses tags from title blocks", () => {
         );
 
         when("building execution results from Vitest tasks", () => {
-            const reporter = new LiveDocServerReporter();
+            const reporter = new LiveDocSpecReporter({ detailLevel: 'silent' });
             results = (reporter as any).buildExecutionResults(testModules);
         });
 

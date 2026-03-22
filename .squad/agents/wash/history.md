@@ -26,3 +26,11 @@
 **Kaylee's AttachmentViewer (TypeScript)**: ImageLightbox refactored into general-purpose AttachmentViewer supporting image, JSON (syntax-highlighted with custom tokenizer), text/* (monospace), and binary (metadata + download). ImageLightbox.tsx kept as backward-compat re-export. StepList icon is context-aware (Camera for images, Paperclip for mixed/non-image).
 
 **Simon's AttachJson (.NET)**: LiveDocTestBase now offers `AttachJson(object data, string? title = null)`. Accepts objects or pre-formatted JSON strings, uses System.Text.Json with WriteIndented, delegates to `Attach()` with `mimeType: "application/json"`, `kind: "file"`.
+
+### Reporter Consolidation (2026-07-25)
+
+- **LiveDocServerReporter deleted**: All ~688 lines of duplicated model-building code removed. `LiveDocSpecReporter` now owns both console output AND auto-discovery/publishing.
+- **Auto-discovery in `onInit()`**: `LiveDocSpecReporter.onInit()` is now `async`. Discovery priority: env vars (`LIVEDOC_SERVER_URL`/`LIVEDOC_PUBLISH_SERVER`) → dynamic import of `discoverServer()` from `@swedevtools/livedoc-server`. When discovered and `publish` not explicitly configured, sets `livedoc.options.publish.enabled = true` + `.server` so `onTestRunEnd()` picks it up naturally.
+- **Extracted `buildExecutionResults()`**: Refactored inline model-building from `onTestRunEnd()` into a private `buildExecutionResults()` method. Accepts `testModule.task || testModule` for backward compatibility with both test mock shapes.
+- **Backward compat re-export**: `index.ts` exports `LiveDocSpecReporter` as deprecated `LiveDocServerReporter` alias.
+- **Test mock data**: Reporter tests now include proper `meta.livedoc` metadata on mock tasks (kind: "step"/"rule") to satisfy `LiveDocSpecReporter`'s strict validation.

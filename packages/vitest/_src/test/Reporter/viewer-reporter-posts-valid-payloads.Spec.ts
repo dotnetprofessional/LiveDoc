@@ -2,7 +2,7 @@ require('chai').should();
 
 import { expect } from "vitest";
 import { V3UpsertTestCaseRequestSchema } from "@swedevtools/livedoc-schema";
-import LiveDocServerReporter from "../../app/reporter/LiveDocServerReporter";
+import LiveDocSpecReporter from "../../app/reporter/LiveDocSpecReporter";
 import { LiveDocViewerReporter } from "../../app/reporter/LiveDocViewerReporter";
 import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
 
@@ -29,6 +29,15 @@ feature("Viewer reporter posts valid payloads", () => {
                                 {
                                     type: "test",
                                     name: "given a precondition",
+                                    meta: {
+                                        livedoc: {
+                                            kind: "step",
+                                            step: {
+                                                type: "given",
+                                                rawTitle: "a precondition"
+                                            }
+                                        }
+                                    },
                                     result: { state: "pass", duration: 1 }
                                 }
                             ]
@@ -46,6 +55,24 @@ feature("Viewer reporter posts valid payloads", () => {
                                         {
                                             type: "test",
                                             name: "when an action occurs",
+                                            meta: {
+                                                livedoc: {
+                                                    kind: "step",
+                                                    step: {
+                                                        type: "when",
+                                                        rawTitle: "an action occurs"
+                                                    },
+                                                    scenarioOutline: {
+                                                        tables: [{ name: "", description: "", dataTable: [] }],
+                                                        tags: ["outline"],
+                                                        description: "Outline description",
+                                                        example: {
+                                                            sequence: 1,
+                                                            values: {}
+                                                        }
+                                                    }
+                                                }
+                                            },
                                             result: { state: "pass", duration: 1 }
                                         }
                                     ]
@@ -62,6 +89,16 @@ feature("Viewer reporter posts valid payloads", () => {
                         {
                             type: "test",
                             name: "Rule: Tagged Rule\n@rule-tag\nRule description",
+                            meta: {
+                                livedoc: {
+                                    kind: "rule",
+                                    rule: {
+                                        title: "Tagged Rule",
+                                        description: "Rule description",
+                                        tags: ["rule-tag"]
+                                    }
+                                }
+                            },
                             result: { state: "pass", duration: 1 }
                         },
                         {
@@ -155,9 +192,9 @@ feature("Viewer reporter posts valid payloads", () => {
             }
         );
 
-        when("building execution results via LiveDocServerReporter and posting via LiveDocViewerReporter", async () => {
-            const serverReporter = new LiveDocServerReporter();
-            const results = (serverReporter as any).buildExecutionResults(testModules);
+        when("building execution results via LiveDocSpecReporter and posting via LiveDocViewerReporter", async () => {
+            const reporter = new LiveDocSpecReporter({ detailLevel: 'silent' });
+            const results = (reporter as any).buildExecutionResults(testModules);
 
             const originalFetch = globalThis.fetch;
             posted = [];

@@ -64,12 +64,34 @@ export default class LiveDocSpecReporter implements Reporter {
         this.setLiveDocOptions(this.options);
     }
 
-    onInit(ctx: Vitest): void {
+    async onInit(ctx: Vitest): Promise<void> {
         // Store context for potential future use
         void ctx;
         this.liveDocSpec.executionStart();
 
-        // Output start message if publishing is enabled
+        // Auto-discover a LiveDoc server when publish is not explicitly configured.
+        // Priority: env vars → dynamic discovery via @swedevtools/livedoc-server.
+        if (!livedoc.options.publish.enabled) {
+            const envServerUrl = process.env.LIVEDOC_SERVER_URL || process.env.LIVEDOC_PUBLISH_SERVER;
+            if (envServerUrl) {
+                livedoc.options.publish.enabled = true;
+                livedoc.options.publish.server = envServerUrl;
+            } else {
+                try {
+                    // @ts-ignore — optional peer dependency
+                    const { discoverServer } = await import('@swedevtools/livedoc-server');
+                    const serverInfo = await discoverServer();
+                    if (serverInfo) {
+                        livedoc.options.publish.enabled = true;
+                        livedoc.options.publish.server = serverInfo.url;
+                    }
+                } catch {
+                    // Server package not available — no auto-discovery
+                }
+            }
+        }
+
+        // Output start message if publishing is enabled (explicit or auto-discovered)
         if (livedoc.options.publish.enabled) {
             const publishOptions = livedoc.options.publish;
             console.log(`\nLiveDoc Viewer: Connecting to ${publishOptions.server}...`);
@@ -153,37 +175,52 @@ export default class LiveDocSpecReporter implements Reporter {
     }
 
     async onTestRunEnd(testModules: readonly any[]): Promise<void> {
-        // Build features and specifications from the test module task tree
+        const results = this.buildExecutionResults(testModules);
+
+        // Add publish reporter if enabled in global options (explicit or auto-discovered)
+        if (livedoc.options.publish.enabled) {
+            const publishOptions = livedoc.options.publish;
+            const viewerReporter = new LiveDocViewerReporter({
+                server: publishOptions.server,
+                project: publishOptions.project,
+                environment: publishOptions.environment,
+                silent: false
+            });
+            
+            // Ensure postReporters exists on rawOptions
+            const rawOptions = (this.options as any).rawOptions || {};
+            if (!rawOptions.postReporters) {
+                rawOptions.postReporters = [];
+            }
+            rawOptions.postReporters.push(viewerReporter);
+        }
+
+        // Output execution results with post-reporter support
+        await this.liveDocSpec.executionEnd(results, (this.options as any).rawOptions);
+    }
+
+    private buildExecutionResults(testModules: readonly any[]): model.ExecutionResults {
         const features: model.Feature[] = [];
         const specifications: model.Specification[] = [];
         const suites: model.VitestSuite[] = [];
         
         for (const testModule of testModules) {
-            const file = testModule.task;
+            const file = testModule.task || testModule;
             
             // Each top-level suite should be a feature, specification, or regular suite
             for (const suite of (file.tasks || [])) {
                 if (suite.type === 'suite') {
-                    // Check if this is a Specification
                     if (suite.name.startsWith('Specification:')) {
-                        const specification = this.buildSpecificationFromSuite(suite, file.filepath);
-                        specifications.push(specification);
-                    } 
-                    // Check if this is a Feature
-                    else if (suite.name.startsWith('Feature:')) {
-                        const feature = this.buildFeatureFromSuite(suite, file.filepath);
-                        features.push(feature);
-                    }
-                    // Otherwise treat as a regular suite (describe block)
-                    else {
-                        const vitestSuite = this.buildVitestSuiteFromTask(suite, file.filepath);
-                        suites.push(vitestSuite);
+                        specifications.push(this.buildSpecificationFromSuite(suite, file.filepath));
+                    } else if (suite.name.startsWith('Feature:')) {
+                        features.push(this.buildFeatureFromSuite(suite, file.filepath));
+                    } else {
+                        suites.push(this.buildVitestSuiteFromTask(suite, file.filepath));
                     }
                 }
             }
         }
         
-        // Build execution results
         const results = new model.ExecutionResults();
         results.features = features;
         results.specifications = specifications;
@@ -213,26 +250,7 @@ export default class LiveDocSpecReporter implements Reporter {
             });
         }
 
-        // Add publish reporter if enabled in global options
-        if (livedoc.options.publish.enabled) {
-            const publishOptions = livedoc.options.publish;
-            const viewerReporter = new LiveDocViewerReporter({
-                server: publishOptions.server,
-                project: publishOptions.project,
-                environment: publishOptions.environment,
-                silent: false
-            });
-            
-            // Ensure postReporters exists on rawOptions
-            const rawOptions = (this.options as any).rawOptions || {};
-            if (!rawOptions.postReporters) {
-                rawOptions.postReporters = [];
-            }
-            rawOptions.postReporters.push(viewerReporter);
-        }
-
-        // Output execution results with post-reporter support
-        await this.liveDocSpec.executionEnd(results, (this.options as any).rawOptions);
+        return results;
     }
     
     private buildFeatureFromSuite(suite: any, filepath: string): model.Feature {

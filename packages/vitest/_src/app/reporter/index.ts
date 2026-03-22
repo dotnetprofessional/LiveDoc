@@ -8,4 +8,5 @@ export { default as SilentReporter } from "./SilentReporter";
 export { LiveDocViewerReporter, LiveDocViewerOptions } from "./LiveDocViewerReporter";
 export { LiveDocReporter, HeaderType } from "./LiveDocReporter";
 export { LiveDocSpec, LiveDocReporterOptions } from "./LiveDocSpec";
-export { default as LiveDocServerReporter } from "./LiveDocServerReporter";
+/** @deprecated Use LiveDocSpecReporter instead — it now includes auto-discovery. */
+export { default as LiveDocServerReporter } from "./LiveDocSpecReporter";

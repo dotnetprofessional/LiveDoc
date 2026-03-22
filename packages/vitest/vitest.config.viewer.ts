@@ -1,7 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import LiveDocServerReporter from './_src/app/reporter/LiveDocServerReporter';
 
 console.log("Vitest config viewer loaded");
 
@@ -15,12 +14,10 @@ export default defineConfig({
     include: ['_src/test/**/*.Spec.ts'],
     setupFiles: ['./_src/app/setup.ts'],
     reporters: [
-      // Console output with BDD format
+      // Console output with BDD format + auto-discovers LiveDoc server for publishing
       ['./_src/app/reporter/LiveDocSpecReporter.ts', { 
         detailLevel: 'spec+summary+headers'
       }],
-      // Stream results to server
-      new LiveDocServerReporter()
     ],
     coverage: {
       provider: 'v8',
