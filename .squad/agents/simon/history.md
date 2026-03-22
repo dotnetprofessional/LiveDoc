@@ -14,6 +14,12 @@
 - **Attachment API pattern**: Attachments are collected per-step via `_currentStepAttachments` in `LiveDocContext`, then transferred to `StepExecution.Attachments` on step completion. The public API (`Attach`, `AttachScreenshot`, `AttachFile`) lives on `LiveDocTestBase` so both `FeatureTest` and `SpecificationTest` inherit it. The `Attachment` reporter model uses JSON property names matching the TypeScript schema (`id`, `kind`, `title`, `mimeType`, `uri`, `base64`).
 - **Old vs new reporter models**: `REPORTER_MODEL_NET.cs` is a legacy model file. The active reporter models live in `Reporter/Models/ReporterModels.cs`. New model classes go there.
 
+### Team Updates (2026-03-22T05:06 — BDD Feature Conversion)
+
+**Zoe's TypeScript Feature Conversion**: Converted attachment tests to BDD pattern (feature/scenario). 73 tests pass. All test data in step titles, extracted via `ctx.step.values`. File: `packages/vitest/_src/test/Attachments/step-attachments.Spec.ts`. Orchestration log: `.squad/orchestration-log/2026-03-22T0506-zoe.md`
+
+**Simon's .NET Feature Conversion**: Converted attachment tests to BDD pattern ([Feature]/[Scenario]). 19 tests pass. All values embedded in step titles, `GetAttachments()` helper fixed for step state reading. File: `dotnet/xunit/tests/Attachments/Attachment_Api_Spec.cs`. Orchestration log: `.squad/orchestration-log/2026-03-22T0506-simon.md`
+
 ### Team Updates (2026-03-22 — Attachment API Tests)
 
 **Zoe's TypeScript Attachment Tests**: Complete spec coverage (18 rules) for `attach()`, `attachScreenshot()`, `attachJSON()`, shared-array reference pattern, ID uniqueness, multi-attachment accumulation, and edge cases. All passing. File: `packages/vitest/_src/test/Attachments/step-attachments.Spec.ts`. Orchestration log: `.squad/orchestration-log/2026-03-22T0420-zoe.md`
