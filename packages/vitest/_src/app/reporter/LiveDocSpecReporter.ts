@@ -532,6 +532,11 @@ export default class LiveDocSpecReporter implements Reporter {
             }
         }
         
+        // Read attachments from task meta (synced after step execution in livedoc.ts)
+        if (Array.isArray(meta?.step?.attachments) && meta.step.attachments.length > 0) {
+            step.attachments = meta.step.attachments;
+        }
+
         return step;
     }
 
