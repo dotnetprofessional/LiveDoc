@@ -36,6 +36,7 @@ public class LiveDocContext : IDisposable
     private static readonly object _counterLock = new();
     
     private readonly bool _isSpecification;
+    private List<Reporter.Models.Attachment>? _currentStepAttachments;
 
     /// <summary>
     /// The current feature context (for BDD/Gherkin tests).
@@ -71,6 +72,15 @@ public class LiveDocContext : IDisposable
     /// The current step context with extracted values and parameters.
     /// </summary>
     public StepContext? Step => _currentStep;
+
+    /// <summary>
+    /// Adds an attachment to the currently executing step.
+    /// </summary>
+    internal void AddAttachment(Reporter.Models.Attachment attachment)
+    {
+        _currentStepAttachments ??= new List<Reporter.Models.Attachment>();
+        _currentStepAttachments.Add(attachment);
+    }
 
     internal LiveDocContext(
         ITestOutputHelper output, 
@@ -486,6 +496,7 @@ public class LiveDocContext : IDisposable
         // Create step context with extracted values
         var displayTitle = ProcessDescription(description);
         _currentStep = CreateStepContext(type, description, displayTitle);
+        _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
         
@@ -509,6 +520,7 @@ public class LiveDocContext : IDisposable
             // Record success
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result (fire and forget)
@@ -519,6 +531,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Failed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result (fire and forget)
@@ -530,6 +543,7 @@ public class LiveDocContext : IDisposable
         finally
         {
             _currentStep = null;
+            _currentStepAttachments = null;
         }
     }
 
@@ -541,6 +555,7 @@ public class LiveDocContext : IDisposable
         // Create step context with extracted values
         var displayTitle = ProcessDescription(description);
         _currentStep = CreateStepContext(type, description, displayTitle);
+        _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
         
@@ -562,6 +577,7 @@ public class LiveDocContext : IDisposable
 
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result (fire and forget)
@@ -572,6 +588,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Failed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result (fire and forget)
@@ -582,6 +599,7 @@ public class LiveDocContext : IDisposable
         finally
         {
             _currentStep = null;
+            _currentStepAttachments = null;
         }
     }
 
@@ -589,6 +607,7 @@ public class LiveDocContext : IDisposable
     {
         var displayTitle = ProcessDescription(description);
         _currentStep = CreateStepContext(type, description, displayTitle);
+        _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
         
@@ -609,6 +628,7 @@ public class LiveDocContext : IDisposable
 
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result
@@ -619,6 +639,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Failed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result
@@ -629,6 +650,7 @@ public class LiveDocContext : IDisposable
         finally
         {
             _currentStep = null;
+            _currentStepAttachments = null;
         }
     }
 
@@ -639,6 +661,7 @@ public class LiveDocContext : IDisposable
     {
         var displayTitle = ProcessDescription(description);
         _currentStep = CreateStepContext(type, description, displayTitle);
+        _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
         
@@ -659,6 +682,7 @@ public class LiveDocContext : IDisposable
 
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result
@@ -669,6 +693,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Failed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
+            execution.Attachments = _currentStepAttachments;
             _steps.Add(execution);
             
             // Report step result
@@ -679,6 +704,7 @@ public class LiveDocContext : IDisposable
         finally
         {
             _currentStep = null;
+            _currentStepAttachments = null;
         }
     }
 
@@ -844,7 +870,8 @@ public class LiveDocContext : IDisposable
                 Execution = new ExecutionResult
                 {
                     Status = step.Status.ToReporterStatus(),
-                    Duration = (long)step.Duration.TotalMilliseconds
+                    Duration = (long)step.Duration.TotalMilliseconds,
+                    Attachments = step.Attachments
                 }
             });
         }

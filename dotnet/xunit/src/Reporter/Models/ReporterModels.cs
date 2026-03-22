@@ -166,6 +166,33 @@ public class ErrorInfo
 }
 
 /// <summary>
+/// An attachment captured during test execution (screenshot, image, or file).
+/// </summary>
+public class Attachment
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "file"; // "image" | "screenshot" | "file"
+
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("mimeType")]
+    public string MimeType { get; set; } = "application/octet-stream";
+
+    [JsonPropertyName("uri")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Uri { get; set; }
+
+    [JsonPropertyName("base64")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Base64 { get; set; }
+}
+
+/// <summary>
 /// Execution result for a test or step.
 /// </summary>
 public class ExecutionResult
@@ -183,6 +210,10 @@ public class ExecutionResult
     [JsonPropertyName("error")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ErrorInfo? Error { get; set; }
+
+    [JsonPropertyName("attachments")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<Attachment>? Attachments { get; set; }
 }
 
 /// <summary>

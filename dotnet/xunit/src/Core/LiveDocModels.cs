@@ -29,6 +29,10 @@ public class StepExecution
     public TimeSpan Duration { get; set; }
     public Exception? Exception { get; set; }
     public DateTime StartTime { get; set; }
+    /// <summary>
+    /// Attachments collected during this step's execution (screenshots, images, files).
+    /// </summary>
+    public List<Reporter.Models.Attachment>? Attachments { get; set; }
 }
 
 /// <summary>

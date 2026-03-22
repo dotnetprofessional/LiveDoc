@@ -1,4 +1,10 @@
 import type { DataTableRow } from "../types";
+import type { Attachment } from "@swedevtools/livedoc-schema";
+
+let _attachmentCounter = 0;
+function nextAttachmentId(): string {
+    return `att-${Date.now()}-${++_attachmentCounter}`;
+}
 
 /**
  * Framework metadata about the current step
@@ -7,6 +13,7 @@ import type { DataTableRow } from "../types";
  */
 export class StepContext {
     private _table?: DataTableRow[];
+    private _attachments: Attachment[];
 
     public title: string = "";
     public displayTitle: string = "";
@@ -17,6 +24,46 @@ export class StepContext {
     public valuesRaw: string[] = [];
     public params: Record<string, any> = {};
     public paramsRaw: Record<string, string> = {};
+
+    constructor(attachments?: Attachment[]) {
+        this._attachments = attachments ?? [];
+    }
+
+    /**
+     * Attach arbitrary data (base64-encoded) to this step.
+     */
+    attach(data: string, opts?: { title?: string; mimeType?: string; kind?: 'image' | 'screenshot' | 'file' }): void {
+        this._attachments.push({
+            id: nextAttachmentId(),
+            kind: opts?.kind ?? 'file',
+            title: opts?.title,
+            mimeType: opts?.mimeType ?? 'application/octet-stream',
+            base64: data,
+        });
+    }
+
+    /**
+     * Convenience: attach a PNG screenshot.
+     */
+    attachScreenshot(base64: string, title?: string): void {
+        this.attach(base64, { title, mimeType: 'image/png', kind: 'screenshot' });
+    }
+
+    /**
+     * Convenience: attach a JSON payload (e.g., API response).
+     */
+    attachJSON(data: unknown, title?: string): void {
+        const json = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        const base64 = typeof globalThis.btoa === 'function'
+            ? globalThis.btoa(unescape(encodeURIComponent(json)))
+            : Buffer.from(json, 'utf-8').toString('base64');
+        this.attach(base64, { title, mimeType: 'application/json', kind: 'file' });
+    }
+
+    /** Attachments collected during step execution. */
+    public get attachments(): Attachment[] {
+        return this._attachments;
+    }
 
     /**
      * Parse docString as JSON entity

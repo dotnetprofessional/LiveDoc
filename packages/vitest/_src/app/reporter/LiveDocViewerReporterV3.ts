@@ -745,10 +745,16 @@ export class LiveDocViewerReporter implements IPostReporter {
           }
         : undefined;
 
+    const attachments =
+      Array.isArray(step.attachments) && step.attachments.length > 0
+        ? step.attachments
+        : undefined;
+
     return {
       status,
       duration: (step as any).duration || 0,
       error,
+      attachments,
     };
   }
 

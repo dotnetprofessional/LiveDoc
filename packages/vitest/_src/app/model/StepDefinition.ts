@@ -4,6 +4,7 @@ import { RuleViolations } from "./RuleViolations";
 import { LiveDocTest } from "./LiveDocTest";
 import { Scenario } from "./Scenario";
 import type { DataTableRow } from "../types";
+import type { Attachment } from "@swedevtools/livedoc-schema";
 
 export class StepDefinition extends LiveDocTest<Scenario> {
     private _displayTitle: string = "";
@@ -20,6 +21,7 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     public params: Record<string, any> = {};
     public paramsRaw: Record<string, string> = {};
     public ruleViolations: LiveDocRuleViolation[] = [];
+    public attachments: Attachment[] = [];
     public associatedScenarioId: number = 0;
 
     public get passedParam(): object | undefined {
@@ -51,7 +53,8 @@ export class StepDefinition extends LiveDocTest<Scenario> {
     }
 
     public getStepContext(): StepContext {
-        const context = new StepContext();
+        // Pass our attachments array so ctx.attach() writes directly here
+        const context = new StepContext(this.attachments);
         context.title = this.title;
         context.displayTitle = this.displayTitle;
         context.dataTable = this.dataTable;
@@ -83,6 +86,7 @@ export class StepDefinition extends LiveDocTest<Scenario> {
             params: this.params,
             paramsRaw: this.paramsRaw,
             ruleViolations: this.ruleViolations.map(r => r.toJSON()),
+            attachments: this.attachments.length > 0 ? this.attachments : undefined,
             associatedScenarioId: this.associatedScenarioId
         };
     }

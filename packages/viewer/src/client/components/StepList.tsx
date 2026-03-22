@@ -1,9 +1,11 @@
-import type { DataTable, StepTest, Status, TypedValue } from '@swedevtools/livedoc-schema';
+import { useState } from 'react';
+import type { Attachment, DataTable, StepTest, Status, TypedValue } from '@swedevtools/livedoc-schema';
 import { bindPlaceholdersInText, renderTitle, highlightPlaceholders } from '../lib/title-utils';
-import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, Camera, Paperclip } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Markdown } from './Markdown';
 import { ErrorDisplay } from './ErrorDisplay';
+import { AttachmentViewer } from './AttachmentViewer';
 
 type NormalizedCell = {
   text: string;
@@ -88,6 +90,17 @@ interface StepItemProps {
 }
 
 function StepItem({ step, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true }: StepItemProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const allAttachments = step.execution?.attachments ?? [];
+
+  const allAreImages = allAttachments.length > 0 && allAttachments.every(
+    (a: Attachment) => a.kind === 'image' || a.kind === 'screenshot'
+  );
+  const AttachmentIcon = allAreImages ? Camera : Paperclip;
+  const attachmentLabel = allAreImages
+    ? `${allAttachments.length} screenshot${allAttachments.length > 1 ? 's' : ''}`
+    : `${allAttachments.length} attachment${allAttachments.length > 1 ? 's' : ''}`;
 
   const typeColors: Record<string, string> = {
     given: 'text-given',
@@ -144,6 +157,19 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
            <div className="text-sm leading-relaxed text-foreground/90 font-medium">
              {renderTitle(step.title, highlightValues)}
            </div>
+
+           {allAttachments.length > 0 && (
+             <button
+               onClick={() => setLightboxOpen(true)}
+               className="shrink-0 inline-flex items-center gap-1 text-muted-foreground/50 hover:text-primary transition-colors"
+               title={attachmentLabel}
+             >
+               <AttachmentIcon className="w-3.5 h-3.5" />
+               {allAttachments.length > 1 && (
+                 <span className="text-[10px] font-bold">{allAttachments.length}</span>
+               )}
+             </button>
+           )}
            
            {showDurations && duration > 0 && (
             <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -253,6 +279,14 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
           />
         )}
       </div>
+
+      {allAttachments.length > 0 && (
+        <AttachmentViewer
+          attachments={allAttachments}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
+      )}
     </div>
   );
 }

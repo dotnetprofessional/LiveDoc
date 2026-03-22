@@ -1211,6 +1211,12 @@ function createStepFunction(stepType: string) {
                 // Mark step as passed
                 const duration = Date.now() - startTime;
                 stepDefinition.setStatus(model.SpecStatus.pass, duration);
+
+                // Sync attachments collected during execution back to task meta
+                // so the reporter can read them across the Vitest worker boundary
+                if (stepDefinition.attachments.length > 0) {
+                    (taskMeta as any).livedoc.step.attachments = stepDefinition.attachments;
+                }
             } catch (error: any) {
                 // Mark step as failed and capture exception details
                 const duration = Date.now() - startTime;
@@ -1227,6 +1233,10 @@ function createStepFunction(stepType: string) {
                     if (typeof error === 'object' && error !== null) {
                         (error as any).code = stepDefinition.code;
                     }
+                }
+                // Sync attachments even on failure (may have been added before the error)
+                if (stepDefinition.attachments.length > 0) {
+                    (taskMeta as any).livedoc.step.attachments = stepDefinition.attachments;
                 }
                 // Re-throw so Vitest marks the test as failed
                 throw error;

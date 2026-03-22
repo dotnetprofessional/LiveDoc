@@ -329,6 +329,11 @@ export default class LiveDocServerReporter implements Reporter {
         step.status = this.mapStateToStatus(state);
         step.duration = task.result?.duration || 0;
 
+        // Read attachments from task meta (synced after step execution)
+        if (Array.isArray(meta?.step?.attachments) && meta.step.attachments.length > 0) {
+            step.attachments = meta.step.attachments;
+        }
+
         if (task.result?.errors?.length > 0) {
             const ex = new Exception();
             const err = task.result.errors[0];
