@@ -135,6 +135,147 @@
 
 ---
 
+### AttachmentViewer Cinematic Lightbox Redesign
+
+**Author:** Kaylee  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Redesigned `AttachmentViewer` from a basic overlay viewer into a cinematic lightbox gallery with structured layout, film strip navigation, and direction-aware slide animations.
+
+**Architecture changes:**
+1. **Layout shifted from centered overlay to full-viewport flex column** — header bar overlays the top with a gradient fade, content area centers in the middle, film strip anchors at the bottom.
+2. **Decomposed into sub-components** — `HeaderBar`, `NavArrow`, `FilmStrip`, `ThumbnailIcon` are internal components. Keeps the main `AttachmentViewer` focused on state management and layout.
+3. **Direction-aware animations** — New `slideVariants` system tracks navigation direction (+1 forward, -1 backward). Content slides in from the correct side. All sub-renderers accept a `direction` prop and use Framer Motion's `custom` prop for variant resolution.
+4. **Film strip thumbnails** — Image attachments render actual `<img>` thumbnails. JSON/text/binary show typed icons (FileJson, FileCode, FileText) with MIME label badges. Active thumbnail gets a sky-400 ring with box-shadow glow and auto-scrolls into view.
+5. **Glassmorphic controls** — Nav arrows and film strip use `backdrop-blur-sm` + subtle `ring-1 ring-white/[0.08]` for a refined glass effect on the dark overlay.
+
+**Props interface:** Unchanged — `AttachmentViewerProps` and `AttachmentItem` are identical to the previous version. No changes needed to StepList.tsx.
+
+**Preserved behaviors:**
+- Backdrop click dismiss (on content area and top-level container)
+- ESC to close (handled by Radix Dialog)
+- X button close (in header bar now)
+- ArrowLeft/ArrowRight keyboard navigation
+- All MIME-type renderers (image, JSON, text, binary)
+- Raw Radix Dialog primitives (not shadcn wrapper)
+
+**New helper:** `mimeLabel()` function extracts short human-readable labels from MIME types for badges and thumbnail labels.
+
+**Impact:**
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — full rewrite
+- No other files modified
+
+---
+
+### Scenario-Level Attachment Gallery
+
+**Author:** Kaylee  
+**Date:** 2026-03-22  
+**Status:** Implemented  
+**Phase:** Phase 1 (Scenario-level only)
+
+**Decision:** Implemented a full-featured scenario-level attachment gallery that aggregates attachments from all steps in a scenario, providing a unified viewing experience with step-aware navigation, auto-play, and cinematic transitions.
+
+**Architecture:**
+
+**`utils/gallery.ts`** — Centralized gallery logic:
+- `GalleryItem` extends `AttachmentItem` with step context (`stepIndex`, `stepKeyword`, `stepTitle`, `stepStatus`)
+- `StepGroup` for step-grouped navigation with `startIndex` into flat array
+- `collectScenarioAttachments()` — aggregates attachments from all steps with context
+- `groupByStep()` — organizes items by step
+- Navigation helpers: `findGroupAtIndex()`, `jumpToAdjacentGroup()`
+
+**Component Enhancements:**
+
+**AttachmentViewer:**
+- **Backward compatible** — optional step context fields on `AttachmentItem`
+- **StepContextBar** — frosted glass bar showing step N of M, keyword (colorized), title, status icon
+- **Step-boundary transitions** — cross-fade with brightness dim (400ms) vs. standard slide (280ms)
+- **Enhanced keyboard nav**: `[`/`]` for step jump, `Space` for auto-play toggle, `Home`/`End`
+- **Auto-play slideshow** — 3s base interval + 1s step-boundary pause, linear progress bar, stops at end
+- **Film strip dividers** — vertical separators with keyword labels, active group highlighting
+
+**ScenarioBlock:**
+- Gallery button in header (right side, near status badge)
+- Icon adapts: `Images` for all-images, `Paperclip` for mixed
+- Count badge shows total across all steps
+- Smart default: opens at first attachment of first failed step
+- Only shown when attachments exist
+
+**StepList:**
+- Receives `galleryItems` from parent ScenarioBlock
+- Step icons open scenario gallery at that step's position (unified entry)
+- Calculates `initialIndexInGallery` for each step
+- Users can navigate beyond individual step into full scenario context
+
+**Trade-offs:**
+- Optional fields for backward compatibility
+- Auto-play stops (not infinite loop) for intentional control
+- 3s base + 1s step pause creates "chapter break" feel
+
+**Impact:**
+- `packages/viewer/src/client/utils/gallery.ts` — new utility module
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — enhanced with gallery features
+- `packages/viewer/src/client/components/ScenarioBlock.tsx` — added gallery button
+- `packages/viewer/src/client/components/StepList.tsx` — unified entry point
+
+---
+
+### Reporter Consolidation: LiveDocServerReporter → LiveDocSpecReporter
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Consolidated `LiveDocServerReporter` into `LiveDocSpecReporter`. The ~688-line `LiveDocServerReporter.ts` was deleted. Its only unique value — server auto-discovery — was moved into `LiveDocSpecReporter.onInit()`.
+
+**Rationale:**
+- ~800 lines of duplicated model-building code between the two reporters created a maintenance burden and divergence risk
+- The two reporters were always used together in config files (one for console, one for publishing), which is unnecessary complexity for consumers
+- A single reporter with auto-discovery is simpler to configure and reason about
+
+**Key Design Choices:**
+1. **Auto-discovery in `onInit()`** — sets `livedoc.options.publish.enabled/server` so `onTestRunEnd()` picks it up via the existing publish config path. No new state fields needed.
+2. **`onInit` became async** — required for `discoverServer()`. Vitest's Reporter interface accepts async `onInit`.
+3. **Backward-compatible re-export** — `index.ts` re-exports `LiveDocSpecReporter` as `LiveDocServerReporter` with `@deprecated` JSDoc. External consumers' imports won't break.
+4. **Extracted `buildExecutionResults()`** — refactored inline model-building from `onTestRunEnd()` into a private method, improving testability and mirroring the old `LiveDocServerReporter` API surface (used by tests via `as any`).
+
+**Impact:**
+- `packages/vitest/_src/app/reporter/LiveDocSpecReporter.ts` — async `onInit`, extracted `buildExecutionResults`
+- `packages/vitest/_src/app/reporter/LiveDocServerReporter.ts` — **deleted**
+- `packages/vitest/_src/app/reporter/index.ts` — deprecated re-export
+- `packages/vitest/livedoc.vitest.ts` — removed second reporter
+- `packages/vitest/vitest.config.viewer.ts` — removed second reporter
+- `packages/vitest/examples/local-consumer/vitest.config.ts` — simplified to single reporter
+- `packages/vitest/_src/test/Reporter/server-reporter-parses-tags.Spec.ts` — uses `LiveDocSpecReporter`, mock data updated with `meta.livedoc`
+- `packages/vitest/_src/test/Reporter/viewer-reporter-posts-valid-payloads.Spec.ts` — same
+
+---
+
+### Documentation: Single-Reporter Messaging
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** All documentation now positions `LiveDocSpecReporter` as the single reporter needed for both console output and server auto-discovery. `LiveDocServerReporter` is documented as deprecated (backward-compatible re-export) but no longer promoted in examples or guides.
+
+**Rationale:**
+- Reduces cognitive load — users configure one reporter instead of two
+- Auto-discovery is transparent; zero-config is the default happy path
+- Explicit `publish` config and `LiveDocViewerReporter` post-reporter remain available as escape hatches for advanced use
+- Old two-reporter configs still work via the deprecated re-export, so no breaking changes
+
+**Impact:**
+- `docs/docs/vitest/reference/reporters.mdx` — LiveDocSpecReporter section expanded with auto-discovery + publish options; LiveDocServerReporter marked deprecated
+- `docs/docs/vitest/reference/configuration.mdx` — All examples use single reporter
+- `docs/docs/vitest/guides/viewer-integration.mdx` — Simplified to single-reporter approach
+- `docs/docs/viewer/learn/getting-started.mdx` — Auto-discovery primary, explicit config secondary
+- `.github/skills/livedoc-vitest/SKILL.md` — New reporter configuration section (step 8)
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

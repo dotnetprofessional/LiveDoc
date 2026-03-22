@@ -9,3 +9,5 @@
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+- **2025-07-25**: Analyzed scenario-level attachment gallery feasibility. Key finding: the schema (`Node.execution: ExecutionResult.attachments`) already supports attachments at every node level including Scenario — it's just never populated above step level. Client-side aggregation via `flatMap` over `steps[].execution.attachments` is the right approach for Phase 1 — zero backend/schema changes needed. AttachmentViewer already handles multi-attachment browsing with prev/next. Phase 1 is ~50-80 lines across 3 files (ScenarioBlock, AttachmentViewer, utility function). Scenario Outline support deferred to Phase 2 due to per-example-row aggregation complexity. **Implemented**: Kaylee completed full scenario-level gallery with 170-line utilities (GalleryItem, StepGroup, navigation helpers), enhanced AttachmentViewer with step context bar, auto-play, keyboard nav, film strip dividers, and integrated into ScenarioBlock + StepList for unified step-level entry. Architecture validated as backward-compatible; no breaking changes.
