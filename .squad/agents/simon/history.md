@@ -19,3 +19,9 @@
 **Wash's Attachment API**: StepContext now has `attach()` / `attachScreenshot()` methods plus `attachments` getter. Uses shared-array reference pattern — no post-execution copy. Reporter automatically includes attachments in ExecutionResult. ID generation via simple `att-{timestamp}-{counter}` scheme.
 
 **Kaylee's ImageLightbox**: Viewer displays step attachments via camera icon + full-viewport lightbox. Filter `kind === 'image' || kind === 'screenshot'` on `step.execution?.attachments`. ImageLightbox uses Radix Dialog primitives directly (custom layout + Framer Motion); shadcn Dialog available separately for standard modals.
+
+### Team Updates (2026-03-22 — Multi-MIME Expansion)
+
+**Wash's attachJSON (TypeScript)**: StepContext now offers `attachJSON(data: unknown, title?: string)` convenience method. Accepts objects/arrays/strings, pretty-prints with 2-space indent, dual-env base64 encoding (btoa + Buffer). Delegates to `attach()` with `mimeType: 'application/json'`, `kind: 'file'`.
+
+**Kaylee's AttachmentViewer (TypeScript)**: ImageLightbox refactored into general-purpose AttachmentViewer supporting image, JSON (syntax-highlighted with custom tokenizer), text/* (monospace), and binary (metadata + download). ImageLightbox.tsx kept as backward-compat re-export. StepList icon context-aware (Camera for images, Paperclip for mixed/non-image).

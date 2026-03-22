@@ -14,9 +14,16 @@
 - **ImageLightbox**: Built at `components/ImageLightbox.tsx` — uses Radix Dialog primitives directly (not the shadcn wrapper) because the lightbox needs custom full-viewport overlay layout with Framer Motion animations. Accepts `images[]` with base64/uri sources, supports multi-image nav (arrows + keyboard), counter badge, and accessible title.
 - **Attachment type**: `Attachment` from `@swedevtools/livedoc-schema` has `kind: 'image' | 'screenshot' | 'file'`, with `base64?` and `uri?` for data sources. Filter on `kind === 'image' || kind === 'screenshot'` for image attachments. Available on `step.execution?.attachments`.
 - **StepItem screenshot icon**: Camera icon (Lucide) placed in the title row between title text and duration badge. Shows count badge when > 1 image. Opens ImageLightbox on click.
+- **AttachmentViewer**: Refactored ImageLightbox → AttachmentViewer at `components/AttachmentViewer.tsx`. Now a general-purpose MIME-type-aware viewer: images (Framer Motion animated img), JSON (syntax-highlighted with custom tokenizer + copy button), text/* (monospace pre + copy), binary fallback (metadata card + download). ImageLightbox.tsx kept as backward-compat re-export. StepList now shows all attachments (not just images) with context-aware icon: Camera when all are images/screenshots, Paperclip otherwise. Base64 decoding uses atob + TextDecoder for proper UTF-8.
 
 ### Team Updates (2026-03-22)
 
 **Wash's Attachment API**: StepContext now has `attach()` / `attachScreenshot()` methods plus `attachments` getter. Uses shared-array reference pattern — no post-execution copy. Reporter automatically includes attachments in ExecutionResult. ID generation via simple `att-{timestamp}-{counter}` scheme.
 
 **Simon's .NET Attachment API**: FeatureTest and SpecificationTest both inherit `Attach()`, `AttachScreenshot()`, `AttachFile()` from LiveDocTestBase. Attachments collected per-step, transferred to `StepExecution.Attachments` on completion. Reporter models use JSON property names that match TypeScript schema.
+
+### Team Updates (2026-03-22 — Multi-MIME Expansion)
+
+**Wash's attachJSON (TypeScript)**: StepContext now offers `attachJSON(data: unknown, title?: string)` convenience method. Accepts objects/arrays/strings, pretty-prints with 2-space indent, dual-env base64 encoding (btoa + Buffer). Delegates to `attach()` with `mimeType: 'application/json'`, `kind: 'file'`.
+
+**Simon's AttachJson (.NET)**: LiveDocTestBase now offers `AttachJson(object data, string? title = null)` convenience method. Accepts objects or pre-formatted JSON strings, uses System.Text.Json with WriteIndented, delegates to `Attach()` with matching MIME type and kind.

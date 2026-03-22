@@ -20,3 +20,9 @@
 **Kaylee's ImageLightbox**: Viewer now displays step attachments via camera icon + full-viewport lightbox. Accepts images with `base64` or `uri` sources. Filter `kind === 'image' || kind === 'screenshot'` on `step.execution?.attachments`. ImageLightbox uses Radix Dialog primitives directly (custom layout + Framer Motion) — shadcn Dialog available separately for standard modals.
 
 **Simon's .NET Attachment API**: FeatureTest and SpecificationTest both inherit `Attach()`, `AttachScreenshot()`, `AttachFile()` from LiveDocTestBase. Attachments collected per-step, transferred to `StepExecution.Attachments` on completion. Reporter models in `ReporterModels.cs`; JSON property names align with TypeScript schema.
+
+### Team Updates (2026-03-22 — Multi-MIME Expansion)
+
+**Kaylee's AttachmentViewer (TypeScript)**: ImageLightbox refactored into general-purpose AttachmentViewer supporting image, JSON (syntax-highlighted with custom tokenizer), text/* (monospace), and binary (metadata + download). ImageLightbox.tsx kept as backward-compat re-export. StepList icon is context-aware (Camera for images, Paperclip for mixed/non-image).
+
+**Simon's AttachJson (.NET)**: LiveDocTestBase now offers `AttachJson(object data, string? title = null)`. Accepts objects or pre-formatted JSON strings, uses System.Text.Json with WriteIndented, delegates to `Attach()` with `mimeType: "application/json"`, `kind: "file"`.
