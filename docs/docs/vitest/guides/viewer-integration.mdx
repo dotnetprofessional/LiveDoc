@@ -19,10 +19,10 @@ and steps in an interactive browser dashboard as tests execute.
 ## Overview
 
 The LiveDoc Viewer is a web application that visualizes your test results in
-real time. Tests are sent to the viewer via a reporter — either the
-auto-discovery `LiveDocServerReporter` or the explicit
-`LiveDocViewerReporter`. The viewer renders your Gherkin features as an
-interactive, navigable tree.
+real time. `LiveDocSpecReporter` automatically discovers a running viewer and
+publishes results — no extra configuration needed. For explicit control, you
+can use `LiveDocViewerReporter` as a post-reporter. The viewer renders your
+Gherkin features as an interactive, navigable tree.
 
 ## Step 1: Install the Viewer
 
@@ -53,27 +53,26 @@ In the LiveDoc monorepo, use the convenience script instead:
 
 ## Step 3: Configure the Reporter (Auto-Discovery)
 
-The simplest approach uses `LiveDocServerReporter`, which automatically finds
-a running viewer on your machine:
+The simplest approach is just `LiveDocSpecReporter` — it automatically discovers
+a running viewer on your machine. No extra reporter needed:
 
 ```typescript
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
 import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
-import LiveDocServerReporter from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
     reporters: [
       new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
-      new LiveDocServerReporter(),
+      // Auto-discovers a running LiveDoc server automatically
     ],
   },
 });
 ```
 
-If no viewer is running, the reporter silently disables itself — your tests
-still run normally.
+If no viewer is running, the reporter silently continues with console-only
+output — your tests still run normally.
 
 ## Step 4: Run Your Tests
 
@@ -90,7 +89,6 @@ Results appear in the viewer automatically. If running in watch mode
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
 import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
-import LiveDocServerReporter from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -98,7 +96,6 @@ export default defineConfig({
     include: ['**/*.Spec.ts'],
     reporters: [
       new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
-      new LiveDocServerReporter(),
     ],
   },
 });
@@ -216,7 +213,6 @@ export default defineConfig({
       ? undefined
       : [
           new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
-          new LiveDocServerReporter(),
         ],
   },
 });
@@ -226,12 +222,12 @@ export default defineConfig({
 
 | Problem | Cause | Solution |
 | ------- | ----- | -------- |
-| Viewer shows no results | Reporter not configured | Add `LiveDocServerReporter` or `LiveDocViewerReporter` to config |
+| Viewer shows no results | Reporter not configured or server not discovered | Add `LiveDocSpecReporter` to config — it auto-discovers a running server |
 | Connection refused | Viewer not running | Start the viewer with `livedoc-viewer` before running tests |
 | Results don't update in watch mode | Stale viewer session | Refresh the browser or restart the viewer |
 | Port conflict on 3100 | Another process using the port | Use `./scripts/start-viewer.ps1 -KillStale` or change the viewer port |
 | No output in VS Code | Custom reporter conflicts | Use the VS Code environment detection pattern above |
-| Silent failure | `silent: true` (default) | Set `silent: false` on the reporter to see connection errors |
+| Want explicit control | Auto-discovery not desired | Use `LiveDocViewerReporter` as a post-reporter with explicit server URL |
 
 ## Related
 

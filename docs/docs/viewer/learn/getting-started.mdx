@@ -75,15 +75,13 @@ See [CLI Options](../reference/cli-options.mdx) for all flags.
 <Tabs>
   <TabItem value="vitest" label="Vitest (TypeScript)" default>
 
-Add the `LiveDocViewerReporter` to your Vitest configuration:
+Add `LiveDocSpecReporter` to your Vitest configuration — it auto-discovers
+a running viewer and publishes results automatically:
 
 ```typescript
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import {
-  LiveDocSpecReporter,
-  LiveDocViewerReporter,
-} from '@swedevtools/livedoc-vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -92,27 +90,32 @@ export default defineConfig({
     reporters: [
       new LiveDocSpecReporter({
         detailLevel: 'spec+summary+headers',
-        postReporters: [
-          new LiveDocViewerReporter({
-            server: 'http://localhost:3100',
-            project: 'my-project',
-          }),
-        ],
       }),
+      // Auto-discovers the viewer — no extra reporter needed
     ],
   },
 });
 ```
 
-Alternatively, use `LiveDocServerReporter` for **auto-discovery** — it finds a
-running viewer automatically and silently disables itself when none is available:
+For **explicit control** over the viewer connection, use `LiveDocViewerReporter`
+as a post-reporter:
 
 ```typescript
-import LiveDocServerReporter from '@swedevtools/livedoc-vitest/reporter';
+import {
+  LiveDocSpecReporter,
+  LiveDocViewerReporter,
+} from '@swedevtools/livedoc-vitest/reporter';
 
 reporters: [
-  new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
-  new LiveDocServerReporter(),
+  new LiveDocSpecReporter({
+    detailLevel: 'spec+summary+headers',
+    postReporters: [
+      new LiveDocViewerReporter({
+        server: 'http://localhost:3100',
+        project: 'my-project',
+      }),
+    ],
+  }),
 ],
 ```
 
@@ -168,7 +171,7 @@ graph LR
 
 - **Install** with `npm install -g @swedevtools/livedoc-viewer`
 - **Start** with `livedoc-viewer` (opens at `http://localhost:3100`)
-- **Connect** via `LiveDocViewerReporter` (explicit) or `LiveDocServerReporter` (auto-discovery)
+- **Connect** via `LiveDocSpecReporter` (auto-discovers the viewer) or `LiveDocViewerReporter` (explicit URL)
 - **Run tests** and watch results stream into the browser
 
 ---

@@ -277,7 +277,51 @@ rule.only("Focus rule", (ctx) => { ... });
 rule.skip("Skip rule", (ctx) => { ... });
 ```
 
-### 8. Build and test
+### 8. Reporter configuration
+
+`LiveDocSpecReporter` is the **only reporter** needed. It handles both console output and auto-discovery of a running LiveDoc server.
+
+**Simplest config:**
+```typescript
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      ["@swedevtools/livedoc-vitest/reporter", { detailLevel: "spec+summary+headers" }],
+    ],
+  },
+});
+```
+
+**With explicit publish config:**
+```typescript
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        detailLevel: "spec+summary+headers",
+        publish: {
+          enabled: true,
+          server: "http://localhost:3000",
+          project: "my-project",
+          environment: "local",
+        },
+      }),
+    ],
+  },
+});
+```
+
+**Auto-discovery priority:** env vars (`LIVEDOC_SERVER_URL`/`LIVEDOC_PUBLISH_SERVER`) → explicit `publish` config → `discoverServer()` fallback from `@swedevtools/livedoc-server`.
+
+:::note Backward compatibility
+`LiveDocServerReporter` is still exported as a deprecated re-export of `LiveDocSpecReporter`. Old configs with two reporters still work but the second reporter is unnecessary.
+:::
+
+### 9. Build and test
 
 ```powershell
 # Run all LiveDoc specs
@@ -290,7 +334,7 @@ pnpm --filter @swedevtools/livedoc-vitest test -- --testPathPattern="MyFeature"
 pnpm --filter @swedevtools/livedoc-vitest test:watch
 ```
 
-### 9. Validate test quality
+### 10. Validate test quality
 
 - [ ] All test data appears in step title strings (self-documenting)
 - [ ] Descriptions provided on `feature` and `specification` blocks to give context

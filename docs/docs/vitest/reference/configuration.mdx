@@ -89,7 +89,6 @@ See [Reporters](./reporters.mdx) for the full reference on each reporter.
 
 ```typescript
 import { LiveDocSpecReporter, JsonReporter } from "@swedevtools/livedoc-vitest/reporter";
-import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
 
 export default defineConfig({
   test: {
@@ -99,7 +98,7 @@ export default defineConfig({
         postReporters: [new JsonReporter()],
         "json-output": "./livedoc-results.json",
       }),
-      new LiveDocServerReporter(),
+      // Auto-discovers a running LiveDoc server — no separate reporter needed
     ],
   },
 });
@@ -297,7 +296,6 @@ import {
   JsonReporter,
   LiveDocViewerReporter,
 } from "@swedevtools/livedoc-vitest/reporter";
-import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
 
 const isVSCodeVitest = !!(
   process.env.VITEST_VSCODE ||
@@ -327,7 +325,7 @@ export default defineConfig({
             ],
             "json-output": "./livedoc-results.json",
           }),
-          new LiveDocServerReporter(),
+          // LiveDocSpecReporter auto-discovers a running LiveDoc server
         ],
   },
 });

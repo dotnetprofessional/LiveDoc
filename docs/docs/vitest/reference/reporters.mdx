@@ -1,7 +1,7 @@
 ---
 sidebar_position: 11
 title: "Reporters"
-description: "Configure LiveDoc reporters: LiveDocSpecReporter for CLI output, JsonReporter for CI export, LiveDocViewerReporter for web UI, and LiveDocServerReporter for auto-discovery."
+description: "Configure LiveDoc reporters: LiveDocSpecReporter for CLI output with auto-discovery, JsonReporter for CI export, and LiveDocViewerReporter for web UI."
 ---
 
 # Reporters
@@ -34,7 +34,7 @@ export default defineConfig({
 
 ### `LiveDocSpecReporter` {#livedocspecreporter}
 
-The primary CLI reporter. Formats test results in Gherkin-style output with features, scenarios, and steps.
+The primary reporter. Formats test results in Gherkin-style CLI output with features, scenarios, and steps — and **automatically discovers** a running LiveDoc server for real-time visualization.
 
 ![LiveDocSpecReporter Output](/img/screenshots/reporter-spec-output.svg)
 
@@ -43,6 +43,10 @@ import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
 
 new LiveDocSpecReporter(options?: LiveDocSpecReporterOptions)
 ```
+
+:::tip One reporter does it all
+As of v0.1.6, `LiveDocSpecReporter` handles both console output **and** server auto-discovery. You no longer need a separate `LiveDocServerReporter` — just add `LiveDocSpecReporter` and it will automatically find and publish to a running LiveDoc server.
+:::
 
 #### Options {#spec-reporter-options}
 
@@ -54,6 +58,40 @@ new LiveDocSpecReporter(options?: LiveDocSpecReporterOptions)
 | `colors`           | `boolean`          | `true`                     | Enable/disable ANSI colors in output.                    |
 | `postReporters`    | `PostReporter[]`   | `[]`                       | Additional reporters to run after test completion.        |
 | `json-output`      | `string`           | `undefined`                | File path for JSON output (used with `JsonReporter`).    |
+| `publish`          | `object`           | `undefined`                | Explicit server publish configuration (see below).       |
+
+#### Auto-Discovery {#auto-discovery}
+
+When `LiveDocSpecReporter` initializes, it automatically attempts to find a running LiveDoc server using the following priority:
+
+1. **Environment variables** — `LIVEDOC_SERVER_URL` or `LIVEDOC_PUBLISH_SERVER`
+2. **Explicit `publish` config** — `livedoc.options.publish` in your vitest config
+3. **`discoverServer()` fallback** — dynamically imports `@swedevtools/livedoc-server` to probe for a running server
+
+If no server is found, the reporter silently continues with console-only output — your tests always run normally.
+
+#### Publish Options {#publish-options}
+
+To explicitly configure server publishing instead of relying on auto-discovery:
+
+```typescript
+new LiveDocSpecReporter({
+  detailLevel: "spec+summary+headers",
+  publish: {
+    enabled: true,
+    server: "http://localhost:3000",
+    project: "my-project",
+    environment: "local",
+  },
+})
+```
+
+| Option                | Type      | Default        | Description                        |
+| --------------------- | --------- | -------------- | ---------------------------------- |
+| `publish.enabled`     | `boolean` | `false`        | Enable server publishing           |
+| `publish.server`      | `string`  | `undefined`    | Server URL                         |
+| `publish.project`     | `string`  | `"default"`    | Project name for grouping results  |
+| `publish.environment` | `string`  | `"local"`      | Environment label                  |
 
 #### Detail Level Flags {#detail-level-flags}
 
@@ -182,32 +220,35 @@ new LiveDocSpecReporter({
 
 ---
 
-### `LiveDocServerReporter` {#livedocserverreporter}
+### `LiveDocServerReporter` *(deprecated)* {#livedocserverreporter}
 
-Standalone reporter that auto-discovers a running LiveDoc server and posts results. Unlike `LiveDocViewerReporter`, this is used as a top-level reporter (not a post-reporter).
+:::warning Deprecated since v0.1.6
+`LiveDocServerReporter` is now a re-export of `LiveDocSpecReporter`. Auto-discovery is built into `LiveDocSpecReporter` — you no longer need a separate reporter. Existing configs that use `LiveDocServerReporter` will continue to work, but you can simplify by removing it.
+:::
 
-```typescript
-import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
+Previously a standalone reporter for auto-discovering a running LiveDoc server. This functionality is now built directly into [`LiveDocSpecReporter`](#livedocspecreporter).
 
-new LiveDocServerReporter()
-```
-
-If no LiveDoc server is found, the reporter silently disables itself.
-
-#### Example {#server-example}
+**Old config (still works, but unnecessary):**
 
 ```typescript
 import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
 import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
 
-export default defineConfig({
-  test: {
-    reporters: [
-      new LiveDocSpecReporter({ detailLevel: "spec+summary+headers" }),
-      new LiveDocServerReporter(),
-    ],
-  },
-});
+reporters: [
+  new LiveDocSpecReporter({ detailLevel: "spec+summary+headers" }),
+  new LiveDocServerReporter(), // ← No longer needed
+],
+```
+
+**New simplified config:**
+
+```typescript
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+reporters: [
+  new LiveDocSpecReporter({ detailLevel: "spec+summary+headers" }),
+  // Auto-discovery happens automatically — no second reporter needed
+],
 ```
 
 ---
@@ -252,7 +293,7 @@ export default defineConfig({
 });
 ```
 
-### Full stack: CLI + JSON + Viewer + Server {#full-stack}
+### Full stack: CLI + JSON + Viewer {#full-stack}
 
 ```typescript
 // vitest.config.ts
@@ -262,7 +303,6 @@ import {
   JsonReporter,
   LiveDocViewerReporter,
 } from "@swedevtools/livedoc-vitest/reporter";
-import LiveDocServerReporter from "@swedevtools/livedoc-vitest/reporter";
 
 export default defineConfig({
   test: {
@@ -279,7 +319,8 @@ export default defineConfig({
         ],
         "json-output": "./livedoc-results.json",
       }),
-      new LiveDocServerReporter(),
+      // LiveDocSpecReporter auto-discovers a running LiveDoc server —
+      // no separate LiveDocServerReporter needed
     ],
   },
 });

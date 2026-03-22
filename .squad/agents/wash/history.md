@@ -34,3 +34,9 @@
 - **Extracted `buildExecutionResults()`**: Refactored inline model-building from `onTestRunEnd()` into a private `buildExecutionResults()` method. Accepts `testModule.task || testModule` for backward compatibility with both test mock shapes.
 - **Backward compat re-export**: `index.ts` exports `LiveDocSpecReporter` as deprecated `LiveDocServerReporter` alias.
 - **Test mock data**: Reporter tests now include proper `meta.livedoc` metadata on mock tasks (kind: "step"/"rule") to satisfy `LiveDocSpecReporter`'s strict validation.
+
+### Documentation Update for Reporter Consolidation (2026-07-25)
+
+- **Docs updated for single-reporter model**: reporters.mdx, configuration.mdx, viewer-integration.mdx, and viewer getting-started.mdx all updated to reflect `LiveDocSpecReporter` as the only reporter needed. `LiveDocServerReporter` section marked deprecated with old-vs-new comparison.
+- **livedoc-vitest SKILL.md updated**: Added reporter configuration section (step 8) documenting auto-discovery behavior, simplified config examples, publish options, and backward compatibility note.
+- **Auto-discovery priority documented**: env vars → explicit `publish` config → `discoverServer()` fallback — consistent across all doc surfaces.
