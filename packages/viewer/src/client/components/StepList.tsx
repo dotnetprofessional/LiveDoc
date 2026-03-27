@@ -6,6 +6,7 @@ import { cn } from '../lib/utils';
 import { Markdown } from './Markdown';
 import { ErrorDisplay } from './ErrorDisplay';
 import { AttachmentViewer } from './AttachmentViewer';
+import type { GalleryItem } from '../utils/gallery';
 
 type NormalizedCell = {
   text: string;
@@ -68,13 +69,25 @@ interface StepListProps {
   showDurations?: boolean;
   /** Show stack traces for failures (Developer mode default) */
   showErrorStack?: boolean;
+  /** Scenario-level gallery items for unified entry */
+  galleryItems?: GalleryItem[];
 }
 
-export function StepList({ steps, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true }: StepListProps) {
+export function StepList({ steps, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true, galleryItems }: StepListProps) {
   return (
     <div className="space-y-0">
       {steps.map((step, index) => (
-        <StepItem key={index} step={step} showStatus={showStatus} highlightValues={highlightValues} bindValues={bindValues} showDurations={showDurations} showErrorStack={showErrorStack} />
+        <StepItem 
+          key={index} 
+          step={step} 
+          stepIndex={index}
+          showStatus={showStatus} 
+          highlightValues={highlightValues} 
+          bindValues={bindValues} 
+          showDurations={showDurations} 
+          showErrorStack={showErrorStack}
+          galleryItems={galleryItems}
+        />
       ))}
     </div>
   );
@@ -82,14 +95,16 @@ export function StepList({ steps, showStatus = true, highlightValues, bindValues
 
 interface StepItemProps {
   step: StepTest;
+  stepIndex: number;
   showStatus?: boolean;
   highlightValues?: Record<string, string>;
   bindValues?: Record<string, string>;
   showDurations?: boolean;
   showErrorStack?: boolean;
+  galleryItems?: GalleryItem[];
 }
 
-function StepItem({ step, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true }: StepItemProps) {
+function StepItem({ step, stepIndex, showStatus = true, highlightValues, bindValues, showDurations = true, showErrorStack = true, galleryItems }: StepItemProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const allAttachments = step.execution?.attachments ?? [];
@@ -101,6 +116,14 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
   const attachmentLabel = allAreImages
     ? `${allAttachments.length} screenshot${allAttachments.length > 1 ? 's' : ''}`
     : `${allAttachments.length} attachment${allAttachments.length > 1 ? 's' : ''}`;
+
+  // Calculate initial index for scenario gallery
+  const initialIndexInGallery = galleryItems ? galleryItems.findIndex(item => item.stepIndex === stepIndex) : -1;
+  const useScenarioGallery = galleryItems && galleryItems.length > 0 && initialIndexInGallery >= 0;
+
+  const handleAttachmentClick = () => {
+    setLightboxOpen(true);
+  };
 
   const typeColors: Record<string, string> = {
     given: 'text-given',
@@ -160,7 +183,7 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
 
            {allAttachments.length > 0 && (
              <button
-               onClick={() => setLightboxOpen(true)}
+               onClick={handleAttachmentClick}
                className="shrink-0 inline-flex items-center gap-1 text-muted-foreground/50 hover:text-primary transition-colors"
                title={attachmentLabel}
              >
@@ -282,7 +305,8 @@ function StepItem({ step, showStatus = true, highlightValues, bindValues, showDu
 
       {allAttachments.length > 0 && (
         <AttachmentViewer
-          attachments={allAttachments}
+          attachments={useScenarioGallery ? galleryItems! : allAttachments}
+          initialIndex={useScenarioGallery ? initialIndexInGallery : 0}
           open={lightboxOpen}
           onOpenChange={setLightboxOpen}
         />

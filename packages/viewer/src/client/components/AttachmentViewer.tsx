@@ -4,9 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, ChevronLeft, ChevronRight, Copy, Check,
   FileText, FileCode, FileJson, Download, AlertTriangle,
+  Play, Pause, CheckCircle2, XCircle, AlertCircle, HelpCircle,
 } from 'lucide-react';
+import type { Status } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
+import { groupByStep, findGroupAtIndex, jumpToAdjacentGroup } from '../utils/gallery';
+import type { GalleryItem, StepGroup } from '../utils/gallery';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -18,6 +22,11 @@ export interface AttachmentItem {
   title?: string;
   mimeType?: string;
   kind?: string;
+  // Optional step context for scenario-level galleries
+  stepTitle?: string;
+  stepKeyword?: string;
+  stepStatus?: Status;
+  stepIndex?: number;
 }
 
 export interface AttachmentViewerProps {
@@ -188,16 +197,120 @@ const slideVariants = {
   }),
 };
 
-const slideTransition = { duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] };
+const slideTransition = { duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] as const };
+
+// Step-boundary crossing variants (fade + dim)
+const stepCrossFadeVariants = {
+  enter: {
+    opacity: 0,
+    filter: 'brightness(0.7)',
+  },
+  center: {
+    opacity: 1,
+    filter: 'brightness(1)',
+  },
+  exit: {
+    opacity: 0,
+    filter: 'brightness(0.7)',
+  },
+};
+
+const stepCrossFadeTransition = { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const };
+
+// ---------------------------------------------------------------------------
+// Step Context Bar (for scenario galleries)
+// ---------------------------------------------------------------------------
+
+interface StepContextBarProps {
+  item: AttachmentItem;
+  currentIndex: number;
+  total: number;
+  groups?: StepGroup[];
+}
+
+function StepContextBar({ item, currentIndex, total, groups }: StepContextBarProps) {
+  const stepTitle = item.stepTitle;
+  const stepKeyword = item.stepKeyword;
+  const stepStatus = item.stepStatus;
+  const stepIndex = item.stepIndex;
+
+  if (!stepTitle || !stepKeyword || stepIndex === undefined) return null;
+
+  const currentGroup = groups ? findGroupAtIndex(groups, currentIndex) : null;
+  const totalSteps = groups?.length ?? 1;
+  const displayStepNumber = (currentGroup?.stepIndex ?? stepIndex) + 1;
+
+  const keywordColors: Record<string, string> = {
+    given: 'text-sky-400',
+    when: 'text-amber-400',
+    then: 'text-emerald-400',
+    and: 'text-white/50',
+    but: 'text-rose-400',
+  };
+
+  const statusIcons: Record<Status, React.ReactElement> = {
+    passed: <CheckCircle2 className="w-3.5 h-3.5 text-pass" />,
+    failed: <XCircle className="w-3.5 h-3.5 text-fail" />,
+    pending: <AlertCircle className="w-3.5 h-3.5 text-pending" />,
+    running: <AlertCircle className="w-3.5 h-3.5 text-sky-400 animate-pulse" />,
+    skipped: <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/40" />,
+    timedOut: <XCircle className="w-3.5 h-3.5 text-fail" />,
+    cancelled: <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/40" />,
+  };
+
+  return (
+    <motion.div
+      className={cn(
+        "mx-auto mb-4 px-4 py-2.5 rounded-lg",
+        "bg-white/[0.03] backdrop-blur-md border border-white/[0.08]",
+        "flex items-center gap-3 max-w-4xl"
+      )}
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.25 }}
+      key={`step-context-${stepIndex}`}
+    >
+      <span className="text-xs font-medium text-white/40 tabular-nums shrink-0">
+        Step {displayStepNumber} of {totalSteps}
+      </span>
+      <div className="h-4 w-px bg-white/10" />
+      <span className={cn('text-sm font-semibold capitalize shrink-0', keywordColors[stepKeyword.toLowerCase()] || 'text-white/50')}>
+        {stepKeyword}
+      </span>
+      <span className="text-sm text-white/70 truncate flex-1 min-w-0">
+        {stepTitle}
+      </span>
+      {stepStatus && (
+        <div className="shrink-0">
+          {statusIcons[stepStatus]}
+        </div>
+      )}
+    </motion.div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Sub-renderers (polished)
 // ---------------------------------------------------------------------------
 
-function ImageRenderer({ item, index, direction }: { item: AttachmentItem; index: number; direction: number }) {
+function ImageRenderer({ 
+  item, 
+  index, 
+  direction,
+  crossingStepBoundary 
+}: { 
+  item: AttachmentItem; 
+  index: number; 
+  direction: number;
+  crossingStepBoundary: boolean;
+}) {
   const src = item.base64
     ? `data:${item.mimeType || 'image/png'};base64,${item.base64}`
     : item.uri ?? '';
+
+  const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
+  const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
 
   return (
     <motion.img
@@ -209,17 +322,17 @@ function ImageRenderer({ item, index, direction }: { item: AttachmentItem; index
         "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]"
       )}
       custom={direction}
-      variants={slideVariants}
+      variants={variants}
       initial="enter"
       animate="center"
       exit="exit"
-      transition={slideTransition}
+      transition={transition}
       draggable={false}
     />
   );
 }
 
-function JsonRenderer({ item, direction }: { item: AttachmentItem; direction: number }) {
+function JsonRenderer({ item, direction, crossingStepBoundary }: { item: AttachmentItem; direction: number; crossingStepBoundary: boolean }) {
   const { copied, copy } = useCopyToClipboard();
 
   const { formatted, error } = useMemo(() => {
@@ -233,6 +346,9 @@ function JsonRenderer({ item, direction }: { item: AttachmentItem; direction: nu
     }
   }, [item.base64]);
 
+  const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
+  const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
+
   return (
     <motion.div
       className={cn(
@@ -241,11 +357,11 @@ function JsonRenderer({ item, direction }: { item: AttachmentItem; direction: nu
         "max-h-[calc(100vh-12rem)]"
       )}
       custom={direction}
-      variants={slideVariants}
+      variants={variants}
       initial="enter"
       animate="center"
       exit="exit"
-      transition={slideTransition}
+      transition={transition}
     >
       <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-800/95 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
@@ -285,13 +401,16 @@ function JsonRenderer({ item, direction }: { item: AttachmentItem; direction: nu
   );
 }
 
-function TextRenderer({ item, direction }: { item: AttachmentItem; direction: number }) {
+function TextRenderer({ item, direction, crossingStepBoundary }: { item: AttachmentItem; direction: number; crossingStepBoundary: boolean }) {
   const { copied, copy } = useCopyToClipboard();
 
   const text = useMemo(() => {
     if (!item.base64) return '';
     return decodeBase64(item.base64);
   }, [item.base64]);
+
+  const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
+  const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
 
   return (
     <motion.div
@@ -301,11 +420,11 @@ function TextRenderer({ item, direction }: { item: AttachmentItem; direction: nu
         "max-h-[calc(100vh-12rem)]"
       )}
       custom={direction}
-      variants={slideVariants}
+      variants={variants}
       initial="enter"
       animate="center"
       exit="exit"
-      transition={slideTransition}
+      transition={transition}
     >
       <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-800/95 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
@@ -339,7 +458,7 @@ function TextRenderer({ item, direction }: { item: AttachmentItem; direction: nu
   );
 }
 
-function BinaryFallback({ item, direction }: { item: AttachmentItem; direction: number }) {
+function BinaryFallback({ item, direction, crossingStepBoundary }: { item: AttachmentItem; direction: number; crossingStepBoundary: boolean }) {
   const { copied, copy } = useCopyToClipboard();
 
   const handleDownload = useCallback(() => {
@@ -351,6 +470,9 @@ function BinaryFallback({ item, direction }: { item: AttachmentItem; direction: 
     link.click();
   }, [item]);
 
+  const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
+  const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
+
   return (
     <motion.div
       className={cn(
@@ -358,11 +480,11 @@ function BinaryFallback({ item, direction }: { item: AttachmentItem; direction: 
         "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]"
       )}
       custom={direction}
-      variants={slideVariants}
+      variants={variants}
       initial="enter"
       animate="center"
       exit="exit"
-      transition={slideTransition}
+      transition={transition}
     >
       <div className="p-8 flex flex-col items-center gap-5 text-center">
         <div className="w-16 h-16 rounded-2xl bg-zinc-700/40 flex items-center justify-center ring-1 ring-white/[0.06]">
@@ -450,17 +572,19 @@ function ThumbnailIcon({ item }: { item: AttachmentItem }) {
 }
 
 // ---------------------------------------------------------------------------
-// Film strip
+// Film strip (with step dividers for galleries)
 // ---------------------------------------------------------------------------
 
 function FilmStrip({
   attachments,
   currentIndex,
   onSelect,
+  groups,
 }: {
   attachments: AttachmentItem[];
   currentIndex: number;
   onSelect: (index: number) => void;
+  groups?: StepGroup[];
 }) {
   const stripRef = useRef<HTMLDivElement>(null);
 
@@ -472,6 +596,8 @@ function FilmStrip({
     if (!active) return;
     active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [currentIndex]);
+
+  const currentGroup = groups ? findGroupAtIndex(groups, currentIndex) : null;
 
   return (
     <motion.div
@@ -488,23 +614,43 @@ function FilmStrip({
     >
       {attachments.map((att, idx) => {
         const isActive = idx === currentIndex;
+        const isFirstOfGroup = groups?.some((g) => g.startIndex === idx);
+        const group = groups?.find((g) => idx >= g.startIndex && idx < g.startIndex + g.attachments.length);
+        const isActiveGroup = group === currentGroup;
+
         return (
-          <button
-            key={idx}
-            onClick={() => onSelect(idx)}
-            className={cn(
-              "relative shrink-0 w-12 h-12 rounded-lg overflow-hidden",
-              "transition-all duration-200 cursor-pointer",
-              "ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
-              isActive
-                ? "ring-2 ring-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)] scale-105"
-                : "ring-white/[0.08] opacity-60 hover:opacity-90 hover:ring-white/20"
+          <div key={idx} className="flex items-center gap-1.5">
+            {isFirstOfGroup && idx > 0 && group && (
+              <div className="flex flex-col items-center justify-center px-2 shrink-0">
+                <div className="h-10 w-px bg-white/10" />
+                <span className={cn(
+                  'text-[8px] font-semibold uppercase tracking-wider mt-0.5',
+                  group.keyword === 'given' && 'text-sky-400/60',
+                  group.keyword === 'when' && 'text-amber-400/60',
+                  group.keyword === 'then' && 'text-emerald-400/60',
+                  ['and', 'but'].includes(group.keyword) && 'text-white/30'
+                )}>
+                  {group.keyword}
+                </span>
+              </div>
             )}
-            aria-label={att.title || `Attachment ${idx + 1}`}
-            aria-current={isActive ? 'true' : undefined}
-          >
-            <ThumbnailIcon item={att} />
-          </button>
+            <button
+              onClick={() => onSelect(idx)}
+              className={cn(
+                "relative shrink-0 w-12 h-12 rounded-lg overflow-hidden",
+                "transition-all duration-200 cursor-pointer",
+                "ring-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400",
+                isActive
+                  ? "ring-2 ring-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)] scale-105"
+                  : "ring-white/[0.08] opacity-60 hover:opacity-90 hover:ring-white/20",
+                isActiveGroup && !isActive && "ring-white/[0.12] bg-white/[0.03]"
+              )}
+              aria-label={att.title || `Attachment ${idx + 1}`}
+              aria-current={isActive ? 'true' : undefined}
+            >
+              <ThumbnailIcon item={att} />
+            </button>
+          </div>
         );
       })}
     </motion.div>
@@ -512,7 +658,7 @@ function FilmStrip({
 }
 
 // ---------------------------------------------------------------------------
-// Header bar
+// Header bar (with auto-play controls for galleries)
 // ---------------------------------------------------------------------------
 
 function HeaderBar({
@@ -520,11 +666,17 @@ function HeaderBar({
   currentIndex,
   total,
   onClose,
+  isPlaying,
+  onTogglePlay,
+  hasStepContext,
 }: {
   item: AttachmentItem;
   currentIndex: number;
   total: number;
   onClose: () => void;
+  isPlaying?: boolean;
+  onTogglePlay?: () => void;
+  hasStepContext?: boolean;
 }) {
   const hasMultiple = total > 1;
   const label = mimeLabel(item.mimeType);
@@ -561,6 +713,21 @@ function HeaderBar({
           )}>
             {currentIndex + 1} <span className="text-white/20">/</span> {total}
           </span>
+        )}
+        {hasStepContext && hasMultiple && onTogglePlay && (
+          <button
+            onClick={onTogglePlay}
+            className={cn(
+              "shrink-0 h-7 px-2.5 rounded-lg flex items-center gap-1.5",
+              "text-white/50 hover:text-white hover:bg-white/10",
+              "transition-colors duration-150 text-xs font-medium",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            )}
+            aria-label={isPlaying ? 'Pause slideshow' : 'Play slideshow'}
+          >
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {isPlaying ? 'Pause' : 'Play'}
+          </button>
         )}
       </div>
 
@@ -632,29 +799,99 @@ function NavArrow({
 export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenChange }: AttachmentViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [direction, setDirection] = useState(0); // +1 = forward, -1 = backward
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [prevStepIndex, setPrevStepIndex] = useState<number | undefined>();
   const hasMultiple = attachments.length > 1;
+
+  // Detect step context
+  const hasStepContext = attachments.some(att => att.stepIndex !== undefined);
+  const groups = useMemo(() => {
+    if (!hasStepContext) return undefined;
+    return groupByStep(attachments as GalleryItem[]);
+  }, [attachments, hasStepContext]);
 
   useEffect(() => {
     if (open) {
       setCurrentIndex(initialIndex);
       setDirection(0);
+      setIsPlaying(false);
+      setPrevStepIndex(attachments[initialIndex]?.stepIndex);
     }
-  }, [open, initialIndex]);
+  }, [open, initialIndex, attachments]);
+
+  // Check if we're crossing step boundary
+  const current = attachments[currentIndex] ?? attachments[0];
+  const currentStepIndex = current?.stepIndex;
+  const crossingStepBoundary = hasStepContext && 
+    prevStepIndex !== undefined && 
+    currentStepIndex !== undefined && 
+    prevStepIndex !== currentStepIndex;
 
   const goNext = useCallback(() => {
+    setPrevStepIndex(attachments[currentIndex]?.stepIndex);
     setDirection(1);
     setCurrentIndex((i) => (i + 1) % attachments.length);
-  }, [attachments.length]);
+  }, [attachments, currentIndex]);
 
   const goPrev = useCallback(() => {
+    setPrevStepIndex(attachments[currentIndex]?.stepIndex);
     setDirection(-1);
     setCurrentIndex((i) => (i - 1 + attachments.length) % attachments.length);
-  }, [attachments.length]);
+  }, [attachments, currentIndex]);
 
   const goTo = useCallback((idx: number) => {
+    setPrevStepIndex(attachments[currentIndex]?.stepIndex);
     setDirection(idx > currentIndex ? 1 : -1);
     setCurrentIndex(idx);
-  }, [currentIndex]);
+  }, [currentIndex, attachments]);
+
+  const goToStart = useCallback(() => {
+    goTo(0);
+  }, [goTo]);
+
+  const goToEnd = useCallback(() => {
+    goTo(attachments.length - 1);
+  }, [goTo, attachments.length]);
+
+  const jumpToPrevStep = useCallback(() => {
+    if (!groups) return;
+    const target = jumpToAdjacentGroup(groups, currentIndex, 'prev');
+    if (target !== null) goTo(target);
+  }, [groups, currentIndex, goTo]);
+
+  const jumpToNextStep = useCallback(() => {
+    if (!groups) return;
+    const target = jumpToAdjacentGroup(groups, currentIndex, 'next');
+    if (target !== null) goTo(target);
+  }, [groups, currentIndex, goTo]);
+
+  const togglePlay = useCallback(() => {
+    setIsPlaying(p => !p);
+  }, []);
+
+  // Auto-play logic
+  useEffect(() => {
+    if (!isPlaying || !open) return;
+
+    const currentGroup = groups ? findGroupAtIndex(groups, currentIndex) : null;
+    const nextIndex = (currentIndex + 1) % attachments.length;
+    const nextGroup = groups ? findGroupAtIndex(groups, nextIndex) : null;
+    const willCrossStepBoundary = currentGroup && nextGroup && currentGroup !== nextGroup;
+
+    // Base interval + step boundary pause
+    const interval = willCrossStepBoundary ? 4000 : 3000;
+
+    const timer = setTimeout(() => {
+      if (nextIndex === 0) {
+        // End of gallery
+        setIsPlaying(false);
+      } else {
+        goNext();
+      }
+    }, interval);
+
+    return () => clearTimeout(timer);
+  }, [isPlaying, open, currentIndex, attachments.length, groups, goNext]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -662,14 +899,18 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' && hasMultiple) { e.preventDefault(); goNext(); }
       if (e.key === 'ArrowLeft' && hasMultiple) { e.preventDefault(); goPrev(); }
+      if (e.key === '[' && hasStepContext) { e.preventDefault(); jumpToPrevStep(); }
+      if (e.key === ']' && hasStepContext) { e.preventDefault(); jumpToNextStep(); }
+      if (e.key === ' ' && hasStepContext) { e.preventDefault(); togglePlay(); }
+      if (e.key === 'Home') { e.preventDefault(); goToStart(); }
+      if (e.key === 'End') { e.preventDefault(); goToEnd(); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, hasMultiple, goNext, goPrev]);
+  }, [open, hasMultiple, hasStepContext, goNext, goPrev, jumpToPrevStep, jumpToNextStep, togglePlay, goToStart, goToEnd]);
 
   if (attachments.length === 0) return null;
 
-  const current = attachments[currentIndex] ?? attachments[0];
   const category = categorize(current);
   const navLabel = category === 'image' ? 'image' : 'attachment';
 
@@ -718,6 +959,9 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                     currentIndex={currentIndex}
                     total={attachments.length}
                     onClose={() => onOpenChange(false)}
+                    isPlaying={isPlaying}
+                    onTogglePlay={togglePlay}
+                    hasStepContext={hasStepContext}
                   />
 
                   {/* Navigation arrows */}
@@ -731,7 +975,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                   {/* Content area */}
                   <div
                     className={cn(
-                      "flex-1 flex items-center justify-center",
+                      "flex-1 flex flex-col items-center justify-center",
                       "px-16 pt-14",
                       hasMultiple ? "pb-4" : "pb-8"
                     )}
@@ -739,20 +983,75 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                       if (e.target === e.currentTarget) onOpenChange(false);
                     }}
                   >
-                    <AnimatePresence mode="wait" custom={direction}>
-                      {category === 'image' && (
-                        <ImageRenderer key={`img-${currentIndex}`} item={current} index={currentIndex} direction={direction} />
-                      )}
-                      {category === 'json' && (
-                        <JsonRenderer key={`json-${currentIndex}`} item={current} direction={direction} />
-                      )}
-                      {category === 'text' && (
-                        <TextRenderer key={`text-${currentIndex}`} item={current} direction={direction} />
-                      )}
-                      {category === 'binary' && (
-                        <BinaryFallback key={`bin-${currentIndex}`} item={current} direction={direction} />
+                    {/* Step context bar */}
+                    <AnimatePresence mode="wait">
+                      {hasStepContext && (
+                        <StepContextBar 
+                          key={`context-${currentIndex}`}
+                          item={current} 
+                          currentIndex={currentIndex}
+                          total={attachments.length}
+                          groups={groups}
+                        />
                       )}
                     </AnimatePresence>
+
+                    {/* Main content */}
+                    <AnimatePresence mode="wait" custom={direction}>
+                      {category === 'image' && (
+                        <ImageRenderer 
+                          key={`img-${currentIndex}`} 
+                          item={current} 
+                          index={currentIndex} 
+                          direction={direction}
+                          crossingStepBoundary={crossingStepBoundary}
+                        />
+                      )}
+                      {category === 'json' && (
+                        <JsonRenderer 
+                          key={`json-${currentIndex}`} 
+                          item={current} 
+                          direction={direction}
+                          crossingStepBoundary={crossingStepBoundary}
+                        />
+                      )}
+                      {category === 'text' && (
+                        <TextRenderer 
+                          key={`text-${currentIndex}`} 
+                          item={current} 
+                          direction={direction}
+                          crossingStepBoundary={crossingStepBoundary}
+                        />
+                      )}
+                      {category === 'binary' && (
+                        <BinaryFallback 
+                          key={`bin-${currentIndex}`} 
+                          item={current} 
+                          direction={direction}
+                          crossingStepBoundary={crossingStepBoundary}
+                        />
+                      )}
+                    </AnimatePresence>
+
+                    {/* Auto-play progress bar */}
+                    {isPlaying && (
+                      <motion.div 
+                        className="w-full max-w-4xl mt-2 h-1 bg-white/5 rounded-full overflow-hidden"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        <motion.div 
+                          className="h-full bg-sky-400/60"
+                          initial={{ width: '0%' }}
+                          animate={{ width: '100%' }}
+                          transition={{ 
+                            duration: crossingStepBoundary ? 4 : 3, 
+                            ease: 'linear' 
+                          }}
+                          key={currentIndex}
+                        />
+                      </motion.div>
+                    )}
                   </div>
 
                   {/* Film strip — only when multiple attachments */}
@@ -765,6 +1064,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                         attachments={attachments}
                         currentIndex={currentIndex}
                         onSelect={goTo}
+                        groups={groups}
                       />
                     </div>
                   )}
