@@ -261,7 +261,7 @@ function StepContextBar({ item, currentIndex, total, groups }: StepContextBarPro
   return (
     <motion.div
       className={cn(
-        "mx-auto mb-4 px-4 py-2.5 rounded-lg",
+        "mx-auto mb-2 px-4 py-2.5 rounded-lg",
         "bg-white/[0.03] backdrop-blur-md border border-white/[0.08]",
         "flex items-center gap-3 max-w-4xl"
       )}
@@ -354,7 +354,7 @@ function JsonRenderer({ item, direction, crossingStepBoundary }: { item: Attachm
       className={cn(
         "relative w-full max-w-4xl flex flex-col rounded-xl overflow-hidden",
         "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]",
-        "max-h-[calc(100vh-12rem)]"
+        "max-h-full"
       )}
       custom={direction}
       variants={variants}
@@ -417,7 +417,7 @@ function TextRenderer({ item, direction, crossingStepBoundary }: { item: Attachm
       className={cn(
         "relative w-full max-w-4xl flex flex-col rounded-xl overflow-hidden",
         "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]",
-        "max-h-[calc(100vh-12rem)]"
+        "max-h-full"
       )}
       custom={direction}
       variants={variants}
@@ -684,7 +684,7 @@ function HeaderBar({
   return (
     <motion.div
       className={cn(
-        "absolute top-0 left-0 right-0 z-20",
+        "shrink-0 z-10",
         "flex items-center justify-between",
         "px-4 py-3",
         "bg-gradient-to-b from-black/60 via-black/30 to-transparent"
@@ -964,26 +964,8 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                     hasStepContext={hasStepContext}
                   />
 
-                  {/* Navigation arrows */}
-                  {hasMultiple && (
-                    <>
-                      <NavArrow direction="prev" onClick={goPrev} label={`Previous ${navLabel}`} />
-                      <NavArrow direction="next" onClick={goNext} label={`Next ${navLabel}`} />
-                    </>
-                  )}
-
-                  {/* Content area */}
-                  <div
-                    className={cn(
-                      "flex-1 flex flex-col items-center justify-center",
-                      "px-16 pt-14",
-                      hasMultiple ? "pb-4" : "pb-8"
-                    )}
-                    onClick={(e) => {
-                      if (e.target === e.currentTarget) onOpenChange(false);
-                    }}
-                  >
-                    {/* Step context bar */}
+                  {/* Step context bar — in-flow, never shrinks */}
+                  <div className="shrink-0">
                     <AnimatePresence mode="wait">
                       {hasStepContext && (
                         <StepContextBar 
@@ -995,6 +977,22 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                         />
                       )}
                     </AnimatePresence>
+                  </div>
+
+                  {/* Content area — takes remaining space, content constrained to fit */}
+                  <div
+                    className="flex-1 min-h-0 relative flex items-center justify-center px-16 overflow-hidden"
+                    onClick={(e) => {
+                      if (e.target === e.currentTarget) onOpenChange(false);
+                    }}
+                  >
+                    {/* Navigation arrows — positioned within content area */}
+                    {hasMultiple && (
+                      <>
+                        <NavArrow direction="prev" onClick={goPrev} label={`Previous ${navLabel}`} />
+                        <NavArrow direction="next" onClick={goNext} label={`Next ${navLabel}`} />
+                      </>
+                    )}
 
                     {/* Main content */}
                     <AnimatePresence mode="wait" custom={direction}>
@@ -1032,11 +1030,13 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                         />
                       )}
                     </AnimatePresence>
+                  </div>
 
-                    {/* Auto-play progress bar */}
-                    {isPlaying && (
+                  {/* Auto-play progress bar — at very bottom */}
+                  {isPlaying && (
+                    <div className="shrink-0 flex justify-center px-16">
                       <motion.div 
-                        className="w-full max-w-4xl mt-2 h-1 bg-white/5 rounded-full overflow-hidden"
+                        className="w-full max-w-4xl h-1 bg-white/5 rounded-full overflow-hidden"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                       >
@@ -1051,13 +1051,13 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                           key={currentIndex}
                         />
                       </motion.div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
-                  {/* Film strip — only when multiple attachments */}
+                  {/* Film strip — always at bottom, never shrinks */}
                   {hasMultiple && (
                     <div
-                      className="flex justify-center pb-4 px-4"
+                      className="shrink-0 flex justify-center pb-4 px-4 pt-2"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <FilmStrip
