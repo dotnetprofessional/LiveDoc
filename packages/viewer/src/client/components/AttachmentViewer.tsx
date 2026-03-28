@@ -5,6 +5,7 @@ import {
   X, ChevronLeft, ChevronRight, Copy, Check,
   FileText, FileCode, FileJson, Download, AlertTriangle,
   Play, Pause, CheckCircle2, XCircle, AlertCircle, HelpCircle,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 import type { Status } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
@@ -298,12 +299,14 @@ function ImageRenderer({
   item, 
   index, 
   direction,
-  crossingStepBoundary 
+  crossingStepBoundary,
+  onImageClick,
 }: { 
   item: AttachmentItem; 
   index: number; 
   direction: number;
   crossingStepBoundary: boolean;
+  onImageClick?: () => void;
 }) {
   const src = item.base64
     ? `data:${item.mimeType || 'image/png'};base64,${item.base64}`
@@ -319,7 +322,8 @@ function ImageRenderer({
       alt={item.title || `Image ${index + 1}`}
       className={cn(
         "max-w-full max-h-full object-contain rounded-lg",
-        "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]"
+        "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]",
+        onImageClick && "cursor-pointer"
       )}
       custom={direction}
       variants={variants}
@@ -328,6 +332,7 @@ function ImageRenderer({
       exit="exit"
       transition={transition}
       draggable={false}
+      onClick={onImageClick}
     />
   );
 }
@@ -669,6 +674,8 @@ function HeaderBar({
   isPlaying,
   onTogglePlay,
   hasStepContext,
+  isFullscreen,
+  onToggleFullscreen,
 }: {
   item: AttachmentItem;
   currentIndex: number;
@@ -677,6 +684,8 @@ function HeaderBar({
   isPlaying?: boolean;
   onTogglePlay?: () => void;
   hasStepContext?: boolean;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }) {
   const hasMultiple = total > 1;
   const label = mimeLabel(item.mimeType);
@@ -731,21 +740,37 @@ function HeaderBar({
         )}
       </div>
 
-      {/* Right: close */}
-      <DialogPrimitive.Close asChild>
-        <button
-          className={cn(
-            "h-8 w-8 rounded-lg flex items-center justify-center",
-            "text-white/50 hover:text-white hover:bg-white/10",
-            "transition-colors duration-150",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-          )}
-          aria-label="Close viewer"
-          onClick={onClose}
-        >
-          <X className="w-4.5 h-4.5" />
-        </button>
-      </DialogPrimitive.Close>
+      {/* Right: fullscreen toggle + close */}
+      <div className="flex items-center gap-2">
+        {onToggleFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            className={cn(
+              "h-8 w-8 rounded-lg flex items-center justify-center",
+              "text-white/50 hover:text-white hover:bg-white/10",
+              "transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            )}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+        )}
+        <DialogPrimitive.Close asChild>
+          <button
+            className={cn(
+              "h-8 w-8 rounded-lg flex items-center justify-center",
+              "text-white/50 hover:text-white hover:bg-white/10",
+              "transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            )}
+            aria-label="Close viewer"
+            onClick={onClose}
+          >
+            <X className="w-4.5 h-4.5" />
+          </button>
+        </DialogPrimitive.Close>
+      </div>
     </motion.div>
   );
 }
@@ -801,6 +826,8 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
   const [direction, setDirection] = useState(0); // +1 = forward, -1 = backward
   const [isPlaying, setIsPlaying] = useState(false);
   const [prevStepIndex, setPrevStepIndex] = useState<number | undefined>();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   const hasMultiple = attachments.length > 1;
 
   // Detect step context
@@ -816,8 +843,34 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
       setDirection(0);
       setIsPlaying(false);
       setPrevStepIndex(attachments[initialIndex]?.stepIndex);
+      setIsFullscreen(false);
     }
   }, [open, initialIndex, attachments]);
+
+  // Sync fullscreen state with browser fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isCurrentlyFullscreen);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
 
   // Check if we're crossing step boundary
   const current = attachments[currentIndex] ?? attachments[0];
@@ -869,6 +922,56 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
     setIsPlaying(p => !p);
   }, []);
 
+  // Fullscreen management
+  const enterFullscreen = useCallback(async () => {
+    if (!contentRef.current) return;
+    
+    try {
+      if (contentRef.current.requestFullscreen) {
+        await contentRef.current.requestFullscreen();
+      } else if ((contentRef.current as any).webkitRequestFullscreen) {
+        await (contentRef.current as any).webkitRequestFullscreen();
+      } else if ((contentRef.current as any).mozRequestFullScreen) {
+        await (contentRef.current as any).mozRequestFullScreen();
+      } else if ((contentRef.current as any).msRequestFullscreen) {
+        await (contentRef.current as any).msRequestFullscreen();
+      } else {
+        // Fallback: CSS-only fullscreen
+        setIsFullscreen(true);
+      }
+    } catch (err) {
+      // Fallback: CSS-only fullscreen
+      setIsFullscreen(true);
+    }
+  }, []);
+
+  const exitFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if ((document as any).webkitFullscreenElement) {
+        await (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozFullScreenElement) {
+        await (document as any).mozCancelFullScreen();
+      } else if ((document as any).msFullscreenElement) {
+        await (document as any).msExitFullscreen();
+      } else {
+        // CSS-only fallback
+        setIsFullscreen(false);
+      }
+    } catch {
+      setIsFullscreen(false);
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (isFullscreen) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+    }
+  }, [isFullscreen, enterFullscreen, exitFullscreen]);
+
   // Auto-play logic
   useEffect(() => {
     if (!isPlaying || !open) return;
@@ -904,15 +1007,17 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
       if (e.key === ' ' && hasStepContext) { e.preventDefault(); togglePlay(); }
       if (e.key === 'Home') { e.preventDefault(); goToStart(); }
       if (e.key === 'End') { e.preventDefault(); goToEnd(); }
+      if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, hasMultiple, hasStepContext, goNext, goPrev, jumpToPrevStep, jumpToNextStep, togglePlay, goToStart, goToEnd]);
+  }, [open, hasMultiple, hasStepContext, goNext, goPrev, jumpToPrevStep, jumpToNextStep, togglePlay, goToStart, goToEnd, toggleFullscreen]);
 
   if (attachments.length === 0) return null;
 
   const category = categorize(current);
   const navLabel = category === 'image' ? 'image' : 'attachment';
+  const isImageContent = category === 'image';
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -923,7 +1028,10 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
               {/* Overlay */}
               <DialogPrimitive.Overlay asChild forceMount>
                 <motion.div
-                  className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm"
+                  className={cn(
+                    "fixed inset-0 z-50 backdrop-blur-sm",
+                    isFullscreen ? "bg-black" : "bg-black/85"
+                  )}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -939,7 +1047,11 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                 onInteractOutside={(e) => e.preventDefault()}
               >
                 <motion.div
-                  className="fixed inset-0 z-50 flex flex-col"
+                  ref={contentRef}
+                  className={cn(
+                    "fixed inset-0 z-50 flex flex-col",
+                    isFullscreen && "bg-black"
+                  )}
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.98 }}
@@ -962,6 +1074,8 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                     isPlaying={isPlaying}
                     onTogglePlay={togglePlay}
                     hasStepContext={hasStepContext}
+                    isFullscreen={isFullscreen}
+                    onToggleFullscreen={toggleFullscreen}
                   />
 
                   {/* Step context bar — in-flow, never shrinks */}
@@ -981,7 +1095,10 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
 
                   {/* Content area — takes remaining space, content constrained to fit */}
                   <div
-                    className="flex-1 min-h-0 relative flex items-center justify-center px-16 overflow-hidden"
+                    className={cn(
+                      "flex-1 min-h-0 relative flex items-center justify-center overflow-hidden",
+                      isFullscreen ? "px-8" : "px-16"
+                    )}
                     onClick={(e) => {
                       if (e.target === e.currentTarget) onOpenChange(false);
                     }}
@@ -1003,6 +1120,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                           index={currentIndex} 
                           direction={direction}
                           crossingStepBoundary={crossingStepBoundary}
+                          onImageClick={isImageContent ? toggleFullscreen : undefined}
                         />
                       )}
                       {category === 'json' && (
@@ -1057,7 +1175,10 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                   {/* Film strip — always at bottom, never shrinks */}
                   {hasMultiple && (
                     <div
-                      className="shrink-0 flex justify-center pb-4 px-4 pt-2"
+                      className={cn(
+                        "shrink-0 flex justify-center px-4",
+                        isFullscreen ? "pb-3 pt-1" : "pb-4 pt-2"
+                      )}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <FilmStrip
