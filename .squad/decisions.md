@@ -276,6 +276,60 @@
 
 ---
 
+### JSON File Export via LiveDocSpecReporter
+
+**Author:** Wash  
+**Date:** 2026-03-29  
+**Status:** Implemented
+
+**Decision:** Added a `buildTestRun()` method to `LiveDocViewerReporter` and an `export` config option to `LiveDocSpecReporter` that writes a `TestRunV3`-compatible JSON file directly after the test run — no server needed.
+
+**Rationale:**
+- CI/build servers may not have a LiveDoc server running
+- The static HTML export (`livedoc-viewer export`) requires a `TestRunV3` JSON file as input
+- All conversion logic already existed in `LiveDocViewerReporter` — needed a non-HTTP entry point
+
+**Key Design Choices:**
+1. **Reuse over extraction** — `buildTestRun()` is a public method on the existing `LiveDocViewerReporter` class, reusing all private conversion methods. No code was duplicated or extracted into a separate utility — the class already owns the conversion logic.
+2. **Alongside, not instead of** — JSON export happens after `executionEnd()` (console output + server publishing). Both paths can run simultaneously.
+3. **Project/environment cascade** — publish config → export-level config → sensible defaults (CI env var detection).
+4. **`crypto.randomUUID()`** — used for runId generation. Available in Node.js 16.7+, suitable for this project's minimum Node version.
+
+**Impact:**
+- `packages/vitest/_src/app/reporter/LiveDocViewerReporterV3.ts` — new `buildTestRun()` public method
+- `packages/vitest/_src/app/reporter/LiveDocSpecReporter.ts` — `ExportConfig` interface, constructor parsing, `exportTestRunJson()` method
+
+---
+
+### JSON File Export from xUnit Reporter
+
+**Author:** Simon  
+**Date:** 2026-03-29  
+**Status:** Implemented
+
+**Decision:** Added `LIVEDOC_EXPORT_PATH` environment variable support to the .NET xUnit reporter. When set, the reporter writes a `TestRunV3`-compatible JSON file directly after test run completion — no server needed.
+
+**Key Design Choices:**
+1. **Export runs alongside server publishing** — `FlushCoreAsync` was refactored to build payloads first, then fire export and server publish concurrently. Neither blocks the other; both are independent output channels.
+2. **`IsEnabled` broadened to include export** — `LiveDocTestRunReporter.IsEnabled` now returns true when either server or export path is configured. This ensures `LiveDocContext` and `LiveDocTestFramework` collect data even in server-less CI environments.
+3. **Env var over config file** — `LIVEDOC_EXPORT_PATH` follows the existing pattern (`LIVEDOC_SERVER_URL`, `LIVEDOC_PROJECT`, `LIVEDOC_ENVIRONMENT`). Environment variables are simplest for CI pipelines.
+4. **Reused existing `TestRunV3` model** — No new model classes. The `TestRunV3` in `ReporterModels.cs` already has the exact shape the viewer export command expects.
+
+**Impact:**
+- `dotnet/xunit/src/Reporter/LiveDocConfig.cs` — new `ExportPathEnvVar` constant and `ExportPath` property
+- `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` — refactored `FlushCoreAsync`, added `PublishToServerAsync`, `ExportTestRunJsonAsync`
+
+**Usage:**
+```bash
+# CI pipeline: export JSON for static HTML generation
+LIVEDOC_EXPORT_PATH=./test-results/livedoc-report.json dotnet test
+
+# Then generate static HTML
+livedoc-viewer export -i ./test-results/livedoc-report.json -o report.html
+```
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

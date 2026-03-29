@@ -43,3 +43,11 @@
 - **Test verification pattern**: Attachment internals (`_currentStepAttachments` on `LiveDocContext`) are private and `_context` is `private protected` on `LiveDocTestBase`. No `InternalsVisibleTo` is configured. Verification in Specification tests uses reflection to peek at these fields. This is pragmatic for testing — the API surface is `protected`, but the collected state has no public accessor.
 - **Spec test location**: `tests/Attachments/Attachment_Api_Spec.cs` — 19 rules covering `Attach()`, `AttachScreenshot()`, `AttachFile()`, `AttachJson()`, multiple attachments, and edge cases (null, empty, arrays).
 - **AttachJson null handling**: `AttachJson(null!)` works because `null is string` evaluates to `false`, so it falls through to `JsonSerializer.Serialize(null)` which produces `"null"`. This is correct behavior.
+
+### JSON File Export (2026-03-29)
+
+- **Export architecture**: `LiveDocTestRunReporter.FlushCoreAsync()` was refactored to separate payload building from server publishing. The new `ExportTestRunJsonAsync()` runs alongside `PublishToServerAsync()` — both share the same built `List<TestCase>`. This avoids double-building and lets export work even when no server is configured.
+- **Config via env var**: `LIVEDOC_EXPORT_PATH` env var drives export. Added to `LiveDocConfig` alongside existing `LIVEDOC_SERVER_URL`, `LIVEDOC_PROJECT`, `LIVEDOC_ENVIRONMENT`. The `LiveDocConfig` explicit constructor gained an optional `exportPath` parameter for testing.
+- **IsEnabled broadened**: `LiveDocTestRunReporter.IsEnabled` now returns true if *either* server or export is configured. This is critical because `LiveDocContext` and `LiveDocTestFramework` gate data collection on this property — without it, export-only mode would produce empty files.
+- **TestRunV3 model already existed**: `ReporterModels.cs` had a `TestRunV3` class with `protocolVersion`, `runId`, `project`, `environment`, `framework`, `timestamp`, `duration`, `status`, `summary`, `documents`. No model changes needed.
+- **JSON options**: Export uses `WriteIndented = true` plus the same `camelCase` + `WhenWritingNull` options as `LiveDocReporter`. The `LowercaseEnumConverter<T>` on enum types takes precedence over the options-level `JsonStringEnumConverter`.

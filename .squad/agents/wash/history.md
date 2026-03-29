@@ -40,3 +40,11 @@
 - **Docs updated for single-reporter model**: reporters.mdx, configuration.mdx, viewer-integration.mdx, and viewer getting-started.mdx all updated to reflect `LiveDocSpecReporter` as the only reporter needed. `LiveDocServerReporter` section marked deprecated with old-vs-new comparison.
 - **livedoc-vitest SKILL.md updated**: Added reporter configuration section (step 8) documenting auto-discovery behavior, simplified config examples, publish options, and backward compatibility note.
 - **Auto-discovery priority documented**: env vars → explicit `publish` config → `discoverServer()` fallback — consistent across all doc surfaces.
+
+### JSON File Export (2026-03-29)
+
+- **`buildTestRun()` on LiveDocViewerReporter**: Added a public method that assembles a complete `TestRunV3` from `ExecutionResults` without making HTTP calls. Reuses all existing private conversion methods (buildFeatureTestCase, buildSpecificationTestCase, buildSuiteTestCase, calculateSummary, calculateOverallStatus). Uses `crypto.randomUUID()` for runId generation.
+- **`export` config option on LiveDocSpecReporter**: Constructor parses `options.export.output` into an `ExportConfig`. In `onTestRunEnd()`, after console output and server publishing, instantiates `LiveDocViewerReporter` with project/environment and calls `buildTestRun()`, then writes JSON with `writeFileSync`. Runs ALONGSIDE (not instead of) server publishing.
+- **Project/environment derivation**: Uses `livedoc.options.publish.project/environment` if set, falls back to export-level config, then defaults (`'default'` project, CI env var detection for environment).
+- **Output format**: Produces valid `TestRunV3` JSON with `protocolVersion: '3.0'`, compatible with `livedoc-viewer export -i <file>`.
+- **Test baseline unchanged**: 1 pre-existing failure (beautiful-tea-shipping-costs.Spec.ts), all other tests pass.
