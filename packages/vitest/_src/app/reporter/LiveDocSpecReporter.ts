@@ -1,5 +1,7 @@
 import type { Reporter } from 'vitest/reporters';
 import type { Vitest } from 'vitest/node';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import { LiveDocSpec, LiveDocReporterOptions } from './LiveDocSpec';
 import { DefaultColorTheme } from './ColorTheme';
 import { LiveDocReporter } from './LiveDocReporter';
@@ -9,6 +11,10 @@ import * as model from '../model/index';
 import { DescriptionParser } from '../parser/Parser';
 import type { File, Task, TaskResultPack } from '@vitest/runner';
 
+interface ExportConfig {
+    output: string;
+}
+
 /**
  * Vitest Reporter that provides enhanced BDD output using LiveDocSpec
  * Follows the pattern from JUnitReporter and SummaryReporter
@@ -16,6 +22,7 @@ import type { File, Task, TaskResultPack } from '@vitest/runner';
 export default class LiveDocSpecReporter implements Reporter {
     private liveDocSpec: LiveDocSpec;
     private options: LiveDocReporterOptions;
+    private exportConfig: ExportConfig | null = null;
 
     private streamEnabled = true;
     private taskById = new Map<string, Task>();
@@ -50,6 +57,13 @@ export default class LiveDocSpecReporter implements Reporter {
             livedoc.options.publish.server = options.publish.server ?? livedoc.options.publish.server;
             livedoc.options.publish.project = options.publish.project ?? livedoc.options.publish.project;
             livedoc.options.publish.environment = options.publish.environment ?? livedoc.options.publish.environment;
+        }
+
+        // Parse export config for direct JSON file output
+        if (options.export) {
+            this.exportConfig = {
+                output: options.export.output || './test-results/livedoc-report.json',
+            };
         }
 
         this.options.removeHeaderText = options.removeHeaderText || "";
@@ -197,6 +211,47 @@ export default class LiveDocSpecReporter implements Reporter {
 
         // Output execution results with post-reporter support
         await this.liveDocSpec.executionEnd(results, (this.options as any).rawOptions);
+
+        // Export TestRunV3 JSON file if configured
+        if (this.exportConfig) {
+            this.exportTestRunJson(results);
+        }
+    }
+
+    private exportTestRunJson(results: model.ExecutionResults): void {
+        const exportConfig = this.exportConfig!;
+        const outputPath = resolve(exportConfig.output);
+
+        // Derive project and environment from publish config, options, or sensible defaults
+        const project = livedoc.options.publish.project
+            || ((this.options as any).rawOptions?.export?.project as string | undefined)
+            || 'default';
+        const environment = livedoc.options.publish.environment
+            || ((this.options as any).rawOptions?.export?.environment as string | undefined)
+            || (process.env.CI ? 'ci' : 'local');
+
+        const converter = new LiveDocViewerReporter({
+            project,
+            environment,
+            silent: true,
+        });
+
+        const testRun = converter.buildTestRun(results);
+
+        try {
+            mkdirSync(dirname(outputPath), { recursive: true });
+            const json = JSON.stringify(testRun, null, 2);
+            writeFileSync(outputPath, json, 'utf8');
+            const sizeBytes = Buffer.byteLength(json, 'utf8');
+            const sizeLabel = sizeBytes < 1024
+                ? `${sizeBytes} B`
+                : sizeBytes < 1024 * 1024
+                    ? `${(sizeBytes / 1024).toFixed(1)} KB`
+                    : `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+            console.log(`\n✅ LiveDoc results exported to ${exportConfig.output} (${sizeLabel})`);
+        } catch (err) {
+            console.error(`\n❌ LiveDoc export failed: ${err instanceof Error ? err.message : String(err)}`);
+        }
     }
 
     private buildExecutionResults(testModules: readonly any[]): model.ExecutionResults {

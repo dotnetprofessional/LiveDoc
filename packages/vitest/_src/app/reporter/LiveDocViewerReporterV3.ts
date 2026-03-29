@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { randomUUID } from 'node:crypto';
 import type { IPostReporter } from './IPostReporter';
 import type {
   AnyTest,
@@ -9,6 +10,7 @@ import type {
   StepKeyword,
   StepTest,
   TestCase,
+  TestRunV3,
 } from '@swedevtools/livedoc-schema';
 import { generateStabilityId } from '@swedevtools/livedoc-schema';
 import {
@@ -93,6 +95,45 @@ export class LiveDocViewerReporter implements IPostReporter {
         console.error('LiveDocViewerReporter error:', error);
       }
     }
+  }
+
+  /**
+   * Builds a complete TestRunV3 object from ExecutionResults without making any HTTP calls.
+   * Used for direct JSON file export on CI where no server is running.
+   */
+  public buildTestRun(results: ExecutionResults, rawOptions?: any): TestRunV3 {
+    this.applyRawOptions(rawOptions);
+
+    const pathContext = this.buildPathContext(results);
+    const documents: TestCase[] = [];
+
+    for (const feature of results.features) {
+      documents.push(this.buildFeatureTestCase(feature, pathContext));
+    }
+
+    for (const spec of ((results as any).specifications || []) as SDKSpecification[]) {
+      documents.push(this.buildSpecificationTestCase(spec, pathContext));
+    }
+
+    for (const suite of ((results as any).suites || []) as SDKVitestSuite[]) {
+      documents.push(this.buildSuiteTestCase(suite, pathContext));
+    }
+
+    const { summary, duration } = this.calculateSummary(results);
+    const status = this.calculateOverallStatus(results);
+
+    return {
+      protocolVersion: '3.0',
+      runId: randomUUID(),
+      project: this.options.project,
+      environment: this.options.environment,
+      framework: 'vitest' as Framework,
+      timestamp: new Date().toISOString(),
+      duration,
+      status,
+      summary,
+      documents,
+    };
   }
 
   public async startRunSession(rawOptions?: any): Promise<string | null> {
