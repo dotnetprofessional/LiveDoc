@@ -2,6 +2,7 @@
 import { program } from 'commander';
 import { readFileSync } from 'node:fs';
 import { startServer } from './server/index.js';
+import { runExport } from './export.js';
 
 const packageJsonUrl = new URL('../package.json', import.meta.url);
 const packageJson = JSON.parse(readFileSync(packageJsonUrl, 'utf8')) as { version: string };
@@ -28,6 +29,20 @@ program
       }
       throw error;
     }
+  });
+
+program
+  .command('export')
+  .description('Export test results as a self-contained static HTML report')
+  .requiredOption('-i, --input <path>', 'Path to a TestRunV3 JSON file (e.g. lastrun.json)')
+  .option('-o, --output <path>', 'Output HTML file path', './livedoc-report.html')
+  .option('-t, --title <title>', 'Custom report title (defaults to project name from JSON)')
+  .action((options: { input: string; output: string; title?: string }) => {
+    runExport({
+      input: options.input,
+      output: options.output,
+      title: options.title,
+    });
   });
 
 program.parse();

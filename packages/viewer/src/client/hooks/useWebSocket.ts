@@ -3,7 +3,7 @@ import { makeRunState, useStore, Run } from '../store';
 import { getApiBaseUrl, getWsBaseUrl } from '../config';
 import type { V3WebSocketEvent, TestRunV3 } from '@swedevtools/livedoc-schema';
 
-export function useWebSocket() {
+export function useWebSocket(skip = false) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -237,6 +237,8 @@ export function useWebSocket() {
   }, [setConnectionStatus, handleMessage]);
 
   useEffect(() => {
+    if (skip) return;
+
     fetchInitialData();
     connect();
     
@@ -248,7 +250,7 @@ export function useWebSocket() {
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-  }, [connect, fetchInitialData]);
+  }, [connect, fetchInitialData, skip]);
 
   return {
     send: (data: any) => {

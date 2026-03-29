@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Sidebar } from "./Sidebar"
 import { useStore } from "../store"
-import { isEmbedded } from "../config"
+import { isEmbedded, isStaticMode } from "../config"
 import { Button } from "./ui/button"
 import { Moon, Sun, Bell } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
@@ -12,6 +12,7 @@ import { RunProgressBanner } from "./RunProgressBanner"
 export function Layout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true)
   const embedded = isEmbedded()
+  const staticMode = isStaticMode()
   const { audienceMode, setAudienceMode, connectionStatus, runs, selectedRunId, selectRun } = useStore()
 
   const latestRun = runs[0]
@@ -46,27 +47,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <GlobalFilter className="max-w-2xl w-full" />
 
             <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge
-                variant="outline"
-                className={
-                  connectionStatus === 'connected'
-                    ? 'rounded-full border-primary/40 bg-primary/15 text-primary font-bold'
-                    : connectionStatus === 'connecting'
-                      ? 'rounded-full border-muted-foreground/30 bg-muted/60 text-foreground font-bold'
-                      : 'rounded-full border-destructive/40 bg-destructive/15 text-destructive font-bold'
-                }
-              >
-                Live: {connectionLabel}
-              </Badge>
-              {hasNewLiveRun && (
-                <Button
+              {staticMode ? (
+                <Badge
                   variant="outline"
-                  size="sm"
-                  className="h-8"
-                  onClick={() => selectRun(latestRun.run.runId)}
+                  className="rounded-full border-indigo-500/40 bg-indigo-500/15 text-indigo-400 font-bold"
                 >
-                  Switch to live run
-                </Button>
+                  Static Report
+                </Badge>
+              ) : (
+                <>
+                  <Badge
+                    variant="outline"
+                    className={
+                      connectionStatus === 'connected'
+                        ? 'rounded-full border-primary/40 bg-primary/15 text-primary font-bold'
+                        : connectionStatus === 'connecting'
+                          ? 'rounded-full border-muted-foreground/30 bg-muted/60 text-foreground font-bold'
+                          : 'rounded-full border-destructive/40 bg-destructive/15 text-destructive font-bold'
+                    }
+                  >
+                    Live: {connectionLabel}
+                  </Badge>
+                  {hasNewLiveRun && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => selectRun(latestRun.run.runId)}
+                    >
+                      Switch to live run
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>

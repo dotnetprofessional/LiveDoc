@@ -26,3 +26,14 @@ export function isEmbedded(): boolean {
   }
   return false;
 }
+
+export function isStaticMode(): boolean {
+  return typeof window !== 'undefined' && !!(window as any).__LIVEDOC_DATA__;
+}
+
+export function getStaticData(): any | undefined {
+  if (typeof window !== 'undefined') {
+    return (window as any).__LIVEDOC_DATA__;
+  }
+  return undefined;
+}
