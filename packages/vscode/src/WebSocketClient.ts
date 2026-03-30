@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import WebSocket from 'ws';
-import type { V3WebSocketEvent, WebSocketClientMessage } from '@swedevtools/livedoc-server';
+import type { V1WebSocketEvent, WebSocketClientMessage } from '@swedevtools/livedoc-server';
 
 export class LiveDocWebSocketClient {
   private ws: WebSocket | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private url: string;
-  private onEventCallback: ((event: V3WebSocketEvent) => void) | null = null;
+  private onEventCallback: ((event: V1WebSocketEvent) => void) | null = null;
   private isDisposed = false;
   private outputChannel: vscode.OutputChannel;
 
@@ -30,7 +30,7 @@ export class LiveDocWebSocketClient {
       this.ws.on('message', (data: WebSocket.RawData) => {
         try {
           const message = data.toString();
-          const event = JSON.parse(message) as V3WebSocketEvent;
+          const event = JSON.parse(message) as V1WebSocketEvent;
           if (this.onEventCallback) {
             this.onEventCallback(event);
           }
@@ -56,7 +56,7 @@ export class LiveDocWebSocketClient {
     }
   }
 
-  public onEvent(callback: (event: V3WebSocketEvent) => void) {
+  public onEvent(callback: (event: V1WebSocketEvent) => void) {
     this.onEventCallback = callback;
   }
 

@@ -364,7 +364,7 @@ public class LiveDocTestRunReporter : IDisposable
     }
 
     /// <summary>
-    /// Exports test results to a TestRunV3 JSON file for offline consumption.
+    /// Exports test results to a TestRunV1 JSON file for offline consumption.
     /// </summary>
     private async Task ExportTestRunJsonAsync(
         List<TestCase> documents,
@@ -378,9 +378,9 @@ public class LiveDocTestRunReporter : IDisposable
 
         try
         {
-            var testRun = new TestRunV3
+            var testRun = new TestRunV1
             {
-                ProtocolVersion = "3.0",
+                ProtocolVersion = "1.0",
                 RunId = _reporter.RunId ?? Guid.NewGuid().ToString(),
                 Project = _config.Project,
                 Environment = _config.Environment,

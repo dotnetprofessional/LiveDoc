@@ -44,7 +44,7 @@ sequenceDiagram
     participant Test as Test Code
     participant SC as StepContext
     participant SD as StepDefinition
-    participant Rep as V3 Reporter
+    participant Rep as V1 Reporter
     participant Srv as Server Store
     participant UI as Viewer UI
 
@@ -59,7 +59,7 @@ sequenceDiagram
 **Code Locations:**
 - `packages/vitest/_src/app/model/StepContext.ts` — `attach()`, `attachScreenshot()`, `attachJSON()`
 - `packages/vitest/_src/app/model/StepDefinition.ts` — `attachments: Attachment[]` field
-- `packages/vitest/_src/app/reporter/LiveDocViewerReporterV3.ts` — `stepExecution()` method (lines ~735-759)
+- `packages/vitest/_src/app/reporter/LiveDocViewerReporterV1.ts` — `stepExecution()` method (lines ~735-759)
 - `packages/viewer/src/client/components/StepList.tsx` — `step.execution?.attachments` access
 
 ### Schema Analysis — The Good News
@@ -143,16 +143,16 @@ These are Phase 2 concerns, not Phase 1 blockers.
 
 ## 3. Schema / Protocol Impact
 
-### V3 Protocol: No Changes Required
+### V1 Protocol: No Changes Required
 
-The V3 wire format (`packages/schema/src/reporter-v3-wire.ts`) already includes:
+The V1 wire format (`packages/schema/src/reporter-v1-wire.ts`) already includes:
 
 ```typescript
-V3ExecutionResultSchema = z.object({
-  status: V3StatusSchema,
+V1ExecutionResultSchema = z.object({
+  status: V1StatusSchema,
   duration: z.number().nonnegative(),
-  error: V3ErrorInfoSchema.optional(),
-  attachments: z.array(V3AttachmentSchema).optional(), // ← Already here
+  error: V1ErrorInfoSchema.optional(),
+  attachments: z.array(V1AttachmentSchema).optional(), // ← Already here
 });
 ```
 

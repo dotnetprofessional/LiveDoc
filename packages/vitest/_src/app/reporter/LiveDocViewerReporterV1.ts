@@ -10,7 +10,7 @@ import type {
   StepKeyword,
   StepTest,
   TestCase,
-  TestRunV3,
+  TestRunV1,
 } from '@swedevtools/livedoc-schema';
 import { generateStabilityId } from '@swedevtools/livedoc-schema';
 import {
@@ -27,13 +27,13 @@ import {
   VitestSuite as SDKVitestSuite,
 } from '../model/index';
 
-interface V3StartRunResponse {
-  protocolVersion: '3.0';
+interface V1StartRunResponse {
+  protocolVersion: '1.0';
   runId: string;
   websocketUrl: string;
 }
 
-interface V3CompleteRunRequest {
+interface V1CompleteRunRequest {
   status: Status;
   duration: number;
   summary?: Statistics;
@@ -98,10 +98,10 @@ export class LiveDocViewerReporter implements IPostReporter {
   }
 
   /**
-   * Builds a complete TestRunV3 object from ExecutionResults without making any HTTP calls.
+   * Builds a complete TestRunV1 object from ExecutionResults without making any HTTP calls.
    * Used for direct JSON file export on CI where no server is running.
    */
-  public buildTestRun(results: ExecutionResults, rawOptions?: any): TestRunV3 {
+  public buildTestRun(results: ExecutionResults, rawOptions?: any): TestRunV1 {
     this.applyRawOptions(rawOptions);
 
     const pathContext = this.buildPathContext(results);
@@ -123,7 +123,7 @@ export class LiveDocViewerReporter implements IPostReporter {
     const status = this.calculateOverallStatus(results);
 
     return {
-      protocolVersion: '3.0',
+      protocolVersion: '1.0',
       runId: randomUUID(),
       project: this.options.project,
       environment: this.options.environment,
@@ -194,12 +194,12 @@ export class LiveDocViewerReporter implements IPostReporter {
       framework: 'vitest' as Framework,
     };
 
-    const response = await this.post<V3StartRunResponse>('/api/v3/runs/start', request);
+    const response = await this.post<V1StartRunResponse>('/api/v1/runs/start', request);
     return response?.runId || null;
   }
 
   private async upsertTestCase(runId: string, testCase: TestCase): Promise<void> {
-    await this.post(`/api/v3/runs/${runId}/testcases`, { testCase });
+    await this.post(`/api/v1/runs/${runId}/testcases`, { testCase });
   }
 
   private buildPathContext(results: ExecutionResults): { rootPath: string } {
@@ -976,13 +976,13 @@ export class LiveDocViewerReporter implements IPostReporter {
     const { summary, duration } = this.calculateSummary(results);
     const overallStatus = this.calculateOverallStatus(results);
 
-    const request: V3CompleteRunRequest = {
+    const request: V1CompleteRunRequest = {
       status: overallStatus,
       duration,
       summary,
     };
 
-    await this.post(`/api/v3/runs/${runId}/complete`, request);
+    await this.post(`/api/v1/runs/${runId}/complete`, request);
   }
 
   private mapStatus(status: SpecStatus): Status {

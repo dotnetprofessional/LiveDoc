@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { makeRunState, useStore, Run } from '../store';
 import { getApiBaseUrl, getWsBaseUrl } from '../config';
-import type { V3WebSocketEvent, TestRunV3 } from '@swedevtools/livedoc-schema';
+import type { V1WebSocketEvent, TestRunV1 } from '@swedevtools/livedoc-schema';
 
 export function useWebSocket(skip = false) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -22,11 +22,11 @@ export function useWebSocket(skip = false) {
 
   const fetchRunById = useCallback(async (runId: string): Promise<Run | null> => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v3/runs/${runId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/runs/${runId}`, {
         cache: 'no-store'
       });
       if (!response.ok) return null;
-      const fullRun = (await response.json()) as TestRunV3;
+      const fullRun = (await response.json()) as TestRunV1;
       return makeRunState(fullRun);
     } catch (e) {
       console.error(`Failed to fetch run ${runId}:`, e);
@@ -37,7 +37,7 @@ export function useWebSocket(skip = false) {
   // Fetch project hierarchy for navigation
   const fetchProjectHierarchy = useCallback(async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v3/hierarchy`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/hierarchy`, {
         cache: 'no-store'
       });
       if (!response.ok) return;
@@ -48,8 +48,8 @@ export function useWebSocket(skip = false) {
           name: project.name,
           environments: project.environments.map((env: any) => ({
             name: env.name,
-            latestRun: (env.latestRun && String(env.latestRun.protocolVersion ?? '') === '3.0')
-              ? makeRunState(env.latestRun as TestRunV3)
+            latestRun: (env.latestRun && String(env.latestRun.protocolVersion ?? '') === '1.0')
+              ? makeRunState(env.latestRun as TestRunV1)
               : undefined,
             historyCount: env.historyCount,
             history: env.history || [],
@@ -67,23 +67,23 @@ export function useWebSocket(skip = false) {
     try {
       await fetchProjectHierarchy();
       
-      const runsListResponse = await fetch(`${getApiBaseUrl()}/api/v3/runs`, {
+      const runsListResponse = await fetch(`${getApiBaseUrl()}/api/v1/runs`, {
         cache: 'no-store'
       });
       if (!runsListResponse.ok) return;
       
       const runsList = await runsListResponse.json();
-      const v3RunsList = Array.isArray(runsList)
-        ? runsList.filter((r: any) => String(r?.protocolVersion ?? '') === '3.0')
+      const v1RunsList = Array.isArray(runsList)
+        ? runsList.filter((r: any) => String(r?.protocolVersion ?? '') === '1.0')
         : [];
 
-      if (v3RunsList.length === 0) {
+      if (v1RunsList.length === 0) {
         setRuns([]);
         return;
       }
       
       const fullRuns = await Promise.all(
-        v3RunsList.map(async (run: any) => {
+        v1RunsList.map(async (run: any) => {
           return fetchRunById(run.runId);
         })
       );
@@ -119,12 +119,12 @@ export function useWebSocket(skip = false) {
     const type = String(message?.type ?? '');
 
     switch (type) {
-      case 'run:v3:started': {
-        const evt = message as V3WebSocketEvent & { type: 'run:v3:started' };
+      case 'run:v1:started': {
+        const evt = message as V1WebSocketEvent & { type: 'run:v1:started' };
         if (!evt.runId) return;
 
-        const run: TestRunV3 = {
-          protocolVersion: '3.0',
+        const run: TestRunV1 = {
+          protocolVersion: '1.0',
           runId: evt.runId,
           project: evt.project ?? 'Test Results',
           environment: evt.environment ?? 'default',
@@ -143,19 +143,19 @@ export function useWebSocket(skip = false) {
       }
 
       case 'testcase:upsert': {
-        const evt = message as V3WebSocketEvent & { type: 'testcase:upsert' };
+        const evt = message as V1WebSocketEvent & { type: 'testcase:upsert' };
         if (evt.runId && evt.testCase) upsertTestCase(evt.runId, evt.testCase as any);
         break;
       }
 
       case 'test:upsert': {
-        const evt = message as V3WebSocketEvent & { type: 'test:upsert' };
+        const evt = message as V1WebSocketEvent & { type: 'test:upsert' };
         if (evt.runId && evt.testCaseId && evt.test) upsertTest(evt.runId, evt.testCaseId, evt.test as any);
         break;
       }
 
       case 'test:execution': {
-        const evt = message as V3WebSocketEvent & { type: 'test:execution' };
+        const evt = message as V1WebSocketEvent & { type: 'test:execution' };
         if (evt.runId && evt.testId && evt.patch?.execution) {
           patchTestExecution(evt.runId, evt.testId, { execution: evt.patch.execution as any });
         }
@@ -163,15 +163,15 @@ export function useWebSocket(skip = false) {
       }
 
       case 'outline:exampleResults': {
-        const evt = message as V3WebSocketEvent & { type: 'outline:exampleResults' };
+        const evt = message as V1WebSocketEvent & { type: 'outline:exampleResults' };
         if (evt.runId && evt.outlineId && Array.isArray(evt.results)) {
           upsertOutlineExampleResults(evt.runId, evt.outlineId, evt.results as any);
         }
         break;
       }
 
-      case 'run:v3:completed': {
-        const evt = message as V3WebSocketEvent & { type: 'run:v3:completed' };
+      case 'run:v1:completed': {
+        const evt = message as V1WebSocketEvent & { type: 'run:v1:completed' };
         if (evt.runId) {
           void handleRunCompleted(evt.runId);
         }

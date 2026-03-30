@@ -51,8 +51,8 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
       if (Array.isArray((template as any).steps)) return ((template as any).steps as any[]);
     }
 
-    const v3Steps = (node as any).steps;
-    if (Array.isArray(v3Steps)) return v3Steps as any[];
+    const steps = (node as any).steps;
+    if (Array.isArray(steps)) return steps as any[];
     return [];
   })();
 
@@ -65,34 +65,34 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     return ids;
   }, [templateSteps]);
 
-  const v3ExampleTables = looksLikeDataTables((node as any).examples) ? ((node as any).examples as DataTable[]) : undefined;
-  const allTables = v3ExampleTables
-    ? (v3ExampleTables as any[])
+  const exampleDataTables = looksLikeDataTables((node as any).examples) ? ((node as any).examples as DataTable[]) : undefined;
+  const allTables = exampleDataTables
+    ? (exampleDataTables as any[])
     : Array.isArray((node as any).tables)
       ? ((node as any).tables as any[])
       : [];
 
-  const v3ExampleResults = Array.isArray((node as any).exampleResults)
+  const exampleResults = Array.isArray((node as any).exampleResults)
     ? (((node as any).exampleResults as Array<{ testId: string; result: ExecutionResult }>) ?? [])
     : [];
 
-  const v3ResultsByKey = useMemo(() => {
+  const resultsByKey = useMemo(() => {
     const m = new Map<string, ExecutionResult>();
-    for (const entry of v3ExampleResults) {
+    for (const entry of exampleResults) {
       const rowId = Number(entry?.result?.rowId);
       if (!Number.isFinite(rowId)) continue;
       m.set(`${rowId}|${String(entry.testId)}`, entry.result);
     }
     return m;
-  }, [v3ExampleResults]);
+  }, [exampleResults]);
 
   // Row-level result selection: prefer outline-level results, otherwise pick any non-step result.
-  const v3RowResultsByRowId = useMemo(() => {
+  const rowResultsByRowId = useMemo(() => {
     const m = new Map<number, ExecutionResult>();
     const outlineId = String((node as any)?.id ?? '');
 
     const byRow = new Map<number, Array<{ testId: string; result: ExecutionResult }>>();
-    for (const entry of v3ExampleResults) {
+    for (const entry of exampleResults) {
       const rowId = Number(entry?.result?.rowId);
       if (!Number.isFinite(rowId)) continue;
       const list = byRow.get(rowId) ?? [];
@@ -107,7 +107,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     }
 
     return m;
-  }, [node, stepIdSet, v3ExampleResults]);
+  }, [node, stepIdSet, exampleResults]);
 
   const aggregateStatus = (statuses: Status[]): Status => {
     const s = new Set(statuses);
@@ -128,8 +128,8 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
   };
 
   const buildRowsForTable = (table: any | undefined): { headers: string[]; rows: OutlineRow[] } => {
-    // v3 mode: table comes from `examples` (DataTable) and execution comes from exampleResults.
-    if (v3ExampleTables && table && Array.isArray(table.headers) && Array.isArray(table.rows) && table.headers.length > 0) {
+    // v1 mode: table comes from `examples` (DataTable) and execution comes from exampleResults.
+    if (exampleDataTables && table && Array.isArray(table.headers) && Array.isArray(table.rows) && table.headers.length > 0) {
       const headers = (table.headers as unknown[]).map((h) => String(h ?? '')).filter(Boolean);
 
       const rows: OutlineRow[] = (table.rows as any[]).map((r: any) => {
@@ -146,15 +146,15 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
         if (!Number.isFinite(rowId)) return { id, values };
 
         const patchedSteps = (templateSteps as any[]).map((s: any) => {
-          const result = v3ResultsByKey.get(`${rowId}|${String(s?.id ?? '')}`);
+          const result = resultsByKey.get(`${rowId}|${String(s?.id ?? '')}`);
           return result ? { ...s, execution: result } : s;
         });
 
         const stepExecutions: ExecutionResult[] = (templateSteps as any[])
-          .map((s: any) => v3ResultsByKey.get(`${rowId}|${String(s?.id ?? '')}`))
+          .map((s: any) => resultsByKey.get(`${rowId}|${String(s?.id ?? '')}`))
           .filter((x): x is ExecutionResult => !!x);
 
-        const rowResult = v3RowResultsByRowId.get(rowId);
+        const rowResult = rowResultsByRowId.get(rowId);
 
         const rowStatus: Status | undefined = stepExecutions.length > 0
           ? aggregateStatus(stepExecutions.map((r) => r.status as Status))

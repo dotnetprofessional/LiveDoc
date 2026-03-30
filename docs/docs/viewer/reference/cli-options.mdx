@@ -124,7 +124,7 @@ livedoc-viewer --help
 
 ## `export` Subcommand {#export-subcommand}
 
-Generate a self-contained static HTML report from a TestRunV3 JSON file. The
+Generate a self-contained static HTML report from a TestRunV1 JSON file. The
 output file embeds all JavaScript, CSS, and images inline — it can be opened in
 any browser on any computer with zero external dependencies.
 
@@ -134,7 +134,7 @@ livedoc-viewer export --input <path> [--output <path>] [--title <title>]
 
 ### `--input <path>` / `-i` {#export-input}
 
-**(Required)** Path to a TestRunV3 JSON file. This is the file produced by the
+**(Required)** Path to a TestRunV1 JSON file. This is the file produced by the
 [`export` option](../../vitest/reference/reporters.mdx#export-options) on
 `LiveDocSpecReporter` or by the
 [`LIVEDOC_EXPORT_PATH`](../../xunit/reference/configuration.mdx#export-env-var)
@@ -145,7 +145,7 @@ livedoc-viewer export --input ./test-results/livedoc-report.json
 livedoc-viewer export -i ./test-results/livedoc-report.json
 ```
 
-The file must contain valid JSON with `protocolVersion: "3.0"`. If the file is
+The file must contain valid JSON with `protocolVersion: "1.0"`. If the file is
 missing or the format is invalid, the command exits with a descriptive error.
 
 ### `--output <path>` / `-o` {#export-output}
@@ -206,7 +206,7 @@ The generated HTML file contains:
 
 | Option             | Short | Required | Default                   | Description                              |
 | ------------------ | ----- | -------- | ------------------------- | ---------------------------------------- |
-| `--input <path>`   | `-i`  | Yes      | —                         | Path to TestRunV3 JSON file              |
+| `--input <path>`   | `-i`  | Yes      | —                         | Path to TestRunV1 JSON file              |
 | `--output <path>`  | `-o`  | No       | `./livedoc-report.html`   | Output HTML file path                    |
 | `--title <title>`  | `-t`  | No       | Project name or "LiveDoc" | Custom report title                      |
 

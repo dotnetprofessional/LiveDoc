@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV3 } from '@swedevtools/livedoc-schema';
+import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV1 } from '@swedevtools/livedoc-schema';
 
 function getInitialAudienceMode(): 'business' | 'developer' {
   try {
@@ -12,7 +12,7 @@ function getInitialAudienceMode(): 'business' | 'developer' {
 }
 
 export interface Run {
-  run: TestRunV3;
+  run: TestRunV1;
   /** Index for fast lookup by id (TestCase/Test/Step/etc) */
   itemById: Record<string, TestCase | AnyTest>;
 }
@@ -108,7 +108,7 @@ interface AppState {
   getCurrentNode: () => TestCase | AnyTest | undefined;
 }
 
-function buildItemIndex(run: TestRunV3): Record<string, TestCase | AnyTest> {
+function buildItemIndex(run: TestRunV1): Record<string, TestCase | AnyTest> {
   const itemById: Record<string, TestCase | AnyTest> = {};
 
   const addTest = (test: AnyTest) => {
@@ -133,7 +133,7 @@ function buildItemIndex(run: TestRunV3): Record<string, TestCase | AnyTest> {
   return itemById;
 }
 
-export function makeRunState(run: TestRunV3): Run {
+export function makeRunState(run: TestRunV1): Run {
   return { run, itemById: buildItemIndex(run) };
 }
 
@@ -150,7 +150,7 @@ function mergeExecution(existing: ExecutionResult, patch: Partial<ExecutionResul
   return out as ExecutionResult;
 }
 
-function findTestCaseOwnerId(run: TestRunV3, itemId: string): string | undefined {
+function findTestCaseOwnerId(run: TestRunV1, itemId: string): string | undefined {
   for (const doc of run.documents ?? []) {
     if (doc.id === itemId) return doc.id;
 
@@ -223,7 +223,7 @@ function emptyStatistics(): Statistics {
   return { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
 }
 
-function summarizeRun(run: TestRunV3): Statistics {
+function summarizeRun(run: TestRunV1): Statistics {
   const summary = emptyStatistics();
 
   const addStatus = (status: Status) => {
@@ -253,7 +253,7 @@ function summarizeRun(run: TestRunV3): Statistics {
   return summary;
 }
 
-function withDerivedRunState(run: TestRunV3): TestRunV3 {
+function withDerivedRunState(run: TestRunV1): TestRunV1 {
   const summary = summarizeRun(run);
   const isTerminal = run.status === 'passed' || run.status === 'failed' || run.status === 'cancelled' || run.status === 'timedOut';
 
@@ -261,7 +261,7 @@ function withDerivedRunState(run: TestRunV3): TestRunV3 {
     return { ...run, summary, status: run.status };
   }
 
-  // Run is still active — never derive 'passed' until run:v3:completed arrives
+  // Run is still active — never derive 'passed' until run:v1:completed arrives
   const derivedStatus: Status =
     summary.failed > 0
       ? 'failed'
@@ -307,7 +307,7 @@ export const useStore = create<AppState>((set, get) => ({
       r.run.runId === runId
         ? (
             updates.run
-              ? { ...r, ...updates, itemById: buildItemIndex(updates.run as TestRunV3) }
+              ? { ...r, ...updates, itemById: buildItemIndex(updates.run as TestRunV1) }
               : { ...r, ...updates }
           )
         : r

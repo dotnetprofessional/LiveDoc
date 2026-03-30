@@ -1,5 +1,5 @@
 // =============================================================================
-// Reporter Model v3 (Draft)
+// Reporter Model v1
 // =============================================================================
 //
 // This is a TypeScript representation of the new simplified reporting model
@@ -258,8 +258,8 @@ export type TestCase = FeatureTestCase | SpecificationTestCase | ContainerTestCa
 
 export type Framework = 'vitest' | 'xunit' | 'mocha' | 'jest' | string;
 
-export interface TestRunV3 {
-  protocolVersion: '3.0';
+export interface TestRunV1 {
+  protocolVersion: '1.0';
 
   runId: string;
   project: string;

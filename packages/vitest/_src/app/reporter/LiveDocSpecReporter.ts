@@ -212,7 +212,7 @@ export default class LiveDocSpecReporter implements Reporter {
         // Output execution results with post-reporter support
         await this.liveDocSpec.executionEnd(results, (this.options as any).rawOptions);
 
-        // Export TestRunV3 JSON file if configured
+        // Export TestRunV1 JSON file if configured
         if (this.exportConfig) {
             this.exportTestRunJson(results);
         }

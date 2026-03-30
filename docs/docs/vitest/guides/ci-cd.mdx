@@ -8,7 +8,7 @@ description: "Run LiveDoc tests in CI pipelines with JSON export, static HTML re
 <p className="intro">
 This guide shows you how to integrate LiveDoc tests into your CI/CD pipeline.
 By the end, you'll have a GitHub Actions workflow that runs tests, exports
-a TestRunV3 JSON file, generates a static HTML report, and uploads artifacts.
+a TestRunV1 JSON file, generates a static HTML report, and uploads artifacts.
 </p>
 
 :::info Prerequisites
@@ -19,19 +19,19 @@ a TestRunV3 JSON file, generates a static HTML report, and uploads artifacts.
 ## Overview
 
 LiveDoc tests run with standard `npx vitest run` in CI — no special
-configuration needed. Add the `export` option to write a TestRunV3 JSON file,
+configuration needed. Add the `export` option to write a TestRunV1 JSON file,
 then use `livedoc-viewer export` to generate a shareable static HTML report.
 
 ```mermaid
 graph LR
-    A["Run tests<br/>npx vitest run"] --> B["TestRunV3 JSON<br/>livedoc-report.json"]
+    A["Run tests<br/>npx vitest run"] --> B["TestRunV1 JSON<br/>livedoc-report.json"]
     B --> C["Static HTML<br/>livedoc-viewer export"]
     C --> D["Upload artifact<br/>report.html"]
 ```
 
-## Step 1: Configure TestRunV3 Export
+## Step 1: Configure TestRunV1 Export
 
-Add the `export` option to `LiveDocSpecReporter` to write a TestRunV3 JSON file
+Add the `export` option to `LiveDocSpecReporter` to write a TestRunV1 JSON file
 after each test run:
 
 ```typescript
@@ -61,11 +61,11 @@ The reporter creates directories automatically and prints a confirmation:
 ✅ LiveDoc results exported to ./test-results/livedoc-report.json (1.2 MB)
 ```
 
-The TestRunV3 JSON file contains all features, scenarios, steps, pass/fail
+The TestRunV1 JSON file contains all features, scenarios, steps, pass/fail
 status, timing data, error messages, tags, and attachments.
 
 :::tip Alternative: JsonReporter (SDK model)
-The `JsonReporter` post-reporter also writes JSON, but in the **LiveDoc SDK model format** — not TestRunV3. Use `export` for the standard pipeline. Use `JsonReporter` only if you need the raw SDK model for custom tooling:
+The `JsonReporter` post-reporter also writes JSON, but in the **LiveDoc SDK model format** — not TestRunV1. Use `export` for the standard pipeline. Use `JsonReporter` only if you need the raw SDK model for custom tooling:
 
 ```typescript
 import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
@@ -80,7 +80,7 @@ new LiveDocSpecReporter({
 
 ## Step 2: Generate a Static HTML Report
 
-Use `livedoc-viewer export` to convert the TestRunV3 JSON into a self-contained
+Use `livedoc-viewer export` to convert the TestRunV1 JSON into a self-contained
 HTML file that anyone can open in a browser — no server needed:
 
 ```bash

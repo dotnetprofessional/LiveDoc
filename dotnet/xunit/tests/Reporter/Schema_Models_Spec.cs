@@ -9,11 +9,11 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Reporter;
 /// <summary>
 /// Specification: Schema Models
 /// 
-/// Tests for the C# schema models that map to the v3 protocol.
+/// Tests for the C# schema models that map to the v1 protocol.
 /// Verifies correct JSON serialization.
 /// </summary>
 [Specification(Description = @"
-    The C# schema models map to the v3 reporter protocol. Each model
+    The C# schema models map to the v1 reporter protocol. Each model
     (Status, StepKeyword, ExecutionResult, TestCase, etc.) must serialize
     to the expected camelCase JSON format.")]
 public class Schema_Models_Spec : SpecificationTest
@@ -215,12 +215,12 @@ public class Schema_Models_Spec : SpecificationTest
 
     #endregion
 
-    #region TestRunV3
+    #region TestRunV1
 
-    [Rule("TestRunV3 has protocol version 3.0")]
-    public void TestRunV3_has_protocol_version()
+    [Rule("TestRunV1 has protocol version 1.0")]
+    public void TestRunV1_has_protocol_version()
     {
-        var run = new TestRunV3
+        var run = new TestRunV1
         {
             RunId = "run-123",
             Project = "TestProject",
@@ -230,7 +230,7 @@ public class Schema_Models_Spec : SpecificationTest
 
         var json = JsonSerializer.Serialize(run, _jsonOptions);
         
-        Assert.Contains("\"protocolVersion\":\"3.0\"", json);
+        Assert.Contains("\"protocolVersion\":\"1.0\"", json);
         Assert.Contains("\"framework\":\"xunit\"", json);
     }
 

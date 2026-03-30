@@ -40,9 +40,9 @@ export function exportReport(options: ExportOptions): ExportResult {
     throw new Error(`Invalid JSON in input file: ${inputPath}`);
   }
 
-  if (data.protocolVersion !== '3.0') {
+  if (data.protocolVersion !== '1.0') {
     throw new Error(
-      `Invalid TestRunV3 format: expected protocolVersion '3.0', got '${String(data.protocolVersion ?? 'undefined')}'`
+      `Invalid TestRunV1 format: expected protocolVersion '1.0', got '${String(data.protocolVersion ?? 'undefined')}'`
     );
   }
 

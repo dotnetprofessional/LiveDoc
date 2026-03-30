@@ -28,10 +28,10 @@ graph LR
         Viewer["LiveDoc Viewer<br/>(React app)"]
         VSCode["VS Code Extension"]
     end
-    V -->|"Protocol 3.0"| Viewer
-    V -->|"Protocol 3.0"| VSCode
-    X -->|"Protocol 3.0"| Viewer
-    X -->|"Protocol 3.0"| VSCode
+    V -->|"Protocol 1.0"| Viewer
+    V -->|"Protocol 1.0"| VSCode
+    X -->|"Protocol 1.0"| Viewer
+    X -->|"Protocol 1.0"| VSCode
 ```
 
 This is the key architectural insight: **one model, many producers, many consumers**. Adding a new SDK (say, for Python or Go) only requires implementing the producer side of the protocol. The Viewer and all other consumers work automatically.
@@ -63,7 +63,7 @@ The root of the hierarchy. Represents a single execution of your test suite:
 
 | Field              | Description                                           |
 | ------------------ | ----------------------------------------------------- |
-| `protocolVersion`  | Always `"3.0"` for the current protocol               |
+| `protocolVersion`  | Always `"1.0"` for the current protocol               |
 | `runId`            | Unique identifier for this run                        |
 | `project`          | Project name (e.g., `"MyApp"`)                        |
 | `environment`      | Execution environment (e.g., `"local"`, `"ci"`)       |
@@ -262,16 +262,16 @@ Titles in the model are always **templates**. When a node has a `binding` object
 
 The Viewer renders this as "Given there are **12** cucumbers" with the bound value highlighted. This approach keeps the wire format compact (templates aren't duplicated for each row) and enables the UI to style bound values distinctively.
 
-## Protocol Version 3.0
+## Protocol Version 1.0
 
-The current reporting model uses **protocol version 3.0**. This version was designed with several principles:
+The current reporting model uses **protocol version 1.0**. This version was designed with several principles:
 
 - **Templates are never pre-bound** — The title is always the raw template; binding is UI-driven
 - **Real-time is first-class** — All updates are idempotent upserts/patches, safe to resend
 - **Code is shown only on error** — Source code appears in `error.code`, not on every node
 - **Polymorphic rendering** — Consumers can treat everything as a `Node` and branch only when they encounter specific kinds
 
-Both the TypeScript/Vitest SDK and the C#/xUnit SDK produce protocol 3.0 output. This is what enables the shared Viewer — it doesn't matter which language wrote the tests, the structured output is identical.
+Both the TypeScript/Vitest SDK and the C#/xUnit SDK produce protocol 1.0 output. This is what enables the shared Viewer — it doesn't matter which language wrote the tests, the structured output is identical.
 
 ## How Both SDKs Produce This Model
 
@@ -289,7 +289,7 @@ Although TypeScript and C# have very different testing idioms, both SDKs map the
 
 The "Inline values" row shows each SDK's API for *producing* the `TypedValue[]` that appears in the reporting model — these are SDK-specific APIs, not part of the model itself.
 
-The mapping is handled internally by each SDK's reporter. Test authors don't need to think about the model — they write tests using their SDK's natural API, and the reporter transforms the results into protocol 3.0 format.
+The mapping is handled internally by each SDK's reporter. Test authors don't need to think about the model — they write tests using their SDK's natural API, and the reporter transforms the results into protocol 1.0 format.
 
 ## The Viewer's Perspective
 
@@ -315,11 +315,11 @@ This means you can build custom reporters, alternative viewers, or CI integratio
 - **Statistics** aggregate up the hierarchy, enabling progress display at every level.
 - **Outlines** separate templates from example data, enabling efficient rendering and real-time updates.
 - **Stable IDs** enable real-time patching, history tracking, and deep linking.
-- **Protocol 3.0** is the current standard — both SDKs produce it, enabling the shared Viewer.
+- **Protocol 1.0** is the current standard — both SDKs produce it, enabling the shared Viewer.
 - Titles are templates; the UI applies **bindings** to render concrete values with highlighting.
 
 ## Next Steps
 
 - **Hands-on**: [Tutorial: Beautiful Tea](./tutorial-beautiful-tea.mdx) — see all these concepts come together in a complete example
-- **For contributors**: [REPORTER_MODEL_V3.md](https://github.com/dotnetprofessional/LiveDoc/blob/main/REPORTER_MODEL_V3.md) — full model specification and TypeScript interfaces
+- **For contributors**: [REPORTER_MODEL_V1.md](https://github.com/dotnetprofessional/LiveDoc/blob/main/REPORTER_MODEL_V1.md) — full model specification and TypeScript interfaces
 - **SDK details**: [Vitest Getting Started](/vitest/learn/getting-started) or [xUnit Getting Started](/xunit/learn/getting-started)

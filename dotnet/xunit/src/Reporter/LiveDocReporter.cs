@@ -7,7 +7,7 @@ namespace SweDevTools.LiveDoc.xUnit.Reporter;
 
 /// <summary>
 /// HTTP client for reporting test results to the LiveDoc server.
-/// Implements the v3 reporting protocol.
+/// Implements the v1 reporting protocol.
 /// </summary>
 public class LiveDocReporter : IDisposable
 {
@@ -98,7 +98,7 @@ public class LiveDocReporter : IDisposable
             };
 
             var response = await _client.PostAsJsonAsync(
-                "/api/v3/runs/start",
+                "/api/v1/runs/start",
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -132,7 +132,7 @@ public class LiveDocReporter : IDisposable
         {
             var request = new UpsertTestCaseRequest { TestCase = testCase };
             var response = await _client.PostAsJsonAsync(
-                $"/api/v3/runs/{_runId}/testcases",
+                $"/api/v1/runs/{_runId}/testcases",
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -167,7 +167,7 @@ public class LiveDocReporter : IDisposable
             var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
             var content = new ByteArrayContent(json);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v3/runs/{_runId}/testcases/batch") { Content = content };
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/runs/{_runId}/testcases/batch") { Content = content };
             var response = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -197,7 +197,7 @@ public class LiveDocReporter : IDisposable
         {
             var request = new UpsertTestRequest { TestCaseId = testCaseId, Test = test };
             var response = await _client.PostAsJsonAsync(
-                $"/api/v3/runs/{_runId}/tests",
+                $"/api/v1/runs/{_runId}/tests",
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -229,7 +229,7 @@ public class LiveDocReporter : IDisposable
             };
 
             var response = await _client.PatchAsJsonAsync(
-                $"/api/v3/runs/{_runId}/tests/{testId}/execution",
+                $"/api/v1/runs/{_runId}/tests/{testId}/execution",
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -258,7 +258,7 @@ public class LiveDocReporter : IDisposable
         {
             var request = new UpsertExampleResultsRequest { Results = results.ToList() };
             var response = await _client.PostAsJsonAsync(
-                $"/api/v3/runs/{_runId}/outlines/{outlineId}/example-results",
+                $"/api/v1/runs/{_runId}/outlines/{outlineId}/example-results",
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -296,7 +296,7 @@ public class LiveDocReporter : IDisposable
             var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
             var content = new ByteArrayContent(json);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v3/runs/{_runId}/complete") { Content = content };
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/runs/{_runId}/complete") { Content = content };
             var response = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             return response.IsSuccessStatusCode;

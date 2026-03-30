@@ -371,7 +371,7 @@ feature(`Step Attachments
             // Fallback: try direct URL
             if (!serverUrl) {
                 try {
-                    const r = await fetch("http://localhost:19275/api/v3/runs");
+                    const r = await fetch("http://localhost:19275/api/v1/runs");
                     if (r.ok) serverUrl = "http://localhost:19275";
                 } catch { /* server not running */ }
             }
@@ -380,7 +380,7 @@ feature(`Step Attachments
         when("fetching the latest vitest run from the server", async () => {
             if (!serverUrl) return;
             try {
-                const r = await fetch(`${serverUrl}/api/v3/projects/vitest/test/latest`);
+                const r = await fetch(`${serverUrl}/api/v1/projects/vitest/test/latest`);
                 if (r.ok) latestRun = await r.json();
             } catch { /* request failed */ }
         });

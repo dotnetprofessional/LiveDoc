@@ -64,11 +64,11 @@ function makeTestCase(id: string, title: string, tests: any[], style = "Feature"
 }
 
 // ---------------------------------------------------------------------------
-// Feature: V3 Run Lifecycle
+// Feature: V1 Run Lifecycle
 // ---------------------------------------------------------------------------
 
-feature(`V3 API — Run Lifecycle
-    @integration @api @v3
+feature(`V1 API — Run Lifecycle
+    @integration @api @v1
     Validates the core run lifecycle: start, upsert test cases with tests, complete, and retrieve.
     This is the exact flow the xUnit reporter uses.
     `, () => {
@@ -78,7 +78,7 @@ feature(`V3 API — Run Lifecycle
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v3-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = path.join(os.tmpdir(), `livedoc-v1-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -91,12 +91,12 @@ feature(`V3 API — Run Lifecycle
     });
 
     // ------------------------------------------------------------------
-    scenario("Starting a V3 run returns a runId and protocol version", () => {
+    scenario("Starting a V1 run returns a runId and protocol version", () => {
         let response: Response;
         let data: any;
 
-        when("starting a V3 run for project 'MyProject' environment 'local' framework 'xunit'", async () => {
-            response = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        when("starting a V1 run for project 'MyProject' environment 'local' framework 'xunit'", async () => {
+            response = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "MyProject", environment: "local", framework: "xunit" }),
@@ -108,8 +108,8 @@ feature(`V3 API — Run Lifecycle
             expect(response.status).toBe(ctx.step.values[0]);
         });
 
-        and("the protocolVersion should be '3.0'", () => {
-            expect(data.protocolVersion).toBe("3.0");
+        and("the protocolVersion should be '1.0'", () => {
+            expect(data.protocolVersion).toBe("1.0");
         });
 
         and("a runId should be returned", () => {
@@ -124,8 +124,8 @@ feature(`V3 API — Run Lifecycle
         let upsertResponse: Response;
         let run: any;
 
-        given("a V3 run has been started", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        given("a V1 run has been started", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "TestProject", environment: "local", framework: "xunit" }),
@@ -147,7 +147,7 @@ feature(`V3 API — Run Lifecycle
                 ], "failed", 60),
             ]);
 
-            upsertResponse = await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            upsertResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase }),
@@ -159,7 +159,7 @@ feature(`V3 API — Run Lifecycle
         });
 
         and("retrieving the run should show '1' document with '2' tests", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             expect(run.documents).toHaveLength(ctx.step.values[0]);
             expect(run.documents[0].tests).toHaveLength(ctx.step.values[1]);
@@ -181,19 +181,19 @@ feature(`V3 API — Run Lifecycle
     });
 
     // ------------------------------------------------------------------
-    scenario("Completing a V3 run sets final status and duration", () => {
+    scenario("Completing a V1 run sets final status and duration", () => {
         let runId: string;
         let run: any;
 
-        given("a V3 run exists with test data", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        given("a V1 run exists with test data", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "CompletionTest", environment: "ci", framework: "xunit" }),
             });
             runId = (await res.json()).runId;
 
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -205,7 +205,7 @@ feature(`V3 API — Run Lifecycle
         });
 
         when("completing the run with status 'passed' and duration '5000'", async (ctx) => {
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/complete`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/complete`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -217,7 +217,7 @@ feature(`V3 API — Run Lifecycle
         });
 
         Then("the run status should be 'passed'", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             expect(run.status).toBe(ctx.step.values[0]);
         });
@@ -232,12 +232,12 @@ feature(`V3 API — Run Lifecycle
     });
 
     // ------------------------------------------------------------------
-    scenario("Run listing returns all V3 runs", () => {
+    scenario("Run listing returns all V1 runs", () => {
         let data: any;
 
-        given("'2' V3 runs have been started", async (ctx) => {
+        given("'2' V1 runs have been started", async (ctx) => {
             for (let i = 0; i < ctx.step.values[0]; i++) {
-                await fetch(`${baseUrl}/api/v3/runs/start`, {
+                await fetch(`${baseUrl}/api/v1/runs/start`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ project: `ListProject${i}`, environment: "local", framework: "xunit" }),
@@ -245,8 +245,8 @@ feature(`V3 API — Run Lifecycle
             }
         });
 
-        when("listing all V3 runs", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs`);
+        when("listing all V1 runs", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs`);
             data = await res.json();
         });
 
@@ -257,11 +257,11 @@ feature(`V3 API — Run Lifecycle
 });
 
 // ---------------------------------------------------------------------------
-// Feature: V3 Batch Upsert
+// Feature: V1 Batch Upsert
 // ---------------------------------------------------------------------------
 
-feature(`V3 API — Batch Upsert with Completion
-    @integration @api @v3
+feature(`V1 API — Batch Upsert with Completion
+    @integration @api @v1
     The xUnit reporter sends all test cases in a single batch request, optionally completing the run in the same call.
     This tests the exact payload shape the reporter produces.
     `, () => {
@@ -271,7 +271,7 @@ feature(`V3 API — Batch Upsert with Completion
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v3-batch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = path.join(os.tmpdir(), `livedoc-v1-batch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -289,8 +289,8 @@ feature(`V3 API — Batch Upsert with Completion
         let batchResponse: Response;
         let run: any;
 
-        given("a V3 run has been started for project 'BatchProject'", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        given("a V1 run has been started for project 'BatchProject'", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "BatchProject", environment: "local", framework: "xunit" }),
@@ -311,7 +311,7 @@ feature(`V3 API — Batch Upsert with Completion
                 ])]),
             ];
 
-            batchResponse = await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases/batch`, {
+            batchResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases/batch`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCases }),
@@ -323,7 +323,7 @@ feature(`V3 API — Batch Upsert with Completion
         });
 
         and("the run should contain '3' documents each with populated tests", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             expect(run.documents).toHaveLength(ctx.step.values[0]);
             for (const doc of run.documents) {
@@ -340,8 +340,8 @@ feature(`V3 API — Batch Upsert with Completion
         let batchData: any;
         let run: any;
 
-        given("a V3 run has been started", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        given("a V1 run has been started", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "AtomicBatch", environment: "ci", framework: "xunit" }),
@@ -366,7 +366,7 @@ feature(`V3 API — Batch Upsert with Completion
                 ]),
             ];
 
-            batchResponse = await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases/batch`, {
+            batchResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases/batch`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -387,7 +387,7 @@ feature(`V3 API — Batch Upsert with Completion
         });
 
         and("the run should be completed with status 'passed'", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             expect(run.status).toBe(ctx.step.values[0]);
         });
@@ -407,11 +407,11 @@ feature(`V3 API — Batch Upsert with Completion
 });
 
 // ---------------------------------------------------------------------------
-// Feature: V3 Test Types
+// Feature: V1 Test Types
 // ---------------------------------------------------------------------------
 
-feature(`V3 API — All Test Types
-    @integration @api @v3
+feature(`V1 API — All Test Types
+    @integration @api @v1
     Validates that every test kind (Scenario, ScenarioOutline, Rule, RuleOutline) is accepted and persisted correctly.
     `, () => {
     let server: LiveDocServer;
@@ -420,13 +420,13 @@ feature(`V3 API — All Test Types
     let runId: string;
 
     background("Running server with active run", (ctx) => {
-        given("a LiveDoc server is running with an active V3 run", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v3-types-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        given("a LiveDoc server is running with an active V1 run", async () => {
+            testDataDir = path.join(os.tmpdir(), `livedoc-v1-types-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
 
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "TypeTests", environment: "local", framework: "xunit" }),
@@ -465,7 +465,7 @@ feature(`V3 API — All Test Types
             const testCase = makeTestCase("tc-so", "Auth Scenarios", [outline]);
             testCase.statistics = { total: 2, passed: 1, failed: 1, pending: 0, skipped: 0 };
 
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase }),
@@ -474,7 +474,7 @@ feature(`V3 API — All Test Types
         });
 
         Then("the stored outline should have kind 'ScenarioOutline'", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             const outline = run.documents[0].tests[0];
             expect(outline.kind).toBe(ctx.step.values[0]);
@@ -517,7 +517,7 @@ feature(`V3 API — All Test Types
             const testCase = makeTestCase("tc-spec", "Calculator Rules", [ruleTest, ruleOutline], "Specification");
             testCase.statistics = { total: 3, passed: 3, failed: 0, pending: 0, skipped: 0 };
 
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase }),
@@ -526,7 +526,7 @@ feature(`V3 API — All Test Types
         });
 
         Then("the document should have '2' tests", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             const doc = run.documents.find((d: any) => d.id === "tc-spec");
             expect(doc.tests).toHaveLength(ctx.step.values[0]);
@@ -546,11 +546,11 @@ feature(`V3 API — All Test Types
 });
 
 // ---------------------------------------------------------------------------
-// Feature: V3 Patch Execution & Outline Results
+// Feature: V1 Patch Execution & Outline Results
 // ---------------------------------------------------------------------------
 
-feature(`V3 API — Execution Patching and Outline Results
-    @integration @api @v3
+feature(`V1 API — Execution Patching and Outline Results
+    @integration @api @v1
     Tests individual test execution updates and outline example result upserts.
     `, () => {
     let server: LiveDocServer;
@@ -559,13 +559,13 @@ feature(`V3 API — Execution Patching and Outline Results
     let runId: string;
 
     background("Running server with test data", (ctx) => {
-        given("a V3 run with a Scenario and a ScenarioOutline exists", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v3-patch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        given("a V1 run with a Scenario and a ScenarioOutline exists", async () => {
+            testDataDir = path.join(os.tmpdir(), `livedoc-v1-patch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
 
-            const startRes = await fetch(`${baseUrl}/api/v3/runs/start`, {
+            const startRes = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "PatchTests", environment: "local", framework: "xunit" }),
@@ -588,7 +588,7 @@ feature(`V3 API — Execution Patching and Outline Results
                 makeRule("rule-patch", "Rule for patching", "running", 10),
             ]);
 
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase }),
@@ -607,7 +607,7 @@ feature(`V3 API — Execution Patching and Outline Results
         let run: any;
 
         when("patching test 'rule-patch' with status 'passed' and duration '150'", async () => {
-            patchResponse = await fetch(`${baseUrl}/api/v3/runs/${runId}/tests/rule-patch/execution`, {
+            patchResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/tests/rule-patch/execution`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: "passed", duration: 150 }),
@@ -619,7 +619,7 @@ feature(`V3 API — Execution Patching and Outline Results
         });
 
         and("the test execution should show status 'passed' and duration '150'", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             const rule = run.documents[0].tests.find((t: any) => t.id === "rule-patch");
             expect(rule.execution.status).toBe("passed");
@@ -632,7 +632,7 @@ feature(`V3 API — Execution Patching and Outline Results
         let run: any;
 
         when("patching test 'rule-patch' with status 'failed' and an error message", async () => {
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/tests/rule-patch/execution`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/tests/rule-patch/execution`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -644,7 +644,7 @@ feature(`V3 API — Execution Patching and Outline Results
         });
 
         Then("the test should have an error with message 'Expected true but got false'", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             const rule = run.documents[0].tests.find((t: any) => t.id === "rule-patch");
             expect(rule.execution.error).toBeDefined();
@@ -658,7 +658,7 @@ feature(`V3 API — Execution Patching and Outline Results
         let run: any;
 
         when("upserting '1' example result to outline 'so-patch'", async () => {
-            upsertResponse = await fetch(`${baseUrl}/api/v3/runs/${runId}/outlines/so-patch/example-results`, {
+            upsertResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/outlines/so-patch/example-results`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -674,7 +674,7 @@ feature(`V3 API — Execution Patching and Outline Results
         });
 
         and("the outline should have '1' example result", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             const outline = run.documents[0].tests.find((t: any) => t.id === "so-patch");
             expect(outline.exampleResults).toHaveLength(ctx.step.values[0]);
@@ -683,11 +683,11 @@ feature(`V3 API — Execution Patching and Outline Results
 });
 
 // ---------------------------------------------------------------------------
-// Feature: V3 Test Case Merge Behavior
+// Feature: V1 Test Case Merge Behavior
 // ---------------------------------------------------------------------------
 
-feature(`V3 API — Test Case Merge Behavior
-    @integration @api @v3
+feature(`V1 API — Test Case Merge Behavior
+    @integration @api @v1
     When a test case is upserted multiple times, the server must correctly merge or replace data.
     Arrays (like tests) are replaced entirely. This tests the exact pattern the xUnit reporter uses
     when it sends a real-time update (partial) followed by a batch (full).
@@ -698,13 +698,13 @@ feature(`V3 API — Test Case Merge Behavior
     let runId: string;
 
     background("Running server with active run", (ctx) => {
-        given("a V3 run has been started", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v3-merge-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        given("a V1 run has been started", async () => {
+            testDataDir = path.join(os.tmpdir(), `livedoc-v1-merge-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
 
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "MergeTests", environment: "local", framework: "xunit" }),
@@ -726,7 +726,7 @@ feature(`V3 API — Test Case Merge Behavior
             const emptyTestCase = makeTestCase("tc-merge", "Merge Feature", []);
             emptyTestCase.statistics = { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
 
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase: emptyTestCase }),
@@ -739,7 +739,7 @@ feature(`V3 API — Test Case Merge Behavior
                 makeScenario("sc-m2", "Test B", [makeStep("sc-m2:s0", "when", "action")]),
             ]);
 
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase: fullTestCase }),
@@ -747,7 +747,7 @@ feature(`V3 API — Test Case Merge Behavior
         });
 
         Then("the test case should have '2' tests (batch data wins)", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             const doc = run.documents.find((d: any) => d.id === "tc-merge");
             expect(doc.tests).toHaveLength(ctx.step.values[0]);
@@ -763,7 +763,7 @@ feature(`V3 API — Test Case Merge Behavior
                 makeScenario("sc-ow1", "Original Test", [makeStep("sc-ow1:s0", "then", "check")]),
             ]);
 
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase }),
@@ -774,7 +774,7 @@ feature(`V3 API — Test Case Merge Behavior
             const emptyTestCase = makeTestCase("tc-overwrite", "Overwrite Feature", []);
             emptyTestCase.statistics = { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
 
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ testCase: emptyTestCase }),
@@ -782,7 +782,7 @@ feature(`V3 API — Test Case Merge Behavior
         });
 
         Then("the test case should have '0' tests (array was replaced)", async (ctx) => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/${runId}`);
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
             run = await res.json();
             const doc = run.documents.find((d: any) => d.id === "tc-overwrite");
             expect(doc.tests).toHaveLength(ctx.step.values[0]);
@@ -791,11 +791,11 @@ feature(`V3 API — Test Case Merge Behavior
 });
 
 // ---------------------------------------------------------------------------
-// Feature: V3 Schema Validation
+// Feature: V1 Schema Validation
 // ---------------------------------------------------------------------------
 
-feature(`V3 API — Schema Validation
-    @integration @api @v3
+feature(`V1 API — Schema Validation
+    @integration @api @v1
     The server rejects malformed payloads with '400' status codes.
     `, () => {
     let server: LiveDocServer;
@@ -804,7 +804,7 @@ feature(`V3 API — Schema Validation
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v3-validation-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = path.join(os.tmpdir(), `livedoc-v1-validation-${Date.now()}-${Math.random().toString(36).slice(2)}`);
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -820,8 +820,8 @@ feature(`V3 API — Schema Validation
     scenario("Starting a run without required fields returns '400'", () => {
         let response: Response;
 
-        when("posting an empty object to /api/v3/runs/start", async () => {
-            response = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        when("posting an empty object to /api/v1/runs/start", async () => {
+            response = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({}),
@@ -838,8 +838,8 @@ feature(`V3 API — Schema Validation
         let runId: string;
         let response: Response;
 
-        given("a V3 run exists", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        given("a V1 run exists", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "ValidationProject", environment: "local", framework: "xunit" }),
@@ -848,7 +848,7 @@ feature(`V3 API — Schema Validation
         });
 
         when("upserting a test case with a test missing required execution field", async () => {
-            response = await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            response = await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -871,15 +871,15 @@ feature(`V3 API — Schema Validation
         let runId: string;
         let response: Response;
 
-        given("a V3 run exists with a test", async () => {
-            const res = await fetch(`${baseUrl}/api/v3/runs/start`, {
+        given("a V1 run exists with a test", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ project: "StrictProject", environment: "local", framework: "xunit" }),
             });
             runId = (await res.json()).runId;
 
-            await fetch(`${baseUrl}/api/v3/runs/${runId}/testcases`, {
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -891,7 +891,7 @@ feature(`V3 API — Schema Validation
         });
 
         when("patching execution with an unknown field 'extraField'", async () => {
-            response = await fetch(`${baseUrl}/api/v3/runs/${runId}/tests/r-strict/execution`, {
+            response = await fetch(`${baseUrl}/api/v1/runs/${runId}/tests/r-strict/execution`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: "passed", duration: 10, extraField: "not allowed" }),
@@ -908,7 +908,7 @@ feature(`V3 API — Schema Validation
         let response: Response;
 
         when("upserting a test case to a non-existent run", async () => {
-            response = await fetch(`${baseUrl}/api/v3/runs/non-existent/testcases`, {
+            response = await fetch(`${baseUrl}/api/v1/runs/non-existent/testcases`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

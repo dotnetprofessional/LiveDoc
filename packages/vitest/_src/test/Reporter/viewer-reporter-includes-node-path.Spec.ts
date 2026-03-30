@@ -52,16 +52,16 @@ feature(`Viewer reporter includes TestCase.path on root documents`, () => {
             (globalThis as any).fetch = async (url: any, init?: any) => {
                 const urlString = String(url);
 
-                if (urlString.includes("/api/v3/runs/start")) {
+                if (urlString.includes("/api/v1/runs/start")) {
                     return {
                         ok: true,
                         status: 200,
-                        json: async () => ({ protocolVersion: "3.0", runId: "run-1", websocketUrl: "" }),
+                        json: async () => ({ protocolVersion: "1.0", runId: "run-1", websocketUrl: "" }),
                         text: async () => "",
                     } as any;
                 }
 
-                if (urlString.includes("/api/v3/runs/run-1/testcases")) {
+                if (urlString.includes("/api/v1/runs/run-1/testcases")) {
                     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
                     if (body?.testCase) {
                         postedTestCases.push(body.testCase);
@@ -74,7 +74,7 @@ feature(`Viewer reporter includes TestCase.path on root documents`, () => {
                     } as any;
                 }
 
-                if (urlString.includes("/api/v3/runs/run-1/complete")) {
+                if (urlString.includes("/api/v1/runs/run-1/complete")) {
                     return {
                         ok: true,
                         status: 200,

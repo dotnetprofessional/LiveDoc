@@ -429,10 +429,10 @@ public class TestCase
 /// <summary>
 /// A complete test run containing all documents.
 /// </summary>
-public class TestRunV3
+public class TestRunV1
 {
     [JsonPropertyName("protocolVersion")]
-    public string ProtocolVersion { get; set; } = "3.0";
+    public string ProtocolVersion { get; set; } = "1.0";
 
     [JsonPropertyName("runId")]
     public string RunId { get; set; } = string.Empty;
@@ -490,7 +490,7 @@ public class StartRunRequest
 public class StartRunResponse
 {
     [JsonPropertyName("protocolVersion")]
-    public string ProtocolVersion { get; set; } = "3.0";
+    public string ProtocolVersion { get; set; } = "1.0";
 
     [JsonPropertyName("runId")]
     public string RunId { get; set; } = string.Empty;

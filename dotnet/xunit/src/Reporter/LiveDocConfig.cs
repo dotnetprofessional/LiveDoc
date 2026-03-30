@@ -30,7 +30,7 @@ public class LiveDocConfig
 
     /// <summary>
     /// Environment variable name for the JSON export file path.
-    /// When set, the reporter writes a TestRunV3 JSON file after the test run completes.
+    /// When set, the reporter writes a TestRunV1 JSON file after the test run completes.
     /// </summary>
     public const string ExportPathEnvVar = "LIVEDOC_EXPORT_PATH";
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isStaticMode, getStaticData } from '../config';
 import { makeRunState, useStore, type ProjectNode } from '../store';
-import type { TestRunV3 } from '@swedevtools/livedoc-schema';
+import type { TestRunV1 } from '@swedevtools/livedoc-schema';
 
 export function useStaticData(): boolean {
   const [isStatic] = useState(() => isStaticMode());
@@ -11,7 +11,7 @@ export function useStaticData(): boolean {
   useEffect(() => {
     if (!isStatic) return;
 
-    const data = getStaticData() as TestRunV3 | undefined;
+    const data = getStaticData() as TestRunV1 | undefined;
     if (!data) return;
 
     const run = makeRunState(data);

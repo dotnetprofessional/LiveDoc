@@ -23,7 +23,7 @@ The static export pipeline has three steps:
 
 ```mermaid
 graph LR
-    A["1. Run tests"] --> B["2. TestRunV3 JSON"]
+    A["1. Run tests"] --> B["2. TestRunV1 JSON"]
     B --> C["3. Static HTML"]
     style A fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
     style B fill:#1e293b,stroke:#a78bfa,color:#e2e8f0
@@ -32,7 +32,7 @@ graph LR
 
 | Step | What happens | Output |
 |------|-------------|--------|
-| **Run tests** | Your test framework executes specs and exports results | `livedoc-report.json` (TestRunV3 format) |
+| **Run tests** | Your test framework executes specs and exports results | `livedoc-report.json` (TestRunV1 format) |
 | **Export HTML** | `livedoc-viewer export` bundles the viewer + data into one file | `report.html` (self-contained) |
 | **Share** | Upload as CI artifact, email, or drop in a shared folder | Anyone opens it in a browser |
 
@@ -366,7 +366,7 @@ livedoc-tests:
 | Problem | Cause | Solution |
 |---------|-------|----------|
 | `Input file not found` | JSON file wasn't created | Verify the `export.output` path in your vitest config matches the `--input` path |
-| `Invalid TestRunV3 format` | Wrong JSON format | Ensure you're using the `export` option (TestRunV3), not `JsonReporter` (SDK model) |
+| `Invalid TestRunV1 format` | Wrong JSON format | Ensure you're using the `export` option (TestRunV1), not `JsonReporter` (SDK model) |
 | `Webview assets not found` | Viewer not built | Run `pnpm build` in the viewer package, or use `npx` which resolves the built package |
 | HTML file is very large | Many screenshots | Screenshots are base64-encoded; consider reducing resolution or count |
 | Report shows no data | Empty test run | Check that tests actually ran and the JSON file contains test results |

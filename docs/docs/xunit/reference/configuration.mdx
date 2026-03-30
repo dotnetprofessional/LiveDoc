@@ -239,7 +239,7 @@ Click any test to see the formatted BDD output in the Test Detail Summary pane.
 
 ### Export Configuration {#export-configuration}
 
-Export a `TestRunV3` JSON file directly to disk after the test run — no server needed. This is the recommended approach for CI pipelines and for generating [static HTML reports](../../viewer/guides/static-export.mdx).
+Export a `TestRunV1` JSON file directly to disk after the test run — no server needed. This is the recommended approach for CI pipelines and for generating [static HTML reports](../../viewer/guides/static-export.mdx).
 
 #### Environment Variable {#export-env-var}
 
@@ -264,7 +264,7 @@ The reporter creates directories automatically and prints a confirmation:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LIVEDOC_EXPORT_PATH` | *(none — export disabled)* | File path for TestRunV3 JSON output. When set, enables export. |
+| `LIVEDOC_EXPORT_PATH` | *(none — export disabled)* | File path for TestRunV1 JSON output. When set, enables export. |
 | `LIVEDOC_PROJECT` | Assembly name | Project name embedded in the JSON. |
 | `LIVEDOC_ENVIRONMENT` | `"local"` | Environment label (e.g., `"local"`, `"ci"`, `"staging"`). |
 

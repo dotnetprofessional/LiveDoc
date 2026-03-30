@@ -1,5 +1,5 @@
-import type { V3WebSocketEvent } from "@swedevtools/livedoc-server";
-import type { AnyTest, Status, TestCase, TestRunV3 } from "@swedevtools/livedoc-schema";
+import type { V1WebSocketEvent } from "@swedevtools/livedoc-server";
+import type { AnyTest, Status, TestCase, TestRunV1 } from "@swedevtools/livedoc-schema";
 
 import * as vscode from "vscode";
 import * as path from 'path';
@@ -60,7 +60,7 @@ export interface TestSuite {
 }
 
 export interface IExecutionModel extends TestSuite {
-    latestRun?: TestRunV3;
+    latestRun?: TestRunV1;
 }
 
 /**
@@ -89,19 +89,19 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         this.requestRefresh();
     }
 
-    public handleEvent(event: V3WebSocketEvent) {
+    public handleEvent(event: V1WebSocketEvent) {
         console.log(`LiveDoc: WebSocket event received: ${event.type}`);
         switch (event.type) {
-            case "run:v3:started":
+            case "run:v1:started":
                 this.isRunning = true;
                 this.requestRefresh();
                 break;
-            case "run:v3:completed":
+            case "run:v1:completed":
                 this.isRunning = false;
                 this.requestRefresh();
                 break;
             default:
-                // For now, treat all v3 events as a signal to refresh.
+                // For now, treat all v1 events as a signal to refresh.
                 this.requestRefresh();
                 break;
         }
@@ -201,7 +201,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
 
             if (selected) {
                 const { run, project, environment } = selected;
-                const testRun = run as TestRunV3;
+                const testRun = run as TestRunV1;
                 console.log(`LiveDoc: Data received, documents: ${testRun.documents?.length}`);
 
                 const suite: IExecutionModel = {
@@ -301,16 +301,16 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
             if (element instanceof NodeTreeViewItem) {
                 const node = element.node;
 
-                if (!this.isV3TestCase(node) && (node.kind === 'ScenarioOutline' || node.kind === 'RuleOutline')) {
+                if (!this.isV1TestCase(node) && (node.kind === 'ScenarioOutline' || node.kind === 'RuleOutline')) {
                     return this.getOutlineExamples(node);
                 }
 
-                const children = this.getV3Children(node);
+                const children = this.getV1Children(node);
 
                 return children.map(child =>
                     new NodeTreeViewItem(
                         child,
-                        this.getV3HasChildren(child) ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+                        this.getV1HasChildren(child) ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
                         this.extensionPath,
                         {
                             command: "livedoc.viewItem",
@@ -459,8 +459,8 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         return { folders, documents };
     }
 
-    private getV3Children(node: TestCase | AnyTest): Array<TestCase | AnyTest> {
-        if (this.isV3TestCase(node)) {
+    private getV1Children(node: TestCase | AnyTest): Array<TestCase | AnyTest> {
+        if (this.isV1TestCase(node)) {
             const children: Array<TestCase | AnyTest> = [];
             children.push(...(node.tests ?? []));
             return children;
@@ -479,8 +479,8 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         }
     }
 
-    private getV3HasChildren(node: TestCase | AnyTest): boolean {
-        if (this.isV3TestCase(node)) {
+    private getV1HasChildren(node: TestCase | AnyTest): boolean {
+        if (this.isV1TestCase(node)) {
             return (node.tests?.length ?? 0) > 0;
         }
 
@@ -496,7 +496,7 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
         }
     }
 
-    private isV3TestCase(node: TestCase | AnyTest): node is TestCase {
+    private isV1TestCase(node: TestCase | AnyTest): node is TestCase {
         return (node as any)?.style !== undefined && Array.isArray((node as any)?.tests);
     }
 }

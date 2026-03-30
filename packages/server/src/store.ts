@@ -1,2 +1,2 @@
-export * from './store-v3.js';
-export { RunStore, runStore } from './store-v3.js';
+export * from './store-v1.js';
+export { RunStore, runStore } from './store-v1.js';

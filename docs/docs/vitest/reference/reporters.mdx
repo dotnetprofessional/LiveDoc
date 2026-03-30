@@ -59,7 +59,7 @@ As of v0.1.6, `LiveDocSpecReporter` handles both console output **and** server a
 | `postReporters`    | `PostReporter[]`   | `[]`                       | Additional reporters to run after test completion.        |
 | `json-output`      | `string`           | `undefined`                | File path for JSON output (used with `JsonReporter`).    |
 | `publish`          | `object`           | `undefined`                | Explicit server publish configuration (see below).       |
-| `export`           | `object`           | `undefined`                | Write a TestRunV3 JSON file to disk (see [Export Options](#export-options)). |
+| `export`           | `object`           | `undefined`                | Write a TestRunV1 JSON file to disk (see [Export Options](#export-options)). |
 
 #### Auto-Discovery {#auto-discovery}
 
@@ -96,7 +96,7 @@ new LiveDocSpecReporter({
 
 #### Export Options {#export-options}
 
-Write a `TestRunV3` JSON file directly to disk after each test run — no server needed. This is the recommended approach for CI pipelines and for feeding the [static HTML export](../../viewer/guides/static-export.mdx).
+Write a `TestRunV1` JSON file directly to disk after each test run — no server needed. This is the recommended approach for CI pipelines and for feeding the [static HTML export](../../viewer/guides/static-export.mdx).
 
 ```typescript
 new LiveDocSpecReporter({
@@ -123,7 +123,7 @@ On completion the reporter prints a confirmation with the file size:
 ✅ LiveDoc results exported to ./test-results/livedoc-report.json (1.2 MB)
 ```
 
-The exported JSON file can be used with [`livedoc-viewer export`](../../viewer/reference/cli-options.mdx#export-subcommand) to generate a self-contained HTML report, or consumed by any tool that reads the TestRunV3 schema.
+The exported JSON file can be used with [`livedoc-viewer export`](../../viewer/reference/cli-options.mdx#export-subcommand) to generate a self-contained HTML report, or consumed by any tool that reads the TestRunV1 schema.
 
 ---
 
@@ -307,9 +307,9 @@ export default defineConfig({
 });
 ```
 
-### CLI with TestRunV3 export for CI {#ci-export}
+### CLI with TestRunV1 export for CI {#ci-export}
 
-Export a `TestRunV3` JSON file for CI artifact upload or [static HTML export](../../viewer/guides/static-export.mdx):
+Export a `TestRunV1` JSON file for CI artifact upload or [static HTML export](../../viewer/guides/static-export.mdx):
 
 ```typescript
 // vitest.config.ts
@@ -332,7 +332,7 @@ export default defineConfig({
 
 ### CLI with SDK-model JSON export (JsonReporter) {#json-export-legacy}
 
-The `JsonReporter` writes the raw LiveDoc SDK model to a JSON file. This is useful for custom tooling but is **not** the same format as `TestRunV3`.
+The `JsonReporter` writes the raw LiveDoc SDK model to a JSON file. This is useful for custom tooling but is **not** the same format as `TestRunV1`.
 
 ```typescript
 // vitest.config.ts

@@ -40,7 +40,7 @@ Examples:
 program
   .command('export')
   .description('Export as self-contained static HTML  (-i <input> [-o <path>] [-t <title>])')
-  .requiredOption('-i, --input <path>', 'Path to a TestRunV3 JSON file (e.g. lastrun.json)')
+  .requiredOption('-i, --input <path>', 'Path to a TestRunV1 JSON file (e.g. lastrun.json)')
   .option('-o, --output <path>', 'Output HTML file path', './livedoc-report.html')
   .option('-t, --title <title>', 'Custom report title (defaults to project name from JSON)')
   .action((options: { input: string; output: string; title?: string }) => {

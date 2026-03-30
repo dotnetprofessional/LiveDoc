@@ -4,7 +4,7 @@ import type {
   Statistics,
   Status,
   TestCase,
-  TestRunV3,
+  TestRunV1,
 } from '@swedevtools/livedoc-schema';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -71,14 +71,14 @@ type ProjectHierarchy = Array<{
   name: string;
   environments: Array<{
     name: string;
-    latestRun?: TestRunV3;
+    latestRun?: TestRunV1;
     historyCount: number;
     history: Array<{ runId: string; timestamp: string; status: string; summary?: Statistics }>;
   }>;
 }>;
 
 interface RunRecord {
-  run: TestRunV3;
+  run: TestRunV1;
   testCasesById: Map<string, TestCase>;
   testsById: Map<string, AnyTest>;
   outlineResultsByKey: Map<string, ExecutionResult>;
@@ -183,7 +183,7 @@ function computeOutlineExecutionAndStats(
   return { execution: { status: executionStatus, duration: totalDuration }, statistics: stats };
 }
 
-function buildIndexes(run: TestRunV3): Omit<RunRecord, 'run'> {
+function buildIndexes(run: TestRunV1): Omit<RunRecord, 'run'> {
   const testCasesById = new Map<string, TestCase>();
   const testsById = new Map<string, AnyTest>();
   const outlineResultsByKey = new Map<string, ExecutionResult>();
@@ -282,7 +282,7 @@ export class RunStore {
           const lastRunPath = path.join(envDir, 'lastrun.json');
           try {
             const content = await fs.readFile(lastRunPath, 'utf-8');
-            const run = JSON.parse(content) as TestRunV3;
+            const run = JSON.parse(content) as TestRunV1;
             this.runs.set(run.runId, { run, ...buildIndexes(run) });
             runIds.push(run.runId);
           } catch {
@@ -298,7 +298,7 @@ export class RunStore {
               if (!file.endsWith('.json')) continue;
               try {
                 const content = await fs.readFile(path.join(historyDir, file), 'utf-8');
-                const run = JSON.parse(content) as TestRunV3;
+                const run = JSON.parse(content) as TestRunV1;
                 if (!this.runs.has(run.runId)) {
                   this.runs.set(run.runId, { run, ...buildIndexes(run) });
                   runIds.push(run.runId);
@@ -325,7 +325,7 @@ export class RunStore {
     }
   }
 
-  private async saveRun(run: TestRunV3, isLatest: boolean = false): Promise<void> {
+  private async saveRun(run: TestRunV1, isLatest: boolean = false): Promise<void> {
     try {
       const envDir = this.getProjectEnvDir(run.project, run.environment);
       await fs.mkdir(envDir, { recursive: true });
@@ -376,7 +376,7 @@ export class RunStore {
     this.runsByProject.set(key, projectRuns);
   }
 
-  private scheduleSaveRun(run: TestRunV3): void {
+  private scheduleSaveRun(run: TestRunV1): void {
     const existing = this.runSaveTimers.get(run.runId);
     if (existing) clearTimeout(existing);
 
@@ -388,9 +388,9 @@ export class RunStore {
     this.runSaveTimers.set(run.runId, timer);
   }
 
-  createRun(runId: string, project: string, environment: string, framework: string, timestamp: string): TestRunV3 {
-    const run: TestRunV3 = {
-      protocolVersion: '3.0',
+  createRun(runId: string, project: string, environment: string, framework: string, timestamp: string): TestRunV1 {
+    const run: TestRunV1 = {
+      protocolVersion: '1.0',
       runId,
       project,
       environment,
@@ -416,11 +416,11 @@ export class RunStore {
     return run;
   }
 
-  getAllRuns(): TestRunV3[] {
+  getAllRuns(): TestRunV1[] {
     return Array.from(this.runs.values()).map((r) => r.run);
   }
 
-  getRun(runId: string): TestRunV3 | undefined {
+  getRun(runId: string): TestRunV1 | undefined {
     return this.runs.get(runId)?.run;
   }
 
@@ -455,7 +455,7 @@ export class RunStore {
       const latestRunPath = this.getLastRunPath(run.project, run.environment);
       try {
         const lastRunContent = await fs.readFile(latestRunPath, 'utf-8');
-        const lastRun = JSON.parse(lastRunContent) as TestRunV3;
+        const lastRun = JSON.parse(lastRunContent) as TestRunV1;
         if (lastRun.runId === runId) {
           if (newProjectRuns.length > 0) {
             const next = this.runs.get(newProjectRuns[0])?.run;
@@ -513,13 +513,13 @@ export class RunStore {
     return result;
   }
 
-  getRunsForProject(project: string, environment: string): TestRunV3[] {
+  getRunsForProject(project: string, environment: string): TestRunV1[] {
     const key = `${project}/${environment}`;
     const runIds = this.runsByProject.get(key) || [];
-    return runIds.map((id) => this.runs.get(id)?.run).filter((r): r is TestRunV3 => !!r);
+    return runIds.map((id) => this.runs.get(id)?.run).filter((r): r is TestRunV1 => !!r);
   }
 
-  getLatestRun(project: string, environment: string): TestRunV3 | undefined {
+  getLatestRun(project: string, environment: string): TestRunV1 | undefined {
     const key = `${project}/${environment}`;
     const runIds = this.runsByProject.get(key) || [];
     if (runIds.length === 0) return undefined;

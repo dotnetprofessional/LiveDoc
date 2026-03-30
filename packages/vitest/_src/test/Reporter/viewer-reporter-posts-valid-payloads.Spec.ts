@@ -1,7 +1,7 @@
 require('chai').should();
 
 import { expect } from "vitest";
-import { V3UpsertTestCaseRequestSchema } from "@swedevtools/livedoc-schema";
+import { V1UpsertTestCaseRequestSchema } from "@swedevtools/livedoc-schema";
 import LiveDocSpecReporter from "../../app/reporter/LiveDocSpecReporter";
 import { LiveDocViewerReporter } from "../../app/reporter/LiveDocViewerReporter";
 import { feature, scenario, given, when, Then as then, and } from "../../app/livedoc";
@@ -202,22 +202,22 @@ feature("Viewer reporter posts valid payloads", () => {
             (globalThis as any).fetch = async (url: any, init?: any) => {
                 const urlString = String(url);
 
-                if (urlString.includes("/api/v3/runs/start")) {
+                if (urlString.includes("/api/v1/runs/start")) {
                     return {
                         ok: true,
                         status: 200,
-                        json: async () => ({ protocolVersion: "3.0", runId: "run-1", websocketUrl: "" }),
+                        json: async () => ({ protocolVersion: "1.0", runId: "run-1", websocketUrl: "" }),
                         text: async () => ""
                     };
                 }
 
-                if (urlString.includes("/api/v3/runs/run-1/testcases")) {
+                if (urlString.includes("/api/v1/runs/run-1/testcases")) {
                     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
                     posted.push({ testCase: body?.testCase });
                     return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" };
                 }
 
-                if (urlString.includes("/api/v3/runs/run-1/complete")) {
+                if (urlString.includes("/api/v1/runs/run-1/complete")) {
                     return { ok: true, status: 200, json: async () => ({ success: true }), text: async () => "" };
                 }
 
@@ -239,12 +239,12 @@ feature("Viewer reporter posts valid payloads", () => {
         });
 
         then(
-            "all posted testcases validate against V3UpsertTestCaseRequestSchema and include expected tags and paths for root documents",
+            "all posted testcases validate against V1UpsertTestCaseRequestSchema and include expected tags and paths for root documents",
             () => {
                 expect(posted.length).toBeGreaterThan(0);
 
                 for (const p of posted) {
-                    const parsed = V3UpsertTestCaseRequestSchema.safeParse({ testCase: p.testCase });
+                    const parsed = V1UpsertTestCaseRequestSchema.safeParse({ testCase: p.testCase });
                     if (!parsed.success) {
                         throw new Error(`Invalid node payload: ${JSON.stringify(parsed.error.format(), null, 2)}`);
                     }
