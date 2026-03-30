@@ -1,3 +1,5 @@
+> **Historical:** This was the original V3 migration plan. The protocol has since been renamed to V1 for the first public release.
+
 ## Viewer/Server v3 Migration — Execution Checklist (Clean Break)
 
 This is a concrete, implementation-ready checklist aligned to REPORTER_MODEL_V3.md and REPORTER_MODEL_V3_API.md.

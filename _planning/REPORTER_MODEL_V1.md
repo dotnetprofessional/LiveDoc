@@ -1,10 +1,10 @@
-# LiveDoc Reporting Model v3 — Implementer Guide (Fix Forward)
+# LiveDoc Reporting Model v1 — Implementer Guide (Fix Forward)
 
 This document defines the **new reporting model** for LiveDoc.
 
 It is intentionally simpler than the prior model: it focuses on **rendering execution results** in the Viewer / VS Code extension.
 
-Canonical TypeScript types live in [packages/schema/src/reporter-v3.ts](packages/schema/src/reporter-v3.ts).
+Canonical TypeScript types live in [packages/schema/src/reporter-v1.ts](packages/schema/src/reporter-v1.ts).
 
 ## 1) Design principles (read this first)
 
@@ -16,11 +16,11 @@ Canonical TypeScript types live in [packages/schema/src/reporter-v3.ts](packages
 
 ## 2) The model (what objects exist)
 
-### TestRunV3 (root envelope)
+### TestRunV1 (root envelope)
 Represents one run.
 
 Required:
-- `protocolVersion: '3.0'`
+- `protocolVersion: '1.0'`
 - `runId`, `project`, `environment`, `framework`
 - `timestamp` (ISO 8601), `duration` (ms), `status`, `summary`
 - `documents: TestCase[]`
@@ -151,7 +151,7 @@ These examples show the intended wire shape (camelCase). Producers in other lang
 
 ```json
 {
-  "protocolVersion": "3.0",
+  "protocolVersion": "1.0",
   "runId": "run-123",
   "project": "LiveDoc Project",
   "environment": "local",
@@ -236,4 +236,4 @@ These examples show the intended wire shape (camelCase). Producers in other lang
   - `exampleResults` entries for outlines
   - `summary` / `statistics` updates (if computed incrementally)
 
-API shape and event examples are defined in [REPORTER_MODEL_V3_API.md](REPORTER_MODEL_V3_API.md).
+API shape and event examples are defined in [REPORTER_MODEL_V1_API.md](REPORTER_MODEL_V1_API.md).

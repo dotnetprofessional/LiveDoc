@@ -1,3 +1,5 @@
+> **Historical:** This was the original V3 migration plan. The protocol has since been renamed to V1 for the first public release.
+
 ## Plan: Migrate Viewer/Server to Reporter v3 (Clean Break)
 
 Because this isn’t deployed to prod, keep the transition simple: remove v2 concepts and move everything (server + viewer + schema) to v3 as the only supported model. Keep the work incremental by landing small, shippable steps, but avoid dual-protocol routing, adapters, or “support both” code paths.

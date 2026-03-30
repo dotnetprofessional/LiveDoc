@@ -1,11 +1,11 @@
-# LiveDoc Reporting Model v3 — API & Patching Guide (Fix Forward)
+# LiveDoc Reporting Model v1 — API & Patching Guide (Fix Forward)
 
-This document defines the **recommended API and patch/upsert semantics** for the v3 reporting model.
+This document defines the **recommended API and patch/upsert semantics** for the v1 reporting model.
 
-It assumes we can make breaking changes (not deployed yet) and will implement v3 end-to-end.
+It assumes we can make breaking changes (not deployed yet) and will implement v1 end-to-end.
 
-- Model reference: [REPORTER_MODEL_V3.md](REPORTER_MODEL_V3.md)
-- Canonical TS types: [packages/schema/src/reporter-v3.ts](packages/schema/src/reporter-v3.ts)
+- Model reference: [REPORTER_MODEL_V1.md](REPORTER_MODEL_V1.md)
+- Canonical TS types: [packages/schema/src/reporter-v1.ts](packages/schema/src/reporter-v1.ts)
 
 ## 1) Objectives
 
@@ -30,7 +30,7 @@ It assumes we can make breaking changes (not deployed yet) and will implement v3
 These endpoints are designed to be small and composable.
 
 ### Start a run
-`POST /api/v3/runs/start`
+`POST /api/v1/runs/start`
 
 Request:
 ```json
@@ -45,7 +45,7 @@ Request:
 Response:
 ```json
 {
-  "protocolVersion": "3.0",
+  "protocolVersion": "1.0",
   "runId": "<generated>",
   "websocketUrl": "/ws"
 }
@@ -55,7 +55,7 @@ Notes:
 - Reporters should treat `runId` as the primary key for subsequent requests.
 
 ### Upsert a TestCase (document)
-`POST /api/v3/runs/:runId/testcases`
+`POST /api/v1/runs/:runId/testcases`
 
 Request:
 ```json
@@ -79,7 +79,7 @@ Semantics:
 - The server ensures the run contains the document exactly once.
 
 ### Upsert a Test under a TestCase
-`POST /api/v3/runs/:runId/tests`
+`POST /api/v1/runs/:runId/tests`
 
 Request:
 ```json
@@ -103,7 +103,7 @@ Notes:
 - This endpoint is used for scenarios, outlines, rules, rule outlines, and standard tests.
 
 ### Upsert steps under a Scenario/ScenarioOutline
-`POST /api/v3/runs/:runId/scenarios/:scenarioId/steps`
+`POST /api/v1/runs/:runId/scenarios/:scenarioId/steps`
 
 Request:
 ```json
@@ -123,7 +123,7 @@ Recommended behavior:
 - Maintain uniqueness by `step.id`.
 
 ### Patch execution (non-outline)
-`PATCH /api/v3/runs/:runId/tests/:testId/execution`
+`PATCH /api/v1/runs/:runId/tests/:testId/execution`
 
 Request:
 ```json
@@ -138,7 +138,7 @@ Semantics:
 - Reporters may send partial patches (e.g. status first, then duration).
 
 ### Upsert outline example results (per-row + per-step)
-`POST /api/v3/runs/:runId/outlines/:outlineId/example-results`
+`POST /api/v1/runs/:runId/outlines/:outlineId/example-results`
 
 Request:
 ```json
@@ -171,7 +171,7 @@ Table naming:
 - `DataTable.name` is optional but recommended so the UI can label tables (e.g. "Examples", "Inputs").
 
 ### Complete a run
-`POST /api/v3/runs/:runId/complete`
+`POST /api/v1/runs/:runId/complete`
 
 Request:
 ```json
@@ -191,9 +191,9 @@ Semantics:
 Events are optional if the Viewer polls, but recommended for realtime.
 All events should be safe to receive multiple times.
 
-### `run:v3:started`
+### `run:v1:started`
 ```json
-{"type":"run:v3:started","runId":"...","project":"...","environment":"...","framework":"xunit","timestamp":"..."}
+{"type":"run:v1:started","runId":"...","project":"...","environment":"...","framework":"xunit","timestamp":"..."}
 ```
 
 ### `testcase:upsert`
@@ -216,9 +216,9 @@ All events should be safe to receive multiple times.
 {"type":"outline:exampleResults","runId":"...","outlineId":"...","results":[...]} 
 ```
 
-### `run:v3:completed`
+### `run:v1:completed`
 ```json
-{"type":"run:v3:completed","runId":"...","status":"passed","duration":1234,"summary":{...}}
+{"type":"run:v1:completed","runId":"...","status":"passed","duration":1234,"summary":{...}}
 ```
 
 ## 6. Patch semantics (recommended)
@@ -254,7 +254,7 @@ This makes outline rendering a pure join:
 
 ## 6) Implementation notes / gotchas
 
-- If your producer currently emits `protocolVersion: '2.0'`, update it to `'3.0'`.
+- If your producer currently emits `protocolVersion: '1.0'`, ensure it matches the canonical wire format.
 - If you omit stats in early implementation, the server can compute them later, but IDs and rowIds must be correct.
 - If you later want named example tables, add metadata to the table model; the execution join key remains the same.
 - What is the canonical ID generation strategy (and where is it implemented) for stable cross-run IDs?
