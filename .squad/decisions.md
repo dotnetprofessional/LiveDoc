@@ -330,6 +330,181 @@ livedoc-viewer export -i ./test-results/livedoc-report.json -o report.html
 
 ---
 
+### AttachmentViewer Fullscreen Mode
+
+**Author:** Kaylee  
+**Date:** 2026-03-22  
+**Status:** Implemented
+
+**Decision:** Implemented native fullscreen mode for the AttachmentViewer component using the browser's Fullscreen API with CSS fallback for graceful degradation.
+
+**Key Features:**
+- Multiple entry points: Maximize2/Minimize2 button, F key, image click (images only)
+- Vendor-prefixed Fullscreen API with CSS fallback
+- Synced state via `fullscreenchange` events
+- Visual changes: pure black background, reduced padding in fullscreen
+- All existing features preserved (navigation arrows, keyboard shortcuts, auto-play, etc.)
+
+**Rationale:** True fullscreen removes browser chrome. CSS fallback ensures graceful degradation. Multiple triggers improve discoverability.
+
+**Impact:**
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — new state, methods, imports (Maximize2, Minimize2)
+
+---
+
+### Static Mode Client Implementation
+
+**Author:** Kaylee  
+**Date:** 2026-03-22  
+**Status:** Implemented
+
+**Decision:** Implemented client-side static mode for the viewer. When `window.__LIVEDOC_DATA__` contains a `TestRunV3` object, the viewer hydrates entirely from that embedded data — no server, no WebSocket, no REST calls.
+
+**Architecture:**
+1. Detection layer (`config.ts`) — `isStaticMode()` and `getStaticData()` check `window.__LIVEDOC_DATA__`
+2. Hydration hook (`hooks/useStaticData.ts`) — reads TestRunV3, calls `makeRunState()`, synthesizes `ProjectNode[]` hierarchy
+3. WebSocket skip (`useWebSocket.ts`) — added `skip` parameter for early-return
+4. UI adaptation (`Layout.tsx`) — indigo "Static Report" badge, hides live connection status
+
+**Trade-offs:**
+- Single-run only (matches export use case)
+- Synthesized hierarchy from run's own project/environment fields
+- No store changes
+
+**Impact:**
+- `packages/viewer/src/client/config.ts`, `hooks/useStaticData.ts` (new), `App.tsx`, `useWebSocket.ts`, `Layout.tsx`
+
+---
+
+### Static Export: Frontend Data Loading Strategy
+
+**Author:** Kaylee  
+**Date:** 2026-07-26  
+**Status:** Proposed
+
+**Decision:** Viewer client bundle works unchanged for static export. Data bootstrapping layer (`config.ts` + `useWebSocket.ts`) is the only infrastructure change.
+
+**Key Findings:**
+- All data enters through one hook (`useWebSocket.ts`)
+- Zustand store is pure state with no server awareness
+- `window.__LIVEDOC_CONFIG__` pattern already proven in VS Code webview
+- Client-side router doesn't exist (100% Zustand state)
+
+**Proposed Approach:**
+- Add `isStaticMode()` and `getStaticData()` to `config.ts`
+- In `useWebSocket.ts`: early-return if static mode, hydrate from embedded data
+- Static HTML generator serializes data into `window.__LIVEDOC_DATA__`
+- Connection badge shows "Static" label in static mode
+
+**Rationale:** Minimal surface area (~30 lines), no new build target, no store refactoring, reuses proven pattern.
+
+**Impact:**
+- `packages/viewer/src/client/config.ts`, `hooks/useWebSocket.ts`, `store.ts` (add 'static' to ConnectionStatus), `Layout.tsx`
+
+---
+
+### AttachmentViewer: In-Flow Flex Layout over Absolute Positioning
+
+**Author:** Kaylee  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Restructured AttachmentViewer from mixed absolute/flex to pure flex-column layout where all sections (header, step context bar, content, progress, filmstrip) are in-flow with explicit `shrink-0` or `flex-1 min-h-0`.
+
+**Previous Issues:**
+- HeaderBar absolute overlaid with gradient
+- Content area used `pt-14` to clear header
+- No `min-h-0` on flex-1 content → large images overflowed, pushed filmstrip off-screen
+
+**New Approach:**
+- HeaderBar is `shrink-0` in-flow
+- StepContextBar is `shrink-0`
+- Content area is `flex-1 min-h-0 overflow-hidden relative` (KEY fix)
+- NavArrows absolute within content area (not viewport)
+- Progress bar and filmstrip are `shrink-0` siblings
+- JsonRenderer/TextRenderer use `max-h-full` instead of viewport-relative calc
+
+**Rationale:** `min-h-0` overrides CSS flexbox default, in-flow is more predictable, `max-h-full` is correct for constrained parent.
+
+**Impact:**
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — layout restructure only
+
+---
+
+### Decision: Documentation for JSON Export + Static HTML Export
+
+**Author:** Mal  
+**Date:** 2025-07-29  
+**Status:** Implemented
+
+**Decision:** Documented JSON export and static HTML export features across six documentation pages. Positioned `export` config option (TestRunV3 JSON) as primary CI pipeline approach; demoted `JsonReporter` to alternative for custom tooling.
+
+**Key Choices:**
+1. `export` is primary, `JsonReporter` is secondary — `export` produces TestRunV3 format compatible with `livedoc-viewer export`
+2. Single new guide page — `viewer/guides/static-export.mdx` as canonical "share without server" page
+3. Cross-reference graph — every updated page links to related pages
+
+**Impact:**
+- `docs/docs/vitest/reference/reporters.mdx` — new `export` option
+- `docs/docs/vitest/guides/ci-cd.mdx` — rewritten to use `export` as primary
+- `docs/docs/xunit/reference/configuration.mdx` — new Export Configuration section
+- `docs/docs/viewer/reference/cli-options.mdx` — new `export` subcommand section
+- `docs/docs/viewer/guides/static-export.mdx` — **new file**
+- `docs/sidebars.ts` — added static-export guide
+
+---
+
+### Static Viewer Export — Architecture Decision
+
+**Author:** Mal  
+**Date:** 2025-07-26  
+**Status:** Proposed
+
+**Decision:** Export test results as self-contained single HTML file with embedded viewer JS/CSS and test data as `window.__LIVEDOC_DATA__`.
+
+**Where it lives:** `packages/viewer` (owns React client, Vite configs, CLI)
+
+**CLI interface:**
+```
+livedoc-viewer export --input .livedoc/data/MyProject/local/lastrun.json --output report.html
+```
+
+**Client architecture:** Add `useStaticData` hook that checks for `window.__LIVEDOC_DATA__`, hydrates Zustand store, skips WebSocket.
+
+**Build strategy:** Reuse `vite.config.webview.ts` output, inline CSS/JS, embed TestRunV3 JSON.
+
+**Input format:** TestRunV3 (what server persists, what viewer REST API returns)
+
+**Phasing:**
+1. MVP: Single HTML from existing `lastrun.json`, `useStaticData()` hook, `export` subcommand
+2. Phase 2: Reporter integration, folder-based export for large suites
+3. Phase 3: .NET parity
+
+**Impact:**
+- `packages/viewer/src/client/hooks/useStaticData.ts` (new), `App.tsx`, `cli.ts`, `export.ts` (new)
+
+---
+
+### Decision: CLI Export Subcommand Design
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Added `livedoc-viewer export -i <path> [-o <path>] [-t <title>]` subcommand that generates self-contained static HTML from TestRunV3 JSON.
+
+**Key Design Choices:**
+1. Synchronous file I/O — `readFileSync`/`writeFileSync` for simplicity
+2. `import.meta.url` for asset resolution — works reliably in ESM
+3. Script-safe JSON encoding — `</script>` escaped to `<\/script>` to prevent HTML parser breakage
+4. `window.__LIVEDOC_DATA__` — webview app reads from this global
+5. Default action preserved — Commander's default (server start) remains untouched
+
+**Impact:**
+- `packages/viewer/src/export.ts` (new), `cli.ts` (added export subcommand), `tsconfig.server.json` (added src/export.ts)
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
