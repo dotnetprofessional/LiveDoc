@@ -13,8 +13,15 @@ import { spawn } from 'child_process';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Static file directory (built React app)
+// When running from source (tsx watch src/server/), resolve to dist/client/
+// When running from built (node dist/server/), ../client resolves to dist/client/
 function getStaticDir(): string {
-  return path.resolve(__dirname, '../client');
+  const candidate = path.resolve(__dirname, '../client');
+  // If we're in src/server, we need dist/client instead of src/client
+  if (candidate.includes(path.join('src', 'client'))) {
+    return path.resolve(__dirname, '../../dist/client');
+  }
+  return candidate;
 }
 
 function openBrowser(url: string): void {

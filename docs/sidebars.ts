@@ -139,6 +139,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'viewer/guides/ci-cd-dashboards',
         'viewer/guides/multi-project-setup',
+        'viewer/guides/static-export',
       ],
     },
   ],

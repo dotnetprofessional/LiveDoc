@@ -14,6 +14,12 @@ program
   .option('-p, --port <port>', 'Port to run server on', '3100')
   .option('-H, --host <host>', 'Host to bind to', 'localhost')
   .option('--no-open', 'Do not open browser automatically')
+  .addHelpText('after', `
+Examples:
+  $ livedoc-viewer                              Start viewer on localhost:3100
+  $ livedoc-viewer -p 8080 --no-open            Custom port, no browser
+  $ livedoc-viewer export -i results.json       Export static HTML report
+  $ livedoc-viewer export --help                Show export options`)
   .action(async (options) => {
     try {
       await startServer({
@@ -33,7 +39,7 @@ program
 
 program
   .command('export')
-  .description('Export test results as a self-contained static HTML report')
+  .description('Export as self-contained static HTML  (-i <input> [-o <path>] [-t <title>])')
   .requiredOption('-i, --input <path>', 'Path to a TestRunV3 JSON file (e.g. lastrun.json)')
   .option('-o, --output <path>', 'Output HTML file path', './livedoc-report.html')
   .option('-t, --title <title>', 'Custom report title (defaults to project name from JSON)')

@@ -28,3 +28,6 @@ _temp
 .squad/sessions/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Playwright CLI local data (screenshots, sessions)
+.playwright-cli/

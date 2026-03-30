@@ -45,6 +45,8 @@ const config: Config = {
 
   themes: ['@docusaurus/theme-mermaid'],
 
+  clientModules: ['./src/clientModules/zoomImages.ts'],
+
   themeConfig: {
     navbar: {
       title: 'LiveDoc',

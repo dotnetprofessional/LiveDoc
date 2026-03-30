@@ -29,6 +29,12 @@ public class LiveDocConfig
     public const string EnvironmentEnvVar = "LIVEDOC_ENVIRONMENT";
 
     /// <summary>
+    /// Environment variable name for the JSON export file path.
+    /// When set, the reporter writes a TestRunV3 JSON file after the test run completes.
+    /// </summary>
+    public const string ExportPathEnvVar = "LIVEDOC_EXPORT_PATH";
+
+    /// <summary>
     /// Default server URL for auto-discovery.
     /// </summary>
     public const string DefaultServerUrl = "http://localhost:3100";
@@ -52,6 +58,11 @@ public class LiveDocConfig
     public string Environment { get; }
 
     /// <summary>
+    /// The file path for JSON export. Null if export is disabled.
+    /// </summary>
+    public string? ExportPath { get; }
+
+    /// <summary>
     /// Whether reporting is enabled (ServerUrl is set).
     /// </summary>
     public bool IsEnabled => !string.IsNullOrEmpty(ServerUrl);
@@ -70,16 +81,18 @@ public class LiveDocConfig
         else
             _defaultProject = defaultProject;
         Environment = System.Environment.GetEnvironmentVariable(EnvironmentEnvVar) ?? "local";
+        ExportPath = System.Environment.GetEnvironmentVariable(ExportPathEnvVar);
     }
 
     /// <summary>
     /// Creates a configuration with explicit values (for testing).
     /// </summary>
-    public LiveDocConfig(string serverUrl, string project, string environment)
+    public LiveDocConfig(string serverUrl, string project, string environment, string? exportPath = null)
     {
         ServerUrl = serverUrl;
         _project = project;
         Environment = environment;
+        ExportPath = exportPath;
     }
 
     /// <summary>

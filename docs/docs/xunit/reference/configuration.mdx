@@ -237,6 +237,81 @@ Click any test to see the formatted BDD output in the Test Detail Summary pane.
 
 ---
 
+### Export Configuration {#export-configuration}
+
+Export a `TestRunV3` JSON file directly to disk after the test run — no server needed. This is the recommended approach for CI pipelines and for generating [static HTML reports](../../viewer/guides/static-export.mdx).
+
+#### Environment Variable {#export-env-var}
+
+Set the `LIVEDOC_EXPORT_PATH` environment variable to enable JSON export:
+
+```bash
+# Linux / macOS / GitHub Actions
+LIVEDOC_EXPORT_PATH=./test-results/livedoc-report.json dotnet test --logger LiveDoc
+
+# Windows PowerShell
+$env:LIVEDOC_EXPORT_PATH = "./test-results/livedoc-report.json"
+dotnet test --logger LiveDoc
+```
+
+The reporter creates directories automatically and prints a confirmation:
+
+```
+✅ LiveDoc results exported to ./test-results/livedoc-report.json (845.2 KB)
+```
+
+#### Environment Variables Reference {#export-env-vars}
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LIVEDOC_EXPORT_PATH` | *(none — export disabled)* | File path for TestRunV3 JSON output. When set, enables export. |
+| `LIVEDOC_PROJECT` | Assembly name | Project name embedded in the JSON. |
+| `LIVEDOC_ENVIRONMENT` | `"local"` | Environment label (e.g., `"local"`, `"ci"`, `"staging"`). |
+
+#### Programmatic Configuration {#export-programmatic}
+
+For testing or advanced scenarios, pass the export path via the `LiveDocConfig` constructor:
+
+```csharp
+var config = new LiveDocConfig(
+    serverUrl: "http://localhost:3100",
+    project: "my-project",
+    environment: "ci",
+    exportPath: "./test-results/livedoc-report.json"
+);
+```
+
+:::info Export runs alongside server publishing
+The export writes a JSON file **in addition to** server publishing — it doesn't replace it. When both `LIVEDOC_SERVER_URL` (or auto-discovery) and `LIVEDOC_EXPORT_PATH` are configured, the reporter sends results to the server **and** writes the file concurrently. The `LiveDocTestRunReporter.IsEnabled` property returns `true` when **either** the server URL or export path is set, so data collection happens in both cases.
+:::
+
+#### CI/CD Example {#export-ci-cd}
+
+```yaml
+# GitHub Actions
+- name: Run .NET tests with JSON export
+  run: dotnet test --logger LiveDoc
+  env:
+    LIVEDOC_EXPORT_PATH: ./test-results/livedoc-report.json
+    LIVEDOC_PROJECT: my-dotnet-app
+    LIVEDOC_ENVIRONMENT: ci
+
+- name: Generate HTML report
+  if: always()
+  run: npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
+
+- name: Upload results
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: livedoc-results
+    path: test-results/
+```
+
+See the [Static Export Guide](../../viewer/guides/static-export.mdx) for the complete pipeline walkthrough.
+
+---
+
 ### Namespace Organization {#namespaces}
 
 The C# namespace of each test class determines the visual tree structure in the LiveDoc Viewer. The reporter strips the assembly name prefix and converts namespace segments to a folder-like path.
@@ -406,4 +481,5 @@ public MyTests(ITestOutputHelper output) { }
 - [Attributes](./attributes.mdx) — all LiveDoc attributes
 - [Getting Started](../learn/getting-started.mdx) — installation walkthrough
 - [Viewer Integration](../guides/viewer-integration.mdx) — detailed Viewer setup guide
+- [Static HTML Export](../../viewer/guides/static-export.mdx) — generate shareable reports without a server
 - [Troubleshooting](../guides/troubleshooting.mdx) — common issues and solutions

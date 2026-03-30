@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using SweDevTools.LiveDoc.xUnit.Core;
 using SweDevTools.LiveDoc.xUnit.Reporter.Models;
 using Xunit.Abstractions;
@@ -34,6 +36,8 @@ public class LiveDocTestRunReporter : IDisposable
     private int _skippedCount;
     private const int BatchChunkSize = 25;
     private readonly SemaphoreSlim _runStartLock = new(1, 1);
+    private readonly LiveDocConfig _config;
+    private readonly DateTime _startedAt;
 
     /// <summary>
     /// Gets the singleton instance.
@@ -54,16 +58,18 @@ public class LiveDocTestRunReporter : IDisposable
     }
 
     /// <summary>
-    /// Whether reporting is enabled.
+    /// Whether reporting is enabled (server or file export configured).
     /// </summary>
-    public bool IsEnabled => _reporter.IsEnabled;
+    public bool IsEnabled => _reporter.IsEnabled || !string.IsNullOrEmpty(_config.ExportPath);
 
     private LiveDocTestRunReporter()
     {
-        _reporter = new LiveDocReporter();
+        _config = LiveDocConfig.Default;
+        _reporter = new LiveDocReporter(_config);
         _runStopwatch = Stopwatch.StartNew();
+        _startedAt = DateTime.UtcNow;
 
-        if (_reporter.IsEnabled)
+        if (_reporter.IsEnabled || !string.IsNullOrEmpty(_config.ExportPath))
         {
             AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
         }
@@ -98,7 +104,7 @@ public class LiveDocTestRunReporter : IDisposable
     /// </summary>
     public async Task FlushAndCompleteAsync()
     {
-        if (!_reporter.IsEnabled)
+        if (!_reporter.IsEnabled && string.IsNullOrEmpty(_config.ExportPath))
             return;
 
         Task task;
@@ -246,17 +252,6 @@ public class LiveDocTestRunReporter : IDisposable
     {
         try
         {
-            // Start the run
-            var runId = await EnsureRunStartedAsync();
-            if (runId == null)
-            {
-                lock (_flushLock)
-                {
-                    _flushTask = null;
-                }
-                return;
-            }
-
             // Prepare all test cases with their accumulated tests
             var upsertPayloads = new List<TestCase>();
             foreach (var kvp in _testCases)
@@ -264,8 +259,9 @@ public class LiveDocTestRunReporter : IDisposable
                 upsertPayloads.Add(BuildTestCasePayload(kvp.Value));
             }
 
-            // Send all test cases AND complete the run in a single HTTP request
+            // Compute run statistics
             _runStopwatch.Stop();
+            var duration = _runStopwatch.ElapsedMilliseconds;
             var status = _failedCount > 0 ? Models.Status.Failed : Models.Status.Passed;
             var summary = new Statistics
             {
@@ -275,52 +271,18 @@ public class LiveDocTestRunReporter : IDisposable
                 Skipped = _skippedCount,
                 Pending = 0
             };
-            var complete = new CompleteRunRequest
-            {
-                Status = status,
-                Duration = _runStopwatch.ElapsedMilliseconds,
-                Summary = summary
-            };
 
-            if (upsertPayloads.Count == 0)
+            // Export to JSON file if configured (runs alongside server publishing)
+            var exportTask = ExportTestRunJsonAsync(upsertPayloads, status, duration, summary);
+
+            // Publish to server if enabled
+            if (_reporter.IsEnabled)
             {
-                var completed = await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
-                if (!completed)
-                {
-                    await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
-                }
-                return;
+                await PublishToServerAsync(upsertPayloads, status, duration, summary);
             }
 
-            var allBatchRequestsSucceeded = true;
-            for (int i = 0; i < upsertPayloads.Count; i += BatchChunkSize)
-            {
-                var chunk = upsertPayloads.Skip(i).Take(BatchChunkSize).ToList();
-                var isLastChunk = i + BatchChunkSize >= upsertPayloads.Count;
-                var chunkComplete = isLastChunk ? complete : null;
-
-                var chunkOk = await _reporter.UpsertTestCasesBatchAsync(chunk, chunkComplete);
-                if (!chunkOk)
-                {
-                    allBatchRequestsSucceeded = false;
-                    break;
-                }
-            }
-
-            if (!allBatchRequestsSucceeded)
-            {
-                // Fallback to per-testcase upserts to salvage partial failures caused by payload size/shape.
-                foreach (var testCase in upsertPayloads)
-                {
-                    await _reporter.UpsertTestCaseAsync(testCase);
-                }
-
-                var completed = await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
-                if (!completed)
-                {
-                    await _reporter.CompleteRunAsync(status, _runStopwatch.ElapsedMilliseconds, summary);
-                }
-            }
+            // Ensure export completes
+            await exportTask;
         }
         catch (Exception ex)
         {
@@ -336,6 +298,139 @@ public class LiveDocTestRunReporter : IDisposable
             lock (_flushLock)
             {
                 _flushTask = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Publishes test results to the LiveDoc server via HTTP.
+    /// </summary>
+    private async Task PublishToServerAsync(
+        List<TestCase> upsertPayloads,
+        Models.Status status,
+        long duration,
+        Statistics summary)
+    {
+        var runId = await EnsureRunStartedAsync();
+        if (runId == null)
+            return;
+
+        var complete = new CompleteRunRequest
+        {
+            Status = status,
+            Duration = duration,
+            Summary = summary
+        };
+
+        if (upsertPayloads.Count == 0)
+        {
+            var completed = await _reporter.CompleteRunAsync(status, duration, summary);
+            if (!completed)
+            {
+                await _reporter.CompleteRunAsync(status, duration, summary);
+            }
+            return;
+        }
+
+        var allBatchRequestsSucceeded = true;
+        for (int i = 0; i < upsertPayloads.Count; i += BatchChunkSize)
+        {
+            var chunk = upsertPayloads.Skip(i).Take(BatchChunkSize).ToList();
+            var isLastChunk = i + BatchChunkSize >= upsertPayloads.Count;
+            var chunkComplete = isLastChunk ? complete : null;
+
+            var chunkOk = await _reporter.UpsertTestCasesBatchAsync(chunk, chunkComplete);
+            if (!chunkOk)
+            {
+                allBatchRequestsSucceeded = false;
+                break;
+            }
+        }
+
+        if (!allBatchRequestsSucceeded)
+        {
+            // Fallback to per-testcase upserts to salvage partial failures caused by payload size/shape.
+            foreach (var testCase in upsertPayloads)
+            {
+                await _reporter.UpsertTestCaseAsync(testCase);
+            }
+
+            var completed = await _reporter.CompleteRunAsync(status, duration, summary);
+            if (!completed)
+            {
+                await _reporter.CompleteRunAsync(status, duration, summary);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Exports test results to a TestRunV3 JSON file for offline consumption.
+    /// </summary>
+    private async Task ExportTestRunJsonAsync(
+        List<TestCase> documents,
+        Models.Status status,
+        long duration,
+        Statistics summary)
+    {
+        var exportPath = _config.ExportPath;
+        if (string.IsNullOrEmpty(exportPath))
+            return;
+
+        try
+        {
+            var testRun = new TestRunV3
+            {
+                ProtocolVersion = "3.0",
+                RunId = _reporter.RunId ?? Guid.NewGuid().ToString(),
+                Project = _config.Project,
+                Environment = _config.Environment,
+                Framework = "xunit",
+                Timestamp = _startedAt.ToString("O"),
+                Duration = duration,
+                Status = status,
+                Summary = summary,
+                Documents = documents
+            };
+
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+                WriteIndented = true
+            };
+
+            var fullPath = Path.GetFullPath(exportPath);
+            var dir = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            var json = JsonSerializer.SerializeToUtf8Bytes(testRun, jsonOptions);
+            await File.WriteAllBytesAsync(fullPath, json);
+
+            var sizeKb = json.Length / 1024.0;
+            var sizeStr = sizeKb >= 1024
+                ? $"{sizeKb / 1024.0:F1} MB"
+                : $"{sizeKb:F1} KB";
+
+            try
+            {
+                Console.WriteLine($"\u2705 LiveDoc results exported to {exportPath} ({sizeStr})");
+            }
+            catch
+            {
+                // Ignore console output failures.
+            }
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                Console.Error.WriteLine($"[LiveDoc] Warning: Failed to export results to {exportPath}: {ex.Message}");
+            }
+            catch
+            {
+                // Ignore logging failures.
             }
         }
     }

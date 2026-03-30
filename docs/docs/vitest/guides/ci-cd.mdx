@@ -1,6 +1,6 @@
 ---
 sidebar_position: 6
-description: "Run LiveDoc tests in CI pipelines with JSON export, artifact upload, and GitHub Actions examples."
+description: "Run LiveDoc tests in CI pipelines with JSON export, static HTML reports, artifact upload, and GitHub Actions examples."
 ---
 
 # How to Run LiveDoc in CI/CD
@@ -8,7 +8,7 @@ description: "Run LiveDoc tests in CI pipelines with JSON export, artifact uploa
 <p className="intro">
 This guide shows you how to integrate LiveDoc tests into your CI/CD pipeline.
 By the end, you'll have a GitHub Actions workflow that runs tests, exports
-JSON results, and uploads artifacts.
+a TestRunV3 JSON file, generates a static HTML report, and uploads artifacts.
 </p>
 
 :::info Prerequisites
@@ -19,18 +19,25 @@ JSON results, and uploads artifacts.
 ## Overview
 
 LiveDoc tests run with standard `npx vitest run` in CI — no special
-configuration needed. Add JSON export and tag filtering for production
-pipelines.
+configuration needed. Add the `export` option to write a TestRunV3 JSON file,
+then use `livedoc-viewer export` to generate a shareable static HTML report.
 
-## Step 1: Configure JSON Export
+```mermaid
+graph LR
+    A["Run tests<br/>npx vitest run"] --> B["TestRunV3 JSON<br/>livedoc-report.json"]
+    B --> C["Static HTML<br/>livedoc-viewer export"]
+    C --> D["Upload artifact<br/>report.html"]
+```
 
-Add the `JsonReporter` as a post reporter to generate a machine-readable
-results file:
+## Step 1: Configure TestRunV3 Export
+
+Add the `export` option to `LiveDocSpecReporter` to write a TestRunV3 JSON file
+after each test run:
 
 ```typescript
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -39,18 +46,57 @@ export default defineConfig({
     reporters: [
       new LiveDocSpecReporter({
         detailLevel: 'spec+summary+headers',
-        postReporters: [new JsonReporter()],
-        'json-output': './test-results/livedoc-results.json',
+        export: {
+          output: './test-results/livedoc-report.json',
+        },
       }),
     ],
   },
 });
 ```
 
-The JSON file contains all features, scenarios, steps, pass/fail status,
-timing data, error messages, and tags.
+The reporter creates directories automatically and prints a confirmation:
 
-## Step 2: Add CI-Specific Tag Filtering
+```
+✅ LiveDoc results exported to ./test-results/livedoc-report.json (1.2 MB)
+```
+
+The TestRunV3 JSON file contains all features, scenarios, steps, pass/fail
+status, timing data, error messages, tags, and attachments.
+
+:::tip Alternative: JsonReporter (SDK model)
+The `JsonReporter` post-reporter also writes JSON, but in the **LiveDoc SDK model format** — not TestRunV3. Use `export` for the standard pipeline. Use `JsonReporter` only if you need the raw SDK model for custom tooling:
+
+```typescript
+import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+new LiveDocSpecReporter({
+  detailLevel: 'spec+summary+headers',
+  postReporters: [new JsonReporter()],
+  'json-output': './test-results/livedoc-results.json',
+})
+```
+:::
+
+## Step 2: Generate a Static HTML Report
+
+Use `livedoc-viewer export` to convert the TestRunV3 JSON into a self-contained
+HTML file that anyone can open in a browser — no server needed:
+
+```bash
+npx livedoc-viewer export \
+  --input ./test-results/livedoc-report.json \
+  --output ./test-results/report.html \
+  --title "My Project — CI Build"
+```
+
+The HTML file embeds all JavaScript, CSS, and images (including base64 screenshots)
+inline. It works offline on any computer.
+
+See the [Static Export Guide](../../viewer/guides/static-export.mdx) for the
+complete walkthrough.
+
+## Step 3: Add CI-Specific Tag Filtering
 
 Skip slow or flaky tests in CI using environment-based filtering:
 
@@ -74,7 +120,7 @@ Register in your config:
 setupFiles: ['./test/livedoc.setup.ts'],
 ```
 
-## Step 3: Create a GitHub Actions Workflow
+## Step 4: Create a GitHub Actions Workflow
 
 ```yaml
 # .github/workflows/livedoc-tests.yml
@@ -106,19 +152,25 @@ jobs:
         env:
           CI: 'true'
 
+      - name: Generate HTML report
+        if: always()
+        run: npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: livedoc-results
-          path: test-results/livedoc-results.json
+          path: |
+            test-results/livedoc-report.json
+            test-results/report.html
           retention-days: 30
 ```
 
-The `if: always()` on the upload step ensures results are captured even when
-tests fail.
+The `if: always()` on the export and upload steps ensures results are captured
+even when tests fail.
 
-## Step 4: Write Output to a Log File
+## Step 5: Write Output to a Log File
 
 For human-readable test output in CI logs, add file output:
 
@@ -126,12 +178,13 @@ For human-readable test output in CI logs, add file output:
 new LiveDocSpecReporter({
   detailLevel: 'spec+summary+headers',
   output: './test-results/test-output.txt',
-  postReporters: [new JsonReporter()],
-  'json-output': './test-results/livedoc-results.json',
+  export: {
+    output: './test-results/livedoc-report.json',
+  },
 })
 ```
 
-Upload both files as artifacts:
+Upload all files as artifacts:
 
 ```yaml
 - name: Upload test results
@@ -147,7 +200,7 @@ Upload both files as artifacts:
 ```typescript
 // vitest.config.ts
 import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
 
 export default defineConfig({
   test: {
@@ -158,8 +211,9 @@ export default defineConfig({
       new LiveDocSpecReporter({
         detailLevel: 'spec+summary+headers',
         output: './test-results/test-output.txt',
-        postReporters: [new JsonReporter()],
-        'json-output': './test-results/livedoc-results.json',
+        export: {
+          output: './test-results/livedoc-report.json',
+        },
       }),
     ],
   },
@@ -204,6 +258,10 @@ jobs:
         run: npx vitest run
         env:
           CI: 'true'
+
+      - name: Generate HTML report
+        if: always()
+        run: npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
 
       - name: Upload test results
         if: always()
@@ -301,7 +359,9 @@ livedoc-tests:
 
 ## Related
 
+- [Static HTML Export](../../viewer/guides/static-export.mdx) — generate shareable reports without a server
 - [Tags and Filtering](./tags-and-filtering.mdx) — environment-based tag filtering
 - [Custom Reporters](./custom-reporters.mdx) — build CI-specific reporters
 - [Viewer Integration](./viewer-integration.mdx) — visualize results from CI
-- [Reporters Reference](../reference/reporters.mdx) — JSON reporter API
+- [Reporters Reference](../reference/reporters.mdx) — reporter options and export API
+- [CLI Options](../../viewer/reference/cli-options.mdx) — `livedoc-viewer export` command reference

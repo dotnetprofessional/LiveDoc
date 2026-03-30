@@ -1,24 +1,28 @@
 ---
 sidebar_position: 1
 title: "CLI Options"
-description: "Complete reference for all livedoc-viewer command-line flags: port, host, no-open, version, and help."
+description: "Complete reference for all livedoc-viewer command-line options: server mode, export subcommand, port, host, and more."
 ---
 
 # CLI Options
 
 <p className="intro">
-The <code>livedoc-viewer</code> command accepts several flags to control the
-server's port, host binding, and browser behavior. This page documents every
-available option.
+The <code>livedoc-viewer</code> CLI has two modes: <strong>server mode</strong> (default)
+for real-time test visualization, and the <strong>export subcommand</strong> for
+generating self-contained static HTML reports.
 </p>
 
 ```bash
+# Server mode
 livedoc-viewer [options]
+
+# Export mode
+livedoc-viewer export --input <path> [--output <path>] [--title <title>]
 ```
 
 ---
 
-## Reference {#reference}
+## Server Options {#server-options}
 
 ### `--port <port>` / `-p` {#port}
 
@@ -118,6 +122,96 @@ livedoc-viewer --help
 
 ---
 
+## `export` Subcommand {#export-subcommand}
+
+Generate a self-contained static HTML report from a TestRunV3 JSON file. The
+output file embeds all JavaScript, CSS, and images inline — it can be opened in
+any browser on any computer with zero external dependencies.
+
+```bash
+livedoc-viewer export --input <path> [--output <path>] [--title <title>]
+```
+
+### `--input <path>` / `-i` {#export-input}
+
+**(Required)** Path to a TestRunV3 JSON file. This is the file produced by the
+[`export` option](../../vitest/reference/reporters.mdx#export-options) on
+`LiveDocSpecReporter` or by the
+[`LIVEDOC_EXPORT_PATH`](../../xunit/reference/configuration.mdx#export-env-var)
+environment variable in the .NET reporter.
+
+```bash
+livedoc-viewer export --input ./test-results/livedoc-report.json
+livedoc-viewer export -i ./test-results/livedoc-report.json
+```
+
+The file must contain valid JSON with `protocolVersion: "3.0"`. If the file is
+missing or the format is invalid, the command exits with a descriptive error.
+
+### `--output <path>` / `-o` {#export-output}
+
+Output path for the generated HTML file. Directories are created automatically.
+
+```bash
+--output <path>
+-o <path>
+```
+
+**Default:** `./livedoc-report.html`
+
+```bash
+livedoc-viewer export -i results.json -o ./reports/build-42.html
+```
+
+### `--title <title>` / `-t` {#export-title}
+
+Custom title for the HTML report. Appears in the browser tab and page header.
+
+```bash
+--title <title>
+-t <title>
+```
+
+**Default:** The `project` field from the JSON file, or `"LiveDoc"` if not set.
+
+```bash
+livedoc-viewer export -i results.json -t "Sprint 42 — Regression Suite"
+```
+
+### Export Output {#export-output-details}
+
+On success, the command prints:
+
+```
+✅ LiveDoc report exported successfully!
+   Input:  ./test-results/livedoc-report.json
+   Output: /absolute/path/to/livedoc-report.html
+   Size:   847.3 KB
+
+   Open in any browser to view your test results.
+```
+
+The generated HTML file contains:
+- The full LiveDoc Viewer React application (JS + CSS inlined)
+- All test data from the input JSON (embedded in a `<script>` tag)
+- Base64-encoded screenshots and attachments (if present in the test data)
+- Dark theme by default
+
+:::tip File size expectations
+- **Without screenshots:** typically 700 KB–1 MB (mostly the bundled viewer JS/CSS)
+- **With screenshots:** 5 MB+ depending on the number and resolution of images
+:::
+
+### Export Quick Reference {#export-quick-reference}
+
+| Option             | Short | Required | Default                   | Description                              |
+| ------------------ | ----- | -------- | ------------------------- | ---------------------------------------- |
+| `--input <path>`   | `-i`  | Yes      | —                         | Path to TestRunV3 JSON file              |
+| `--output <path>`  | `-o`  | No       | `./livedoc-report.html`   | Output HTML file path                    |
+| `--title <title>`  | `-t`  | No       | Project name or "LiveDoc" | Custom report title                      |
+
+---
+
 ## Usage Examples {#examples}
 
 ### Default startup
@@ -156,7 +250,7 @@ Runs the viewer on port 9000 bound to all interfaces with no browser auto-open
 
 ---
 
-## Quick Reference Table {#quick-reference}
+## Server Quick Reference {#quick-reference}
 
 | Option           | Short | Default     | Description                          |
 | ---------------- | ----- | ----------- | ------------------------------------ |
@@ -171,5 +265,8 @@ Runs the viewer on port 9000 bound to all interfaces with no browser auto-open
 ## See Also {#see-also}
 
 - [Getting Started](../learn/getting-started.mdx) — install and launch the viewer
+- [Static HTML Export Guide](../guides/static-export.mdx) — complete pipeline walkthrough
 - [CI/CD Dashboards](../guides/ci-cd-dashboards.mdx) — recommended flags for CI
 - [REST API](./rest-api.mdx) — programmatic access to the viewer
+- [Vitest Reporter Export](../../vitest/reference/reporters.mdx#export-options) — configure JSON export in TypeScript
+- [xUnit Export Configuration](../../xunit/reference/configuration.mdx#export-configuration) — configure JSON export in .NET

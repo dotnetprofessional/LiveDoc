@@ -32,6 +32,9 @@ importers:
       clsx:
         specifier: ^2.1.0
         version: 2.1.1
+      medium-zoom:
+        specifier: ^1.1.0
+        version: 1.1.0
       prism-react-renderer:
         specifier: ^2.3.0
         version: 2.4.1(react@19.2.4)
@@ -5887,6 +5890,9 @@ packages:
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
     engines: {node: '>= 0.6'}
+
+  medium-zoom@1.1.0:
+    resolution: {integrity: sha512-ewyDsp7k4InCUp3jRmwHBRFGyjBimKps/AJLjRSox+2q/2H4p/PNpQf+pwONWlJiOudkBXtbdmVbFjqyybfTmQ==}
 
   memfs@4.56.11:
     resolution: {integrity: sha512-/GodtwVeKVIHZKLUSr2ZdOxKBC5hHki4JNCU22DoCGPEHr5o2PD5U721zvESKyWwCfTfavFl9WZYgA13OAYK0g==}
@@ -15043,6 +15049,8 @@ snapshots:
   mdurl@2.0.0: {}
 
   media-typer@0.3.0: {}
+
+  medium-zoom@1.1.0: {}
 
   memfs@4.56.11(tslib@2.8.1):
     dependencies:
