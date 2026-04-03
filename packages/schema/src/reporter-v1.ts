@@ -102,15 +102,13 @@ export interface Statistics {
 // Kinds / Styles
 // =============================================================================
 
-export const TestStyles = {
+export const TestKinds = {
+  // TestCase kinds (document-level containers)
   Feature: 'Feature',
   Specification: 'Specification',
   Container: 'Container',
-} as const;
 
-export type TestStyle = typeof TestStyles[keyof typeof TestStyles];
-
-export const TestKinds = {
+  // Test kinds (executable nodes)
   Scenario: 'Scenario',
   ScenarioOutline: 'ScenarioOutline',
   Step: 'Step',
@@ -217,7 +215,7 @@ export type AnyTest =
 
 export interface BaseTestCase {
   id: string;
-  style: TestStyle | string;
+  kind: TestKind | string;
 
   // Source path for grouping.
   path?: string;
@@ -239,15 +237,15 @@ export interface BaseTestCase {
 }
 
 export interface FeatureTestCase extends BaseTestCase {
-  style: 'Feature';
+  kind: 'Feature';
 }
 
 export interface SpecificationTestCase extends BaseTestCase {
-  style: 'Specification';
+  kind: 'Specification';
 }
 
 export interface ContainerTestCase extends BaseTestCase {
-  style: 'Container';
+  kind: 'Container';
 }
 
 export type TestCase = FeatureTestCase | SpecificationTestCase | ContainerTestCase | BaseTestCase;

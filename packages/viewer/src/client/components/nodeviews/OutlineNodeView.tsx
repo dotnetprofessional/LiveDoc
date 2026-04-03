@@ -26,7 +26,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     setSelectedExampleId(null);
   }, [node?.id]);
 
-  const kind = String(node?.kind ?? node?.style ?? '').toLowerCase();
+  const kind = String(node?.kind ?? '').toLowerCase();
   const isOutline = kind === 'scenariooutline' || kind === 'ruleoutline';
   if (!isOutline) return null;
 

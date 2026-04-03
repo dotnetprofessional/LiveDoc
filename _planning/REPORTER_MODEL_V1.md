@@ -32,7 +32,7 @@ Discriminator:
 - `style: 'Feature' | 'Specification' | 'Container'`
 
 Required:
-- `id` (stable), `style`, `title`, `tests[]`, `statistics`
+- `id` (stable), `kind`, `title`, `tests[]`, `statistics`
 
 Recommended:
 - `path` (for grouping)

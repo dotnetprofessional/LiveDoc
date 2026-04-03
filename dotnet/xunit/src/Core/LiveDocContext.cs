@@ -155,7 +155,7 @@ public class LiveDocContext : IDisposable
             var path = LiveDocTestRunReporter.DerivePath(testClassType);
             _runReporter.BufferTestCase(
                 _testCaseId,
-                style,
+                kind: style,
                 TestCase.Title,
                 TestCase.Description,
                 TestCase.Tags,

@@ -126,7 +126,7 @@ export function buildGroupedNavTree(documents: TestCase[]): NavItem[] {
   };
 
   for (const node of documents) {
-    const kind = String((node as any).style ?? '');
+    const kind = String((node as any).kind ?? '');
     if (!isContainerKind(kind)) continue;
 
     const pathSegments = getNodePathSegments(node);

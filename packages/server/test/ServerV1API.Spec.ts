@@ -54,10 +54,10 @@ function makeRuleOutline(
     };
 }
 
-function makeTestCase(id: string, title: string, tests: any[], style = "Feature") {
+function makeTestCase(id: string, title: string, tests: any[], kind = "Feature") {
     const passed = tests.length;
     return {
-        id, style, title, path: `Tests/${title.replace(/\s/g, "_")}.cs`,
+        id, kind, title, path: `Tests/${title.replace(/\s/g, "_")}.cs`,
         tests,
         statistics: { total: passed, passed, failed: 0, pending: 0, skipped: 0 },
     };
@@ -853,7 +853,7 @@ feature(`V1 API — Schema Validation
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     testCase: {
-                        id: "tc-bad", style: "Feature", title: "Bad",
+                        id: "tc-bad", kind: "Feature", title: "Bad",
                         tests: [{ id: "t-bad", kind: "Rule", title: "Missing execution" }],
                         statistics: { total: 1, passed: 0, failed: 0, pending: 0, skipped: 0 },
                     },

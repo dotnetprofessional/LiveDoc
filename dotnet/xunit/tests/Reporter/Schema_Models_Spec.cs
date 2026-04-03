@@ -181,36 +181,36 @@ public class Schema_Models_Spec : SpecificationTest
 
     #region TestCase
 
-    [Rule("TestCase with Feature style")]
-    public void TestCase_with_feature_style()
+    [Rule("TestCase with Feature kind")]
+    public void TestCase_with_feature_kind()
     {
         var testCase = new TestCase
         {
             Id = "feature-1",
-            Style = TestStyles.Feature,
+            Kind = TestStyles.Feature,
             Title = "User Authentication",
             Tests = new List<BaseTest>()
         };
 
         var json = JsonSerializer.Serialize(testCase, _jsonOptions);
         
-        Assert.Contains("\"style\":\"Feature\"", json);
+        Assert.Contains("\"kind\":\"Feature\"", json);
         Assert.Contains("\"title\":\"User Authentication\"", json);
     }
 
-    [Rule("TestCase with Specification style")]
-    public void TestCase_with_specification_style()
+    [Rule("TestCase with Specification kind")]
+    public void TestCase_with_specification_kind()
     {
         var testCase = new TestCase
         {
             Id = "spec-1",
-            Style = TestStyles.Specification,
+            Kind = TestStyles.Specification,
             Title = "Calculator Operations"
         };
 
         var json = JsonSerializer.Serialize(testCase, _jsonOptions);
         
-        Assert.Contains("\"style\":\"Specification\"", json);
+        Assert.Contains("\"kind\":\"Specification\"", json);
     }
 
     #endregion

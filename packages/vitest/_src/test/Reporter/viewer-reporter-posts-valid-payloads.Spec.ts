@@ -252,19 +252,19 @@ feature("Viewer reporter posts valid payloads", () => {
 
                 const roots = posted.map((p) => p.testCase);
 
-                const featureDoc = roots.find((n) => n.style === "Feature" && n.title === "Tagged Feature");
+                const featureDoc = roots.find((n) => n.kind === "Feature" && n.title === "Tagged Feature");
                 expect(featureDoc).toBeTruthy();
                 expect(String(featureDoc.path)).toMatch(/(?:^|\/|\\)features\/(?:Tags\.Spec\.ts)$/);
                 expect(featureDoc.tags).toEqual(["smoke", "fast"]);
                 expect(featureDoc.description).toBe("Feature description");
 
-                const specDoc = roots.find((n) => n.style === "Specification" && n.title === "Tagged Spec");
+                const specDoc = roots.find((n) => n.kind === "Specification" && n.title === "Tagged Spec");
                 expect(specDoc).toBeTruthy();
                 expect(String(specDoc.path)).toMatch(/(?:^|\/|\\)specs\/(?:SpecTags\.Spec\.ts)$/);
                 expect(specDoc.tags).toEqual(["spec-tag"]);
                 expect(specDoc.description).toBe("Spec description");
 
-                const suiteDoc = roots.find((n) => n.style === "Container" && n.title === "Pure Suite");
+                const suiteDoc = roots.find((n) => n.kind === "Container" && n.title === "Pure Suite");
                 expect(suiteDoc).toBeTruthy();
                 expect(String(suiteDoc.path)).toMatch(/(?:^|\/|\\)suites\/(?:Pure\.Spec\.ts)$/);
             }
@@ -276,7 +276,7 @@ feature("Viewer reporter posts valid payloads", () => {
                 const [testTitle, expectedStatus, expectedTotal, expectedPassed, expectedPending] = ctx.step.values;
 
                 const roots = posted.map((p) => p.testCase);
-                const suiteDoc = roots.find((n) => n.style === "Container" && n.title === "Pure Suite");
+                const suiteDoc = roots.find((n) => n.kind === "Container" && n.title === "Pure Suite");
                 expect(suiteDoc).toBeTruthy();
 
                 const suiteTests = (suiteDoc as any).tests || [];
@@ -291,7 +291,7 @@ feature("Viewer reporter posts valid payloads", () => {
         );
 
         and("the Scenario, ScenarioOutline, Rule, RuleOutline, and Step tests include expected tags and keyword", () => {
-            const featureDoc = posted.map((p) => p.testCase).find((n) => n.style === "Feature" && n.title === "Tagged Feature");
+            const featureDoc = posted.map((p) => p.testCase).find((n) => n.kind === "Feature" && n.title === "Tagged Feature");
             expect(featureDoc).toBeTruthy();
 
             const scenarioTest = featureDoc.tests.find((t: any) => t.kind === "Scenario" && t.title === "Tagged Scenario");
@@ -309,7 +309,7 @@ feature("Viewer reporter posts valid payloads", () => {
             expect(stepTest.keyword).toBe("given");
             expect(stepTest.title).toBe("a precondition");
 
-            const specDoc = posted.map((p) => p.testCase).find((n) => n.style === "Specification" && n.title === "Tagged Spec");
+            const specDoc = posted.map((p) => p.testCase).find((n) => n.kind === "Specification" && n.title === "Tagged Spec");
             expect(specDoc).toBeTruthy();
 
             const ruleTest = specDoc.tests.find((t: any) => t.kind === "Rule" && t.title === "Tagged Rule");

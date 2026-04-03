@@ -441,7 +441,7 @@ public class LiveDocTestRunReporter : IDisposable
     /// </summary>
     public void BufferTestCase(
         string id,
-        string style,
+        string kind,
         string title,
         string? description = null,
         string[]? tags = null,
@@ -450,7 +450,7 @@ public class LiveDocTestRunReporter : IDisposable
         _testCases.TryAdd(id, new TestCase
         {
             Id = id,
-            Style = style,
+            Kind = kind,
             Title = title,
             Description = description,
             Tags = tags?.ToList(),

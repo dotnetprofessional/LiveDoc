@@ -171,7 +171,7 @@ public class LiveDocMessageSink : IMessageSink
             var style = isSpec ? Reporter.Models.TestStyles.Specification : Reporter.Models.TestStyles.Feature;
             var title = FormatTestCaseTitle(className);
             var (description, tags) = ExtractClassMetadata(testClass, isSpec);
-            _reporter.BufferTestCase(testCaseId, style, title, description, tags, path);
+            _reporter.BufferTestCase(testCaseId, kind: style, title, description, tags, path);
 
             if (isOutline)
             {

@@ -73,22 +73,11 @@ export class NodeTreeViewItem extends vscode.TreeItem {
     private static getLabel(node: TestCase | AnyTest): string {
         const title = node.title.split('\n')[0];
 
-        if ((node as any).style) {
-            const doc = node as TestCase;
-            switch (doc.style) {
-                case 'Feature':
-                    return `Feature: ${title}`;
-                case 'Specification':
-                    return `Spec: ${title}`;
-                case 'Container':
-                    return title;
-                default:
-                    return title;
-            }
-        }
-
-        const test = node as AnyTest;
-        switch (test.kind) {
+        switch (node.kind) {
+            case 'Feature':
+                return `Feature: ${title}`;
+            case 'Specification':
+                return `Spec: ${title}`;
             case 'Scenario':
                 return `Scenario: ${title}`;
             case 'ScenarioOutline':
@@ -97,8 +86,8 @@ export class NodeTreeViewItem extends vscode.TreeItem {
                 return `Rule: ${title}`;
             case 'RuleOutline':
                 return `Rule Outline: ${title}`;
+            case 'Container':
             case 'Step':
-                return title;
             case 'Test':
             default:
                 return title;
@@ -106,12 +95,11 @@ export class NodeTreeViewItem extends vscode.TreeItem {
     }
 
     private isTestCase(node: TestCase | AnyTest): node is TestCase {
-        return (node as any)?.style !== undefined;
+        return Array.isArray((node as any)?.tests);
     }
 
     private getContextValue(node: TestCase | AnyTest): string {
-        if (this.isTestCase(node)) return String(node.style || 'document').toLowerCase();
-        return String((node as AnyTest).kind || 'test').toLowerCase();
+        return String(node.kind || 'test').toLowerCase();
     }
 
     protected annotateNode(status: ScenarioStatus) {

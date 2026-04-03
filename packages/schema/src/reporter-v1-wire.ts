@@ -133,7 +133,7 @@ export const V1AnyTestSchema: z.ZodType<any> = z.union([
 
 export const V1TestCaseSchema = z.object({
   id: z.string(),
-  style: z.string(),
+  kind: z.string(),
   path: z.string().optional(),
   title: z.string(),
   description: z.string().optional(),

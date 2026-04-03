@@ -298,7 +298,7 @@ export class LiveDocViewerReporter implements IPostReporter {
 
     return {
       id: testCaseId,
-      style: 'Feature',
+      kind: 'Feature',
       path: fileInfo.filename || undefined,
       title: sdkFeature.title,
       description: sdkFeature.description,
@@ -333,7 +333,7 @@ export class LiveDocViewerReporter implements IPostReporter {
 
     return {
       id: testCaseId,
-      style: 'Specification',
+      kind: 'Specification',
       path: fileInfo.filename || undefined,
       title: spec.title,
       description: spec.description,
@@ -430,7 +430,7 @@ export class LiveDocViewerReporter implements IPostReporter {
 
     return {
       id: testCaseId,
-      style: 'Container',
+      kind: 'Container',
       path: fileInfo.filename || undefined,
       title: suite.title,
       tests: ensuredTests,

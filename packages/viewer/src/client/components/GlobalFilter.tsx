@@ -170,7 +170,7 @@ export function GlobalFilter({ className }: { className?: string }) {
     const allItems = Object.values(run.itemById ?? {}) as any[];
 
     return allItems
-      .filter((n) => n && typeof n === 'object' && (typeof (n as any).kind === 'string' || typeof (n as any).style === 'string'))
+      .filter((n) => n && typeof n === 'object' && typeof (n as any).kind === 'string')
       .filter((n) => subtreeHasMatch(n as any, textLower, filterTags))
       .slice(0, 8);
   }, [filterTags, filterText, run]);
@@ -302,7 +302,7 @@ export function GlobalFilter({ className }: { className?: string }) {
                     e.preventDefault();
                     const id = String((node as any).id);
                     const kind = String((node as any).kind ?? '').toLowerCase();
-                    const isTestCase = (node as any).style !== undefined && Array.isArray((node as any).tests);
+                    const isTestCase = Array.isArray((node as any).tests);
 
                     let targetId = id;
                     let targetType: 'node' | 'group' = 'node';
@@ -333,7 +333,7 @@ export function GlobalFilter({ className }: { className?: string }) {
                   <StatusBadge status={(node as any).execution?.status ?? ((node as any).statistics?.failed > 0 ? 'failed' : (node as any).statistics?.passed > 0 ? 'passed' : undefined)} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
-                      {String((node as any).kind ?? (node as any).style ?? '').toLowerCase() || 'spec'}
+                      {String((node as any).kind ?? '').toLowerCase() || 'spec'}
                     </div>
                     <div className="text-sm font-semibold truncate">
                       {(node as any).title}

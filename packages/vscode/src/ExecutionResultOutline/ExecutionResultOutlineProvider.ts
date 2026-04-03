@@ -497,6 +497,6 @@ export class ExecutionResultOutlineProvider implements vscode.TreeDataProvider<v
     }
 
     private isV1TestCase(node: TestCase | AnyTest): node is TestCase {
-        return (node as any)?.style !== undefined && Array.isArray((node as any)?.tests);
+        return Array.isArray((node as any)?.tests);
     }
 }

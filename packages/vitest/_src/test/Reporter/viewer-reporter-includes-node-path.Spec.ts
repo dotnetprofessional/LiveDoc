@@ -107,7 +107,7 @@ feature(`Viewer reporter includes TestCase.path on root documents`, () => {
 
         then(`the posted Feature node has path 'features/Login.Spec.ts'`, (ctx) => {
             const expectedPath = String(ctx.step.values[0]);
-            const featureDoc = postedTestCases.find((n) => n && n.style === "Feature" && n.title === featureTitle);
+            const featureDoc = postedTestCases.find((n) => n && n.kind === "Feature" && n.title === featureTitle);
 
             featureDoc.should.exist;
             featureDoc.path.should.equal(expectedPath);
@@ -115,7 +115,7 @@ feature(`Viewer reporter includes TestCase.path on root documents`, () => {
 
         and(`the posted Specification node has path 'specs/Calc.Spec.ts'`, (ctx) => {
             const expectedPath = String(ctx.step.values[0]);
-            const specDoc = postedTestCases.find((n) => n && n.style === "Specification" && n.title === specTitle);
+            const specDoc = postedTestCases.find((n) => n && n.kind === "Specification" && n.title === specTitle);
 
             specDoc.should.exist;
             specDoc.path.should.equal(expectedPath);
@@ -123,7 +123,7 @@ feature(`Viewer reporter includes TestCase.path on root documents`, () => {
 
         and(`the posted Container document has path 'suites/Pure.Spec.ts'`, (ctx) => {
             const expectedPath = String(ctx.step.values[0]);
-            const suiteDoc = postedTestCases.find((n) => n && n.style === "Container" && n.title === suiteTitle);
+            const suiteDoc = postedTestCases.find((n) => n && n.kind === "Container" && n.title === suiteTitle);
 
             suiteDoc.should.exist;
             suiteDoc.path.should.equal(expectedPath);

@@ -22,7 +22,7 @@ export function NodeDisplay({ node, variant, size = 'lg', showStats = true, onCl
   const { audienceMode, getCurrentRun } = useStore();
   const run = getCurrentRun();
   
-  const kindLabel = String((node as any).kind ?? (node as any).style ?? 'Item');
+  const kindLabel = String((node as any).kind ?? 'Item');
   const Icon = FileText;
 
   const isScenarioLike = /scenario|background/i.test(kindLabel);

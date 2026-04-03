@@ -81,13 +81,13 @@ A TestCase represents a top-level document — a Feature, Specification, or gene
 | Field         | Description                                                        |
 | ------------- | ------------------------------------------------------------------ |
 | `id`          | Stable identifier (consistent across runs)                         |
-| `style`       | Discriminator: `"Feature"`, `"Specification"`, or `"Container"`    |
+| `kind`        | Discriminator: `"Feature"`, `"Specification"`, or `"Container"`    |
 | `title`       | The Feature or Specification title                                 |
 | `path`        | Source file path (used for grouping in navigation)                 |
 | `tags`        | Array of tags for filtering                                        |
 | `tests`       | Child tests (Scenarios, Rules, etc.)                               |
 | `statistics`  | Aggregate pass/fail/pending/skipped counts                         |
-| `background`  | Optional background scenario (Feature style only)                  |
+| `background`  | Optional background scenario (Feature kind only)                   |
 
 ### Test (Executable Node)
 

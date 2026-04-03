@@ -21,11 +21,11 @@ export function NodeView({ node }: NodeViewProps) {
 
   const runState = getCurrentRun();
   const run = runState?.run;
-  const kind = String((node as any).kind ?? (node as any).style ?? '').toLowerCase();
+  const kind = String((node as any).kind ?? '').toLowerCase();
   const isBusiness = audienceMode === 'business';
 
   const isTestCaseNode = (n: TestCase | AnyTest): n is TestCase => {
-    return (n as any)?.style !== undefined && Array.isArray((n as any)?.tests);
+    return (n as any)?.kind !== undefined && Array.isArray((n as any)?.tests);
   };
 
   const isContainer = isTestCaseNode(node);
@@ -39,7 +39,7 @@ export function NodeView({ node }: NodeViewProps) {
   const containerTestCase = useMemo<TestCase | undefined>(() => {
     if (!run?.documents) return undefined;
 
-    const isTestCase = (n: any) => n?.style !== undefined && Array.isArray(n?.tests);
+    const isTestCase = (n: any) => n?.kind !== undefined && Array.isArray(n?.tests);
 
     const containsId = (n: any): boolean => {
       if (!n) return false;
@@ -75,8 +75,8 @@ export function NodeView({ node }: NodeViewProps) {
   }, [run?.documents, node.id]);
 
   const feature = useMemo<TestCase | undefined>(() => {
-    const style = String((containerTestCase as any)?.style ?? (containerTestCase as any)?.kind ?? '').toLowerCase();
-    return style === 'feature' ? containerTestCase : undefined;
+    const featureKind = String((containerTestCase as any)?.kind ?? '').toLowerCase();
+    return featureKind === 'feature' ? containerTestCase : undefined;
   }, [containerTestCase]);
 
   const background = useMemo<AnyTest | undefined>(() => {
@@ -141,7 +141,7 @@ export function NodeView({ node }: NodeViewProps) {
   const highlightValues = undefined;
 
   const isScenarioView = !!feature && kind === 'scenario';
-  const containerStyle = String((containerTestCase as any)?.style ?? (containerTestCase as any)?.kind ?? '').toLowerCase();
+  const containerStyle = String((containerTestCase as any)?.kind ?? '').toLowerCase();
   const isSpecificationContainer = containerStyle === 'specification';
   const isRuleView = isSpecificationContainer && kind === 'rule';
   const isRuleOutlineView = isSpecificationContainer && kind === 'ruleoutline';
@@ -162,7 +162,7 @@ export function NodeView({ node }: NodeViewProps) {
   const environment = run?.environment || 'local';
 
   const containerTitleWithKind = containerNode
-    ? (String((containerNode as any).style ?? (containerNode as any).kind ?? '').toLowerCase() === 'feature'
+    ? (String((containerNode as any).kind ?? '').toLowerCase() === 'feature'
       ? kindPrefixTitle('Feature', containerTitle)
       : containerTitle)
     : '';

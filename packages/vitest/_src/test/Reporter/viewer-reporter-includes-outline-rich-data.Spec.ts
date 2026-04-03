@@ -183,7 +183,7 @@ feature("Viewer reporter includes rich ScenarioOutline data", () => {
         and("the posted ScenarioOutline includes '2' example tables named 'Australian Cows' and 'New Zealand Cows'", (ctx) => {
             const [expectedCount, expectedName1, expectedName2] = ctx.step.values;
 
-            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Rich Outline Feature");
+            const featureDoc = postedTestCases.find((tc) => tc?.kind === "Feature" && tc?.title === "Rich Outline Feature");
             featureDoc.should.exist;
 
             const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "scenarios can have multiple data tables");
@@ -197,7 +197,7 @@ feature("Viewer reporter includes rich ScenarioOutline data", () => {
         and("the ScenarioOutline example rows include a numeric rowId for table '0' row '0'", (ctx) => {
             const [tableIndex, rowIndex0] = ctx.step.values;
 
-            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Rich Outline Feature");
+            const featureDoc = postedTestCases.find((tc) => tc?.kind === "Feature" && tc?.title === "Rich Outline Feature");
             featureDoc.should.exist;
 
             const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "scenarios can have multiple data tables");
@@ -222,7 +222,7 @@ feature("Viewer reporter includes rich ScenarioOutline data", () => {
         `, (ctx) => {
             const expected = ctx.step.docStringAsEntity as any;
 
-            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Rich Outline Feature");
+            const featureDoc = postedTestCases.find((tc) => tc?.kind === "Feature" && tc?.title === "Rich Outline Feature");
             featureDoc.should.exist;
 
             const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "scenarios can have multiple data tables");
@@ -374,7 +374,7 @@ feature("Viewer reporter includes rich ScenarioOutline data", () => {
         });
 
         then("the posted ScenarioOutline template step includes description 'example docstring' and remains pending", () => {
-            const featureDoc = postedTestCases.find((tc) => tc?.style === "Feature" && tc?.title === "Outline DocString Backfill Feature");
+            const featureDoc = postedTestCases.find((tc) => tc?.kind === "Feature" && tc?.title === "Outline DocString Backfill Feature");
             featureDoc.should.exist;
 
             const outlineTest = featureDoc.tests.find((t: any) => t?.kind === "ScenarioOutline" && t?.title === "outline template docstring should be backfilled");
