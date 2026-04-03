@@ -730,12 +730,13 @@ foreach ($p in $packages) {
     } elseif ($p.Kind -eq 'dotnet') {
         $dotnetSlnLocal = $dotnetSln
         $dotnetDirLocal = (Join-Path $repoRoot 'dotnet/xunit')
+        $loggerPath = Join-Path $dotnetDirLocal 'logger/bin/Debug/net8.0'
         $children = @(
             (New-MenuItem -Label 'Build' -HotKey '1' -Action ({
                 Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('build', $dotnetSlnLocal)
             }.GetNewClosure())),
             (New-MenuItem -Label 'Test' -HotKey '2' -Action ({
-                Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal, '--logger', 'LiveDoc')
+                Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal, '--logger', 'LiveDoc', '--test-adapter-path', $loggerPath)
             }.GetNewClosure())),
             (New-MenuItem -Label 'Test (with Viewer)' -HotKey '3' -Action ({
                 $serverUrl = 'http://localhost:19275'
@@ -746,7 +747,7 @@ foreach ($p in $packages) {
                 $env:LIVEDOC_PROJECT = 'LiveDoc.xUnit'
                 $env:LIVEDOC_ENVIRONMENT = 'local'
                 try {
-                    Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal, '--logger', 'LiveDoc')
+                    Invoke-InDirectory -WorkingDirectory $dotnetDirLocal -Executable 'dotnet' -Arguments @('test', $dotnetSlnLocal, '--logger', 'LiveDoc', '--test-adapter-path', $loggerPath)
                 } finally {
                     Remove-Item Env:\LIVEDOC_SERVER_URL -ErrorAction SilentlyContinue
                     Remove-Item Env:\LIVEDOC_PROJECT -ErrorAction SilentlyContinue
