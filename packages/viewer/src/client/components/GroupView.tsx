@@ -103,26 +103,6 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
     });
   }, [children, filterTags, filterText]);
 
-  // 3b. When local results are empty but filters are active, count global matches
-  const globalMatchCount = useMemo(() => {
-    if (filteredChildren.length > 0) return 0;
-    const textLower = filterText.trim().toLowerCase();
-    const hasText = textLower.length > 0;
-    const hasTags = filterTags.length > 0;
-    if (!hasText && !hasTags) return 0;
-
-    let count = 0;
-    const allItems = Object.values(run.itemById ?? {}) as any[];
-    for (const item of allItems) {
-      if (!item || typeof item !== 'object' || typeof item.kind !== 'string') continue;
-      if (subtreeHasMatch(item, textLower, filterTags)) {
-        count++;
-        if (count >= 100) break;
-      }
-    }
-    return count;
-  }, [filteredChildren.length, filterText, filterTags, run.itemById]);
-
   const groupedChildren = useMemo(() => {
     const groups: Record<string, ListItem[]> = {};
     for (const child of filteredChildren) {
@@ -148,6 +128,22 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
         return a.localeCompare(b);
     });
   }, [groupedChildren]);
+
+  // When current folder has no matches, compute global results for helpful navigation
+  const globalResultInfo = useMemo(() => {
+    const textLower = filterText.trim().toLowerCase();
+    const hasText = textLower.length > 0;
+    const hasTags = filterTags.length > 0;
+    if (!hasText && !hasTags) return { count: 0, items: [] as any[] };
+    if (filteredChildren.length > 0) return { count: 0, items: [] as any[] };
+
+    const allItems = Object.values(run.itemById ?? {}) as any[];
+    const matches = allItems
+      .filter((n: any) => n && typeof n === 'object' && typeof n.kind === 'string')
+      .filter((n: any) => subtreeHasMatch(n, textLower, filterTags));
+
+    return { count: matches.length, items: matches.slice(0, 5) };
+  }, [filterText, filterTags, filteredChildren.length, run.itemById]);
 
   const breadcrumbs = useMemo(() => {
     return findNavPath(navTree, groupId) || [];
@@ -239,22 +235,46 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
 
       <div className="space-y-8">
          {filteredChildren.length === 0 ? (
-             <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
-                {(filterText || filterTags.length > 0) ? (
-                  globalMatchCount > 0 && groupId !== 'group:/' ? (
-                    <div className="space-y-3">
-                      <p>No matching results in this folder.</p>
-                      <button
-                        type="button"
-                        onClick={() => navigate('group', 'group:/')}
-                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                      >
-                        View {globalMatchCount >= 100 ? '100+' : globalMatchCount} {globalMatchCount === 1 ? 'match' : 'matches'} elsewhere →
-                      </button>
+              (filterText || filterTags.length > 0) ? (
+                globalResultInfo.count > 0 ? (
+                  <div className="rounded-xl border bg-card p-6 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      No matches in this folder — <strong className="text-foreground">{globalResultInfo.count}</strong> result{globalResultInfo.count !== 1 ? 's' : ''} found elsewhere:
+                    </p>
+                    <div className="rounded-lg border overflow-hidden divide-y">
+                      {globalResultInfo.items.map((item: any) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors flex items-center gap-3"
+                          onClick={() => navigate('node', item.id)}
+                        >
+                          <StatusBadge status={item.execution?.status} size="xs" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
+                              {String(item.kind ?? '').toLowerCase()}
+                            </div>
+                            <div className="text-sm font-medium truncate">{item.title}</div>
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  ) : "No matching results."
-                ) : "This folder is empty."}
-             </div>
+                    {globalResultInfo.count > 5 && (
+                      <p className="text-xs text-muted-foreground">
+                        …and {globalResultInfo.count - 5} more. Click the search field to browse all results.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+                    No matching results.
+                  </div>
+                )
+              ) : (
+                <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+                  This folder is empty.
+                </div>
+              )
          ) : (
             sortedGroupKeys.map(kind => {
                 const Icon = getIconForKind(kind);

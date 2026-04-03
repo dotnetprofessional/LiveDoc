@@ -85,6 +85,27 @@ export function NodeView({ node }: NodeViewProps) {
     return feature.background as AnyTest | undefined;
   }, [feature]);
 
+  // When viewing a Step, find its parent Scenario/Rule for rendering context
+  const parentScenario = useMemo<AnyTest | undefined>(() => {
+    if (!containerTestCase || kind !== 'step') return undefined;
+
+    for (const test of (containerTestCase.tests ?? []) as AnyTest[]) {
+      const testSteps = (test as any).steps as AnyTest[] | undefined;
+      if (Array.isArray(testSteps) && testSteps.some(s => s.id === node.id)) {
+        return test;
+      }
+    }
+
+    if (containerTestCase.background) {
+      const bgSteps = (containerTestCase.background as any).steps as AnyTest[] | undefined;
+      if (Array.isArray(bgSteps) && bgSteps.some(s => s.id === node.id)) {
+        return containerTestCase.background as AnyTest;
+      }
+    }
+
+    return undefined;
+  }, [containerTestCase, node.id, kind]);
+
   // Get breadcrumbs
   const breadcrumbs = useMemo(() => {
     if (containerTestCase) {
@@ -100,7 +121,9 @@ export function NodeView({ node }: NodeViewProps) {
 
   const children = isTestCaseNode(node)
     ? ((node.tests ?? []) as AnyTest[])
-    : ('children' in (node as any) ? (node as any).children : undefined);
+    : kind === 'step' && containerTestCase
+      ? ((containerTestCase.tests ?? []) as AnyTest[])
+      : ('children' in (node as any) ? (node as any).children : undefined);
 
   const isLeafContainer = ['scenario', 'background', 'rule', 'test'].includes(kind);
   const steps = Array.isArray((node as any).steps)
@@ -176,6 +199,39 @@ export function NodeView({ node }: NodeViewProps) {
           />
         </div>
       )}
+
+      {/* ========== STEP VIEW: Show parent Scenario/Rule ========== */}
+      {parentScenario && kind === 'step' && (!background || parentScenario.id !== background.id) && (() => {
+        const parentKind = String((parentScenario as any).kind ?? '').toLowerCase();
+        const pSteps = (((parentScenario as any).steps ?? []) as AnyTest[])
+          .filter((t): t is StepTest => typeof (t as any)?.keyword === 'string');
+
+        const labelMap: Record<string, 'Scenario' | 'Scenario Outline' | 'Background' | 'Rule' | 'Rule Outline'> = {
+          scenario: 'Scenario',
+          background: 'Background',
+          rule: 'Rule',
+          scenariooutline: 'Scenario Outline',
+          ruleoutline: 'Rule Outline',
+        };
+        const label = labelMap[parentKind] ?? 'Scenario';
+        const tone: 'scenario' | 'background' = parentKind === 'background' ? 'background' : 'scenario';
+
+        return (
+          <div className="space-y-3">
+            <ScenarioBlock
+              label={label}
+              title={renderTitle(stripLeadingKindLabel(String(parentScenario.title ?? ''), label))}
+              status={(parentScenario as any).execution?.status}
+              description={parentScenario.description}
+              tags={parentScenario.tags}
+              steps={pSteps}
+              showDurations={!isBusiness}
+              showErrorStack={!isBusiness}
+              tone={tone}
+            />
+          </div>
+        );
+      })()}
 
       {/* ========== SCENARIO SECTION (when viewing a child of a Feature) ========== */}
       {feature && !isTestCaseNode(node) && kind === 'scenario' && (
