@@ -151,7 +151,7 @@ public class LiveDocContext : IDisposable
         // Buffer test case and scenario data for bulk sending at end
         if (_runReporter != null && _testCaseId != null)
         {
-            var style = _isSpecification ? TestStyles.Specification : TestStyles.Feature;
+            var style = _isSpecification ? TestKinds.Specification : TestKinds.Feature;
             var path = LiveDocTestRunReporter.DerivePath(testClassType);
             _runReporter.BufferTestCase(
                 _testCaseId,

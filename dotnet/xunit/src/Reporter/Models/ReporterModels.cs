@@ -375,9 +375,9 @@ public class RuleOutlineTest : BaseTest
 // =============================================================================
 
 /// <summary>
-/// Kind of test case (Feature, Specification, Container).
+/// Kind of test case (Feature, Specification, Container, Standard).
 /// </summary>
-public static class TestStyles
+public static class TestKinds
 {
     public const string Feature = "Feature";
     public const string Specification = "Specification";
@@ -394,7 +394,7 @@ public class TestCase
     public string Id { get; set; } = string.Empty;
 
     [JsonPropertyName("kind")]
-    public string Kind { get; set; } = TestStyles.Feature;
+    public string Kind { get; set; } = TestKinds.Feature;
 
     [JsonPropertyName("path")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

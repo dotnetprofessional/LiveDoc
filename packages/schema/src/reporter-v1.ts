@@ -107,6 +107,7 @@ export const TestKinds = {
   Feature: 'Feature',
   Specification: 'Specification',
   Container: 'Container',
+  Standard: 'Standard',
 
   // Test kinds (executable nodes)
   Scenario: 'Scenario',

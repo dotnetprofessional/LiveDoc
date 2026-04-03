@@ -168,7 +168,7 @@ public class LiveDocMessageSink : IMessageSink
             if (_reporter.HasTest(testId))
                 return;
 
-            var style = isSpec ? Reporter.Models.TestStyles.Specification : Reporter.Models.TestStyles.Feature;
+            var style = isSpec ? Reporter.Models.TestKinds.Specification : Reporter.Models.TestKinds.Feature;
             var title = FormatTestCaseTitle(className);
             var (description, tags) = ExtractClassMetadata(testClass, isSpec);
             _reporter.BufferTestCase(testCaseId, kind: style, title, description, tags, path);
@@ -211,7 +211,7 @@ public class LiveDocMessageSink : IMessageSink
             var testCaseId = $"standard:{className}";
             var testId = $"{className}.{methodName}";
 
-            _reporter.BufferTestCase(testCaseId, Reporter.Models.TestStyles.Standard, 
+            _reporter.BufferTestCase(testCaseId, Reporter.Models.TestKinds.Standard, 
                 FormatTestCaseTitle(className), path: path);
             _reporter.BufferTest(testCaseId, testId, "Test", displayName);
             _reporter.UpdateTestExecution(testId, status, durationMs, error);

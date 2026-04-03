@@ -187,7 +187,7 @@ public class Schema_Models_Spec : SpecificationTest
         var testCase = new TestCase
         {
             Id = "feature-1",
-            Kind = TestStyles.Feature,
+            Kind = TestKinds.Feature,
             Title = "User Authentication",
             Tests = new List<BaseTest>()
         };
@@ -204,7 +204,7 @@ public class Schema_Models_Spec : SpecificationTest
         var testCase = new TestCase
         {
             Id = "spec-1",
-            Kind = TestStyles.Specification,
+            Kind = TestKinds.Specification,
             Title = "Calculator Operations"
         };
 
