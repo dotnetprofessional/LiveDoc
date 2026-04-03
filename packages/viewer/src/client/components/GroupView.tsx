@@ -103,6 +103,26 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
     });
   }, [children, filterTags, filterText]);
 
+  // 3b. When local results are empty but filters are active, count global matches
+  const globalMatchCount = useMemo(() => {
+    if (filteredChildren.length > 0) return 0;
+    const textLower = filterText.trim().toLowerCase();
+    const hasText = textLower.length > 0;
+    const hasTags = filterTags.length > 0;
+    if (!hasText && !hasTags) return 0;
+
+    let count = 0;
+    const allItems = Object.values(run.itemById ?? {}) as any[];
+    for (const item of allItems) {
+      if (!item || typeof item !== 'object' || typeof item.kind !== 'string') continue;
+      if (subtreeHasMatch(item, textLower, filterTags)) {
+        count++;
+        if (count >= 100) break;
+      }
+    }
+    return count;
+  }, [filteredChildren.length, filterText, filterTags, run.itemById]);
+
   const groupedChildren = useMemo(() => {
     const groups: Record<string, ListItem[]> = {};
     for (const child of filteredChildren) {
@@ -220,7 +240,20 @@ export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
       <div className="space-y-8">
          {filteredChildren.length === 0 ? (
              <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
-                {(filterText || filterTags.length > 0) ? "No matching results." : "This folder is empty."}
+                {(filterText || filterTags.length > 0) ? (
+                  globalMatchCount > 0 && groupId !== 'group:/' ? (
+                    <div className="space-y-3">
+                      <p>No matching results in this folder.</p>
+                      <button
+                        type="button"
+                        onClick={() => navigate('group', 'group:/')}
+                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                      >
+                        View {globalMatchCount >= 100 ? '100+' : globalMatchCount} {globalMatchCount === 1 ? 'match' : 'matches'} elsewhere →
+                      </button>
+                    </div>
+                  ) : "No matching results."
+                ) : "This folder is empty."}
              </div>
          ) : (
             sortedGroupKeys.map(kind => {

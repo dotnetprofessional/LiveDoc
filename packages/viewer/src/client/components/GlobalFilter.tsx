@@ -6,6 +6,25 @@ import { useStore } from '../store';
 import { formatTagLabel, normalizeTag, subtreeHasMatch } from '../lib/filter-utils';
 import { StatusBadge } from './StatusBadge';
 
+/** Given a Step node id, find its parent Scenario/Rule (or Feature for background steps). */
+function findStepParent(documents: TestCase[], stepId: string): { id: string; navigateAs: 'node' | 'group' } | undefined {
+  for (const doc of documents) {
+    for (const test of doc.tests ?? []) {
+      const steps = (test as any).steps as any[];
+      if (Array.isArray(steps) && steps.some((s: any) => s.id === stepId)) {
+        return { id: test.id, navigateAs: 'node' };
+      }
+    }
+    if (doc.background) {
+      const steps = (doc.background as any).steps as any[];
+      if (Array.isArray(steps) && steps.some((s: any) => s.id === stepId)) {
+        return { id: doc.id, navigateAs: 'group' };
+      }
+    }
+  }
+  return undefined;
+}
+
 function getNodeChildrenForTraversal(node: TestCase | AnyTest): Array<TestCase | AnyTest> {
   const children: Array<TestCase | AnyTest> = [];
   const anyNode = node as any;
@@ -281,7 +300,31 @@ export function GlobalFilter({ className }: { className?: string }) {
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    navigate('node', String((node as any).id));
+                    const id = String((node as any).id);
+                    const kind = String((node as any).kind ?? '').toLowerCase();
+                    const isTestCase = (node as any).style !== undefined && Array.isArray((node as any).tests);
+
+                    let targetId = id;
+                    let targetType: 'node' | 'group' = 'node';
+
+                    if (isTestCase) {
+                      // Feature/Specification → group view shows all children
+                      targetType = 'group';
+                    } else if (kind === 'step' && run) {
+                      // Step → navigate to parent scenario/rule
+                      const parent = findStepParent(run.run.documents ?? [], id);
+                      if (parent) {
+                        targetId = parent.id;
+                        targetType = parent.navigateAs;
+                      }
+                    }
+
+                    // Clear filters — user found what they wanted
+                    setFilterText('');
+                    setFilterTags([]);
+                    setInputValue('');
+
+                    navigate(targetType, targetId);
                     setTagPickerOpen(false);
                     setHasFocus(false);
                     window.setTimeout(() => inputRef.current?.blur(), 0);

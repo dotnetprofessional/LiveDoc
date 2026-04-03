@@ -17,7 +17,7 @@ interface NodeViewProps {
 }
 
 export function NodeView({ node }: NodeViewProps) {
-  const { navigate, audienceMode, getCurrentRun, filterText, filterTags } = useStore();
+  const { navigate, audienceMode, getCurrentRun } = useStore();
 
   const runState = getCurrentRun();
   const run = runState?.run;
@@ -267,8 +267,8 @@ export function NodeView({ node }: NodeViewProps) {
       <ChildrenList
         children={children as AnyTest[] | undefined}
         showCards={showCards}
-        filterText={filterText}
-        filterTags={filterTags}
+        filterText=""
+        filterTags={[]}
         navigate={navigate}
         isSpecificationContainer={isSpecificationContainer}
       />
