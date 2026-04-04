@@ -2,7 +2,7 @@ name: LiveDoc Report
 
 on:
   push:
-    branches: [master]
+    branches: [master, vitest-upgrade]  # TODO: remove vitest-upgrade before merging PR
   workflow_dispatch:
 
 permissions:
