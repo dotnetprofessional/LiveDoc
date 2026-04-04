@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build-and-test-js:
-    name: Vitest + Viewer
+    name: TypeScript (Vitest, Viewer, VS Code, Docs)
     runs-on: ubuntu-latest
 
     steps:
@@ -47,6 +47,12 @@ jobs:
 
       - name: Typecheck viewer
         run: pnpm --filter @swedevtools/livedoc-viewer typecheck
+
+      - name: Build VS Code extension
+        run: pnpm --filter livedoc-vscode compile
+
+      - name: Build documentation site
+        run: pnpm --filter livedoc-docs build
 
       - name: Generate Vitest HTML report
         if: always()
