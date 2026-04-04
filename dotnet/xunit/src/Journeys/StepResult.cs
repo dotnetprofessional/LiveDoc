@@ -13,7 +13,7 @@ public record StepResult(
     bool Reached
 )
 {
-    private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-9;]*m", RegexOptions.Compiled);
+    private static readonly Regex AnsiEscapePattern = new(@"\x1B\[[0-9;]*[A-Za-z]|\x1B\].*?(\x07|\x1B\\)", RegexOptions.Compiled);
 
     /// <summary>
     /// Extracts the JSON response body from the httpyac output.

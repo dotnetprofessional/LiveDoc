@@ -225,8 +225,8 @@ public class JourneyFixtureBase : IAsyncLifetime
         {
             FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "npx",
             Arguments = OperatingSystem.IsWindows()
-                ? $"/c npx httpyac send \"{httpFilePath}\" --all -e {Config.HttpYacEnvironment} --bail {varArgs}"
-                : $"httpyac send \"{httpFilePath}\" --all -e {Config.HttpYacEnvironment} --bail {varArgs}",
+                ? $"/c npx httpyac send \"{httpFilePath}\" --all --no-color -e {Config.HttpYacEnvironment} --bail {varArgs}"
+                : $"httpyac send \"{httpFilePath}\" --all --no-color -e {Config.HttpYacEnvironment} --bail {varArgs}",
             WorkingDirectory = JourneysDir,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

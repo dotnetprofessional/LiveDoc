@@ -1634,6 +1634,7 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                 include: [absoluteFilename.replace(/\\/g, '/')],  // Override include pattern
                 setupFiles: [],  // Disable setup files - temp file has its own imports
                 testTimeout: testTimeoutMs,
+                allowOnly: true,  // Allow .only even in CI (dynamic tests use .only for filtering)
             });
 
             if (!vitest) {
