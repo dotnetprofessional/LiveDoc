@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <RootNamespace>SweDevTools.LiveDoc.xUnit</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -9,7 +9,7 @@
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
-    <Version>0.1.8-beta1</Version>
+    <Version>0.1.8-beta4</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -66,10 +66,12 @@
           Pack="true" PackagePath="tools\journey-generator\net8.0\" />
   </ItemGroup>
 
-  <!-- Bundle the console logger DLL so VSTest can discover it -->
+  <!-- Bundle the console logger DLL so VSTest can discover it (both TFMs) -->
   <ItemGroup>
     <None Include="logger\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
           Pack="true" PackagePath="build\net8.0\" />
+    <None Include="logger\bin\$(Configuration)\net10.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
+          Pack="true" PackagePath="build\net10.0\" />
   </ItemGroup>
 
   <Target Name="BuildJourneyGeneratorTool" BeforeTargets="GenerateNuspec">

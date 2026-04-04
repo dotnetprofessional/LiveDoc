@@ -4,7 +4,9 @@
     Usage: dotnet test ~~logger LiveDoc
   -->
   <PropertyGroup>
-    <_LiveDocLoggerDir>$(MSBuildThisFileDirectory)net8.0\</_LiveDocLoggerDir>
+    <!-- Pick the consumer's TFM folder if it exists, otherwise fall back to net8.0 -->
+    <_LiveDocLoggerDir Condition="Exists('$(MSBuildThisFileDirectory)$(TargetFramework)\')">$(MSBuildThisFileDirectory)$(TargetFramework)\</_LiveDocLoggerDir>
+    <_LiveDocLoggerDir Condition="'$(_LiveDocLoggerDir)' == ''">$(MSBuildThisFileDirectory)net8.0\</_LiveDocLoggerDir>
   </PropertyGroup>
   <ItemGroup>
     <VSTestTestAdaptersPaths Include="$(_LiveDocLoggerDir)" />
@@ -12,27 +14,30 @@
 
   <!--
     LiveDoc AI Skill Installer.
-    Invoked explicitly: dotnet msbuild -t:LiveDoc
+    Invoked explicitly: dotnet msbuild -t:LiveDocInstallSkills
+    Non-interactive:    dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot
     NOT run during normal builds.
   -->
   <PropertyGroup>
     <LiveDocToolsDir>$(MSBuildThisFileDirectory)..\tools\</LiveDocToolsDir>
+    <!-- Support both LiveDocAITool (preferred) and legacy LiveDocTool -->
+    <LiveDocAITool Condition="'$(LiveDocAITool)' == '' And '$(LiveDocTool)' != ''">$(LiveDocTool)</LiveDocAITool>
   </PropertyGroup>
 
-  <Target Name="LiveDoc">
+  <Target Name="LiveDocInstallSkills">
     <!-- Windows -->
-    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' == ''"
+    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocAITool)' == ''"
           Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(LiveDocToolsDir)livedoc-setup.ps1&quot;"
           WorkingDirectory="$(MSBuildProjectDirectory)" />
-    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' != ''"
-          Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(LiveDocToolsDir)livedoc-setup.ps1&quot; -Tool $(LiveDocTool)"
+    <Exec Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocAITool)' != ''"
+          Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(LiveDocToolsDir)livedoc-setup.ps1&quot; -Tool $(LiveDocAITool)"
           WorkingDirectory="$(MSBuildProjectDirectory)" />
     <!-- Mac / Linux -->
-    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' == ''"
+    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocAITool)' == ''"
           Command="bash &quot;$(LiveDocToolsDir)livedoc-setup.sh&quot;"
           WorkingDirectory="$(MSBuildProjectDirectory)" />
-    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocTool)' != ''"
-          Command="bash &quot;$(LiveDocToolsDir)livedoc-setup.sh&quot; --tool $(LiveDocTool)"
+    <Exec Condition="!$([MSBuild]::IsOSPlatform('Windows')) And '$(LiveDocAITool)' != ''"
+          Command="bash &quot;$(LiveDocToolsDir)livedoc-setup.sh&quot; --tool $(LiveDocAITool)"
           WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
