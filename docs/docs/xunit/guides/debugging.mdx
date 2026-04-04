@@ -227,30 +227,33 @@ Feature: Order Processing
 Temporarily add `_output.WriteLine(...)` calls in your steps to capture
 state that may differ between local and CI environments.
 
-### 3. Use `.runsettings` for CI
+### 3. Set Environment Variables for CI
 
-Create a CI-specific `.runsettings` file to adjust timeouts or
-environment labels:
+Use environment variables to label the test run and enable reporting in CI:
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<RunSettings>
-  <LiveDoc>
-    <Environment>ci</Environment>
-  </LiveDoc>
-</RunSettings>
+```powershell
+# PowerShell
+$env:LIVEDOC_ENVIRONMENT = "ci"
+$env:LIVEDOC_EXPORT_PATH = "./test-results/livedoc-report.json"
+dotnet test --logger LiveDoc --logger "trx;LogFileName=results.trx"
 ```
 
-```bash
-dotnet test --settings ci.runsettings --logger "trx;LogFileName=results.trx"
+```yaml
+# GitHub Actions
+- name: Run tests
+  run: dotnet test --logger LiveDoc --logger "trx;LogFileName=results.trx"
+  env:
+    LIVEDOC_ENVIRONMENT: ci
+    LIVEDOC_EXPORT_PATH: ./test-results/livedoc-report.json
 ```
 
 ### 4. Reproduce Locally
 
-Run with the same settings and verbosity as CI:
+Run with the same environment label and verbosity as CI:
 
-```bash
-dotnet test --settings ci.runsettings --verbosity normal
+```powershell
+$env:LIVEDOC_ENVIRONMENT = "ci"
+dotnet test --logger LiveDoc --verbosity normal
 ```
 
 ---

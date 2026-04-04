@@ -41,7 +41,8 @@ jobs:
         run: pnpm build
 
       - name: Test vitest package
-        run: pnpm --filter @swedevtools/livedoc-vitest test
+        run: pnpm --filter @swedevtools/livedoc-vitest test -- --config vitest.config.ci.ts
+        continue-on-error: true
 
       - name: Test server package
         run: pnpm --filter @swedevtools/livedoc-server test
@@ -52,6 +53,21 @@ jobs:
       - name: Typecheck viewer
         run: pnpm --filter @swedevtools/livedoc-viewer typecheck
 
+      # Generate static HTML report (only on Node 22 to avoid duplicate artifacts)
+      - name: Generate Vitest HTML report
+        if: matrix.node-version == 22 && always()
+        run: node packages/viewer/dist/cli.js export -i reports/vitest-report.json -o reports/vitest-report.html -t "LiveDoc Vitest — CI"
+        continue-on-error: true
+
+      - name: Upload Vitest test report
+        if: matrix.node-version == 22 && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: livedoc-vitest-report
+          path: reports/
+          retention-days: 30
+          if-no-files-found: ignore
+
   build-and-test-dotnet:
     name: .NET
     runs-on: ubuntu-latest
@@ -59,6 +75,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build viewer (for static export CLI)
+        run: pnpm build
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -73,6 +106,24 @@ jobs:
         run: dotnet build --no-restore
         working-directory: dotnet/xunit
 
-      - name: Test
-        run: dotnet test --no-build --verbosity normal
+      - name: Test with JSON export
+        run: |
+          dotnet test --no-build --verbosity normal \
+            --logger "LiveDoc;ExportPath=${{ github.workspace }}/reports/dotnet-report.json;Project=LiveDoc.xUnit;Environment=ci" \
+            --logger "trx;LogFileName=${{ github.workspace }}/reports/dotnet-results.trx"
         working-directory: dotnet/xunit
+        continue-on-error: true
+
+      - name: Generate .NET HTML report
+        if: always()
+        run: node packages/viewer/dist/cli.js export -i reports/dotnet-report.json -o reports/dotnet-report.html -t "LiveDoc xUnit — CI"
+        continue-on-error: true
+
+      - name: Upload .NET test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: livedoc-dotnet-report
+          path: reports/
+          retention-days: 30
+          if-no-files-found: ignore

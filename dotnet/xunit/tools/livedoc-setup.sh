@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LiveDoc AI Skill Installer — install AI coding skills for your team.
+# LiveDoc AI Skill Installer -- install AI coding skills for your team.
 # Usage: livedoc-setup.sh [--tool copilot|claude|roo|cursor|windsurf|all]
 
 set -euo pipefail
@@ -93,7 +93,7 @@ for idx in "${selected[@]}"; do
     target="$GIT_ROOT/$dest"
     mkdir -p "$target"
     cp -R "$SKILLS_SOURCE"/. "$target"/
-    echo "  ✓ $name → $target"
+    echo "  [ok] $name -> $target"
 done
 
 echo ""

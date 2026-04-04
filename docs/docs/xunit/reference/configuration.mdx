@@ -1,24 +1,22 @@
 ---
 sidebar_position: 8
-description: "Configuration reference for LiveDoc xUnit — .runsettings XML, assembly attributes, LiveDoc Viewer integration, project setup, and test discovery."
+description: "Configuration reference for LiveDoc xUnit — environment variables, auto-discovery, LiveDoc Viewer integration, project setup, and test discovery."
 ---
 
 # Configuration
 
 <p className="intro">
-LiveDoc xUnit works out of the box with zero configuration. Optional configuration
-lets you integrate with the LiveDoc Viewer, set project metadata, and customize
-test discovery and reporting.
+LiveDoc xUnit works out of the box with zero configuration. For local development,
+auto-discovery connects to the LiveDoc Viewer automatically. For CI/CD and advanced
+setups, environment variables let you customize reporting, project metadata, and export behavior.
 </p>
 
-```xml
-<!-- .runsettings -->
-<RunSettings>
-  <LiveDoc>
-    <ViewerUrl>http://localhost:3100</ViewerUrl>
-    <Project>my-app</Project>
-  </LiveDoc>
-</RunSettings>
+```bash
+# Local — zero config (auto-discovers viewer on localhost:3100)
+dotnet test --logger LiveDoc
+
+# Export + custom project name — all inline
+dotnet test --logger "LiveDoc;ExportPath=./results.json;Project=my-app"
 ```
 
 ---
@@ -67,68 +65,78 @@ A minimal `.csproj` for a LiveDoc xUnit test project:
 
 ---
 
-### `.runsettings` Configuration {#runsettings}
+### Configuration {#configuration}
 
-The `.runsettings` XML file configures LiveDoc's runtime behavior, primarily for Viewer integration. Place it in the project or solution root.
+LiveDoc uses auto-discovery for local development and supports two ways to configure reporting: **logger parameters** (inline with `dotnet test`) and **environment variables** (for CI/CD pipelines).
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<RunSettings>
-  <LiveDoc>
-    <ViewerUrl>http://localhost:3100</ViewerUrl>
-    <Project>my-dotnet-app</Project>
-    <Environment>local</Environment>
-  </LiveDoc>
-</RunSettings>
-```
+#### Auto-Discovery {#auto-discovery}
 
-#### Settings {#runsettings-settings}
+When no server URL is configured, the reporter automatically pings `http://localhost:3100/api/health` at startup. If the Viewer responds, reporting is enabled. If not, reporting is silently disabled — tests run normally with no errors.
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `ViewerUrl` | `string` | *(none)* | URL of the running LiveDoc Viewer instance. When set, test results are streamed in real-time. |
-| `Project` | `string` | Assembly name | Project name displayed in the Viewer. |
-| `Environment` | `string` | `"local"` | Environment label (e.g., `"local"`, `"ci"`, `"staging"`). |
+This means **local development requires zero configuration**: start the Viewer, run your tests, and results stream automatically.
 
-#### Using `.runsettings` {#using-runsettings}
+#### Logger Parameters {#logger-parameters}
 
-Pass the settings file when running tests:
+Pass configuration directly on the command line using the `--logger` flag. This is the simplest way to configure reporting for a single test run:
 
 ```bash
-# Command line
-dotnet test --settings .runsettings
+dotnet test --logger "LiveDoc;ExportPath=./test-results/report.json"
 
-# Or configure in the .csproj
+dotnet test --logger "LiveDoc;Project=my-app;Environment=ci"
+
+dotnet test --logger "LiveDoc;ServerUrl=https://viewer.internal.co;Project=my-app;Environment=ci"
 ```
 
-```xml
-<!-- In .csproj -->
-<PropertyGroup>
-  <RunSettingsFilePath>$(MSBuildProjectDirectory)\.runsettings</RunSettingsFilePath>
-</PropertyGroup>
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `ServerUrl` | *(auto-discover on `localhost:3100`)* | Viewer server URL. When set, skips auto-discovery and connects directly. |
+| `Project` | Assembly name | Project name displayed in the Viewer. |
+| `Environment` | `"local"` | Environment label (e.g., `"local"`, `"ci"`, `"staging"`). |
+| `ExportPath` | *(disabled)* | JSON export file path. When set, writes a `TestRunV1` JSON file after the test run. See [Export Configuration](#export-configuration). |
+
+:::tip
+Logger parameters take precedence over environment variables. Use parameters for quick one-off runs and environment variables for CI/CD pipelines where `env:` blocks are more natural.
+:::
+
+#### Environment Variables {#env-vars-reference}
+
+The same settings are available as environment variables. These are useful in CI/CD pipelines where setting `env:` blocks is standard practice.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LIVEDOC_SERVER_URL` | *(auto-discover on `localhost:3100`)* | Viewer server URL. |
+| `LIVEDOC_PROJECT` | Assembly name | Project name displayed in the Viewer. Auto-detected from assemblies ending in `.Tests`, `.Test`, or `.Specs`. |
+| `LIVEDOC_ENVIRONMENT` | `"local"` | Environment label. |
+| `LIVEDOC_EXPORT_PATH` | *(disabled)* | JSON export file path. |
+
+```yaml
+# GitHub Actions — env block
+- name: Run tests
+  run: dotnet test --logger LiveDoc
+  env:
+    LIVEDOC_SERVER_URL: https://viewer.internal.co
+    LIVEDOC_PROJECT: my-app
+    LIVEDOC_ENVIRONMENT: ci
 ```
 
-In Visual Studio, select the `.runsettings` file via **Test → Configure Run Settings → Select Solution Wide runsettings File**.
+#### Resolution Order {#resolution-order}
 
----
+Configuration is resolved in this order (first match wins):
 
-### Assembly Attributes {#assembly-attributes}
+1. **Logger parameter** — `--logger "LiveDoc;Project=my-app"`
+2. **Environment variable** — `LIVEDOC_PROJECT=my-app`
+3. **Auto-discovery / default** — auto-detect assembly name, discover Viewer on `localhost:3100`
 
-#### `[LiveDocViewerReporter]` {#viewer-reporter}
+#### Project Name Resolution {#project-name-resolution}
 
-Configures the LiveDoc Viewer reporter at the assembly level. This is an alternative to `.runsettings` for Viewer integration.
+When no `Project` parameter or `LIVEDOC_PROJECT` variable is set, the reporter auto-detects the project name:
 
-```csharp
-// In any .cs file in the test project (commonly AssemblyInfo.cs or a dedicated file)
-using SweDevTools.LiveDoc.xUnit;
+1. Entry assembly name (if not `"testhost"`)
+2. First loaded assembly whose name ends in `.Tests`, `.Test`, or `.Specs`
+3. `"Unknown"` (fallback)
 
-[assembly: LiveDocViewerReporter("http://localhost:3100")]
-```
-
-When this attribute is present, test results are sent to the specified Viewer URL as tests execute.
-
-:::info `.runsettings` vs. assembly attribute
-Both approaches configure the same behavior. Use `.runsettings` when you want per-environment configuration (different URLs for local vs. CI). Use the assembly attribute for a simple, always-on setup.
+:::tip
+For most projects, the auto-detected name is fine — if your test assembly is named `MyApp.Tests`, it just works. Set `Project` only when you need a custom display name.
 :::
 
 ---
@@ -241,17 +249,29 @@ Click any test to see the formatted BDD output in the Test Detail Summary pane.
 
 Export a `TestRunV1` JSON file directly to disk after the test run — no server needed. This is the recommended approach for CI pipelines and for generating [static HTML reports](../../viewer/guides/static-export.mdx).
 
-#### Environment Variable {#export-env-var}
+#### Logger Parameter {#export-logger-param}
 
-Set the `LIVEDOC_EXPORT_PATH` environment variable to enable JSON export:
+The simplest way to enable export — pass the path inline:
 
 ```bash
-# Linux / macOS / GitHub Actions
-LIVEDOC_EXPORT_PATH=./test-results/livedoc-report.json dotnet test --logger LiveDoc
+dotnet test --logger "LiveDoc;ExportPath=./test-results/livedoc-report.json"
 
-# Windows PowerShell
-$env:LIVEDOC_EXPORT_PATH = "./test-results/livedoc-report.json"
-dotnet test --logger LiveDoc
+# With project name and environment
+dotnet test --logger "LiveDoc;ExportPath=./test-results/report.json;Project=my-app;Environment=ci"
+```
+
+#### Environment Variable {#export-env-var}
+
+Alternatively, use the `LIVEDOC_EXPORT_PATH` environment variable — useful in CI `env:` blocks:
+
+```yaml
+# GitHub Actions
+- name: Run tests
+  run: dotnet test --logger LiveDoc
+  env:
+    LIVEDOC_EXPORT_PATH: ./test-results/livedoc-report.json
+    LIVEDOC_PROJECT: my-app
+    LIVEDOC_ENVIRONMENT: ci
 ```
 
 The reporter creates directories automatically and prints a confirmation:
@@ -259,14 +279,6 @@ The reporter creates directories automatically and prints a confirmation:
 ```
 ✅ LiveDoc results exported to ./test-results/livedoc-report.json (845.2 KB)
 ```
-
-#### Environment Variables Reference {#export-env-vars}
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LIVEDOC_EXPORT_PATH` | *(none — export disabled)* | File path for TestRunV1 JSON output. When set, enables export. |
-| `LIVEDOC_PROJECT` | Assembly name | Project name embedded in the JSON. |
-| `LIVEDOC_ENVIRONMENT` | `"local"` | Environment label (e.g., `"local"`, `"ci"`, `"staging"`). |
 
 #### Programmatic Configuration {#export-programmatic}
 
@@ -288,13 +300,9 @@ The export writes a JSON file **in addition to** server publishing — it doesn'
 #### CI/CD Example {#export-ci-cd}
 
 ```yaml
-# GitHub Actions
+# GitHub Actions — using logger parameters
 - name: Run .NET tests with JSON export
-  run: dotnet test --logger LiveDoc
-  env:
-    LIVEDOC_EXPORT_PATH: ./test-results/livedoc-report.json
-    LIVEDOC_PROJECT: my-dotnet-app
-    LIVEDOC_ENVIRONMENT: ci
+  run: dotnet test --logger "LiveDoc;ExportPath=./test-results/livedoc-report.json;Project=my-dotnet-app;Environment=ci"
 
 - name: Generate HTML report
   if: always()
@@ -385,7 +393,7 @@ dotnet test --logger LiveDoc
 
 ### LiveDoc Viewer integration {#viewer-integration}
 
-For real-time visualization of test results:
+For real-time visualization of test results, auto-discovery handles everything for local development:
 
 **Step 1**: Start the LiveDoc Viewer:
 
@@ -394,52 +402,36 @@ For real-time visualization of test results:
 ./scripts/start-viewer.ps1 -KillStale
 ```
 
-**Step 2**: Configure the reporter (choose one approach):
-
-```csharp
-// Option A: Assembly attribute
-[assembly: LiveDocViewerReporter("http://localhost:3100")]
-```
-
-```xml
-<!-- Option B: .runsettings -->
-<?xml version="1.0" encoding="utf-8"?>
-<RunSettings>
-  <LiveDoc>
-    <ViewerUrl>http://localhost:3100</ViewerUrl>
-    <Project>my-app</Project>
-    <Environment>local</Environment>
-  </LiveDoc>
-</RunSettings>
-```
-
-**Step 3**: Run tests:
+**Step 2**: Run your tests — no extra configuration needed:
 
 ```bash
-dotnet test --settings .runsettings
+dotnet test --logger LiveDoc
 ```
 
-Results appear in the Viewer browser UI as tests execute.
+Auto-discovery detects the Viewer on `http://localhost:3100` and streams results automatically. Open the Viewer in your browser to watch results appear as tests execute.
+
+:::tip
+No code changes, no config files, no environment variables needed for local development. Just start the Viewer and run your tests.
+:::
 
 ### CI/CD configuration {#ci-cd}
 
-For CI pipelines, use `.runsettings` with environment-specific values:
+For CI pipelines, pass configuration as logger parameters or environment variables:
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<RunSettings>
-  <LiveDoc>
-    <ViewerUrl>https://livedoc-viewer.internal.company.com</ViewerUrl>
-    <Project>my-app</Project>
-    <Environment>ci</Environment>
-  </LiveDoc>
-</RunSettings>
+```yaml
+# GitHub Actions — logger parameters
+- name: Run tests
+  run: dotnet test --logger "LiveDoc;ServerUrl=https://viewer.internal.co;Project=my-app;Environment=ci" --logger "trx;LogFileName=results.trx"
 ```
 
 ```yaml
-# GitHub Actions example
+# GitHub Actions — environment variables
 - name: Run tests
-  run: dotnet test --logger LiveDoc --settings .runsettings.ci
+  run: dotnet test --logger LiveDoc --logger "trx;LogFileName=results.trx"
+  env:
+    LIVEDOC_SERVER_URL: https://viewer.internal.co
+    LIVEDOC_PROJECT: my-app
+    LIVEDOC_ENVIRONMENT: ci
 ```
 
 ---
@@ -468,9 +460,18 @@ public MyTests(ITestOutputHelper output) { }
 
 ### Viewer not receiving results {#viewer-no-results}
 
-1. Confirm the Viewer is running: open the URL in a browser
-2. Verify the `ViewerUrl` matches the running Viewer's address
-3. Check that `.runsettings` is being loaded: `dotnet test --settings .runsettings`
+1. Confirm the Viewer is running: open `http://localhost:3100` in a browser
+2. Check auto-discovery: the reporter pings `http://localhost:3100/api/health` at startup — if it responds, reporting is enabled
+3. If the Viewer runs on a non-default port, pass `ServerUrl`: `dotnet test --logger "LiveDoc;ServerUrl=http://localhost:4200"`
+4. In CI, set `ServerUrl` explicitly — auto-discovery only checks `localhost:3100`
+
+### Project name shows "Unknown" {#unknown-project}
+
+The auto-detected name depends on your test assembly name. If it doesn't end in `.Tests`, `.Test`, or `.Specs`, pass it explicitly:
+
+```bash
+dotnet test --logger "LiveDoc;Project=my-app"
+```
 
 ---
 

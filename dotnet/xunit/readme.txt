@@ -8,7 +8,7 @@ other AI tools how to write great BDD and Specification tests.
 
 SETUP — one command from your project directory:
 
-    dotnet msbuild -t:LiveDoc
+    dotnet msbuild -t:LiveDocInstallSkills
 
 You'll see a menu to choose your AI tool(s):
 
@@ -21,8 +21,8 @@ You'll see a menu to choose your AI tool(s):
 
 CI / non-interactive:
 
-    dotnet msbuild -t:LiveDoc -p:LiveDocTool=copilot
-    dotnet msbuild -t:LiveDoc -p:LiveDocTool=all
+    dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot
+    dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=all
 
 Commit the generated files to share with your team.
 

@@ -29,7 +29,26 @@ public class LiveDocConsoleLogger : ITestLoggerWithParameters
         if (parameters.TryGetValue("nocolor", out _))
             _useColor = false;
 
+        // Bridge logger parameters to environment variables so LiveDocConfig picks them up.
+        // The logger initializes before test execution, so env vars are set before
+        // LiveDocConfig.Default is first accessed by the test framework.
+        BridgeParameter(parameters, "ServerUrl", "LIVEDOC_SERVER_URL");
+        BridgeParameter(parameters, "Project", "LIVEDOC_PROJECT");
+        BridgeParameter(parameters, "Environment", "LIVEDOC_ENVIRONMENT");
+        BridgeParameter(parameters, "ExportPath", "LIVEDOC_EXPORT_PATH");
+
         Initialize(events, string.Empty);
+    }
+
+    /// <summary>
+    /// Sets an environment variable from a logger parameter if present and non-empty.
+    /// Logger parameters (--logger "LiveDoc;Key=Value") take precedence over
+    /// existing environment variables.
+    /// </summary>
+    private static void BridgeParameter(Dictionary<string, string?> parameters, string paramName, string envVarName)
+    {
+        if (parameters.TryGetValue(paramName, out var value) && !string.IsNullOrEmpty(value))
+            System.Environment.SetEnvironmentVariable(envVarName, value);
     }
 
     private void OnTestResult(object? sender, TestResultEventArgs e)

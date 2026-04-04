@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    LiveDoc AI Skill Installer — install AI coding skills for your team.
+    LiveDoc AI Skill Installer -- install AI coding skills for your team.
 .PARAMETER Tool
     Skip the menu and install for a specific tool (or 'all').
     Valid values: copilot, claude, roo, cursor, windsurf, all
@@ -97,7 +97,7 @@ foreach ($key in $selected) {
         Copy-Item $file.FullName $targetPath -Force
     }
 
-    Write-Host "  ✓ $($entry.Name) → $dest" -ForegroundColor Green
+    Write-Host "  [ok] $($entry.Name) -> $dest" -ForegroundColor Green
 }
 
 Write-Host ""

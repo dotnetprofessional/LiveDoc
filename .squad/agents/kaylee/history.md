@@ -53,3 +53,9 @@
 
 **Cinematic Aesthetic**: Followed frontend-design skill guidance for a "director's reel" metaphor. Dark overlay (`bg-black/85 backdrop-blur-sm`), frosted glass step context bar (`bg-white/[0.03] backdrop-blur-md`), staggered gallery open animations (overlay → content scale 0.98→1.0 → context bar slide → filmstrip rise), step-boundary cross-fades with brief dim (`brightness(0.7)→1`), auto-play progress bar with linear fill. Professional, not flashy — designed for PMs and devs reviewing test runs.
 
+### Search & Navigation Fixes (2025-07-18)
+
+**Tag filter empty-folder UX (Bug 1)**: When a tag filter (e.g. `@attachments`) produces 0 results in the current GroupView folder, the viewer now computes global matches from `run.itemById` via `globalResultInfo` memo and renders up to 5 clickable result cards inline — each with status badge, kind label, and title. Replaces the old `globalMatchCount` approach that only offered a "go to root" link. Falls back to "No matching results." when there are truly zero global matches.
+
+**Step navigation context (Bug 2)**: NodeView had no render path for `kind === 'step'` — clicking a Step search result showed only the Feature header + Background, with no Scenario or Steps visible. Fix adds a `parentScenario` memo that walks `containerTestCase.tests[].steps` to find the owning Scenario/Rule, then renders it via ScenarioBlock. Also modified the `children` derivation so that when viewing a Step, `children` resolves to `containerTestCase.tests` — enabling ChildrenList to show sibling Scenarios for navigation context. Background-step duplication is prevented by checking `parentScenario.id !== background?.id`.
+
