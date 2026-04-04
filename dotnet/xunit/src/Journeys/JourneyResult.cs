@@ -116,7 +116,9 @@ public class JourneyResult
             }
 
             var trimmed = line.Trim();
-            if (trimmed.StartsWith("[-]") || trimmed.StartsWith("[ ]") || trimmed.StartsWith("[✗]"))
+            // httpyac assertion markers: bracketed on Windows [x], bare Unicode on Linux ✓/✖
+            if (trimmed.StartsWith("[-]") || trimmed.StartsWith("[ ]") || trimmed.StartsWith("[✗]") ||
+                trimmed.StartsWith("[✖]") || trimmed.StartsWith("✖") || trimmed.StartsWith("○"))
             {
                 hasFailedAssertion = true;
             }

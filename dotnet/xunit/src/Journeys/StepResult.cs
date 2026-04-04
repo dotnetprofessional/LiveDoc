@@ -55,9 +55,11 @@ public record StepResult(
             }
 
             var trimmed = line.TrimStart();
+            // httpyac assertion markers: bracketed on Windows [x], bare Unicode on Linux ✓/✖
             if (trimmed.StartsWith("[x]") || trimmed.StartsWith("[-]") ||
                 trimmed.StartsWith("[ ]") || trimmed.StartsWith("[✗]") ||
-                trimmed.StartsWith("[✓]"))
+                trimmed.StartsWith("[✓]") || trimmed.StartsWith("[✖]") ||
+                trimmed.StartsWith("✓") || trimmed.StartsWith("✖") || trimmed.StartsWith("○"))
                 break;
 
             if (Regex.IsMatch(trimmed, @"^\d+ requests processed"))
