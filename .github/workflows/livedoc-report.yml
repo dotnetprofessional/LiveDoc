@@ -54,7 +54,7 @@ jobs:
         working-directory: dotnet/xunit
 
       - name: Build .NET
-        run: dotnet build --configuration Release
+        run: dotnet build
         working-directory: dotnet/xunit
 
       - name: Create reports directory
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run .NET tests with JSON export
         run: |
-          dotnet test --no-build --configuration Release \
+          dotnet test --no-build \
             --logger "LiveDoc;ExportPath=${{ github.workspace }}/reports/dotnet-report.json;Project=LiveDoc.xUnit;Environment=ci"
         working-directory: dotnet/xunit/tests
 
