@@ -1,5 +1,6 @@
 export { default as LiveDocVitestReporter } from "./LiveDocVitestReporter";
 export { default as LiveDocSpecReporter } from "./LiveDocSpecReporter";
+export { default } from "./LiveDocSpecReporter";
 export { ColorTheme, DefaultColorTheme } from "./ColorTheme";
 export * from "./IPostReporter";
 export { ReporterOptions } from "./ReporterOptions";

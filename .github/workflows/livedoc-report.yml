@@ -35,7 +35,9 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       # --- Build everything first ---
       - name: Install JS dependencies
@@ -48,7 +50,7 @@ jobs:
         run: mkdir -p releases/SweDevTools.LiveDoc.xUnit
 
       - name: Build .NET
-        run: dotnet build --configuration Release tests/LiveDoc.xUnit.Tests.csproj
+        run: dotnet build --configuration Release
         working-directory: dotnet/xunit
 
       - name: Create reports directory
@@ -57,14 +59,12 @@ jobs:
       # --- Run tests with JSON export ---
       - name: Run Vitest tests with JSON export
         run: pnpm --filter @swedevtools/livedoc-vitest test -- --config vitest.config.ci.ts
-        continue-on-error: true
 
       - name: Run .NET tests with JSON export
         run: |
           dotnet test --no-build --configuration Release \
             --logger "LiveDoc;ExportPath=${{ github.workspace }}/reports/dotnet-report.json;Project=LiveDoc.xUnit;Environment=ci"
         working-directory: dotnet/xunit/tests
-        continue-on-error: true
 
       # --- Generate static HTML reports ---
       - name: Generate Vitest HTML report
