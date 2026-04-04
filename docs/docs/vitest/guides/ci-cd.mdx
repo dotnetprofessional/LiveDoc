@@ -120,7 +120,68 @@ Register in your config:
 setupFiles: ['./test/livedoc.setup.ts'],
 ```
 
-## Step 4: Create a GitHub Actions Workflow
+## Step 4: CI-Specific Vitest Configuration
+
+GitHub Actions and most CI providers set the `CI=true` environment variable.
+This changes Vitest's defaults in ways that affect LiveDoc. Create a dedicated
+CI config to handle these differences:
+
+```typescript
+// vitest.config.ci.ts
+import { defineConfig, mergeConfig } from 'vitest/config';
+import baseConfig from './vitest.config';
+
+export default mergeConfig(
+  baseConfig,
+  defineConfig({
+    test: {
+      allowOnly: true,
+      pool: 'forks',
+      fileParallelism: false,
+    },
+  })
+);
+```
+
+Then run tests with this config in CI:
+
+```yaml
+- name: Run LiveDoc tests
+  run: npx vitest run --config vitest.config.ci.ts
+```
+
+:::danger `allowOnly` is required
+When `CI=true`, Vitest defaults `allowOnly` to `false` — meaning any
+`describe.only()` or `it.only()` call throws an error. LiveDoc's tag-based
+filtering uses `describe.only()` internally to select matching tests. Without
+`allowOnly: true`, **all tag-filtered tests will fail in CI** with:
+
+```
+Error: Vitest is running with config.allowOnly set to false.
+```
+:::
+
+:::caution Parallel execution and dynamic tests
+If your test suite uses LiveDoc's dynamic test features (e.g., `executeDynamicTestAsync`),
+you should disable file parallelism in CI. Dynamic tests spawn nested Vitest
+instances, and running multiple nested instances in parallel causes resource
+contention — flaky failures, missing results, or hangs.
+
+Setting `pool: 'forks'` and `fileParallelism: false` ensures each test file
+runs sequentially in its own process, avoiding these issues:
+
+```typescript
+test: {
+  pool: 'forks',           // Process isolation (not threads)
+  fileParallelism: false,  // One file at a time
+}
+```
+
+This only affects CI — your local development can still use the default parallel
+execution for speed.
+:::
+
+## Step 5: Create a GitHub Actions Workflow
 
 ```yaml
 # .github/workflows/livedoc-tests.yml
@@ -148,9 +209,7 @@ jobs:
         run: npm ci
 
       - name: Run LiveDoc tests
-        run: npx vitest run
-        env:
-          CI: 'true'
+        run: npx vitest run --config vitest.config.ci.ts
 
       - name: Generate HTML report
         if: always()
@@ -170,7 +229,7 @@ jobs:
 The `if: always()` on the export and upload steps ensures results are captured
 even when tests fail.
 
-## Step 5: Write Output to a Log File
+## Step 6: Write Output to a Log File
 
 For human-readable test output in CI logs, add file output:
 
@@ -255,9 +314,7 @@ jobs:
         run: npm ci
 
       - name: Run LiveDoc tests
-        run: npx vitest run
-        env:
-          CI: 'true'
+        run: npx vitest run --config vitest.config.ci.ts
 
       - name: Generate HTML report
         if: always()
@@ -356,6 +413,9 @@ livedoc-tests:
 | No test output in CI logs | `detailLevel: 'silent'` | Change to `'spec+summary+headers'` for visible output |
 | Artifact upload fails | Wrong path | Verify the `path` in `upload-artifact` matches your `json-output` path |
 | Slow tests in CI | No tag filtering | Add `@slow` tags and exclude them with `livedoc.options.filters.exclude` |
+| `config.allowOnly` error | `CI=true` disables `.only()` | Add `allowOnly: true` to your CI vitest config |
+| Dynamic tests fail/hang in CI | Parallel nested Vitest instances | Use `pool: 'forks'` and `fileParallelism: false` in CI config |
+| `--config` ignored via pnpm filter | Double `--config` argument | Use `npx vitest run --config ...` directly instead of `pnpm --filter pkg test -- --config` |
 
 ## Related
 

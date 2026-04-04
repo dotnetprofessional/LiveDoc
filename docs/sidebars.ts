@@ -109,6 +109,7 @@ const sidebars: SidebarsConfig = {
         'xunit/guides/viewer-integration',
         'xunit/guides/ai-skill-setup',
         'xunit/guides/debugging',
+        'xunit/guides/ci-cd',
         'xunit/guides/best-practices',
         'xunit/guides/troubleshooting',
       ],

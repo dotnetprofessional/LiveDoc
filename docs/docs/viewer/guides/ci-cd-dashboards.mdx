@@ -225,6 +225,123 @@ export default defineConfig({
 
 ---
 
+## Deploying Static Reports to GitHub Pages
+
+For a permanent, browsable URL hosting your test reports, deploy the static
+HTML export to GitHub Pages. This combines the Viewer's `export` command with
+GitHub's free static hosting.
+
+### Complete Workflow
+
+```yaml
+name: LiveDoc Report
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  generate-reports:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with JSON export
+        run: npx vitest run
+        # Assumes vitest.config.ts has LiveDocSpecReporter with export option
+
+      - name: Generate HTML report
+        if: always()
+        run: npx @swedevtools/livedoc-viewer export -i ./test-results/livedoc-report.json -o ./reports/index.html -t "My Project"
+
+      - name: Setup Pages
+        if: always()
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: reports
+
+  deploy:
+    needs: generate-reports
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+```
+
+### GitHub Pages Setup
+
+Before the deploy job will succeed, configure your repository:
+
+1. **Settings → Pages**: Set Source to **GitHub Actions** (not "Deploy from a branch")
+2. **Settings → Environments**: Ensure a `github-pages` environment exists
+3. **Environment branch rules**: If you have branch protection on the `github-pages`
+   environment, add your deployment branch (e.g., `main`) to the allowed list
+
+:::danger Environment must exist
+The deploy job references `environment: name: github-pages`. If this environment
+doesn't exist in your repo settings, the job fails silently — it won't even be
+assigned a runner. Go to **Settings → Environments → New environment** and name
+it exactly `github-pages`.
+:::
+
+### Multi-Project Landing Page
+
+If you run both TypeScript (Vitest) and .NET (xUnit) tests, create a landing
+page that links to both reports:
+
+```yaml
+- name: Create index page
+  if: always()
+  run: |
+    cat > reports/index.html << 'EOF'
+    <!DOCTYPE html>
+    <html>
+    <head><title>Test Reports</title></head>
+    <body>
+      <h1>Test Reports</h1>
+      <ul>
+        <li><a href="./vitest/">Vitest Report</a></li>
+        <li><a href="./dotnet/">xUnit Report</a></li>
+      </ul>
+    </body>
+    </html>
+    EOF
+```
+
+Generate each report into its own subdirectory:
+
+```bash
+npx @swedevtools/livedoc-viewer export -i vitest-report.json -o reports/vitest/index.html
+npx @swedevtools/livedoc-viewer export -i dotnet-report.json -o reports/dotnet/index.html
+```
+
+---
+
 ## Troubleshooting
 
 | Problem                      | Cause                             | Solution                                           |
@@ -234,6 +351,9 @@ export default defineConfig({
 | Port conflict                | Another service on 3100          | Use `--port <other>`                                |
 | Results empty after run      | Reporter not configured          | Verify `LiveDocViewerReporter` is in the config     |
 | Health check times out       | Viewer hasn't started yet        | Increase the retry count in the wait loop           |
+| Pages deploy fails immediately | `github-pages` environment missing | Create it in Settings → Environments |
+| Pages deploy "not authorized" | Branch not in environment rules | Add your branch to the `github-pages` environment's deployment branch rules |
+| Static report shows "Run in progress" | Stale status in exported data | Update to latest `@swedevtools/livedoc-viewer` — fixed in the static export mode |
 
 ---
 
