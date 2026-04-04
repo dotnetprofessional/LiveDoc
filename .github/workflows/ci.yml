@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build-and-test-js:
-    name: Node.js ${{ matrix.node-version }}
+    name: Vitest + Viewer (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -68,7 +68,7 @@ jobs:
           if-no-files-found: ignore
 
   build-and-test-dotnet:
-    name: .NET
+    name: xUnit (.NET 8)
     runs-on: ubuntu-latest
 
     steps:

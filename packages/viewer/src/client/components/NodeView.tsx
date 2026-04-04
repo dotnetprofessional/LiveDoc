@@ -4,7 +4,7 @@ import { useStore } from '../store';
 import { renderTitle, stripLeadingKindLabel } from '../lib/title-utils';
 import { cn } from '../lib/utils';
 import { useMemo } from 'react';
-import { buildGroupedNavTree, findNavPath, NavItem } from '../lib/nav-tree';
+import { buildGroupedNavTree, findNavPath } from '../lib/nav-tree';
 import { ScenarioBlock } from './ScenarioBlock';
 import { ContainerHeader } from './nodeviews/ContainerHeader';
 import { ChildrenList } from './nodeviews/ChildrenList';

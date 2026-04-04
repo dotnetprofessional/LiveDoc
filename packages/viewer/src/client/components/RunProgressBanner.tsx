@@ -29,14 +29,14 @@ export function RunProgressBanner() {
         clearTimeout(dismissTimerRef.current);
         dismissTimerRef.current = null;
       }
-    } else if (prevStatus === 'running' && runStatus && runStatus !== 'running') {
+    } else if (prevStatus === 'running' && runStatus) {
       // Transition from running → terminal
       setPhase('completing');
       dismissTimerRef.current = setTimeout(() => {
         setPhase('done');
         dismissTimerRef.current = setTimeout(() => setPhase('idle'), 400);
       }, 2800);
-    } else if (runStatus !== 'running') {
+    } else {
       setPhase('idle');
     }
 

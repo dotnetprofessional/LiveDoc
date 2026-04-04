@@ -229,7 +229,7 @@ interface StepContextBarProps {
   groups?: StepGroup[];
 }
 
-function StepContextBar({ item, currentIndex, total, groups }: StepContextBarProps) {
+function StepContextBar({ item, currentIndex, total: _total, groups }: StepContextBarProps) {
   const stepTitle = item.stepTitle;
   const stepKeyword = item.stepKeyword;
   const stepStatus = item.stepStatus;

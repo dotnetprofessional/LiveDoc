@@ -1,4 +1,4 @@
-import type { Statistics, Status, TestCase } from '@swedevtools/livedoc-schema';
+import type { Statistics, TestCase } from '@swedevtools/livedoc-schema';
 import { statusFromStats } from './status-utils';
 
 export type ContainerKind = 'Feature' | 'Specification' | 'Container';

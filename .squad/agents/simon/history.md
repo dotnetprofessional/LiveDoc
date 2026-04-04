@@ -51,3 +51,10 @@
 - **IsEnabled broadened**: `LiveDocTestRunReporter.IsEnabled` now returns true if *either* server or export is configured. This is critical because `LiveDocContext` and `LiveDocTestFramework` gate data collection on this property — without it, export-only mode would produce empty files.
 - **TestRunV3 model already existed**: `ReporterModels.cs` had a `TestRunV3` class with `protocolVersion`, `runId`, `project`, `environment`, `framework`, `timestamp`, `duration`, `status`, `summary`, `documents`. No model changes needed.
 - **JSON options**: Export uses `WriteIndented = true` plus the same `camelCase` + `WhenWritingNull` options as `LiveDocReporter`. The `LowercaseEnumConverter<T>` on enum types takes precedence over the options-level `JsonStringEnumConverter`.
+
+### Journey Fixture --no-build Fix (2026-07-25)
+
+- **File lock race condition**: When `dotnet test` builds the solution, `JourneyFixtureBase.InitializeAsync()` was calling `dotnet run` which triggered a redundant rebuild of SampleApi. The DLL from the solution build was still locked (by Defender or build process), causing CS2012 errors. Fix: added `--no-build` to the `dotnet run` arguments in `JourneyFixtureBase.cs` line 132.
+- **Removed `-p:UseSharedCompilation=false`**: With `--no-build`, no compilation occurs, making this MSBuild flag unnecessary.
+- **Key file**: `dotnet/xunit/src/Journeys/JourneyFixtureBase.cs` — the `Arguments` string on line 132 now reads `run --no-build --project "{path}" {Config.ServerArguments}`.
+- **Test counts**: Full solution: 452 (LiveDoc.xUnit.Tests) + 59 (ShippingSample) = 511 tests, all passing.

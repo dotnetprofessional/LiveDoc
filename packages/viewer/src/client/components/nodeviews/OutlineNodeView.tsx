@@ -6,7 +6,6 @@ import { cn } from '../../lib/utils';
 import { renderTitle, stripLeadingKindLabel } from '../../lib/title-utils';
 import { Markdown } from '../Markdown';
 import { StepList } from '../StepList';
-import { Card, CardContent, CardHeader } from '../ui/card';
 import { ScenarioBlock } from '../ScenarioBlock';
 import { ErrorDisplay } from '../ErrorDisplay';
 
