@@ -12,6 +12,7 @@ export default defineConfig({
     setupFiles: ['./_src/app/setup.ts'],
     pool: 'forks',
     fileParallelism: false,
+    allowOnly: true,  // LiveDoc tag filtering uses describe.only — must allow in CI
     deps: {
       interopDefault: true,
     },
