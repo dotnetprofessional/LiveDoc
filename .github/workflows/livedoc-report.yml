@@ -49,6 +49,10 @@ jobs:
       - name: Create local NuGet source directory
         run: mkdir -p releases/SweDevTools.LiveDoc.xUnit
 
+      - name: Pack library for sample project
+        run: dotnet pack livedoc-xunit.csproj -o ../../releases/SweDevTools.LiveDoc.xUnit
+        working-directory: dotnet/xunit
+
       - name: Build .NET
         run: dotnet build --configuration Release
         working-directory: dotnet/xunit
@@ -58,7 +62,8 @@ jobs:
 
       # --- Run tests with JSON export ---
       - name: Run Vitest tests with JSON export
-        run: pnpm --filter @swedevtools/livedoc-vitest test -- --config vitest.config.ci.ts
+        run: npx vitest run --config vitest.config.ci.ts
+        working-directory: packages/vitest
 
       - name: Run .NET tests with JSON export
         run: |
