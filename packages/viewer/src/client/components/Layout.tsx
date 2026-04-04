@@ -101,21 +101,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
-            <div className="h-8 w-px bg-border mx-2" />
-            <div className="flex items-center gap-3 pl-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">
-                LD
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-xs font-bold leading-none">LiveDoc</div>
-                <div className="text-[10px] text-muted-foreground mt-1">vNext Viewer</div>
-              </div>
-            </div>
           </div>
         </header>
 
         {/* Run progress indicator */}
-        <RunProgressBanner />
+        {!staticMode && <RunProgressBanner />}
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto scroll-smooth">
