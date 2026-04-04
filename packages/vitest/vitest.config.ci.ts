@@ -10,7 +10,6 @@ export default defineConfig({
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
     setupFiles: ['./_src/app/setup.ts'],
-    pool: 'forks',
     deps: {
       interopDefault: true,
     },
