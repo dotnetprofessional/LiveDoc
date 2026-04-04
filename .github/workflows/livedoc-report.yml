@@ -48,7 +48,7 @@ jobs:
         run: mkdir -p releases/SweDevTools.LiveDoc.xUnit
 
       - name: Build .NET
-        run: dotnet build --configuration Release
+        run: dotnet build --configuration Release tests/LiveDoc.xUnit.Tests.csproj
         working-directory: dotnet/xunit
 
       - name: Create reports directory
@@ -63,7 +63,7 @@ jobs:
         run: |
           dotnet test --no-build --configuration Release \
             --logger "LiveDoc;ExportPath=${{ github.workspace }}/reports/dotnet-report.json;Project=LiveDoc.xUnit;Environment=ci"
-        working-directory: dotnet/xunit
+        working-directory: dotnet/xunit/tests
         continue-on-error: true
 
       # --- Generate static HTML reports ---
