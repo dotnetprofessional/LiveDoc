@@ -39,9 +39,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <!-- Reference the main library -->
+  <!-- Reference the main library and logger (logger enables: dotnet test /logger LiveDoc) -->
   <ItemGroup>
     <ProjectReference Include="..\livedoc-xunit.csproj" />
+    <ProjectReference Include="..\logger\LiveDoc.TestLogger.csproj" />
     <ProjectReference Include="..\tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj" />
   </ItemGroup>
 
