@@ -12,12 +12,8 @@ concurrency:
 
 jobs:
   build-and-test-js:
-    name: Vitest + Viewer (Node ${{ matrix.node-version }})
+    name: Vitest + Viewer
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20, 22]
-      fail-fast: false
 
     steps:
       - name: Checkout
@@ -26,10 +22,10 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v5
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -52,14 +48,13 @@ jobs:
       - name: Typecheck viewer
         run: pnpm --filter @swedevtools/livedoc-viewer typecheck
 
-      # Generate static HTML report (only on Node 22 to avoid duplicate artifacts)
       - name: Generate Vitest HTML report
-        if: matrix.node-version == 22 && always()
+        if: always()
         run: node packages/viewer/dist/cli.js export -i reports/vitest-report.json -o reports/vitest-report.html -t "LiveDoc Vitest — CI"
         continue-on-error: true
 
       - name: Upload Vitest test report
-        if: matrix.node-version == 22 && always()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: livedoc-vitest-report
