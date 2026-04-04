@@ -7,7 +7,7 @@
 
 A **Living Documentation** platform that brings Gherkin-style BDD syntax to modern testing frameworks, enabling executable specifications that serve as living documentation.
 
-📖 **[Full Documentation →](http://livedoc.swedevtools.com/)**
+📖 **[Full Documentation →](https://livedoc.swedevtools.com/)**
 
 ## Packages
 
@@ -46,7 +46,7 @@ feature('Calculator', () => {
 });
 ```
 
-📖 [Vitest Getting Started →](http://livedoc.swedevtools.com/docs/vitest/learn/getting-started)
+📖 [Vitest Getting Started →](https://livedoc.swedevtools.com/vitest/learn/getting-started)
 
 ## Quick Start — C# (xUnit)
 
@@ -74,14 +74,14 @@ public class CalculatorTests : FeatureTest
 }
 ```
 
-📖 [xUnit Getting Started →](http://livedoc.swedevtools.com/docs/xunit/learn/getting-started)
+📖 [xUnit Getting Started →](https://livedoc.swedevtools.com/xunit/learn/getting-started)
 
 ## Features
 
 - ✨ **Gherkin Syntax** — Write tests using Given/When/Then
 - 📊 **Data Tables & Scenario Outlines** — Data-driven testing
 - 🎯 **Tag Filtering** — Include/exclude tests by tags
-- 🖥️ **[Live Viewer](http://livedoc.swedevtools.com/docs/viewer/learn/getting-started)** — Real-time web UI for test results
+- 🖥️ **[Live Viewer](https://livedoc.swedevtools.com/viewer/learn/getting-started)** — Real-time web UI for test results
 - 📋 **Beautiful Output** — Formatted, colored test results in your terminal
 
 ## License

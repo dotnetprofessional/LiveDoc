@@ -2,7 +2,7 @@
 
 A BDD-style testing framework for xUnit that brings the clarity and readability of Gherkin specifications to C#.
 
-📖 **[Full Documentation →](http://livedoc.swedevtools.com/docs/xunit/learn/getting-started)**
+📖 **[Full Documentation →](https://livedoc.swedevtools.com/xunit/learn/getting-started)**
 
 ## Quick Start
 
@@ -65,7 +65,7 @@ Install the LiveDoc AI skill for your coding assistant:
 dotnet msbuild -t:LiveDocInstallSkills
 ```
 
-Supports GitHub Copilot, Claude Code, Roo Code, Cursor, and Windsurf. See the [AI Skill Setup Guide](http://livedoc.swedevtools.com/docs/xunit/guides/ai-skill-setup) for details.
+Supports GitHub Copilot, Claude Code, Roo Code, Cursor, and Windsurf. See the [AI Skill Setup Guide](https://livedoc.swedevtools.com/xunit/guides/ai-skill-setup) for details.
 
 ---
 
@@ -108,7 +108,7 @@ This runs each `.http` file via httpYac, captures response bodies, and saves the
 
 ## Documentation
 
-📖 **[Full documentation at livedoc.swedevtools.com →](http://livedoc.swedevtools.com/docs/xunit/learn/getting-started)**
+📖 **[Full documentation at livedoc.swedevtools.com →](https://livedoc.swedevtools.com/xunit/learn/getting-started)**
 
 Covers getting started, features, specifications, value extraction, scenario outlines, viewer integration, debugging, best practices, and more.
 

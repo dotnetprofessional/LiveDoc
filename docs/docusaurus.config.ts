@@ -7,7 +7,7 @@ const config: Config = {
   tagline: 'Living Documentation from Executable Specifications',
   favicon: 'img/favicon.ico',
 
-  url: 'https://livedoc.dev',
+  url: 'https://livedoc.swedevtools.com',
   baseUrl: '/',
 
   organizationName: 'swedevtools',

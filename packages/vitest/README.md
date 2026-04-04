@@ -9,7 +9,7 @@
 
 **Write tests in Gherkin. Get documentation that never goes stale.**
 
-📖 **[Full Documentation →](http://livedoc.swedevtools.com/docs/vitest/learn/getting-started)**
+📖 **[Full Documentation →](https://livedoc.swedevtools.com/vitest/learn/getting-started)**
 
 </div>
 
@@ -84,7 +84,7 @@ npx vitest run
 
 ## Documentation
 
-📖 **[Full documentation at livedoc.swedevtools.com →](http://livedoc.swedevtools.com/docs/vitest/learn/getting-started)**
+📖 **[Full documentation at livedoc.swedevtools.com →](https://livedoc.swedevtools.com/vitest/learn/getting-started)**
 
 Covers getting started, BDD & Specification patterns, data extraction, scenario outlines, tags & filtering, reporters, viewer integration, CI/CD, troubleshooting, and more.
 

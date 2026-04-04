@@ -9,7 +9,7 @@
 
 **See your test results as they run. Beautiful, real-time, in your browser.**
 
-📖 **[Full Documentation →](http://livedoc.swedevtools.com/docs/viewer/learn/getting-started)**
+📖 **[Full Documentation →](https://livedoc.swedevtools.com/viewer/learn/getting-started)**
 
 </div>
 
@@ -45,7 +45,7 @@ A web-based dashboard for visualizing BDD test results with real-time updates, f
 
 ## Documentation
 
-📖 **[Full documentation at livedoc.swedevtools.com →](http://livedoc.swedevtools.com/docs/viewer/learn/getting-started)**
+📖 **[Full documentation at livedoc.swedevtools.com →](https://livedoc.swedevtools.com/viewer/learn/getting-started)**
 
 Covers UI walkthrough, CLI options, REST API, WebSocket API, CI/CD dashboards, and multi-project setup.
 

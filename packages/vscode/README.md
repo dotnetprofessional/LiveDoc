@@ -2,7 +2,7 @@
 
 VS Code extension providing tools and snippets for working with the LiveDoc BDD testing framework.
 
-📖 **[Full Documentation →](http://livedoc.swedevtools.com/docs/vscode/overview)**
+📖 **[Full Documentation →](https://livedoc.swedevtools.com/vscode/overview)**
 
 ## Features
 
@@ -50,7 +50,7 @@ code --install-extension livedoc-0.0.1.vsix
 
 ## Documentation
 
-📖 **[Full documentation at livedoc.swedevtools.com →](http://livedoc.swedevtools.com/docs/vscode/overview)**
+📖 **[Full documentation at livedoc.swedevtools.com →](https://livedoc.swedevtools.com/vscode/overview)**
 
 Covers features, usage workflow, development setup, debugging, project structure, and packaging.
 
