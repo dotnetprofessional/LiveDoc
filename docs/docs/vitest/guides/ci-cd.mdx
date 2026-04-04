@@ -1,14 +1,13 @@
 ---
 sidebar_position: 6
-description: "Run LiveDoc tests in CI pipelines with JSON export, static HTML reports, artifact upload, and GitHub Actions examples."
+description: "Run LiveDoc tests in CI — export JSON results, generate static HTML reports, and publish to GitHub Pages."
 ---
 
 # How to Run LiveDoc in CI/CD
 
 <p className="intro">
-This guide shows you how to integrate LiveDoc tests into your CI/CD pipeline.
-By the end, you'll have a GitHub Actions workflow that runs tests, exports
-a TestRunV1 JSON file, generates a static HTML report, and uploads artifacts.
+LiveDoc tests run with standard `npx vitest run` in CI. Add a JSON export,
+convert it to a static HTML report, and upload it as an artifact — three steps.
 </p>
 
 :::info Prerequisites
@@ -16,23 +15,21 @@ a TestRunV1 JSON file, generates a static HTML report, and uploads artifacts.
 - A CI environment (GitHub Actions, GitLab CI, or similar)
 :::
 
-## Overview
-
-LiveDoc tests run with standard `npx vitest run` in CI — no special
-configuration needed. Add the `export` option to write a TestRunV1 JSON file,
-then use `livedoc-viewer export` to generate a shareable static HTML report.
+## The Pipeline
 
 ```mermaid
 graph LR
-    A["Run tests<br/>npx vitest run"] --> B["TestRunV1 JSON<br/>livedoc-report.json"]
-    B --> C["Static HTML<br/>livedoc-viewer export"]
-    C --> D["Upload artifact<br/>report.html"]
+    A["1. Run tests"] --> B["2. Export HTML"]
+    B --> C["3. Copy to destination"]
+    style A fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style B fill:#1e293b,stroke:#a78bfa,color:#e2e8f0
+    style C fill:#1e293b,stroke:#34d399,color:#e2e8f0
 ```
 
-## Step 1: Configure TestRunV1 Export
+### Step 1 — Run Tests with JSON Export
 
-Add the `export` option to `LiveDocSpecReporter` to write a TestRunV1 JSON file
-after each test run:
+Add the `export` option to `LiveDocSpecReporter` to write a TestRunV1 JSON
+file after each run:
 
 ```typescript
 // vitest.config.ts
@@ -55,76 +52,51 @@ export default defineConfig({
 });
 ```
 
-The reporter creates directories automatically and prints a confirmation:
-
-```
-✅ LiveDoc results exported to ./test-results/livedoc-report.json (1.2 MB)
-```
-
-The TestRunV1 JSON file contains all features, scenarios, steps, pass/fail
-status, timing data, error messages, tags, and attachments.
-
-:::tip Alternative: JsonReporter (SDK model)
-The `JsonReporter` post-reporter also writes JSON, but in the **LiveDoc SDK model format** — not TestRunV1. Use `export` for the standard pipeline. Use `JsonReporter` only if you need the raw SDK model for custom tooling:
-
-```typescript
-import { LiveDocSpecReporter, JsonReporter } from '@swedevtools/livedoc-vitest/reporter';
-
-new LiveDocSpecReporter({
-  detailLevel: 'spec+summary+headers',
-  postReporters: [new JsonReporter()],
-  'json-output': './test-results/livedoc-results.json',
-})
-```
-:::
-
-## Step 2: Generate a Static HTML Report
-
-Use `livedoc-viewer export` to convert the TestRunV1 JSON into a self-contained
-HTML file that anyone can open in a browser — no server needed:
+Run your tests normally — the JSON file is created automatically:
 
 ```bash
-npx livedoc-viewer export \
-  --input ./test-results/livedoc-report.json \
-  --output ./test-results/report.html \
-  --title "My Project — CI Build"
+npx vitest run
+# ✅ LiveDoc results exported to ./test-results/livedoc-report.json
 ```
 
-The HTML file embeds all JavaScript, CSS, and images (including base64 screenshots)
-inline. It works offline on any computer.
+### Step 2 — Generate Static HTML
 
-See the [Static Export Guide](../../viewer/guides/static-export.mdx) for the
-complete walkthrough.
+Convert the JSON into a self-contained HTML file:
 
-## Step 3: Add CI-Specific Tag Filtering
-
-Skip slow or flaky tests in CI using environment-based filtering:
-
-```typescript
-// test/livedoc.setup.ts
-import { livedoc } from '@swedevtools/livedoc-vitest';
-
-if (process.env.CI === 'true') {
-  livedoc.options.filters.exclude = ['@slow', '@flaky'];
-}
-
-if (process.env.SMOKE_ONLY === 'true') {
-  livedoc.options.filters.include = ['@smoke'];
-}
+```bash
+npx @swedevtools/livedoc-viewer export \
+  -i ./test-results/livedoc-report.json \
+  -o ./test-results/report.html \
+  -t "My Project"
 ```
 
-Register in your config:
+| Flag | Description |
+| ---- | ----------- |
+| `-i, --input` | Path to the TestRunV1 JSON file (required) |
+| `-o, --output` | Output HTML path (default: `./livedoc-report.html`) |
+| `-t, --title` | Report title (defaults to project name from JSON) |
 
-```typescript
-// vitest.config.ts
-setupFiles: ['./test/livedoc.setup.ts'],
+The HTML file embeds everything — JavaScript, CSS, and data — inline. It works
+offline on any machine.
+
+### Step 3 — Copy to Destination
+
+Upload the HTML as a CI artifact, deploy to GitHub Pages, or copy it anywhere:
+
+```yaml
+- name: Upload report
+  uses: actions/upload-artifact@v4
+  with:
+    name: livedoc-report
+    path: test-results/report.html
 ```
 
-## Step 4: CI-Specific Vitest Configuration
+---
 
-GitHub Actions and most CI providers set the `CI=true` environment variable.
-This changes Vitest's defaults in ways that affect LiveDoc. Create a dedicated
-CI config to handle these differences:
+## CI-Specific Vitest Configuration
+
+GitHub Actions and most CI providers set `CI=true`, which changes Vitest's
+defaults in ways that affect LiveDoc. Create a dedicated CI config:
 
 ```typescript
 // vitest.config.ci.ts
@@ -143,141 +115,36 @@ export default mergeConfig(
 );
 ```
 
-Then run tests with this config in CI:
+Then run with this config in CI:
 
-```yaml
-- name: Run LiveDoc tests
-  run: npx vitest run --config vitest.config.ci.ts
+```bash
+npx vitest run --config vitest.config.ci.ts
 ```
 
 :::danger `allowOnly` is required
-When `CI=true`, Vitest defaults `allowOnly` to `false` — meaning any
-`describe.only()` or `it.only()` call throws an error. LiveDoc's tag-based
-filtering uses `describe.only()` internally to select matching tests. Without
-`allowOnly: true`, **all tag-filtered tests will fail in CI** with:
+When `CI=true`, Vitest defaults `allowOnly` to `false` — any `describe.only()`
+call throws an error. LiveDoc's tag-based filtering uses `describe.only()`
+internally. Without `allowOnly: true`, **all tag-filtered tests fail in CI**:
 
 ```
 Error: Vitest is running with config.allowOnly set to false.
 ```
 :::
 
-:::caution Parallel execution and dynamic tests
-If your test suite uses LiveDoc's dynamic test features (e.g., `executeDynamicTestAsync`),
-you should disable file parallelism in CI. Dynamic tests spawn nested Vitest
-instances, and running multiple nested instances in parallel causes resource
-contention — flaky failures, missing results, or hangs.
+:::caution Dynamic tests need sequential execution
+If your tests use `executeDynamicTestAsync`, disable file parallelism in CI.
+Dynamic tests spawn nested Vitest instances — running them in parallel causes
+resource contention, flaky failures, or hangs.
 
-Setting `pool: 'forks'` and `fileParallelism: false` ensures each test file
-runs sequentially in its own process, avoiding these issues:
-
-```typescript
-test: {
-  pool: 'forks',           // Process isolation (not threads)
-  fileParallelism: false,  // One file at a time
-}
-```
-
-This only affects CI — your local development can still use the default parallel
-execution for speed.
+`pool: 'forks'` + `fileParallelism: false` ensures sequential, isolated
+execution. This only affects CI — local dev still runs in parallel.
 :::
 
-## Step 5: Create a GitHub Actions Workflow
+---
 
-```yaml
-# .github/workflows/livedoc-tests.yml
-name: LiveDoc Tests
+## Tag Filtering in CI
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run LiveDoc tests
-        run: npx vitest run --config vitest.config.ci.ts
-
-      - name: Generate HTML report
-        if: always()
-        run: npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: livedoc-results
-          path: |
-            test-results/livedoc-report.json
-            test-results/report.html
-          retention-days: 30
-```
-
-The `if: always()` on the export and upload steps ensures results are captured
-even when tests fail.
-
-## Step 6: Write Output to a Log File
-
-For human-readable test output in CI logs, add file output:
-
-```typescript
-new LiveDocSpecReporter({
-  detailLevel: 'spec+summary+headers',
-  output: './test-results/test-output.txt',
-  export: {
-    output: './test-results/livedoc-report.json',
-  },
-})
-```
-
-Upload all files as artifacts:
-
-```yaml
-- name: Upload test results
-  if: always()
-  uses: actions/upload-artifact@v4
-  with:
-    name: livedoc-results
-    path: test-results/
-```
-
-## Complete Example
-
-```typescript
-// vitest.config.ts
-import { defineConfig } from 'vitest/config';
-import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
-
-export default defineConfig({
-  test: {
-    globals: true,
-    include: ['**/*.Spec.ts'],
-    setupFiles: ['./test/livedoc.setup.ts'],
-    reporters: [
-      new LiveDocSpecReporter({
-        detailLevel: 'spec+summary+headers',
-        output: './test-results/test-output.txt',
-        export: {
-          output: './test-results/livedoc-report.json',
-        },
-      }),
-    ],
-  },
-});
-```
+Skip slow or flaky tests using environment-based filtering:
 
 ```typescript
 // test/livedoc.setup.ts
@@ -286,7 +153,21 @@ import { livedoc } from '@swedevtools/livedoc-vitest';
 if (process.env.CI === 'true') {
   livedoc.options.filters.exclude = ['@slow', '@flaky'];
 }
+
+if (process.env.SMOKE_ONLY === 'true') {
+  livedoc.options.filters.include = ['@smoke'];
+}
 ```
+
+Register in your config:
+
+```typescript
+setupFiles: ['./test/livedoc.setup.ts'],
+```
+
+---
+
+## GitHub Actions — Complete Example
 
 ```yaml
 # .github/workflows/livedoc-tests.yml
@@ -307,20 +188,19 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
       - name: Run LiveDoc tests
         run: npx vitest run --config vitest.config.ci.ts
 
       - name: Generate HTML report
         if: always()
-        run: npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
+        run: npx @swedevtools/livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
 
-      - name: Upload test results
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -329,74 +209,41 @@ jobs:
           retention-days: 30
 ```
 
-## Common Variations
-
-### Smoke Test Job
-
-Run a fast subset in a separate job:
+### pnpm Monorepo Variant
 
 ```yaml
-jobs:
-  smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
-      - run: npm ci
-      - name: Run smoke tests
-        run: npx vitest run
-        env:
-          SMOKE_ONLY: 'true'
+      - uses: pnpm/action-setup@v4
 
-  full:
-    needs: smoke
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
-      - run: npm ci
-      - name: Run all tests
-        run: npx vitest run
-        env:
-          CI: 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Run from the package directory with npx, not pnpm --filter
+      - name: Run LiveDoc tests
+        run: npx vitest run --config vitest.config.ci.ts
+        working-directory: packages/my-tests
 ```
 
-### pnpm Monorepo
-
-For pnpm workspaces, adjust the install and run commands:
-
-```yaml
-- uses: pnpm/action-setup@v4
-  with:
-    version: 9
-
-- uses: actions/setup-node@v4
-  with:
-    node-version: 20
-    cache: pnpm
-
-- run: pnpm install --frozen-lockfile
-
-- name: Run LiveDoc tests
-  run: pnpm --filter @swedevtools/livedoc-vitest test
-  env:
-    CI: 'true'
-```
+:::tip Avoid `pnpm --filter` for test config
+Don't use `pnpm --filter pkg test -- --config vitest.config.ci.ts` — this can
+cause double `--config` arguments. Run `npx vitest run --config ...` directly
+from the package directory instead.
+:::
 
 ### GitLab CI
 
 ```yaml
 # .gitlab-ci.yml
 livedoc-tests:
-  image: node:20
+  image: node:22
   stage: test
   script:
     - npm ci
-    - npx vitest run
-  variables:
-    CI: 'true'
+    - npx vitest run --config vitest.config.ci.ts
+    - npx @swedevtools/livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
   artifacts:
     when: always
     paths:
@@ -404,24 +251,23 @@ livedoc-tests:
     expire_in: 30 days
 ```
 
+---
+
 ## Troubleshooting
 
 | Problem | Cause | Solution |
 | ------- | ----- | -------- |
-| JSON file not created | Output directory missing | Create `test-results/` in your project or use `mkdir -p test-results` in CI |
-| Tests pass locally, fail in CI | Environment differences | Check Node.js version, ensure `CI=true` is set, verify dependencies |
-| No test output in CI logs | `detailLevel: 'silent'` | Change to `'spec+summary+headers'` for visible output |
-| Artifact upload fails | Wrong path | Verify the `path` in `upload-artifact` matches your `json-output` path |
-| Slow tests in CI | No tag filtering | Add `@slow` tags and exclude them with `livedoc.options.filters.exclude` |
-| `config.allowOnly` error | `CI=true` disables `.only()` | Add `allowOnly: true` to your CI vitest config |
-| Dynamic tests fail/hang in CI | Parallel nested Vitest instances | Use `pool: 'forks'` and `fileParallelism: false` in CI config |
-| `--config` ignored via pnpm filter | Double `--config` argument | Use `npx vitest run --config ...` directly instead of `pnpm --filter pkg test -- --config` |
+| JSON file not created | `export` option missing from reporter | Add `export: { output: '...' }` to `LiveDocSpecReporter` |
+| `config.allowOnly` error | `CI=true` disables `.only()` | Add `allowOnly: true` to CI vitest config |
+| Dynamic tests fail/hang | Parallel nested Vitest instances | Use `pool: 'forks'` and `fileParallelism: false` |
+| `--config` ignored via pnpm | Double `--config` argument | Use `npx vitest run --config ...` directly |
+| Tests pass locally, fail in CI | Environment differences | Check Node.js version, use CI-specific config |
+| No output in CI logs | `detailLevel: 'silent'` | Use `'spec+summary+headers'` for visible output |
 
 ## Related
 
-- [Static HTML Export](../../viewer/guides/static-export.mdx) — generate shareable reports without a server
+- [Static HTML Export](../../viewer/guides/static-export.mdx) — the `export` command in detail
 - [Tags and Filtering](./tags-and-filtering.mdx) — environment-based tag filtering
 - [Custom Reporters](./custom-reporters.mdx) — build CI-specific reporters
-- [Viewer Integration](./viewer-integration.mdx) — visualize results from CI
 - [Reporters Reference](../reference/reporters.mdx) — reporter options and export API
-- [CLI Options](../../viewer/reference/cli-options.mdx) — `livedoc-viewer export` command reference
+- [CLI Options](../../viewer/reference/cli-options.mdx) — `livedoc-viewer export` reference
