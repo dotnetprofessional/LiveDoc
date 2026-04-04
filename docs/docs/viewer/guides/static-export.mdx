@@ -19,8 +19,6 @@ in a browser. No server, no internet, no setup. Just double-click and read.
 
 ## The Pipeline
 
-The static export pipeline has three steps:
-
 ```mermaid
 graph LR
     A["1. Run tests"] --> B["2. TestRunV1 JSON"]
@@ -34,7 +32,7 @@ graph LR
 |------|-------------|--------|
 | **Run tests** | Your test framework executes specs and exports results | `livedoc-report.json` (TestRunV1 format) |
 | **Export HTML** | `livedoc-viewer export` bundles the viewer + data into one file | `report.html` (self-contained) |
-| **Share** | Upload as CI artifact, email, or drop in a shared folder | Anyone opens it in a browser |
+| **Share** | Upload as CI artifact, deploy to Pages, email, or drop in a shared folder | Anyone opens it in a browser |
 
 ## Step 1: Configure Your Reporter to Export JSON
 
@@ -91,35 +89,27 @@ export: {
 
 ### .NET (xUnit)
 
-Set the `LIVEDOC_EXPORT_PATH` environment variable:
+Pass the `ExportPath` parameter to the LiveDoc logger:
 
 ```bash
-# Linux / macOS
-LIVEDOC_EXPORT_PATH=./test-results/livedoc-report.json dotnet test --logger LiveDoc
-
-# Windows PowerShell
-$env:LIVEDOC_EXPORT_PATH = "./test-results/livedoc-report.json"
-dotnet test --logger LiveDoc
+dotnet test --logger "LiveDoc;ExportPath=./test-results/livedoc-report.json;Project=my-project;Environment=ci"
 ```
 
-You can also set project and environment metadata:
+| Parameter     | Description                                |
+| ------------- | ------------------------------------------ |
+| `ExportPath`  | Path to write the TestRunV1 JSON file      |
+| `Project`     | Project name label in the report           |
+| `Environment` | Environment label (e.g., `ci`, `local`)    |
 
-```bash
-LIVEDOC_EXPORT_PATH=./test-results/livedoc-report.json \
-LIVEDOC_PROJECT=my-dotnet-app \
-LIVEDOC_ENVIRONMENT=ci \
-dotnet test --logger LiveDoc
-```
-
-The reporter prints the same confirmation:
+The logger creates directories automatically and prints the same confirmation:
 
 ```
 ✅ LiveDoc results exported to ./test-results/livedoc-report.json (845.2 KB)
 ```
 
-:::info Export runs alongside server publishing
+:::info Export runs alongside console output
 In both SDKs, the JSON export runs **in addition to** console output and server
-publishing. It doesn't replace either — you get all three output channels when
+publishing. It doesn't replace either — you get all output channels when
 all are configured.
 :::
 
@@ -129,7 +119,7 @@ Use the `livedoc-viewer export` command to convert the JSON file into a
 self-contained HTML report:
 
 ```bash
-npx livedoc-viewer export \
+npx @swedevtools/livedoc-viewer export \
   --input ./test-results/livedoc-report.json \
   --output ./test-results/report.html
 ```
@@ -137,11 +127,17 @@ npx livedoc-viewer export \
 You can set a custom title (defaults to the project name from the JSON):
 
 ```bash
-npx livedoc-viewer export \
+npx @swedevtools/livedoc-viewer export \
   -i ./test-results/livedoc-report.json \
   -o ./test-results/report.html \
   -t "Sprint 42 — Regression Results"
 ```
+
+| Flag | Description | Default |
+| ---- | ----------- | ------- |
+| `-i, --input` | Path to TestRunV1 JSON file | *(required)* |
+| `-o, --output` | Output HTML file path | `./livedoc-report.html` |
+| `-t, --title` | Report title | Project name from JSON |
 
 On success:
 
@@ -177,204 +173,40 @@ add size proportional to their resolution and count.
 
 ## Step 3: Share the Report
 
-The HTML file is a single file you can share in any way that works for your team:
+The HTML file is a single file you can share however works for your team:
 
 - **CI artifact** — upload with `actions/upload-artifact` (GitHub) or `artifacts:` (GitLab)
+- **GitHub Pages** — deploy as a static site for a permanent URL
 - **Email** — attach to a release email or review request
 - **Shared drive** — drop in a network folder, SharePoint, or Google Drive
 - **Pull request comment** — link to the CI artifact URL
 - **Slack / Teams** — upload directly to a channel
 
-## Complete CI Examples
+## CI/CD Integration
 
-### GitHub Actions (TypeScript)
+For complete CI pipeline examples including GitHub Actions, GitLab CI, Azure
+DevOps, and GitHub Pages deployment, see the per-SDK CI/CD guides:
 
-```yaml
-# .github/workflows/livedoc-tests.yml
-name: LiveDoc Tests
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npx vitest run
-        env:
-          CI: 'true'
-
-      - name: Generate HTML report
-        if: always()
-        run: npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: livedoc-report
-          path: |
-            test-results/livedoc-report.json
-            test-results/report.html
-          retention-days: 30
-```
-
-### GitHub Actions (.NET)
-
-```yaml
-# .github/workflows/livedoc-dotnet.yml
-name: LiveDoc .NET Tests
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install viewer CLI
-        run: npm install -g @swedevtools/livedoc-viewer
-
-      - name: Run .NET tests
-        run: dotnet test --logger LiveDoc
-        env:
-          LIVEDOC_EXPORT_PATH: ./test-results/livedoc-report.json
-          LIVEDOC_PROJECT: my-dotnet-app
-          LIVEDOC_ENVIRONMENT: ci
-
-      - name: Generate HTML report
-        if: always()
-        run: livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: livedoc-report
-          path: |
-            test-results/livedoc-report.json
-            test-results/report.html
-          retention-days: 30
-```
-
-### GitHub Actions (Both SDKs in one pipeline)
-
-```yaml
-name: Full LiveDoc Pipeline
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  test-typescript:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
-      - run: npm ci
-      - name: Run TypeScript tests
-        run: npx vitest run
-        env:
-          CI: 'true'
-      - name: Generate HTML report
-        if: always()
-        run: npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/ts-report.html -t "TypeScript Tests"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ts-livedoc-report
-          path: test-results/
-
-  test-dotnet:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: '8.0' }
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
-      - run: npm install -g @swedevtools/livedoc-viewer
-      - name: Run .NET tests
-        run: dotnet test --logger LiveDoc
-        env:
-          LIVEDOC_EXPORT_PATH: ./test-results/livedoc-report.json
-          LIVEDOC_ENVIRONMENT: ci
-      - name: Generate HTML report
-        if: always()
-        run: livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/dotnet-report.html -t ".NET Tests"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: dotnet-livedoc-report
-          path: test-results/
-```
-
-### GitLab CI
-
-```yaml
-# .gitlab-ci.yml
-livedoc-tests:
-  image: node:20
-  stage: test
-  script:
-    - npm ci
-    - npx vitest run
-    - npx livedoc-viewer export -i ./test-results/livedoc-report.json -o ./test-results/report.html
-  variables:
-    CI: 'true'
-  artifacts:
-    when: always
-    paths:
-      - test-results/
-    expire_in: 30 days
-```
+- **[Vitest CI/CD Guide](../../vitest/guides/ci-cd.mdx)** — includes CI-specific
+  config (`allowOnly`, `fileParallelism`), tag filtering, and complete workflows
+- **[xUnit CI/CD Guide](../../xunit/guides/ci-cd.mdx)** — includes build config
+  matching, journey test gotchas, and complete workflows
+- **[Viewer CI/CD Guide](./ci-cd-dashboards.mdx)** — GitHub Pages deployment,
+  multi-project reports, and live dashboard setup
 
 ## Troubleshooting
 
 | Problem | Cause | Solution |
 |---------|-------|----------|
-| `Input file not found` | JSON file wasn't created | Verify the `export.output` path in your vitest config matches the `--input` path |
+| `Input file not found` | JSON file wasn't created | Verify the `export.output` path in your config matches the `--input` path |
 | `Invalid TestRunV1 format` | Wrong JSON format | Ensure you're using the `export` option (TestRunV1), not `JsonReporter` (SDK model) |
 | `Webview assets not found` | Viewer not built | Run `pnpm build` in the viewer package, or use `npx` which resolves the built package |
 | HTML file is very large | Many screenshots | Screenshots are base64-encoded; consider reducing resolution or count |
 | Report shows no data | Empty test run | Check that tests actually ran and the JSON file contains test results |
+| Report shows "Run in progress" | Older viewer version | Update to the latest `@swedevtools/livedoc-viewer` |
 
 ## See Also
 
 - [CLI Options — `export` subcommand](../reference/cli-options.mdx#export-subcommand) — full command reference
 - [Vitest Reporter — Export Options](../../vitest/reference/reporters.mdx#export-options) — configure JSON export in TypeScript
-- [xUnit — Export Configuration](../../xunit/reference/configuration.mdx#export-configuration) — configure JSON export in .NET
-- [CI/CD Integration (Vitest)](../../vitest/guides/ci-cd.mdx) — complete Vitest CI guide
-- [CI/CD Dashboards](./ci-cd-dashboards.mdx) — using the Viewer server in CI (alternative to static export)
+- [xUnit Configuration](../../xunit/reference/configuration.mdx) — configure JSON export in .NET
