@@ -44,6 +44,9 @@ jobs:
       - name: Build JS packages
         run: pnpm build
 
+      - name: Create local NuGet source directory
+        run: mkdir -p releases/SweDevTools.LiveDoc.xUnit
+
       - name: Build .NET
         run: dotnet build --configuration Release
         working-directory: dotnet/xunit
