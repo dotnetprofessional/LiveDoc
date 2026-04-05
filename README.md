@@ -7,7 +7,7 @@
 
 A **Living Documentation** platform that brings Gherkin-style BDD syntax to modern testing frameworks, enabling executable specifications that serve as living documentation.
 
-📖 **[Full Documentation →](https://livedoc.swedevtools.com/)**
+📖 **[Full Documentation →](https://livedoc.swedevtools.com/)** · 🔬 **[Live Test Results →](https://dotnetprofessional.github.io/LiveDoc/)**
 
 ## Packages
 
@@ -81,7 +81,7 @@ public class CalculatorTests : FeatureTest
 - ✨ **Gherkin Syntax** — Write tests using Given/When/Then
 - 📊 **Data Tables & Scenario Outlines** — Data-driven testing
 - 🎯 **Tag Filtering** — Include/exclude tests by tags
-- 🖥️ **[Live Viewer](https://livedoc.swedevtools.com/viewer/learn/getting-started)** — Real-time web UI for test results
+- 🖥️ **[Live Viewer](https://livedoc.swedevtools.com/viewer/learn/getting-started)** — Real-time web UI for test results ([see a live example](https://dotnetprofessional.github.io/LiveDoc/vitest/))
 - 📋 **Beautiful Output** — Formatted, colored test results in your terminal
 
 ## License
