@@ -13,6 +13,8 @@ import type { File, Task, TaskResultPack } from '@vitest/runner';
 
 interface ExportConfig {
     output: string;
+    project?: string;
+    environment?: string;
 }
 
 /**
@@ -63,6 +65,8 @@ export default class LiveDocSpecReporter implements Reporter {
         if (options.export) {
             this.exportConfig = {
                 output: options.export.output || './test-results/livedoc-report.json',
+                project: options.export.project,
+                environment: options.export.environment,
             };
         }
 
@@ -222,12 +226,12 @@ export default class LiveDocSpecReporter implements Reporter {
         const exportConfig = this.exportConfig!;
         const outputPath = resolve(exportConfig.output);
 
-        // Derive project and environment from publish config, options, or sensible defaults
-        const project = livedoc.options.publish.project
-            || ((this.options as any).rawOptions?.export?.project as string | undefined)
+        // Derive project and environment from export config, publish config, or sensible defaults
+        const project = exportConfig.project
+            || livedoc.options.publish.project
             || 'default';
-        const environment = livedoc.options.publish.environment
-            || ((this.options as any).rawOptions?.export?.environment as string | undefined)
+        const environment = exportConfig.environment
+            || livedoc.options.publish.environment
             || (process.env.CI ? 'ci' : 'local');
 
         const converter = new LiveDocViewerReporter({
