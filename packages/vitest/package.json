@@ -17,6 +17,9 @@
     "access": "public"
   },
   "type": "module",
+  "bin": {
+    "livedoc-vitest-setup": "./tools/livedoc-setup.mjs"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -40,10 +43,16 @@
       "types": "./dist/globals.d.ts",
       "import": "./dist/globals.js",
       "require": "./dist/globals.cjs"
+    },
+    "./playwright": {
+      "types": "./dist/playwright/index.d.ts",
+      "import": "./dist/playwright/index.js",
+      "require": "./dist/playwright/index.cjs"
     }
   },
   "files": [
     "dist",
+    "tools",
     "README.md",
     "LICENSE"
   ],
@@ -97,6 +106,7 @@
     "@vitest/runner": "^4.0.16",
     "@vitest/ui": "^4.0.16",
     "chai": "^6.2.1",
+    "playwright": "^1.59.1",
     "rimraf": "^5.0.10",
     "strip-ansi": "^7.1.2",
     "tsup": "^8.5.1",
@@ -105,10 +115,14 @@
   },
   "peerDependencies": {
     "@swedevtools/livedoc-server": ">=1.0.0",
+    "playwright": ">=1.50.0",
     "vitest": ">=1.0.0"
   },
   "peerDependenciesMeta": {
     "@swedevtools/livedoc-server": {
+      "optional": true
+    },
+    "playwright": {
       "optional": true
     }
   },

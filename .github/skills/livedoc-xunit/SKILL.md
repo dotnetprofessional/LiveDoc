@@ -1,11 +1,22 @@
 ---
 name: livedoc-xunit
 description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the SweDevTools.LiveDoc.xUnit framework for C# and .NET. Generates self-documenting xUnit specs with correct attribute usage, value extraction, and living documentation patterns. Also covers Journey testing via annotated .http files.
+sdk_version: 0.1.8-beta4
 ---
 
 # LiveDoc xUnit Test Author
 
 > **Progressive disclosure**: This file is the routing hub. Read the appropriate sub-resource for full API details.
+
+## Version Check
+
+This skill targets **SweDevTools.LiveDoc.xUnit v0.1.8-beta4**. Before writing tests, verify the installed version matches:
+
+```bash
+dotnet list package | grep -i livedoc
+```
+
+If the installed version differs from `0.1.8-beta4`, tell the developer: *"Your LiveDoc skill files target v0.1.8-beta4 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
 
 ## Use this skill when
 - Creating or modifying C# test classes using `SweDevTools.LiveDoc.xUnit`

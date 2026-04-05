@@ -57,10 +57,12 @@ const sidebars: SidebarsConfig = {
       items: [
         'vitest/guides/setup-imports',
         'vitest/guides/setup-globals',
+        'vitest/guides/ai-skill-setup',
         'vitest/guides/tags-and-filtering',
         'vitest/guides/custom-reporters',
         'vitest/guides/viewer-integration',
         'vitest/guides/ci-cd',
+        'vitest/guides/playwright',
         'vitest/guides/migration-from-mocha',
         'vitest/guides/troubleshooting',
         'vitest/guides/best-practices',

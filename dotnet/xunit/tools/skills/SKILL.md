@@ -1,18 +1,29 @@
 ---
 name: livedoc-xunit
-description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the SweDevTools.LiveDoc.xUnit framework for C# and .NET. Generates self-documenting xUnit specs with correct attribute usage, value extraction, and living documentation patterns.
+description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the SweDevTools.LiveDoc.xUnit framework for C# and .NET. Generates self-documenting xUnit specs with correct attribute usage, value extraction, and living documentation patterns. Also covers Journey testing via annotated .http files.
+sdk_version: 0.1.8-beta4
 ---
 
 # LiveDoc xUnit Test Author
 
+> **Progressive disclosure**: This file is the routing hub. Read the appropriate sub-resource for full API details.
+
+## Version Check
+
+This skill targets **SweDevTools.LiveDoc.xUnit v0.1.8-beta4**. Before writing tests, verify the installed version matches:
+
+```bash
+dotnet list package | grep -i livedoc
+```
+
+If the installed version differs from `0.1.8-beta4`, tell the developer: *"Your LiveDoc skill files target v0.1.8-beta4 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
+
 ## Use this skill when
-- Creating new C# test classes using `SweDevTools.LiveDoc.xUnit`
-- Modifying existing LiveDoc xUnit tests in `dotnet/xunit`
-- Writing BDD feature/scenario tests or MSpec specification/rule tests in C#
-- Adding ScenarioOutline or RuleOutline data-driven tests with `[Example]` attributes
-- Extracting values from step titles using `ctx.Step.Values`, `ctx.Step.Params`, or method parameters
-- Extracting values from Rule/RuleOutline titles using `Rule.Values` and `Rule.Params`
-- Debugging or fixing LiveDoc xUnit test failures
+- Creating or modifying C# test classes using `SweDevTools.LiveDoc.xUnit`
+- Writing BDD `[Feature]`/`[Scenario]` tests → **read `resources/features.md`**
+- Writing MSpec `[Specification]`/`[Rule]` tests → **read `resources/specifications.md`**
+- Creating `.http` journey files or `.Response.json` contracts → **read `resources/journey-testing.md`**
+- Debugging or fixing any LiveDoc xUnit test failures
 
 ## Do not use this skill when
 - Writing TypeScript/Vitest tests (use `livedoc-vitest` skill instead)
@@ -20,408 +31,208 @@ description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-sty
 - Writing plain xUnit tests without LiveDoc BDD/Specification patterns
 - Working on the viewer, VS Code extension, or server packages
 
-## Inputs
-- `task`: What test to create or modify (feature name, scenario description, or bug to fix)
-- `pattern`: BDD/Gherkin (`[Feature]`/`[Scenario]`) or Specification (`[Specification]`/`[Rule]`) — infer from context if not specified
-- `target_path`: File path for the C# test class (e.g., `dotnet/xunit/tests/MyFeature.cs`)
+---
 
-## Outputs
-- One or more C# test classes with correct LiveDoc xUnit syntax
-- Tests that are self-documenting: all inputs and expected outputs visible in step titles and formatted output
+## Three Test Patterns
 
-## Workflow
+### 1. BDD Features (`resources/features.md`)
 
-### 1. Choose the correct base class and pattern
+**Use when**: Testing user journeys, business flows, acceptance criteria. Audience is business + technical. Tests read as Given/When/Then narratives.
 
-**BDD/Gherkin pattern** — inherit from `FeatureTest`:
 ```csharp
-[Feature("Feature Title")]
-public class MyTests : FeatureTest
+[Feature("Shipping Costs", Description = "Business rules for shipping fees")]
+public class ShippingTests : FeatureTest
 {
-    public MyTests(ITestOutputHelper output) : base(output) { }
+    public ShippingTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario("Free shipping in Australia")]
+    public void Free_shipping()
+    {
+        Given("the customer is from 'Australia'", ctx =>
+            _cart = new ShoppingCart { Country = ctx.Step!.Values[0].AsString() });
+        When("the order totals '100.00' dollars", ctx =>
+            { _cart.Total = ctx.Step!.Values[0].AsDecimal(); _cart.Calculate(); });
+        Then("shipping is 'Free'", ctx =>
+            Assert.Equal(ctx.Step!.Values[0].AsString(), _cart.ShippingType));
+    }
+
+    [ScenarioOutline]
+    [Example("Australia", 100.00, "Free")]
+    [Example("New Zealand", 50.00, "Standard International")]
+    public void Calculate_shipping(string country, decimal total, string expectedType)
+    {
+        Given("customer from <country>", () => _cart = new ShoppingCart { Country = country });
+        When("order totals <total>", () => { _cart.Total = total; _cart.Calculate(); });
+        Then("shipping is <expectedType>", () => Assert.Equal(expectedType, _cart.ShippingType));
+    }
 }
 ```
 
-**Specification pattern** — inherit from `SpecificationTest`:
-```csharp
-[Specification("Spec Title")]
-public class MySpec : SpecificationTest
-{
-    public MySpec(ITestOutputHelper output) : base(output) { }
-}
-```
+**Key concepts**: `FeatureTest` base class, `[Feature]`, `[Scenario]`, `[ScenarioOutline]`, `[Example]`, Given/When/Then/And/But steps, `ctx.Step!.Values`, `ctx.Step!.Params`, async steps.
 
-**Base classes**: Use `FeatureTest` for BDD tests, `SpecificationTest` for MSpec tests.
+→ **Read `resources/features.md`** for complete attribute reference, all step method overloads, value extraction API, tuple deconstruction, named parameters, async patterns, error handling, and validation checklist.
 
-### IMPORTANT: Namespace determines report hierarchy
+### 2. Specifications (`resources/specifications.md`)
 
-The **C# namespace** of each test class determines the visual tree structure in the LiveDoc Viewer. The reporter strips the assembly name prefix and converts namespace segments to a folder-like path (e.g., `MyApp.Tests.Checkout.CartSpec` → `Checkout/CartSpec.cs`).
-
-**Pay special attention to namespace organization for optimum test grouping:**
-
-```
-MyApp.Tests/
-├── Checkout/                    → "Checkout" node in viewer
-│   ├── CartSpec.cs              → Checkout/CartSpec.cs
-│   └── PaymentSpec.cs           → Checkout/PaymentSpec.cs
-├── Shipping/                    → "Shipping" node in viewer
-│   └── ShippingCostsSpec.cs     → Shipping/ShippingCostsSpec.cs
-└── Auth/                        → "Auth" node in viewer
-    └── LoginSpec.cs             → Auth/LoginSpec.cs
-```
-
-- **Group related tests** under a common namespace segment for logical grouping in reports
-- **Avoid flat namespaces** — a single namespace with all tests produces a flat, hard-to-navigate list
-- **Mirror domain boundaries** — align namespace segments with your bounded contexts or feature areas
-
-### 2. Write required usings
+**Use when**: Testing APIs, utilities, algorithms, data-driven edge cases. Developer-only audience. No Given/When/Then ceremony — direct assertions in rules.
 
 ```csharp
-using SweDevTools.LiveDoc.xUnit;
-using SweDevTools.LiveDoc.xUnit.Core; // For LiveDocContext, StepContext
-using Xunit;
-using Xunit.Abstractions;
-```
-
-### 3. Choose the correct attributes
-
-|                    Attribute                    |    xUnit Base     |            Use Case             |
-| ---                                             | ---               | ---                             |
-| `[Feature("title")]`                            | Class-level       | BDD feature container           |
-| `[Feature("title", Description = "...")]`       | Class-level       | Feature with description        |
-| `[Scenario]`                                    | `[Fact]`          | Single BDD scenario             |
-| `[Scenario("display name")]`                    | `[Fact]`          | Scenario with custom display    |
-| `[Scenario(Description = "...")]`               | `[Fact]`          | Scenario with description       |
-| `[ScenarioOutline]`                             | `[Theory]`        | Data-driven scenario            |
-| `[ScenarioOutline("display name")]`             | `[Theory]`        | Outline with custom display     |
-| `[ScenarioOutline(Description = "...")]`        | `[Theory]`        | Outline with description        |
-| `[Example(...)]`                                | `[DataAttribute]` | Data row for outlines           |
-| `[Specification("title")]`                      | Class-level       | MSpec specification container   |
-| `[Specification("title", Description = "...")]` | Class-level       | Spec with description           |
-| `[Rule]`                                        | `[Fact]`          | Single assertion rule           |
-| `[Rule("display name")]`                        | `[Fact]`          | Rule with custom display        |
-| `[RuleOutline]`                                 | `[Theory]`        | Data-driven rule                |
-| `[RuleOutline("display name")]`                 | `[Theory]`        | RuleOutline with custom display |
-
-**Descriptions** are strongly encouraged on all container attributes (`[Feature]`, `[Specification]`) and optionally on test attributes (`[Scenario]`, `[ScenarioOutline]`, `[Rule]`, `[RuleOutline]`). Descriptions appear in the formatted test output and LiveDoc reports, providing context that is often lost — making tests easier to reason about:
-
-```csharp
-[Feature("Shopping Cart", Description = @"
-    Business rules for the shopping cart checkout flow.
-    Covers GST calculation, shipping tiers, and discount codes.")]
-public class CartTests : FeatureTest { ... }
-
-[Scenario(Description = "Tests the complete login flow for registered users")]
-public void User_logs_in_successfully() { ... }
-
-[Specification("Email Validation", Description = @"
-    Rules for validating email addresses across different formats.
-    Includes edge cases for international domains and special characters.")]
-public class EmailSpec : SpecificationTest { ... }
-```
-
-### 4. Write BDD scenarios
-
-**CRITICAL: Embed all inputs and expected outputs in step titles.** This is the core principle of living documentation — readers see what was tested without reading code. Never hardcode values inside step implementations that aren't visible in the title.
-
-```csharp
-// ✅ CORRECT: Values in titles, extracted from context
-[Scenario(nameof(Free_shipping_in_Australia))]
-public void Free_shipping_in_Australia()
-{
-    Given("the customer is from 'Australia'", ctx =>
-    {
-        _cart = new ShoppingCart { Country = ctx.Step!.Values[0].AsString() };
-    });
-
-    When("the order totals '100.00' dollars", ctx =>
-    {
-        var total = ctx.Step!.Values[0].AsDecimal();
-        _cart.AddItem(new CartItem { Price = total });
-        _cart.Calculate();
-    });
-
-    Then("shipping is 'Free'", ctx =>
-    {
-        Assert.Equal(ctx.Step!.Values[0].AsString(), _cart.ShippingType);
-    });
-
-    And("GST is '10.00'", ctx =>
-    {
-        Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _cart.GST);
-    });
-}
-
-// ❌ WRONG: Values hidden in code — not living documentation
-[Scenario]
-public void Free_shipping_in_Australia()
-{
-    Given("the customer is from Australia", () =>
-    {
-        _cart = new ShoppingCart { Country = "Australia" }; // Value not in title!
-    });
-    Then("GST is charged", () =>
-    {
-        Assert.Equal(10.00m, _cart.GST); // What GST? Reader has to read code
-    });
-}
-```
-
-**Step methods available**: `Given`, `When`, `Then`, `And`, `But` — all called via `this.StepName(...)` or just `StepName(...)`. Use the `Action<LiveDocContext>` overload (with `ctx`) to extract values from titles.
-
-### 5. Write ScenarioOutline with Examples
-
-```csharp
-[ScenarioOutline(nameof(Calculate_shipping))]
-[Example("Australia", 100.00, "Free")]
-[Example("Australia", 99.99, "Standard Domestic")]
-[Example("New Zealand", 100.00, "Standard International")]
-public void Calculate_shipping(string country, decimal total, string expectedType)
-{
-    this.Given("the customer is from <country>", () =>
-    {
-        _cart = new ShoppingCart { Country = country };
-    });
-
-    this.When("the order totals <total>", () =>
-    {
-        _cart.Total = total;
-        _cart.Calculate();
-    });
-
-    this.Then("shipping type is <expectedType>", () =>
-    {
-        Assert.Equal(expectedType, _cart.ShippingType);
-    });
-}
-```
-
-Example data is **automatically injected** — method parameters are typed by xUnit and placeholder replacement in output happens automatically. No manual setup needed.
-
-### 6. Write Specification rules
-
-Rules must also follow the self-documenting principle — **embed values in the rule title**, not hidden in code. Both `[Rule]` and `[RuleOutline]` support **inline value extraction** via `Rule.Values` and `Rule.Params`, mirroring how steps use `ctx.Step.Values`.
-
-```csharp
-[Specification("Calculator Operations", Description = @"
-    Core arithmetic rules. Values in rule titles make
-    the specification readable without inspecting code.")]
+[Specification("Calculator Operations", Description = "Core arithmetic rules")]
 public class CalculatorSpec : SpecificationTest
 {
     public CalculatorSpec(ITestOutputHelper output) : base(output) { }
 
-    // ✅ CORRECT: Values visible in title AND extracted from Rule.Values
     [Rule("Adding '5' and '3' returns '8'")]
-    public void Adding_positive_numbers()
+    public void Addition()
     {
         var (a, b, expected) = Rule.Values.As<int, int, int>();
-        Assert.Equal(expected, a + b);
+        Assert.Equal(expected, Add(a, b));
     }
 
-    // ✅ CORRECT: Named parameters extracted from Rule.Params
     [Rule("Subtracting <b:3> from <a:10> returns <expected:7>")]
-    public void Subtracting_with_named_params()
+    public void Subtraction()
     {
-        var a = Rule.Params["a"].AsInt();
-        var b = Rule.Params["b"].AsInt();
-        var expected = Rule.Params["expected"].AsInt();
-        Assert.Equal(expected, a - b);
+        Assert.Equal(Rule.Params["expected"].AsInt(),
+            Rule.Params["a"].AsInt() - Rule.Params["b"].AsInt());
     }
 
-    // ✅ CORRECT: RuleOutline with Example data via method parameters
     [RuleOutline("Adding '<a>' and '<b>' returns '<result>'")]
     [Example(1, 2, 3)]
-    [Example(5, 5, 10)]
-    [Example(-1, 1, 0)]
+    [Example(-5, 5, 0)]
     public void Addition_examples(int a, int b, int result)
     {
-        Assert.Equal(result, a + b);
-    }
-
-    // ✅ CORRECT: RuleOutline with title value extraction + Example data
-    // Rule.Values/Params from title are accessible alongside Example parameters
-    [RuleOutline("Discount of '10' percent on orders over '100' dollars")]
-    [Example(150, 15)]
-    [Example(200, 20)]
-    public void Discount_examples(int orderTotal, int expectedDiscount)
-    {
-        var (discountPct, threshold) = Rule.Values.As<int, int>(); // From title
-        Assert.Equal(expectedDiscount, orderTotal * discountPct / 100); // Mixed
+        Assert.Equal(result, Add(a, b));
     }
 }
-
-// ❌ WRONG: Rule title hides what's being tested
-[Rule("Adding positive numbers works")]
-public void Adding_positive_numbers()
-{
-    var result = 5 + 3;       // What numbers? Reader can't tell from title
-    Assert.Equal(8, result);  // What's expected? Hidden in code
-}
 ```
 
-### 7. Use method name placeholders
+**Key concepts**: `SpecificationTest` base class, `[Specification]`, `[Rule]`, `[RuleOutline]`, `[Example]`, `Rule.Values`, `Rule.Params`, method name placeholders (`_ALLCAPS_`), async rules.
 
-When no display name is provided in the attribute, `_ALLCAPS` segments in method names become placeholders matched to parameters:
+→ **Read `resources/specifications.md`** for complete attribute reference, value extraction API, tuple deconstruction, named parameters, method name placeholder syntax, error handling, and validation checklist.
+
+### 3. Journey Testing (`resources/journey-testing.md`)
+
+**Use when**: End-to-end HTTP API testing. Annotated `.http` files scaffold LiveDoc xUnit tests that execute against a real server and validate JSON response contracts.
+
+```http
+# Feature: Widget API
+# Scenario: Create and verify a widget
+
+# Given a new widget is created
+# @name createWidget
+POST {{baseUrl}}/api/widgets
+Content-Type: application/json
+
+{ "name": "test-widget", "type": "standard" }
+
+?? status == 201
+
+###
+
+# Then the widget can be retrieved
+# @name getWidget
+GET {{baseUrl}}/api/widgets/test-widget
+
+?? status == 200
+```
+
+**Key concepts**: BDD comment annotations (`# Feature:`, `# Scenario:`, `# Given/When/Then`, `# @name`), `.Response.json` contract files, `property-rules.txt` for dynamic fields, capture mode, MSBuild configuration, generated `.Journey.cs` test classes.
+
+**Library-provided infrastructure** (`SweDevTools.LiveDoc.xUnit.Journeys` namespace): `JourneyFixtureBase` (server lifecycle + httpYac runner), `JourneyResult` / `StepResult` (output parser), `JsonAssertions` / `PropertyRules` (JSON comparison engine). Users create a minimal fixture subclass specifying their server path — all heavy lifting is built-in.
+
+→ **Read `resources/journey-testing.md`** for complete .http format reference, BDD annotation table, CRUD example, contract pattern, capture mode CLI/MSBuild, property-rules syntax, fixture setup, and validation checklist.
+
+---
+
+## Shared Concepts
+
+### Namespace = Report Hierarchy
+
+The C# namespace determines the visual tree in the LiveDoc Viewer. Mirror domain boundaries:
+
+```
+MyApp.Tests/
+├── Checkout/       → "Checkout" node in viewer
+│   └── CartSpec.cs
+├── Shipping/       → "Shipping" node
+│   └── CostsSpec.cs
+└── Auth/           → "Auth" node
+    └── LoginSpec.cs
+```
+
+### Required Usings
 
 ```csharp
-[RuleOutline]
-[Example(10, 2, 5)]
-[Example(100, 10, 10)]
-public void Dividing_A_by_B_returns_RESULT(int a, int b, int result)
-{
-    Assert.Equal(result, a / b);
-}
-// Displays: "Dividing '10' by '2' returns '5'"
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
+using Xunit;
+using Xunit.Abstractions;
 ```
 
-Rules:
-- `_ALLCAPS` segments match parameter names case-insensitively
-- `_A` matches parameter `a`, `A`, or `_a`
-- Unmatched ALLCAPS segments remain as literal text
+### CRITICAL: Self-Documenting Tests
 
-### 8. Use value extraction APIs
+**Embed all inputs and expected outputs in step/rule titles.** Extract them using the context API. Never hardcode values that appear in titles.
 
-**Quoted values** — `ctx.Step.Values`:
 ```csharp
-Given("a step with value '42' and name 'Alice'", ctx =>
-{
-    int num = ctx.Step!.Values[0].AsInt();        // 42
-    string name = ctx.Step!.Values[1].AsString(); // "Alice"
-});
+// ✅ Values in title AND extracted from context
+Given("a user with balance '500' dollars", ctx =>
+    account.Balance = ctx.Step!.Values[0].AsDecimal());
+
+// ✅ Named parameters for clarity
+Given("a user with <balance:500> dollars", ctx =>
+    account.Balance = ctx.Step!.Params["balance"].AsDecimal());
+
+// ❌ BAD: Value drift risk — title says 500, code uses 200
+Given("a user with balance '500' dollars", ctx =>
+    account.Balance = 200);
+
+// ❌ WORSE: Values hidden — not living documentation
+Given("a user with some balance", () =>
+    account.Balance = 500);
 ```
 
-**Typed tuple deconstruction**:
-```csharp
-When("I add '5' items at '9.99' each", ctx =>
-{
-    var (qty, price) = ctx.Step!.Values.As<int, decimal>();
-    // qty = 5, price = 9.99m
-});
-```
+### Value Extraction Quick Reference
 
-**Named parameters** — `ctx.Step.Params`:
-```csharp
-Given("a user with <email:john@test.com> and <age:25>", ctx =>
-{
-    string email = ctx.Step!.Params["email"].AsString(); // "john@test.com"
-    int age = ctx.Step!.Params["age"].AsInt();           // 25
-});
-// Displays: "a user with john@test.com and 25"
-```
+**Both Features and Specifications** share the same value extraction API:
 
-**LiveDocValue type conversions**:
-| Method          | Returns                            |
-| ---             | ---                                |
-| `.AsString()`   | `string`                           |
-| `.AsInt()`      | `int`                              |
-| `.AsLong()`     | `long`                             |
-| `.AsDecimal()`  | `decimal`                          |
-| `.AsDouble()`   | `double`                           |
-| `.AsBool()`     | `bool`                             |
-| `.AsDateTime()` | `DateTime`                         |
-| `.As<T>()`      | Any parseable type (enums, arrays) |
+| Syntax in Title | Access in Features | Access in Specifications |
+| --------------- | ------------------ | ------------------------ |
+| `'value'` (quoted) | `ctx.Step!.Values[0]` | `Rule.Values[0]` |
+| `<name:value>` (named) | `ctx.Step!.Params["name"]` | `Rule.Params["name"]` |
+| `<Placeholder>` (outline) | Method parameter | Method parameter |
 
-### 9. Async support
+**Conversion methods** (on `LiveDocValue`): `.AsString()`, `.AsInt()`, `.AsLong()`, `.AsDecimal()`, `.AsDouble()`, `.AsBool()`, `.AsDateTime()`, `.As<T>()`
 
-Steps support async via `Func<Task>` and `Func<LiveDocContext, Task>`:
-```csharp
-[Scenario("Async operation")]
-public async Task Async_test()
-{
-    await this.Given("setup", async () =>
-    {
-        await Task.Delay(10);
-    });
+**Typed tuple deconstruction** (up to 6): `var (a, b, c) = ctx.Step!.Values.As<int, string, decimal>()`
 
-    await this.When("action", async () =>
-    {
-        result = await PerformAsync();
-    });
-
-    // Mix sync and async steps freely
-    this.Then("sync assertion", () =>
-    {
-        Assert.NotNull(result);
-    });
-}
-```
-
-### 10. Build and test
+### Build and Test
 
 ```powershell
-# Build the project
-cd dotnet/xunit
-dotnet build
-
-# Run all tests (samples)
-cd samples
-dotnet test
-
-# Or use the helper script from repo root
-./scripts/run-dotnet-tests.ps1
-
-# With LiveDoc Viewer integration
-./scripts/run-dotnet-tests.ps1 -WithViewer
+cd dotnet/xunit && dotnet build
+cd samples && dotnet test
 ```
 
-### 11. Validate test quality
+---
 
-- [ ] Correct base class used: `FeatureTest` for BDD, `SpecificationTest` for MSpec
-- [ ] All test data appears in step title strings (self-documenting)
-- [ ] `Description` provided on `[Feature]` and `[Specification]` attributes to give context
-- [ ] Values extracted via `ctx.Step.Values` or `ctx.Step.Params` — never hardcoded
-- [ ] Constructor accepts `ITestOutputHelper output` and passes to `base(output)`
-- [ ] `[Example]` parameter count matches method parameter count
-- [ ] Tests pass: `dotnet test`
+## Routing Examples
 
-## Error Handling
+### Positive (USE this skill)
+- "Create a BDD test for shipping costs" → Read `resources/features.md`, write `FeatureTest`
+- "Add data-driven tests for tax calculation" → Read `resources/features.md`, use `[ScenarioOutline]`
+- "Write unit tests for the email validator" → Read `resources/specifications.md`, write `SpecificationTest`
+- "Fix value drift — step says 500 but code checks 200" → Use `ctx.Step!.Values[0]` extraction
+- "Create HTTP journey tests for Users API" → Read `resources/journey-testing.md`
+- "Set up journey testing in my project" → Read `resources/journey-testing.md`
 
-The framework provides descriptive exceptions:
-
-|            Exception            |                       Cause                        |                 Fix                  |
-| ---                             | ---                                                | ---                                  |
-| `LiveDocConversionException`    | Invalid type conversion (e.g., `'abc'.AsInt()`)    | Check quoted value format            |
-| `LiveDocValueIndexException`    | Accessing `Values[n]` beyond available count       | Verify quoted value count in title   |
-| `LiveDocParamNotFoundException` | Accessing `Params["x"]` for non-existent parameter | Check `<name:value>` syntax in title |
-
-All exceptions include the step title for context.
-
-## Features NOT Supported (by design)
-
-| Feature               | C# Alternative                                 |
-| ---                   | ---                                            |
-| Data Tables           | Use method parameters or constructor injection |
-| Doc Strings           | Use normal string variables                    |
-| Background            | Use class constructor or `IClassFixture<T>`    |
-| `ctx.Example` dynamic | Method parameters provide typed access already |
-| Tags/filtering        | Coming in future release                       |
-
-## Validation
-- [ ] Correct base class used: `FeatureTest` for BDD, `SpecificationTest` for MSpec
-- [ ] All test data appears in step title strings (self-documenting)
-- [ ] `Description` provided on container attributes for context
-- [ ] Values extracted via `ctx.Step.Values` or `ctx.Step.Params`, never hardcoded
-- [ ] Constructor accepts `ITestOutputHelper` and passes to `base(output)`
-- [ ] `[Example]` parameter count matches method parameter count
-- [ ] Tests pass: `dotnet test`
-
-## Examples
-
-### Positive routing examples
-- "Create a C# BDD test for shipping costs" → Write class inheriting FeatureTest with [Feature]/[Scenario]
-- "Add ScenarioOutline with Examples for tax calculation" → Use [ScenarioOutline], [Example] attributes with typed parameters
-- "Fix value extraction — step says 500 but code checks 200" → Use ctx.Step.Values[0].AsInt()
-- "Write a Specification with Rules for email validation" → Use [Specification]/[Rule]/[RuleOutline] with SpecificationTest
-
-### Negative routing examples
-- "Create a TypeScript spec for the parser" → Use `livedoc-vitest` skill instead
-- "Build a React component for test results" → Use `frontend-design` skill
+### Negative (DO NOT use this skill)
+- "Create a TypeScript spec" → Use `livedoc-vitest` skill
+- "Build a React component" → Use `frontend-design` skill
 - "Write a plain xUnit Fact test" → No LiveDoc skill needed
-- "Fix a bug in the LiveDocContext class" → Framework development, handle directly
+- "Fix a bug in LiveDocContext" → Framework development, handle directly
 
-## Failure handling
-- If tests don't appear in Test Explorer, verify `[Scenario]` or `[Rule]` attributes are present — they inherit from `[Fact]`/`[Theory]`
-- If placeholder replacement doesn't work in outline output, verify `<ParamName>` in step titles matches method parameter names
-- If `ctx.Step` is null, ensure you're using the `Action<LiveDocContext>` overload, not `Action`
-- If conversion fails, check the exception message — it includes the step title and available values
-- Run `dotnet test` to verify all tests pass after changes
+## Failure Handling
+- Tests missing from Test Explorer → verify `[Scenario]` or `[Rule]` attributes are present
+- `ctx.Step` is null → use the `Action<LiveDocContext>` overload, not `Action`
+- Conversion fails → check exception message — includes step title and available values
+- Placeholder not replaced → `<Param>` must match method parameter name exactly
+- Journey failures → see `resources/journey-testing.md` → Failure Handling section

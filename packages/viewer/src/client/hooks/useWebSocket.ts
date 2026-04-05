@@ -100,8 +100,19 @@ export function useWebSocket(skip = false) {
   }, [fetchProjectHierarchy, fetchRunById, selectRun, setRuns]);
 
   const handleRunCompleted = useCallback(async (runId: string) => {
-    const full = await fetchRunById(runId);
+    let full = await fetchRunById(runId);
     if (!full) return;
+
+    // The server told us this run is complete. Ensure the status is terminal
+    // so the RunProgressBanner transitions from "running" → "completing" → idle.
+    // The server may still store the raw status as 'running'; derive the final
+    // status from test results.
+    if (full.run.status === 'running') {
+      const hasFailed = (full.run.documents ?? []).some(
+        (d) => (d.tests ?? []).some((t: any) => t.execution?.status === 'failed')
+      );
+      full = makeRunState({ ...full.run, status: hasFailed ? 'failed' : 'passed' });
+    }
 
     const existing = useStore.getState().runs.some((r) => r.run.runId === runId);
     if (existing) {

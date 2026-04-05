@@ -181,11 +181,22 @@ It provides:
 - ✂️ **Snippets** — quickly scaffold features, scenarios, and steps
 - 🎨 **Syntax highlighting** — Gherkin keywords stand out in your spec files
 
-:::tip AI-assisted setup
-If you're using an AI coding assistant (GitHub Copilot, Cursor, or Windsurf)
-you can ask it to configure LiveDoc for you. The assistant can install packages,
-create the Vitest config, and scaffold your first spec file in one go.
-:::
+---
+
+## Optional: Install AI Skills
+
+If your team uses AI coding assistants, install the LiveDoc skill so your AI
+writes correct BDD tests with proper patterns and value extraction:
+
+```bash
+npx livedoc-vitest-setup
+```
+
+This installs skill files for your chosen AI tools (GitHub Copilot, Claude Code,
+Cursor, Windsurf, or Roo Code). Commit the generated files so every developer on
+the team benefits automatically.
+
+→ See [AI Skill Setup](../guides/ai-skill-setup.mdx) for details and non-interactive CI usage.
 
 ---
 
@@ -196,11 +207,13 @@ create the Vitest config, and scaffold your first spec file in one go.
 - **Write specs** using `feature` → `scenario` → `given` / `when` / `then`
 - **Import `Then as then`** to avoid the ESM thenable issue
 - **Run** with `npx vitest run` and enjoy structured, readable output
+- **Install AI skills** with `npx livedoc-vitest-setup` so your AI assistant writes correct tests
 
 ---
 
 ## Next Steps
 
 - **Next in this series**: [Your First Feature](./your-first-feature.mdx) — learn every BDD keyword with a hands-on walkthrough
+- **AI skills**: [AI Skill Setup](../guides/ai-skill-setup.mdx) — teach your AI assistant to write LiveDoc tests
 - **Deep dive**: [feature() Reference](../reference/feature.mdx) — full API details for the `feature` keyword
 - **Practical use**: [Setup: Imports](../guides/setup-imports.mdx) — all import patterns explained

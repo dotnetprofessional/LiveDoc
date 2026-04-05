@@ -5,7 +5,8 @@ export default defineConfig({
     index: "_src/app/index.ts",
     "reporter/index": "_src/app/reporter/index.ts",
     setup: "_src/app/setup.ts",
-    globals: "_src/app/globals.ts"
+    globals: "_src/app/globals.ts",
+    "playwright/index": "_src/app/playwright/index.ts"
   },
   format: ["cjs", "esm"],
   dts: true,
@@ -13,6 +14,6 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  external: ["vitest"],
+  external: ["vitest", "playwright"],
   noExternal: ["@swedevtools/livedoc-schema"]
 });

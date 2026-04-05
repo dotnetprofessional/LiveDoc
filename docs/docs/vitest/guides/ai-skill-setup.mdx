@@ -1,0 +1,158 @@
+---
+sidebar_position: 2
+title: "AI Skill Setup"
+description: "Install the LiveDoc AI coding skill so your AI assistant writes correct BDD and Specification tests with proper patterns and value extraction."
+---
+
+# AI Skill Setup
+
+<p className="intro">
+LiveDoc ships with AI coding skills that teach your AI assistant how to write
+correct BDD and Specification tests. The skill files are bundled with the npm
+package — no extra tools to install.
+</p>
+
+## One Command
+
+From your project directory, run:
+
+```bash
+npx livedoc-vitest-setup
+```
+
+An interactive menu lets you choose which AI tool(s) to install for. The default is **all supported tools**.
+
+### Non-Interactive (CI)
+
+Install for a specific tool without a menu:
+
+```bash
+npx livedoc-vitest-setup --tool copilot
+```
+
+Install for all tools:
+
+```bash
+npx livedoc-vitest-setup --tool all
+```
+
+---
+
+## Supported AI Tools
+
+| AI Tool                      | Installed? |
+| ---------------------------- | :--------: |
+| GitHub Copilot (VS Code/CLI) | ✅          |
+| Claude Code                  | ✅          |
+| Roo Code                     | ✅          |
+| Cursor                       | ✅          |
+| Windsurf                     | ✅          |
+
+:::tip
+The installer places skill files in your **repository**. Commit them and
+every developer on the team benefits automatically.
+:::
+
+---
+
+## Where Files Are Installed
+
+The installer places skill instruction files in tool-specific locations:
+
+| AI Tool         | Location                                    |
+| --------------- | ------------------------------------------- |
+| GitHub Copilot  | `.github/skills/livedoc-vitest/`            |
+| Claude Code     | `.claude/skills/livedoc-vitest/`            |
+| Roo Code        | `.roo/skills/livedoc-vitest/`               |
+| Cursor          | `.cursor/rules/livedoc-vitest/`             |
+| Windsurf        | `.windsurf/rules/livedoc-vitest/`           |
+
+### Manual Fallback
+
+If `npx` doesn't work in your environment, copy the files manually.
+The skill files are bundled in the npm package under `tools/skills/`. Find them in your
+`node_modules`:
+
+```bash
+node_modules/@swedevtools/livedoc-vitest/tools/skills/
+```
+
+Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`) to the appropriate directory
+from the table above.
+
+---
+
+## What the Skill Provides
+
+Once installed, your AI assistant will:
+
+- **Choose the correct pattern** — `feature`/`scenario` for BDD, `specification`/`rule` for MSpec
+- **Use correct imports** — lowercase step keywords with proper ESM/globals setup
+- **Write self-documenting tests** — all inputs and expected outputs embedded in step titles
+- **Extract values correctly** — using `ctx.step.values`, `ctx.step.params`, `ctx.step.table`, or `ctx.example`
+- **Name files properly** — using the `.Spec.ts` convention
+- **Organize folder structure** — structuring tests for clean viewer hierarchy
+
+### Example: Before and After
+
+**Without the skill**, an AI assistant might write:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+
+describe('Shipping', () => {
+  it('should apply free shipping for Australian orders over 100', () => {
+    const cart = new Cart({ country: 'Australia', total: 100 });
+    cart.calculate();
+    expect(cart.shippingType).toBe('Free');
+  });
+});
+```
+
+**With the skill**, the same request produces:
+
+```typescript
+import { feature, scenario, given, when, then } from '@swedevtools/livedoc-vitest';
+
+feature('Shipping Costs', () => {
+  scenario('Free shipping for Australian orders over 100', () => {
+    let cart: Cart;
+
+    given("the customer is from 'Australia'", (ctx) => {
+      cart = new Cart({ country: ctx.step.values[0] });
+    });
+
+    when("the order totals '100.00' dollars", (ctx) => {
+      cart.total = ctx.step.values[0];
+      cart.calculate();
+    });
+
+    then("shipping type is 'Free'", (ctx) => {
+      expect(cart.shippingType).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+---
+
+## Verifying the Installation
+
+After installing, ask your AI assistant to write a LiveDoc test. It should:
+
+- [ ] Use `feature`/`scenario` or `specification`/`rule` — not `describe`/`it`
+- [ ] Import from `@swedevtools/livedoc-vitest` — not plain vitest
+- [ ] Embed test data in step titles with single quotes
+- [ ] Extract values using `ctx.step.values` or `ctx.step.params`
+- [ ] Name the file with a `.Spec.ts` extension
+
+If the assistant doesn't follow these patterns, verify the skill files
+were installed to the correct location for your tool.
+
+---
+
+## Related
+
+- [Getting Started](../learn/getting-started.mdx) — install LiveDoc and write your first test
+- [Best Practices](./best-practices.mdx) — patterns the AI skill enforces
+- [Custom Reporters](./custom-reporters.mdx) — configure test output

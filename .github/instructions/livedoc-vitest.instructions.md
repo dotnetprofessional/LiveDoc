@@ -408,3 +408,47 @@ ruleOutline.skip/only         // Same pattern
 ## File Naming
 
 Use `.Spec.ts` extension: `UserAuth.Spec.ts`, `ShoppingCart.Spec.ts`
+
+## Step Attachment API
+
+Attach files, screenshots, and data to steps. Attachments appear in the LiveDoc Viewer.
+
+```typescript
+// Attach JSON data
+ctx.step.attachJSON(data, "API Response");
+
+// Attach a screenshot (base64 PNG)
+ctx.step.attachScreenshot(base64Data, "Login Page");
+
+// Attach arbitrary data
+ctx.step.attach(base64Data, { mimeType: "image/png", kind: "image", title: "Chart" });
+```
+
+## Playwright Integration
+
+For browser-based testing, use the dedicated subpath export:
+
+```typescript
+import { useBrowser, screenshot } from "@swedevtools/livedoc-vitest/playwright";
+
+const { page } = useBrowser(); // Call at module scope — launches in beforeAll
+
+feature("Viewer Navigation", () => {
+    scenario("Loading the homepage", () => {
+        when("navigating to the homepage", async (ctx) => {
+            await page().goto("http://localhost:3000");
+            await screenshot(page(), ctx); // Auto-attaches PNG to step
+        });
+
+        then("the page title should be visible", async () => {
+            expect(await page().locator("h1").textContent()).toBeTruthy();
+        });
+    });
+});
+```
+
+**Requirements:** `npm install -D playwright` + `npx playwright install chromium`
+
+**Options:** `useBrowser({ browser: 'chromium', headless: true, viewport: {width: 1280, height: 720}, freshContextPerScenario: false })`
+
+**IMPORTANT:** `page()` is a getter — call it inside steps, not at module scope. The browser launches in `beforeAll`.

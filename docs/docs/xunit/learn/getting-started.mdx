@@ -251,12 +251,14 @@ flat, hard-to-navigate list in the viewer.
 - **Write steps** with `Given()` / `When()` / `Then()` / `And()` / `But()`
 - **Constructor** must accept `ITestOutputHelper` and pass it to `base(output)`
 - **Run** with `dotnet test --logger LiveDoc` and enjoy structured, readable output
+- **Install AI skills** with `dotnet msbuild -t:LiveDocInstallSkills` so your AI assistant writes correct tests
 
 ---
 
 ## Next Steps
 
 - **Next in this series**: [Your First Feature](./your-first-feature.mdx) — learn every BDD keyword, step value extraction, and descriptions
+- **AI skills**: [AI Skill Setup](../guides/ai-skill-setup.mdx) — teach your AI assistant to write LiveDoc tests
 - **Deep dive**: [Feature & Scenario Attributes](../reference/attributes.mdx) — full reference for all attributes
 - **Practical use**: [Viewer Integration](../guides/viewer-integration.mdx) — visualize results in the LiveDoc Viewer
 - **End-to-end testing**: [Journey Testing](../guides/journey-testing.mdx) — test full API flows with annotated `.http` files
