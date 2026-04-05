@@ -2,7 +2,7 @@
     "name": "livedoc-vscode",
     "displayName": "livedoc",
     "description": "Tools and snippets for working with LiveDoc BDD testing (Vitest)",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "publisher": "dotnetprofessional",
     "icon": "images/icon.png",
     "repository": {
