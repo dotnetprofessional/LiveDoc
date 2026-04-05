@@ -71,7 +71,11 @@ function Run-Build {
     Write-Host "Building all packages..." -ForegroundColor Cyan
     Invoke-InDirectory -WorkingDirectory $repoRoot -Executable 'pnpm' -Arguments @('run', 'build')
     
-    # 4. Package VS Code extension
+    # 4. Sync SKILL.md versions before packaging
+    Write-Host "Syncing skill versions..." -ForegroundColor Cyan
+    & (Join-Path $repoRoot 'scripts/sync-skill-versions.ps1') -RepoRoot $repoRoot
+
+    # 5. Package VS Code extension
     $vscodeDir = Join-Path $repoRoot 'packages/vscode'
     if (Test-Path $vscodeDir) {
         Write-Host "Packaging VS Code extension..." -ForegroundColor Cyan
