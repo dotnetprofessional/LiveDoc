@@ -14,6 +14,14 @@ export function useStaticData(): boolean {
     const data = getStaticData() as TestRunV1 | undefined;
     if (!data) return;
 
+    // Static data always represents a completed run — force terminal status
+    if (data.status === 'running' || data.status === 'pending') {
+      const hasFailed = data.documents?.some(d =>
+        d.tests?.some(t => t.execution?.status === 'failed')
+      );
+      data.status = hasFailed ? 'failed' : 'passed';
+    }
+
     const run = makeRunState(data);
 
     setRuns([run]);

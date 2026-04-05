@@ -1030,7 +1030,7 @@ export class LiveDocViewerReporter implements IPostReporter {
   private calculateOverallStatus(results: ExecutionResults): Status {
     const summary = this.calculateSummary(results).summary;
     if (summary.failed > 0) return 'failed';
-    if (summary.pending > 0) return 'running';
+    // Pending/skipped tests don't prevent a terminal status — the run completed
     return 'passed';
   }
 
