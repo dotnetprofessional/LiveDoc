@@ -274,6 +274,7 @@ These are generated using exactly the pipeline described above — JSON export, 
 | `--config` ignored via pnpm | Double `--config` argument | Use `npx vitest run --config ...` directly |
 | Tests pass locally, fail in CI | Environment differences | Check Node.js version, use CI-specific config |
 | No output in CI logs | `detailLevel: 'silent'` | Use `'spec+summary+headers'` for visible output |
+| Playwright tests pending in CI | Missing browsers or no app running | See [Playwright CI setup](./playwright.mdx#ci-configuration) |
 
 ## Related
 

@@ -9,7 +9,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['_src/test/**/*.Spec.ts'],
-    exclude: ['_src/test/Playwright/**'],  // Playwright tests need a running viewer + browsers — run locally or in dedicated e2e job
     setupFiles: ['./_src/app/setup.ts'],
     pool: 'forks',
     fileParallelism: false,

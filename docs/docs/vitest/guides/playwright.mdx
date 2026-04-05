@@ -161,20 +161,81 @@ export default defineConfig({
 
 ## CI Configuration
 
-Playwright in CI requires browser binaries. Add a caching step for speed:
+Playwright tests in CI need two things the local environment already has:
+**browser binaries** and a **running application to test against**.
+
+### Step 1 — Install Browsers
 
 ```yaml
-# .github/workflows/ci.yml (excerpt)
-- name: Install Playwright
-  run: npx playwright install --with-deps chromium
+- name: Install Playwright browsers
+  run: npx playwright install chromium --with-deps
+```
 
-- name: Run E2E tests
+The `--with-deps` flag installs system-level libraries (fonts, codecs) that
+headless Chromium needs on Linux runners. Only install the browsers you actually
+test against — `chromium` alone is usually sufficient.
+
+### Step 2 — Start Your Application
+
+Playwright tests navigate to a running web app. Start it in the background
+before running tests:
+
+```yaml
+- name: Start application
+  run: |
+    npm run start &
+    # Wait until the server responds (up to 30 seconds)
+    timeout 30 bash -c 'until curl -sf http://localhost:3000 > /dev/null 2>&1; do sleep 1; done'
+    echo "Application is ready"
+```
+
+:::caution Don't forget the wait
+Without the health-check loop, tests may start before the server is ready —
+leading to flaky connection-refused failures.
+:::
+
+### Step 3 — Run Tests
+
+```yaml
+- name: Run tests (including Playwright)
   run: npx vitest run --config vitest.config.ci.ts
 ```
 
-:::tip
-Only install the browsers you actually test against. `chromium` alone is usually
-sufficient — add `firefox` or `webkit` only if you need cross-browser coverage.
+### Complete GitHub Actions Example
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: 22
+
+  - run: npm ci
+
+  - name: Build
+    run: npm run build
+
+  - name: Install Playwright browsers
+    run: npx playwright install chromium --with-deps
+
+  - name: Start application
+    run: |
+      npm run start &
+      timeout 30 bash -c 'until curl -sf http://localhost:3000 > /dev/null 2>&1; do sleep 1; done'
+
+  - name: Run tests
+    run: npx vitest run --config vitest.config.ci.ts
+```
+
+:::tip Headed vs headless
+Use the `CI` environment variable to toggle headed mode:
+```typescript
+const { page } = useBrowser({
+    launch: { headless: process.env.CI === 'true' },
+});
+```
+GitHub Actions sets `CI=true` automatically, so tests run headless in CI and
+can optionally run headed locally for visual debugging.
 :::
 
 ## Troubleshooting

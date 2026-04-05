@@ -34,6 +34,17 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Start viewer for Playwright tests
+        run: |
+          cd packages/viewer
+          PORT=3100 node dist/server/index.js &
+          echo "Waiting for viewer on port 3100..."
+          timeout 30 bash -c 'until curl -sf http://localhost:3100 > /dev/null 2>&1; do sleep 1; done'
+          echo "Viewer is ready"
+
       - name: Test vitest package
         run: npx vitest run --config vitest.config.ci.ts
         working-directory: packages/vitest
