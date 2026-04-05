@@ -61,11 +61,22 @@ jobs:
         run: mkdir -p reports
 
       # --- Run tests with JSON export ---
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+        working-directory: packages/vitest
+
+      - name: Start viewer for Playwright tests
+        run: |
+          PORT=3100 node dist/server/index.js &
+          timeout 30 bash -c 'until curl -sf http://localhost:3100 > /dev/null 2>&1; do sleep 1; done'
+        working-directory: packages/viewer
+
       - name: Run Vitest tests with JSON export
         run: npx vitest run --config vitest.config.ci.ts
         working-directory: packages/vitest
 
       - name: Run .NET tests with JSON export
+        if: always()
         run: |
           dotnet test --no-build \
             --logger "LiveDoc;ExportPath=${{ github.workspace }}/reports/dotnet-report.json;Project=LiveDoc.xUnit;Environment=ci"
