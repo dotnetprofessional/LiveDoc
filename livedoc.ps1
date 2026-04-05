@@ -705,6 +705,32 @@ $publishChildren = @(
 )
 $packageMenuItems.Add((New-MenuItem -Label 'Publish...' -HotKey 'n' -Children $publishChildren))
 
+# ═══════════════════════════════════════
+# Group: Install / Update
+# ═══════════════════════════════════════
+
+$packageMenuItems.Add((New-MenuItem -Label 'Update Global Viewer' -HotKey 'u' -Action ({
+    $viewerRelDir = Join-Path $repoRoot 'releases/@swedevtools/livedoc-viewer'
+    if (-not (Test-Path $viewerRelDir)) {
+        Write-Host "No viewer releases found in releases/@swedevtools/livedoc-viewer/" -ForegroundColor Red
+        return
+    }
+    $latest = Get-ChildItem -Path $viewerRelDir -Filter "swedevtools-livedoc-viewer-*.tgz" |
+        Sort-Object Name -Descending |
+        Select-Object -First 1
+    if (-not $latest) {
+        Write-Host "No .tgz files found in releases/@swedevtools/livedoc-viewer/" -ForegroundColor Red
+        return
+    }
+    Write-Host "Installing $($latest.Name) globally..." -ForegroundColor Cyan
+    & npm install -g $latest.FullName
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Viewer updated successfully!" -ForegroundColor Green
+    } else {
+        Write-Host "Install failed (exit code $LASTEXITCODE)" -ForegroundColor Red
+    }
+}.GetNewClosure())))
+
 $packageMenuItems.Add((New-MenuItem -Label '─────────────────────' -HotKey ([char]0) -Action $null))
 
 # ═══════════════════════════════════════
