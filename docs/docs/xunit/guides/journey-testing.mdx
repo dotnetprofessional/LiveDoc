@@ -596,14 +596,54 @@ public class JourneyServerFixture : JourneyFixtureBase
 | `HttpYacEnvironment` | `"local"` — httpYac environment name |
 | `StartupTimeout` | 30 seconds |
 | `ServerArguments` | `"--no-launch-profile"` |
+| `Verbose` | `false` — when `true`, writes startup diagnostics to stderr |
 
 Plus automatic behavior:
 - **Port**: Random ephemeral port via `TcpListener`
 - **URL binding**: `ASPNETCORE_URLS=http://localhost:{port}`
-- **Startup detection**: Monitors stdout for Kestrel's "Now listening on"
+- **Startup detection**: Monitors stdout/stderr for Kestrel's "Now listening on"
+- **Diagnostic logging**: Always logs port/URL/environment at startup; set `Verbose = true` for full server output
 - **httpYac variables**: `baseUrl` auto-set to `http://localhost:{port}`
 - **Capture mode**: `JOURNEY_CAPTURE=true` env var saves `.Response.json` files
 - **Cleanup**: Kills server process tree on dispose
+
+:::caution UseUrls() overrides ASPNETCORE_URLS
+LiveDoc sets the `ASPNETCORE_URLS` environment variable to bind your server to a
+random port. However, **if your `Program.cs` calls `UseUrls()`,
+`builder.WebHost.UseUrls()`, or hard-codes URLs in `launchSettings.json`, those
+take precedence** and your server will ignore the environment variable.
+
+ASP.NET Core's [URL binding precedence](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/endpoints) (highest wins):
+1. `UseUrls()` / `UseKestrel().Listen()` — **in code**
+2. `--urls` command-line argument
+3. `ASPNETCORE_URLS` environment variable ← LiveDoc sets this
+4. `launchSettings.json` profiles
+
+**Fix**: Remove `UseUrls()` calls from your server, or gate them behind an
+environment check:
+
+```csharp title="Program.cs"
+// ✅ Only set URLs when NOT in test mode
+if (builder.Environment.EnvironmentName != "Test")
+{
+    builder.WebHost.UseUrls("http://localhost:5000");
+}
+```
+
+Alternatively, pass the URL explicitly via `ServerArguments`:
+
+```csharp title="JourneyServerFixture.cs"
+protected override JourneyConfig Configure() => new()
+{
+    ServerProject = "../../src/MyApi",
+    JourneysPath  = "../../journeys",
+    // highlight-next-line
+    ServerArguments = $"--no-launch-profile --urls http://localhost:{Port}",
+};
+```
+
+The `--urls` flag has higher precedence than `UseUrls()` and will override it.
+:::
 
 ### Customizing Config {#custom-config}
 
@@ -805,6 +845,10 @@ Content-Type: application/json
 
 | Problem | Cause | Solution |
 | --- | --- | --- |
+| "Server process exited before startup completed" | Server crashed or bound to the wrong port | Check the diagnostic output for errors. Most commonly, your `Program.cs` calls `UseUrls()` which overrides `ASPNETCORE_URLS` — see [the warning above](#custom-config) |
+| Server starts but tests get connection refused | Server is listening on a different port than LiveDoc expects | Your server ignores `ASPNETCORE_URLS` (e.g., via `UseUrls()` or `launchSettings.json`). Remove those calls or pass `--urls` via `ServerArguments` |
+| "Server did not start within 30s" | Slow startup or custom startup message | Increase `StartupTimeout` in config, or override `IsServerReady()` if your server doesn't output the standard Kestrel message |
+| No diagnostic output during startup | Default is quiet mode | Set `Verbose = true` in your `JourneyConfig` to see all server output lines in test runner stderr |
 | Build fails with "httpYac not found" | httpYac CLI not installed | Run `npm install --save-dev httpyac` or set `LiveDocHttpYacEnsure=auto-install` |
 | No `.Journey.cs` files generated | `LiveDocJourneysEnabled` not set | Add `<LiveDocJourneysEnabled>true</LiveDocJourneysEnabled>` to `.csproj` |
 | Generator skips a `.http` file | No BDD comments found | Add `# Feature:` and `# Scenario:` annotations |

@@ -36,6 +36,12 @@ public record JourneyConfig
 
     /// <summary>Additional args appended to <c>dotnet run --project {path}</c>. Default: <c>"--no-launch-profile"</c></summary>
     public string ServerArguments { get; init; } = "--no-launch-profile";
+
+    /// <summary>
+    /// When true, writes startup diagnostic messages to stderr so they appear in test runner output.
+    /// Useful for troubleshooting server startup issues. Default: <c>false</c>.
+    /// </summary>
+    public bool Verbose { get; init; } = false;
 }
 
 /// <summary>
@@ -144,6 +150,18 @@ public class JourneyFixtureBase : IAsyncLifetime
 
         ConfigureServerProcess(psi);
 
+        // Always log a startup summary — low noise, high value when debugging
+        WriteDiagnostic($"[LiveDoc Journey] Starting server: {Config.ServerProject}");
+        WriteDiagnostic($"[LiveDoc Journey]   Port: {Port}");
+        WriteDiagnostic($"[LiveDoc Journey]   ASPNETCORE_URLS: {psi.Environment["ASPNETCORE_URLS"]}");
+        WriteDiagnostic($"[LiveDoc Journey]   Environment: {Config.ServerEnvironment}");
+        if (Config.Verbose)
+        {
+            WriteDiagnostic($"[LiveDoc Journey]   Command: dotnet {psi.Arguments}");
+            WriteDiagnostic($"[LiveDoc Journey]   Server project: {serverProjectDir}");
+            WriteDiagnostic($"[LiveDoc Journey]   Journeys dir: {JourneysDir}");
+        }
+
         _serverProcess = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start server process");
 
@@ -155,6 +173,7 @@ public class JourneyFixtureBase : IAsyncLifetime
         };
 
         await WaitForStartupAsync(_serverProcess, Config.StartupTimeout);
+        WriteDiagnostic($"[LiveDoc Journey] Server ready at {BaseUrl}");
     }
 
     public virtual async Task DisposeAsync()
@@ -303,6 +322,9 @@ public class JourneyFixtureBase : IAsyncLifetime
                 outputLines.Enqueue(clean);
                 OnServerOutputLine(clean);
 
+                if (Config.Verbose)
+                    WriteDiagnostic($"[LiveDoc Journey]   > {clean}");
+
                 if (IsServerReady(clean))
                     ready.TrySetResult(true);
             }
@@ -328,14 +350,26 @@ public class JourneyFixtureBase : IAsyncLifetime
         var output = string.Join("\n", outputLines);
         var diagnostics = string.IsNullOrEmpty(output) ? "(no output captured)" : output;
 
+        var portHint =
+            $"\n\nTroubleshooting hint: LiveDoc set ASPNETCORE_URLS=http://localhost:{Port} but your " +
+            $"server may be ignoring it. If your Program.cs calls UseUrls(), builder.WebHost.UseUrls(), " +
+            $"or sets URLs in launchSettings.json, those take precedence over the environment variable. " +
+            $"See https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/endpoints " +
+            $"for the full URL binding precedence order.\n" +
+            $"Quick fix: remove UseUrls() calls or add '--urls http://localhost:{Port}' to ServerArguments.";
+
         if (process.HasExited)
             throw new InvalidOperationException(
                 $"Server process exited with code {process.ExitCode} before startup completed.\n" +
-                $"Server output:\n{diagnostics}");
+                $"Expected ASPNETCORE_URLS: http://localhost:{Port}\n" +
+                $"Server output:\n{diagnostics}" +
+                portHint);
 
         throw new TimeoutException(
             $"Server did not start within {timeout.TotalSeconds}s.\n" +
-            $"Server output:\n{diagnostics}");
+            $"Expected ASPNETCORE_URLS: http://localhost:{Port}\n" +
+            $"Server output:\n{diagnostics}" +
+            portHint);
     }
 
     private static int FindAvailablePort()
@@ -360,4 +394,10 @@ public class JourneyFixtureBase : IAsyncLifetime
     }
 
     private static string StripAnsi(string input) => AnsiEscapePattern.Replace(input, string.Empty);
+
+    /// <summary>
+    /// Writes a diagnostic message. Override to redirect to your logging framework.
+    /// <para>Default: writes to stderr (visible in test runner output).</para>
+    /// </summary>
+    protected virtual void WriteDiagnostic(string message) => Console.Error.WriteLine(message);
 }
