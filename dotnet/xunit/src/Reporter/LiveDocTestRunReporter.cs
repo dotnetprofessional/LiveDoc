@@ -658,16 +658,21 @@ public class LiveDocTestRunReporter : IDisposable
                 ? Models.Status.Failed 
                 : g.All(r => r.Result.Status == Models.Status.Passed) 
                     ? Models.Status.Passed 
-                    : Models.Status.Pending)
+                    : g.All(r => r.Result.Status == Models.Status.Skipped)
+                        ? Models.Status.Skipped
+                        : Models.Status.Pending)
             .ToList();
 
         stats.Total = rowStatuses.Count;
         stats.Passed = rowStatuses.Count(s => s == Models.Status.Passed);
         stats.Failed = rowStatuses.Count(s => s == Models.Status.Failed);
+        stats.Skipped = rowStatuses.Count(s => s == Models.Status.Skipped);
         stats.Pending = rowStatuses.Count(s => s == Models.Status.Pending);
-        stats.Skipped = 0;
 
-        execution.Status = stats.Failed > 0 ? Models.Status.Failed : Models.Status.Passed;
+        execution.Status = stats.Failed > 0 ? Models.Status.Failed 
+            : stats.Passed > 0 ? Models.Status.Passed 
+            : stats.Skipped > 0 ? Models.Status.Skipped
+            : Models.Status.Pending;
         execution.Duration = results.Sum(r => r.Result.Duration);
     }
 

@@ -162,8 +162,16 @@ public class LiveDocMessageSink : IMessageSink
 
         // Skip fixture/helper classes that aren't real test specs.
         // Convention: real test classes end in "_Spec" or "Spec".
+        // To temporarily disable this filter for debugging test count mismatches,
+        // set the environment variable LIVEDOC_REPORT_ALL_TESTS=true.
+        // In Visual Studio: Test → Configure Run Settings → Select Solution Wide runsettings File
+        // → pick tests/debug.runsettings. No runsettings file selected = normal filtering.
         var simpleClassName = className.Contains('.') ? className.Substring(className.LastIndexOf('.') + 1) : className;
-        if ((isFeature || isSpec) && !simpleClassName.EndsWith("Spec", StringComparison.Ordinal))
+        var reportAll = string.Equals(
+            Environment.GetEnvironmentVariable("LIVEDOC_REPORT_ALL_TESTS"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+        if (!reportAll && (isFeature || isSpec) && !simpleClassName.EndsWith("Spec", StringComparison.Ordinal))
             return;
 
         // Derive assembly simple name — IAssemblyInfo.Name may return full name with version or DLL path
@@ -182,9 +190,22 @@ public class LiveDocMessageSink : IMessageSink
             var isOutline = kind == "RuleOutline" || kind == "ScenarioOutline";
             var testId = DeriveTestId(className, methodName, testMethod);
 
-            // Skip if already handled by LiveDocContext (which provides richer data with steps)
-            if (_reporter.HasTest(testId))
-                return;
+            // For outline tests, the same test ID is shared across all example rows.
+            // The fallback path must allow the 2nd+ rows through; HasTest alone would
+            // block them because the 1st row already created the outline shell.
+            // _outlineRowCounters tracks which outlines the fallback path started —
+            // if present, this is a subsequent row and we must proceed.
+            if (isOutline)
+            {
+                if (!_outlineRowCounters.ContainsKey(testId) && _reporter.HasTest(testId))
+                    return;
+            }
+            else
+            {
+                // Skip if already handled by LiveDocContext (which provides richer data with steps)
+                if (_reporter.HasTest(testId))
+                    return;
+            }
 
             var style = isSpec ? Reporter.Models.TestKinds.Specification : Reporter.Models.TestKinds.Feature;
             var title = FormatTestCaseTitle(className);
