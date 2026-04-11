@@ -446,6 +446,63 @@ export class LiveDocSpec extends LiveDocReporter {
         if (scenario.description.length > 0) this.writeLine(this.formatDescription(scenario.description, indent, this.colorTheme.scenarioDescription));
     }
 
+    /**
+     * Derives a scenario-level status from its step-level statistics.
+     * Any failed step → fail; all steps pass → pass; otherwise pending.
+     */
+    private deriveScenarioStatus(scenario: model.Scenario): 'pass' | 'fail' | 'pending' {
+        const stats = scenario.statistics;
+        if (stats.failedCount > 0) return 'fail';
+        if (stats.passCount > 0 && stats.pendingCount === 0) return 'pass';
+        return 'pending';
+    }
+
+    /**
+     * Computes scenario-level test counts for a feature.
+     * Each plain Scenario = 1 test; each ScenarioOutline example = 1 test.
+     */
+    private computeFeatureTestCounts(feature: model.Feature): { pass: number; fail: number; pending: number; total: number } {
+        let pass = 0, fail = 0, pending = 0;
+        for (const scenario of feature.scenarios) {
+            if (scenario instanceof model.ScenarioOutline) {
+                for (const example of scenario.examples) {
+                    const status = this.deriveScenarioStatus(example);
+                    if (status === 'pass') pass++;
+                    else if (status === 'fail') fail++;
+                    else pending++;
+                }
+            } else {
+                const status = this.deriveScenarioStatus(scenario);
+                if (status === 'pass') pass++;
+                else if (status === 'fail') fail++;
+                else pending++;
+            }
+        }
+        return { pass, fail, pending, total: pass + fail + pending };
+    }
+
+    /**
+     * Computes scenario-level test counts for an individual scenario row.
+     * Plain Scenario: 1/0/0, 0/1/0, or 0/0/1. ScenarioOutline: counts its examples.
+     */
+    private computeScenarioTestCounts(scenario: model.Scenario): { pass: number; fail: number; pending: number; total: number } {
+        let pass = 0, fail = 0, pending = 0;
+        if (scenario instanceof model.ScenarioOutline) {
+            for (const example of scenario.examples) {
+                const status = this.deriveScenarioStatus(example);
+                if (status === 'pass') pass++;
+                else if (status === 'fail') fail++;
+                else pending++;
+            }
+        } else {
+            const status = this.deriveScenarioStatus(scenario);
+            if (status === 'pass') pass++;
+            else if (status === 'fail') fail++;
+            else pending++;
+        }
+        return { pass, fail, pending, total: pass + fail + pending };
+    }
+
     private outputFeatureExecutionSummary(results: model.ExecutionResults) {
         const headerRow = [
             "Feature",
@@ -471,17 +528,20 @@ export class LiveDocSpec extends LiveDocReporter {
                 currentPath = feature.path.replace(this.options.removeHeaderText, "");
                 statistics.push([currentPath ? currentPath.toUpperCase().replace(/[_-]/g, " ") : "ROOT"]);
             }
-            // Add the stats for the feature
-            const stats = feature.statistics;
-            const statusBar = this.statusBar(stats.passPercent, stats.failedPercent, stats.pendingPercent);
+            // Compute scenario-level counts instead of step-level counts
+            const counts = this.computeFeatureTestCounts(feature);
+            const passPercent = counts.total > 0 ? counts.pass / counts.total : 0;
+            const failPercent = counts.total > 0 ? counts.fail / counts.total : 0;
+            const pendingPercent = counts.total > 0 ? counts.pending / counts.total : 0;
+            const statusBar = this.statusBar(passPercent, failPercent, pendingPercent);
 
             statistics.push([
                 this.formatLine(feature.title),
                 feature.scenarios.length,
                 statusBar,
-                feature.statistics.passCount,
-                feature.statistics.failedCount,
-                feature.statistics.pendingCount,
+                counts.pass,
+                counts.fail,
+                counts.pending,
                 feature.statistics.totalRuleViolations,
                 this.formatDuration(feature.statistics.duration)
             ]);
@@ -491,28 +551,34 @@ export class LiveDocSpec extends LiveDocReporter {
             }
             // Output the specific scenarios for the feature
             feature.scenarios.forEach(scenario => {
-                const stats = scenario.statistics;
-                const statusBar = this.statusBar(stats.passPercent, stats.failedPercent, stats.pendingPercent);
+                const scenCounts = this.computeScenarioTestCounts(scenario);
+                const scenTotal = scenCounts.total;
+                const scenStatusBar = this.statusBar(
+                    scenTotal > 0 ? scenCounts.pass / scenTotal : 0,
+                    scenTotal > 0 ? scenCounts.fail / scenTotal : 0,
+                    scenTotal > 0 ? scenCounts.pending / scenTotal : 0
+                );
                 statistics.push([
                     this.formatLine("  " + scenario.title),
                     " ",
-                    statusBar,
-                    scenario.statistics.passCount,
-                    scenario.statistics.failedCount,
-                    scenario.statistics.pendingCount,
+                    scenStatusBar,
+                    scenCounts.pass,
+                    scenCounts.fail,
+                    scenCounts.pending,
                     scenario.statistics.totalRuleViolations,
                     this.formatDuration(scenario.statistics.duration)
                 ]);
             });
         });
 
-        // Now add a totals row
+        // Now add a totals row using scenario-level counts
+        const allCounts = results.features.map(f => this.computeFeatureTestCounts(f));
         const totalStats = {
-            total: results.features.reduce((pv, cv) => pv + cv.statistics.totalCount, 0),
+            total: allCounts.reduce((pv, cv) => pv + cv.total, 0),
             scenarios: results.features.reduce((pv, cv) => pv + cv.scenarios.length, 0),
-            pass: results.features.reduce((pv, cv) => pv + cv.statistics.passCount, 0),
-            failed: results.features.reduce((pv, cv) => pv + cv.statistics.failedCount, 0),
-            pending: results.features.reduce((pv, cv) => pv + cv.statistics.pendingCount, 0),
+            pass: allCounts.reduce((pv, cv) => pv + cv.pass, 0),
+            failed: allCounts.reduce((pv, cv) => pv + cv.fail, 0),
+            pending: allCounts.reduce((pv, cv) => pv + cv.pending, 0),
             warnings: results.features.reduce((pv, cv) => pv + cv.statistics.totalRuleViolations, 0),
             elapsedTime: results.features.reduce((pv, cv) => pv + cv.statistics.duration, 0),
         };
@@ -520,7 +586,7 @@ export class LiveDocSpec extends LiveDocReporter {
         statistics.push([
             "Totals (" + results.features.length + ")",
             totalStats.scenarios,
-            this.statusBar(totalStats.pass / totalStats.total, totalStats.failed / totalStats.total, totalStats.pending / totalStats.total),
+            this.statusBar(totalStats.total > 0 ? totalStats.pass / totalStats.total : 0, totalStats.total > 0 ? totalStats.failed / totalStats.total : 0, totalStats.total > 0 ? totalStats.pending / totalStats.total : 0),
             totalStats.pass,
             totalStats.failed,
             totalStats.pending,
