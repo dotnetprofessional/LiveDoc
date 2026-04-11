@@ -57,14 +57,17 @@ public class LiveDocTestFrameworkExecutor : XunitTestFrameworkExecutor
 
         await assemblyRunner.RunAsync();
 
-        // Try to flush here first — has more time than ProcessExit handler
+        // The primary flush happens inside LiveDocMessageSink when it intercepts
+        // ITestAssemblyFinished — BEFORE the inner sink signals completion to VSTest.
+        // This defensive call is a no-op if the sink already flushed successfully
+        // (FlushAndCompleteAsync is idempotent via _flushTask guard).
         try
         {
             await Reporter.LiveDocTestRunReporter.Instance.FlushAndCompleteAsync();
         }
         catch
         {
-            // ProcessExit handler is backup
+            // ProcessExit handler is the final fallback
         }
     }
 }
@@ -86,9 +89,6 @@ public class LiveDocMessageSink : IMessageSink
 
     public bool OnMessage(IMessageSinkMessage message)
     {
-        // Pass through to inner sink first
-        var result = _innerSink.OnMessage(message);
-
         // Intercept test results if reporter is enabled
         if (_reporter.IsEnabled)
         {
@@ -102,7 +102,25 @@ public class LiveDocMessageSink : IMessageSink
             }
         }
 
-        return result;
+        // Flush all buffered results BEFORE the assembly-finished message reaches
+        // the inner sink. Once the inner sink processes ITestAssemblyFinished,
+        // the VSTest adapter considers the run complete and the process may exit.
+        // For partial/subset runs this race is almost always lost, so we must
+        // ensure the HTTP flush completes within the normal execution flow.
+        if (message is Xunit.Sdk.TestAssemblyFinished && _reporter.IsEnabled)
+        {
+            try
+            {
+                _reporter.FlushAndCompleteAsync().GetAwaiter().GetResult();
+            }
+            catch
+            {
+                // ProcessExit handler is backup
+            }
+        }
+
+        // Pass through to inner sink
+        return _innerSink.OnMessage(message);
     }
 
     private void HandleMessage(IMessageSinkMessage message)

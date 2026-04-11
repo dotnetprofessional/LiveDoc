@@ -38,6 +38,7 @@ public class LiveDocTestRunReporter : IDisposable
     private readonly SemaphoreSlim _runStartLock = new(1, 1);
     private readonly LiveDocConfig _config;
     private readonly DateTime _startedAt;
+    private readonly ConcurrentBag<Task> _realtimeTasks = new();
 
     /// <summary>
     /// Gets the singleton instance.
@@ -221,7 +222,7 @@ public class LiveDocTestRunReporter : IDisposable
 
     private void PublishTestCaseRealtime(string testCaseId)
     {
-        _ = Task.Run(async () =>
+        var task = Task.Run(async () =>
         {
             try
             {
@@ -246,12 +247,24 @@ public class LiveDocTestRunReporter : IDisposable
                 }
             }
         });
+        _realtimeTasks.Add(task);
     }
 
     private async Task FlushCoreAsync()
     {
         try
         {
+            // Wait for all in-flight real-time upsert tasks to complete.
+            // These may hold _runStartLock (starting the run via HTTP) — if we
+            // don't await them first, PublishToServerAsync would block on the
+            // semaphore and the ProcessExit timeout could kill the process.
+            var pending = _realtimeTasks.ToArray();
+            if (pending.Length > 0)
+            {
+                try { await Task.WhenAll(pending); }
+                catch { /* individual task errors already logged */ }
+            }
+
             // Prepare all test cases with their accumulated tests
             var upsertPayloads = new List<TestCase>();
             foreach (var kvp in _testCases)
