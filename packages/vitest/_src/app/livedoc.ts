@@ -1,5 +1,4 @@
-import { describe as vitestDescribe, it as vitestIt, beforeAll, afterAll } from "vitest";
-import { getCurrentSuite } from "vitest/suite";
+import { describe as vitestDescribe, it as vitestIt, beforeAll, afterAll, TestRunner } from "vitest";
 import { LiveDocGrammarParser } from "./parser/Parser";
 import * as model from "./model/index";
 import { LiveDocOptions } from "./LiveDocOptions";
@@ -812,7 +811,7 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
         }
     };
 
-    const currentSuite = getCurrentSuite() as any;
+    const currentSuite = TestRunner.getCurrentSuite() as any;
     if (!currentSuite || typeof currentSuite.task !== "function") {
         throw new Error(
             "LiveDoc requires Vitest suite.task(name, { meta, handler }) to transport metadata to the reporter."
@@ -924,7 +923,7 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
                 }
             };
 
-            const currentSuite = getCurrentSuite() as any;
+            const currentSuite = TestRunner.getCurrentSuite() as any;
             if (!currentSuite || typeof currentSuite.task !== "function") {
                 throw new Error(
                     "LiveDoc requires Vitest suite.task(name, { meta, handler }) to transport metadata to the reporter."
@@ -1243,7 +1242,7 @@ function createStepFunction(stepType: string) {
             }
         };
 
-        const currentSuite = getCurrentSuite() as any;
+        const currentSuite = TestRunner.getCurrentSuite() as any;
         if (!currentSuite || typeof currentSuite.task !== "function") {
             throw new Error(
                 "LiveDoc requires Vitest suite.task(name, { meta, handler }) to transport metadata to the reporter."
