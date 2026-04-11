@@ -3,6 +3,7 @@ import type { Attachment, DataTable, StepTest, Status, TypedValue } from '@swede
 import { bindPlaceholdersInText, renderTitle, highlightPlaceholders } from '../lib/title-utils';
 import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, Camera, Paperclip } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { formatDuration } from '../lib/status-utils';
 import { Markdown } from './Markdown';
 import { ErrorDisplay } from './ErrorDisplay';
 import { AttachmentViewer } from './AttachmentViewer';
@@ -197,7 +198,7 @@ function StepItem({ step, stepIndex, showStatus = true, highlightValues, bindVal
            {showDurations && duration > 0 && (
             <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Clock className="w-3 h-3" />
-              {duration}ms
+              {formatDuration(duration)}
             </span>
           )}
         </div>

@@ -4,6 +4,7 @@ import { Badge } from './ui/badge';
 import { Card } from './ui/card';
 import { Separator } from './ui/separator';
 import { renderTitle } from '../lib/title-utils';
+import { formatDuration } from '../lib/status-utils';
 import { Markdown } from './Markdown';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
@@ -80,7 +81,7 @@ export function NodeDisplay({ node, variant, size = 'lg', showStats = true, onCl
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Duration</span>
               <span className="text-sm font-black flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-primary" />
-                {Number(execution?.duration ?? 0).toFixed(0)}ms
+                {formatDuration(Number(execution?.duration ?? 0))}
               </span>
             </div>
             {summary && (

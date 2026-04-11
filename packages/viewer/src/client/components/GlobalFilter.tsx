@@ -4,6 +4,7 @@ import type { AnyTest, TestCase } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { formatTagLabel, normalizeTag, subtreeHasMatch } from '../lib/filter-utils';
+import { formatDuration } from '../lib/status-utils';
 import { StatusBadge } from './StatusBadge';
 
 /** Given a Step node id, find its parent Scenario/Rule (or Feature for background steps). */
@@ -340,7 +341,7 @@ export function GlobalFilter({ className }: { className?: string }) {
                     </div>
                   </div>
                   <div className="text-[10px] font-bold text-muted-foreground/60">
-                    {(node as any).execution?.duration ? `${(node as any).execution.duration}ms` : ''}
+                    {(node as any).execution?.duration ? formatDuration((node as any).execution.duration) : ''}
                   </div>
                 </button>
               ))}

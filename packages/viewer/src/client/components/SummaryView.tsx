@@ -357,7 +357,7 @@ export function SummaryView({ run }: SummaryViewProps) {
                     <div className="text-sm font-semibold truncate">{String((n as any).title ?? '')}</div>
                   </div>
                   <div className="text-xs font-bold text-muted-foreground/70">
-                    {(n as any).execution?.duration ? `${(n as any).execution.duration}ms` : ''}
+                    {(n as any).execution?.duration ? formatDuration((n as any).execution.duration) : ''}
                   </div>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 </button>

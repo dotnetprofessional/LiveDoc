@@ -4,7 +4,7 @@ import { StatusBadge } from '../StatusBadge';
 import { subtreeHasMatch } from '../../lib/filter-utils';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
-import { shouldAllowDrillDown } from '../../lib/status-utils';
+import { shouldAllowDrillDown, formatDuration } from '../../lib/status-utils';
 
 export interface ChildrenListProps {
   children: AnyTest[] | undefined;
@@ -90,11 +90,9 @@ export function ChildrenList({
               )}
 
               <span className="text-xs text-muted-foreground font-mono shrink-0">
-                {child.execution?.duration !== undefined && child.execution.duration < 1000
-                  ? `${Math.floor(child.execution.duration)}ms`
-                  : child.execution?.duration !== undefined
-                    ? `${(child.execution.duration / 1000).toFixed(2)}s`
-                    : ''}
+                {child.execution?.duration !== undefined
+                  ? formatDuration(child.execution.duration)
+                  : ''}
               </span>
               <StatusBadge status={child.execution?.status} size="sm" />
               {canDrillDown && (

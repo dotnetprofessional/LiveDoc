@@ -3,6 +3,7 @@ import { CheckCircle2, HelpCircle, Layers, XCircle, AlertCircle } from 'lucide-r
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../../lib/utils';
+import { formatDuration } from '../../lib/status-utils';
 import { renderTitle, stripLeadingKindLabel } from '../../lib/title-utils';
 import { Markdown } from '../Markdown';
 import { StepList } from '../StepList';
@@ -321,9 +322,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
                             <td className="px-3 py-2 text-right font-mono text-[10px] text-muted-foreground">
                               {duration === undefined || duration <= 0
                                 ? ''
-                                : duration < 1000
-                                  ? `${Math.floor(duration)}ms`
-                                  : `${(duration / 1000).toFixed(2)}s`}
+                                : formatDuration(duration)}
                             </td>
                           </tr>
                         );

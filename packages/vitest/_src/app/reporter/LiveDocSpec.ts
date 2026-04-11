@@ -483,7 +483,7 @@ export class LiveDocSpec extends LiveDocReporter {
                 feature.statistics.failedCount,
                 feature.statistics.pendingCount,
                 feature.statistics.totalRuleViolations,
-                feature.statistics.duration
+                this.formatDuration(feature.statistics.duration)
             ]);
 
             if (!this.options.list) {
@@ -501,7 +501,7 @@ export class LiveDocSpec extends LiveDocReporter {
                     scenario.statistics.failedCount,
                     scenario.statistics.pendingCount,
                     scenario.statistics.totalRuleViolations,
-                    scenario.statistics.duration
+                    this.formatDuration(scenario.statistics.duration)
                 ]);
             });
         });
@@ -525,10 +525,14 @@ export class LiveDocSpec extends LiveDocReporter {
             totalStats.failed,
             totalStats.pending,
             totalStats.warnings,
-            totalStats.elapsedTime
+            this.formatDuration(totalStats.elapsedTime)
         ]);
 
         this.writeLine(this.applyBlockIndent(this.formatTable(statistics as any[][], HeaderType.Top), 2));
+    }
+
+    private formatDuration(ms: number): string {
+        return Number(ms.toFixed(2)).toString();
     }
 
     private formatLine(text: string): string {
@@ -601,7 +605,7 @@ export class LiveDocSpec extends LiveDocReporter {
                 passCount,
                 failCount,
                 pendingCount,
-                totalDuration
+                this.formatDuration(totalDuration)
             ]);
 
             if (!this.options.list) {
@@ -639,7 +643,7 @@ export class LiveDocSpec extends LiveDocReporter {
                     rulePass,
                     ruleFail,
                     rulePending,
-                    ruleDuration
+                    this.formatDuration(ruleDuration)
                 ]);
             });
         });
@@ -678,7 +682,7 @@ export class LiveDocSpec extends LiveDocReporter {
             totalPass,
             totalFail,
             totalPending,
-            totalDuration
+            this.formatDuration(totalDuration)
         ]);
 
         this.writeLine(this.applyBlockIndent(this.formatTable(statistics as any[][], HeaderType.Top), 2));
@@ -720,7 +724,7 @@ export class LiveDocSpec extends LiveDocReporter {
                 suite.statistics.passCount,
                 suite.statistics.failedCount,
                 suite.statistics.pendingCount,
-                suite.statistics.duration
+                this.formatDuration(suite.statistics.duration)
             ]);
 
             if (!this.options.list) {
@@ -737,7 +741,7 @@ export class LiveDocSpec extends LiveDocReporter {
                     child.statistics.passCount,
                     child.statistics.failedCount,
                     child.statistics.pendingCount,
-                    child.statistics.duration
+                    this.formatDuration(child.statistics.duration)
                 ]);
             });
         });
@@ -760,7 +764,7 @@ export class LiveDocSpec extends LiveDocReporter {
             totalStats.pass,
             totalStats.failed,
             totalStats.pending,
-            totalStats.elapsedTime
+            this.formatDuration(totalStats.elapsedTime)
         ]);
 
         this.writeLine(this.applyBlockIndent(this.formatTable(statistics as any[][], HeaderType.Top), 2));
