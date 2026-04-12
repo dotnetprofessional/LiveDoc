@@ -505,6 +505,88 @@ livedoc-viewer export --input .livedoc/data/MyProject/local/lastrun.json --outpu
 
 ---
 
+### Playwright Bug Fix Review: freshContextPerScenario & Close Timeout
+
+**Author:** Mal  
+**Date:** 2026-04-12  
+**Status:** APPROVED with findings
+
+**Decision:** APPROVE both Playwright bug fixes (freshContextPerScenario + close timeout). Architecture is sound. One medium-priority issue to address before or shortly after merge.
+
+**Findings:**
+
+**Finding 1 — No error isolation in scenarioEndHooks (Medium)**
+- **File:** `packages/vitest/_src/app/livedoc.ts`, lines 418-420 and 655-657
+- **Issue:** The `for...of` loop over `scenarioEndHooks` has no try/catch per hook. If one hook throws, subsequent hooks and the `afterBackground` cleanup below are skipped.
+- **Recommendation:** Wrap each hook call in try/catch, collect errors, and throw after all hooks run (or at minimum log and continue).
+
+**Finding 2 — Module-level hook arrays never cleared (Low)**
+- **File:** `packages/vitest/_src/app/livedoc.ts`, lines 96-97
+- **Issue:** `scenarioStartHooks` and `scenarioEndHooks` are module singletons that grow via `push()` and are never cleared.
+- **Note:** Safe under vitest's default threading (each file = own worker = own module state).
+- **Recommendation:** Document the single-worker assumption, or track registrations to prevent duplicates.
+
+**Finding 3 — Skipped scenarios don't fire hooks (Correct)**
+`describe.skip` prevents `beforeAll`/`afterAll` from running, so hooks correctly don't fire for pending/skipped scenarios. No action needed.
+
+**Finding 4 — Export surface is appropriate (Info)**
+`onScenarioStart`/`onScenarioEnd` as public API is the right call.
+
+**Impact:**
+- `packages/vitest/_src/app/livedoc.ts` — scenario lifecycle hooks
+- `packages/vitest/_src/app/playwright/index.ts` — useBrowser() with freshContextPerScenario support
+- `packages/vitest/_src/app/index.ts` — new public exports
+
+---
+
+### Decision: Fix fetch() keep-alive causing Vitest close timeout
+
+**Author:** Wash  
+**Date:** 2026-04-12  
+**Status:** Implemented
+
+**Context:** After tests complete with the LiveDoc reporter publishing to a server, Vitest hangs for ~10 seconds then logs "close timed out after 10000ms" before force-exiting. This occurs because Node.js's global `fetch()` (undici) uses HTTP keep-alive by default — TCP connections from the reporter's HTTP calls linger in the connection pool, preventing the event loop from draining.
+
+**Decision:** Add `'Connection': 'close'` header to all `fetch()` calls in:
+- `LiveDocViewerReporterV1.post()` — the single HTTP method used by the publish reporter
+- `discoverServer()` in `@swedevtools/livedoc-server` — the health check during auto-discovery
+
+**Rationale:**
+- Reporter makes short-lived, one-shot HTTP requests. No benefit to keep-alive.
+- Minimal, targeted fix — avoids masking other issues with `forceExit: true` or reduced `teardownTimeout`.
+- Playwright cleanup was already correct and not contributing to the timeout.
+
+**Impact:**
+- Reporter publish and auto-discovery no longer keep the process alive after tests complete.
+- No behavior change for non-publish test runs.
+
+---
+
+### Decision: Scenario Hook Test Strategy
+
+**Author:** Zoe  
+**Date:** 2026-04-12  
+**Status:** Implemented
+
+**Decision:** Split Playwright `freshContextPerScenario` testing into two files:
+
+1. **`scenario-hooks.Spec.ts`** — Pure unit tests for the `onScenarioStart`/`onScenarioEnd` hook mechanism. No browser required. Runs in CI without prerequisites. Covers: invocation count per scenario, no per-step firing, scenarioOutline example-level hooks, and hook ordering.
+
+2. **`fresh-context-per-scenario.Spec.ts`** — Integration test requiring Playwright + a running viewer on port 3100. Tests real browser isolation (localStorage, cookies, sessionStorage). Only runs when Playwright infrastructure is available.
+
+**Rationale:**
+- Hook mechanism is core logic and can be tested without a browser
+- Browser isolation needs a real browser to prove
+- Separating allows CI to run hook tests always, while integration tests run only in E2E environments
+
+**Key Finding:** Hooks fire in `beforeAll` of each scenario's describe block. By the time a `given` step executes, the start hook has already run. Test assertions must account for this timing — comparing "additional calls since entry" rather than expecting a hook to fire during step execution.
+
+**Impact:**
+- `packages/vitest/_src/test/Playwright/scenario-hooks.Spec.ts` — 7 scenarios, 19 steps, all passing
+- `packages/vitest/_src/test/Playwright/fresh-context-per-scenario.Spec.ts` — 7 scenarios, requires Playwright
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

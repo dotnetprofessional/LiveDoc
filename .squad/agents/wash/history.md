@@ -48,3 +48,11 @@
 - **Project/environment derivation**: Uses `livedoc.options.publish.project/environment` if set, falls back to export-level config, then defaults (`'default'` project, CI env var detection for environment).
 - **Output format**: Produces valid `TestRunV3` JSON with `protocolVersion: '3.0'`, compatible with `livedoc-viewer export -i <file>`.
 - **Test baseline unchanged**: 1 pre-existing failure (beautiful-tea-shipping-costs.Spec.ts), all other tests pass.
+
+### Bug 2 — close/cleanup timeout investigation (2026-07-25)
+
+- **Root cause**: Node.js `fetch()` (undici) uses HTTP keep-alive by default. When the LiveDocViewerReporter makes HTTP requests to publish results (or discoverServer checks the health endpoint), the TCP connections linger in undici's connection pool after responses are consumed. These active sockets prevent the Node.js event loop from draining, so Vitest's `close()` resolves but the process won't exit naturally. Vitest's `exit()` method sets a `teardownTimeout` timer (default 10s, `.unref()`'d) that eventually fires, logs "close timed out after 10000ms", and calls `process.exit()`.
+- **Fix applied**: Added `'Connection': 'close'` header to all `fetch()` calls in `LiveDocViewerReporterV1.post()` and `discoverServer()` in `@swedevtools/livedoc-server`. This tells undici to close the TCP socket after each response instead of returning it to the keep-alive pool.
+- **Playwright cleanup is fine**: The simplified `afterAll → browser.close()` approach in `useBrowser()` is correct and sufficient. Playwright's browser.close() properly shuts down the browser subprocess and its DevTools WebSocket. The cached `playwrightModule` from `ensurePlaywright()` holds no persistent resources (no servers, no subprocesses).
+- **Key architecture insight**: Vitest's `exit()` flow — `close()` method runs global teardown → closes Vite servers → closes pool → runs `_onClose` callbacks → returns. Then if the process doesn't exit naturally within `teardownTimeout` (10s), it force-exits. The `hanging-process` reporter can help diagnose what's keeping the event loop alive.
+- **Key file paths**: Vitest close logic lives in `cli-api.*.js` chunk around line 13799 (in Vitest 4.1.0). The `teardownTimeout` config option controls the grace period.

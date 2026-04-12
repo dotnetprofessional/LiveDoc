@@ -58,3 +58,29 @@
 - **Removed `-p:UseSharedCompilation=false`**: With `--no-build`, no compilation occurs, making this MSBuild flag unnecessary.
 - **Key file**: `dotnet/xunit/src/Journeys/JourneyFixtureBase.cs` — the `Arguments` string on line 132 now reads `run --no-build --project "{path}" {Config.ServerArguments}`.
 - **Test counts**: Full solution: 452 (LiveDoc.xUnit.Tests) + 59 (ShippingSample) = 511 tests, all passing.
+
+### Partial-Run Flush Fix (2026-07-25)
+
+- **Bug**: IDE Test Explorer subset runs (single test or group) would register tests as "running" in the viewer but never update results. Full runs worked fine.
+- **Root cause 1 — async void race**: `RunTestCases` is `async void` (required by xUnit's API). After `assemblyRunner.RunAsync()` sends `ITestAssemblyFinished` through the inner sink, VSTest considers the run done and may kill the process. The `FlushAndCompleteAsync()` continuation races against shutdown. Partial runs (few tests, fast completion) almost always lose this race.
+- **Root cause 2 — semaphore contention**: `PublishTestCaseRealtime` fire-and-forget tasks acquire `_runStartLock` for `StartRunAsync` (HTTP POST). When `FlushCoreAsync` runs concurrently, it blocks on the same semaphore, burning the ProcessExit 2-second timeout.
+- **Fix part A**: `LiveDocMessageSink.OnMessage()` now intercepts `Xunit.Sdk.TestAssemblyFinished` and calls `FlushAndCompleteAsync().GetAwaiter().GetResult()` synchronously BEFORE passing the message to the inner sink. This guarantees flush completes within normal execution flow.
+- **Fix part B**: `LiveDocTestRunReporter` tracks all `PublishTestCaseRealtime` tasks in a `ConcurrentBag<Task>`. `FlushCoreAsync` awaits them all before proceeding with batch upsert, eliminating semaphore contention.
+- **Key files**: `dotnet/xunit/src/LiveDocTestFramework.cs` (MessageSink flush hook), `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` (task tracking + await in FlushCoreAsync).
+- **Architecture insight**: The viewer subscribes to WebSocket events. Real-time `testcase:upsert` events update the UI incrementally, but `run:v1:completed` triggers a full fetch + auto-select. Without the completion event, partial-run data was orphaned on the server.
+
+### LIVEDOC_REPORT_ALL_TESTS Debug Flag (2026-07-25)
+
+- **Purpose**: The "Spec" suffix filter in `LiveDocTestFramework.ReportTestResult` hides helper/fixture classes from the viewer. When debugging test count mismatches, this filter can mask the problem. The `LIVEDOC_REPORT_ALL_TESTS=true` env var bypasses the filter entirely.
+- **Implementation**: `Environment.GetEnvironmentVariable("LIVEDOC_REPORT_ALL_TESTS")` checked per call in `ReportTestResult` (not a hot path). `string.Equals(..., "true", OrdinalIgnoreCase)` for safe comparison.
+- **Key file**: `dotnet/xunit/src/LiveDocTestFramework.cs` lines 163-175 (the suffix filter block).
+- **Activation**: Via `tests/debug.runsettings` in Visual Studio (Test → Configure Run Settings → Select Solution Wide runsettings File) or CLI (`dotnet test -s tests/debug.runsettings`). Default behavior (no env var) is unchanged.
+- **Test counts**: All 511 tests pass (452 LiveDoc.xUnit.Tests + 59 ShippingSample).
+
+### Fallback Path Outline+Status Fix (2026-07-25)
+
+- **Bug 1 — Outline example rows dropped**: `ReportTestResult` shared one `testId` per outline across all `[Example]` rows. The `HasTest(testId)` guard returned `true` after the 1st row created the outline shell, silently skipping every 2nd+ row. For any outline with N examples, the viewer saw only 1.
+- **Root cause**: `HasTest` couldn't distinguish "LiveDocContext already registered this" from "a previous fallback-path row already created it". Fixed by checking `_outlineRowCounters.ContainsKey(testId)` first — if the counter exists, the fallback path owns the outline and subsequent rows must proceed.
+- **Bug 2 — Skipped → Pending**: `FinalizeOutlineStats` had no Skipped branch in its row-status ternary. Skipped results fell through to Pending. Also `stats.Skipped` was hardcoded to 0. Fixed both: added `g.All(Skipped)` branch and proper `stats.Skipped` count. Outline execution status now cascades Failed → Passed → Skipped → Pending.
+- **Key files**: `dotnet/xunit/src/LiveDocTestFramework.cs` (lines ~193-208, HasTest guard split), `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` (FinalizeOutlineStats).
+- **Test counts**: All 511 tests pass (452 + 59).
