@@ -59,3 +59,17 @@
 
 **Step navigation context (Bug 2)**: NodeView had no render path for `kind === 'step'` — clicking a Step search result showed only the Feature header + Background, with no Scenario or Steps visible. Fix adds a `parentScenario` memo that walks `containerTestCase.tests[].steps` to find the owning Scenario/Rule, then renders it via ScenarioBlock. Also modified the `children` derivation so that when viewing a Step, `children` resolves to `containerTestCase.tests` — enabling ChildrenList to show sibling Scenarios for navigation context. Background-step duplication is prevented by checking `parentScenario.id !== background?.id`.
 
+### Scenario Navigation Fixes (2026-04-12)
+
+**Breadcrumb empty-state bug**: Fixed ContainerHeader breadcrumb logic that was returning `null` when `crumbs.length === 0` after slicing for non-container pages, causing an empty breadcrumb to display (just "🏠 >" with nothing after). Now shows proper fallback (home icon only) when no navigable crumbs remain, ensuring breadcrumb nav is always visible.
+
+**Scenario/Rule rendering conditions**: Removed overly strict parent-container checks (`feature &&` and `isSpecificationContainer &&`) from Scenario, Rule, ScenarioOutline, and RuleOutline rendering blocks in NodeView. These conditions were preventing proper rendering when navigating directly to these nodes or when the parent container lookup failed. Now all test node types render reliably based solely on their own `kind` field, making navigation more robust across different entry points (search results, direct links, etc.).
+
+**Background scenario handling (critical fix)**: Fixed multiple issues caused by backgrounds having `kind: 'Scenario'` in the data, which made them indistinguishable from real scenarios:
+1. Added background tree traversal to `containerTestCase` lookup's `containsId()` function — now properly finds the parent container when viewing background steps or scenarios
+2. Changed background resolution to use `containerTestCase` instead of `feature` — works for all container types (Feature, Specification, Suite), not just Features
+3. Added `isViewingBackground` detection to prevent double-rendering when navigating directly to a background ID (backgrounds have `kind: 'Scenario'` but should only render in the dedicated Background section, not as a regular Scenario)
+4. Removed duplicate RuleOutline rendering block that was leftover from previous refactors
+
+These changes ensure files with backgrounds render correctly — the coordinator identified that lastrun.json (3 docs with backgrounds) was broken while history files (0 docs with backgrounds) worked fine. Root cause was backgrounds being indexed in `itemById` with `kind: 'Scenario'`, interfering with parent/child navigation and causing breadcrumb/title rendering failures.
+

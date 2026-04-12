@@ -279,7 +279,7 @@ $npmPublishItems = @(
     (New-MenuSeparator)
 )
 
-foreach ($pkg in @('schema', 'server', 'vitest', 'viewer')) {
+foreach ($pkg in @('vitest', 'viewer')) {
     $pkgName = $pkg
     $npmPublishItems += @(
         (New-MenuItem -Label "$pkgName (dry-run)" `
@@ -335,9 +335,11 @@ $items.Add((New-MenuSeparator -Label 'Packages'))
 # --- Dynamic package submenus ---
 $packageHotkeys = @{
     'root'    = 'r'; '@swedevtools/livedoc-vitest' = 'v'
-    '@swedevtools/livedoc-server' = 's'; '@swedevtools/livedoc-viewer' = 'w'
-    '@swedevtools/livedoc-schema' = 'm'; 'livedoc-vscode' = 'c'
+    '@swedevtools/livedoc-viewer' = 'w'; 'livedoc-vscode' = 'c'
 }
+
+# Bundled packages (not released independently, skip from menus)
+$bundledPackages = @('@swedevtools/livedoc-server', '@swedevtools/livedoc-schema')
 
 $packagesDir = Join-Path $repoRoot 'packages'
 if (Test-Path $packagesDir) {
@@ -347,10 +349,10 @@ if (Test-Path $packagesDir) {
         $items.Add((Build-PackageSubmenu -PkgInfo $rootPkg -HotKey 'r'))
     }
 
-    # Child packages
+    # Child packages (skip bundled)
     Get-ChildItem $packagesDir -Directory | ForEach-Object {
         $pkgInfo = Get-PackageInfo -PackageDir $_.FullName
-        if ($pkgInfo -and $pkgInfo.Scripts.Count -gt 0) {
+        if ($pkgInfo -and $pkgInfo.Scripts.Count -gt 0 -and $pkgInfo.Name -notin $bundledPackages) {
             $hk = if ($packageHotkeys[$pkgInfo.Name]) { [char]$packageHotkeys[$pkgInfo.Name] } else { [char]0 }
             $items.Add((Build-PackageSubmenu -PkgInfo $pkgInfo -HotKey $hk))
         }

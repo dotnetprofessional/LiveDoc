@@ -103,6 +103,14 @@ When asked to create a UI feature:
 3. Style it to match the "Professional & Polished" aesthetic.
 4. Ensure it is fully typed.
 
+## Squad — AI Team Framework
+
+This project uses **Squad**, an AI team framework managed under `.squad/`. Squad appears in the Copilot CLI tool list as a **custom agent** (`agent_type: "Squad"`), **not** a skill. It is invoked via the `task` tool, not the `skill` tool.
+
+- **What it does**: Assembles a team of specialist agents from `.squad/agents/` to collaboratively deliver work.
+- **Configuration**: See `.squad/team.md` (roster), `.squad/routing.md` (work routing), and `.squad/config.json`.
+- **When to use**: When the user asks to "use the squad", "assemble a team", or references squad members by name — invoke it as a custom agent via the `task` tool.
+
 ## Reference Documentation
 - **Testing API**: See `.github/instructions/livedoc-vitest.instructions.md`
 - **Migration History**: See `MIGRATION_PLAN.md` (Migration is complete, but useful for context).

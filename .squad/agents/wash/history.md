@@ -71,6 +71,14 @@
 
 - **Action Items**: Assigned to Wash to refactor test with packaged artifacts + comprehensive cross-entry-point coverage before merge.
 
+### Multi-Entry Self-Referencing Import Fix — All Entry Points (2026-07-26)
+
+- **Root cause extended**: The v0.1.9 fix only addressed `playwright/index.ts`. Two other entry points — `setup.ts` and `reporter/LiveDocSpecReporter.ts` — still imported from relative paths (`./livedoc` and `../livedoc`), causing tsup to inline the entire livedoc module including `scenarioStartHooks`/`scenarioEndHooks` arrays into `dist/setup.js` (79KB → 485B) and `dist/reporter/index.js` (314KB → 275KB).
+- **Fix**: Applied same self-referencing import pattern to both: changed `import ... from "./livedoc"` to `import ... from "@swedevtools/livedoc-vitest"`. tsup's `external` config already includes `@swedevtools/livedoc-vitest`, so these become real import/require statements in the bundle.
+- **Build artifact regression test**: Created `bundled-output-integrity.Spec.ts` — 12 rules that read `dist/` files with `fs.readFileSync` and assert: (a) external imports of `@swedevtools/livedoc-vitest` are present, and (b) `scenarioStartHooks` is NOT present. Covers all 3 secondary entry points (playwright, setup, reporter) in both ESM and CJS formats.
+- **Key learning**: Source-level tests (like the existing `module-identity.Spec.ts`) cannot catch bundling regressions — they always resolve to the same TypeScript source module. Build-artifact tests that read `dist/` output are essential for validating tsup/bundler behavior.
+- **Verification**: All 6 entry-point bundles show 0 occurrences of `scenarioStartHooks`. 44 test files pass, 729 tests pass.
+
 ---
 
 
@@ -81,3 +89,12 @@
 - **Fix**: Changed playwright entry point to use self-referencing package imports (`import { onScenarioStart, onScenarioEnd } from '@swedevtools/livedoc-vitest'`) and added `@swedevtools/livedoc-vitest` to tsup's `external` array. Both ESM and CJS bundles now emit a real import/require of the main package, sharing the same module instance at runtime.
 - **Key pattern for multi-entry packages**: When a package has multiple entry points built by tsup with `splitting: false`, any shared mutable state (arrays, singletons, registries) MUST be accessed through a single module instance. Self-referencing imports (package importing itself via its own name + exports map) is the robust solution for both ESM and CJS.
 - **Verification**: playwright bundle dropped from ~320KB to ~2.9KB; `scenarioStartHooks` count in playwright bundle went from 4 to 0; all tests pass.
+
+### Release v0.1.10 (2026-07-26)
+
+- **Released**: `@swedevtools/livedoc-vitest@0.1.10` — bugfix release for playwright module duplication regression from v0.1.9.
+- **Artifact size**: 250.9 KB (down from 1049.1 KB in v0.1.9) — source maps disabled and module deduplication confirmed.
+- **Verification**: All 3 secondary entry points (playwright, setup, reporter) confirmed clean — zero `scenarioStartHooks` inlined, external `@swedevtools/livedoc-vitest` imports present in playwright bundle.
+- **Also packed**: `livedoc-viewer@0.0.12` via `scripts/pack-viewer.ps1`.
+- **Git tag**: `v0.1.10` created with annotated message.
+- **Learning**: `releases/` is gitignored — binary artifacts are not committed. Only source changes (self-referencing imports + regression tests) go into git.
