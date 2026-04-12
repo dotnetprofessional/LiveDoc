@@ -564,7 +564,36 @@ export const useStore = create<AppState>((set, get) => ({
   // Computed selectors
   getCurrentRun: () => {
     const state = get();
-    return state.runs.find((r) => r.run.runId === state.selectedRunId);
+    // Try selected run first
+    if (state.selectedRunId) {
+      const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
+      if (run) return run;
+    }
+    // Fall back to session — synthesise a Run-compatible object so all
+    // consumers (NodeView, deep-link, filters, etc.) work in session mode.
+    if (state.selectedSessionId) {
+      const session = state.sessions.find(
+        (s) => s.session.sessionId === state.selectedSessionId,
+      );
+      if (session) {
+        return {
+          run: {
+            protocolVersion: '1.0',
+            runId: session.session.sessionId,
+            project: session.session.project,
+            environment: session.session.environment,
+            framework: 'vitest',
+            timestamp: session.session.timestamp,
+            status: session.session.status,
+            duration: session.session.duration,
+            summary: session.session.summary,
+            documents: session.session.documents,
+          } as TestRunV1,
+          itemById: session.itemById,
+        };
+      }
+    }
+    return undefined;
   },
   
   getCurrentSession: () => {

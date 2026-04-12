@@ -10,7 +10,7 @@ import { buildHash, resolveHash } from '../lib/deep-link';
  * - Skipped in embedded mode (VS Code controls navigation via postMessage)
  */
 export function useDeepLink(): void {
-  const { currentView, navigate, getCurrentRun, runs } = useStore();
+  const { currentView, navigate, getCurrentRun, runs, sessions, selectedSessionId } = useStore();
   const suppressHashUpdate = useRef(false);
   const [embedded] = useState(() => isEmbedded());
 
@@ -57,7 +57,7 @@ export function useDeepLink(): void {
       suppressHashUpdate.current = true;
       navigate(resolved.type, resolved.id);
     }
-  }, [embedded, runs, getCurrentRun, navigate]);
+  }, [embedded, runs, sessions, selectedSessionId, getCurrentRun, navigate]);
 
   // ── Handle browser back/forward ───────────────────────────────
   useEffect(() => {

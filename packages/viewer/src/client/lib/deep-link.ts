@@ -116,6 +116,16 @@ function findDocumentForItem(run: Run, itemId: string): TestCase | undefined {
 }
 
 function hasDescendant(doc: TestCase, itemId: string): boolean {
+  // Check background
+  const bg = (doc as any).background;
+  if (bg) {
+    if (bg.id === itemId) return true;
+    if (Array.isArray(bg.steps)) {
+      for (const step of bg.steps as AnyTest[]) {
+        if (step.id === itemId) return true;
+      }
+    }
+  }
   for (const test of doc.tests ?? []) {
     if (test.id === itemId) return true;
     if ('steps' in test && Array.isArray((test as any).steps)) {
@@ -132,6 +142,16 @@ function findDocumentBySlug(run: Run, slug: string): TestCase | undefined {
 }
 
 function findTestBySlug(doc: TestCase, slug: string): AnyTest | undefined {
+  // Check background and its steps
+  const bg = (doc as any).background as AnyTest | undefined;
+  if (bg) {
+    if (toSlug(bg.title) === slug) return bg;
+    if (Array.isArray((bg as any).steps)) {
+      for (const step of (bg as any).steps as AnyTest[]) {
+        if (toSlug(step.title) === slug) return step;
+      }
+    }
+  }
   for (const test of doc.tests ?? []) {
     if (toSlug(test.title) === slug) return test;
     // Check nested steps/rules
