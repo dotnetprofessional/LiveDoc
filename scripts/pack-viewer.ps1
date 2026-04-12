@@ -3,19 +3,32 @@
     Packages the LiveDoc Viewer for distribution.
 
 .DESCRIPTION
-    Creates distribution artifacts for the viewer:
-    - npm tarball (.tgz) via pnpm pack
-    - Standalone executable (.exe) for Windows [FUTURE]
+    Creates an npm tarball (.tgz) for the viewer using a clean staging
+    directory approach that avoids pnpm symlink issues:
+
+    1. Copies dist/ and package.json to a temp staging dir
+    2. Resolves workspace:* references to actual versions
+    3. Runs npm install --production for clean hoisted node_modules
+    4. Runs npm pack from the staging dir (no ../paths, no symlinks)
 
     All output goes to ./releases/@swedevtools/livedoc-viewer/
 
+.PARAMETER SkipBuild
+    Skip the build step (use when dist/ is already up to date).
+
 .EXAMPLE
     .\pack-viewer.ps1
-    Pack the viewer npm tarball.
+    Build and pack the viewer npm tarball.
+
+.EXAMPLE
+    .\pack-viewer.ps1 -SkipBuild
+    Pack without rebuilding (dist/ must already exist).
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [switch]$SkipBuild
+)
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
@@ -31,126 +44,187 @@ $pkgJson = Get-Content (Join-Path $viewerDir 'package.json') -Raw | ConvertFrom-
 $packageName = $pkgJson.name
 $version = $pkgJson.version
 
-function Ensure-RuntimeDepsPresent {
-    param(
-        [string]$ViewerDir,
-        [object]$PkgJson
-    )
-
-    $depsToBundle = @('commander', 'hono', '@hono/node-server', 'ws', 'zod', 'open')
-    $missing = @()
-
-    foreach ($dep in $depsToBundle) {
-        $relative = "node_modules\" + $dep.Replace('/', '\')
-        $depPath = Join-Path $ViewerDir $relative
-        $manifestPath = Join-Path $depPath 'package.json'
-        if (-not (Test-Path $manifestPath)) {
-            $missing += $dep
-        }
-    }
-
-    if ($missing.Count -eq 0) {
-        return
-    }
-
-    Write-Host "`n→ Materializing runtime deps for bundling..." -ForegroundColor White
-    $stageDir = Join-Path ([System.IO.Path]::GetTempPath()) 'livedoc-viewer-pack-runtime-deps'
-    if (Test-Path $stageDir) {
-        Remove-Item -Path $stageDir -Recurse -Force
-    }
-    New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-
-    $installArgs = @('install', '--prefix', $stageDir, '--no-package-lock', '--no-audit', '--fund', 'false')
-    foreach ($dep in $missing) {
-        $depVersion = $PkgJson.dependencies.PSObject.Properties[$dep].Value
-        if (-not $depVersion) {
-            throw "Dependency '$dep' is missing from $($PkgJson.name) dependencies."
-        }
-        $installArgs += "$dep@$depVersion"
-    }
-
-    & npm @installArgs
-    if ($LASTEXITCODE -ne 0) {
-        throw "npm install failed when materializing runtime dependencies."
-    }
-
-    foreach ($dep in $missing) {
-        $relative = "node_modules\" + $dep.Replace('/', '\')
-        $src = Join-Path $stageDir $relative
-        $dest = Join-Path $ViewerDir $relative
-
-        if (-not (Test-Path $src)) {
-            throw "Expected dependency folder not found: $src"
-        }
-
-        $destParent = Split-Path -Path $dest -Parent
-        if (-not (Test-Path $destParent)) {
-            New-Item -ItemType Directory -Path $destParent -Force | Out-Null
-        }
-
-        if (Test-Path $dest) {
-            Remove-Item -Path $dest -Recurse -Force
-        }
-
-        Copy-Item -Path $src -Destination $dest -Recurse -Force
-        Write-Host "  ✓ hydrated $dep" -ForegroundColor Green
-    }
-
-    Remove-Item -Path $stageDir -Recurse -Force -ErrorAction SilentlyContinue
-}
-
 Write-Host ""
 Write-Host "══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  Packing: $packageName@$version" -ForegroundColor Cyan
 Write-Host "══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 
-# Create output directory
-$outputDir = Join-Path $repoRoot 'releases\@swedevtools\livedoc-viewer'
-if (-not (Test-Path $outputDir)) {
-    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+# ── Step 0: Build (unless skipped) ───────────────────────────────────────
+
+if (-not $SkipBuild) {
+    Write-Host "`n→ Building viewer..." -ForegroundColor White
+    Push-Location $viewerDir
+    try {
+        & pnpm run build
+        if ($LASTEXITCODE -ne 0) { throw "Viewer build failed" }
+        Write-Host "  ✓ Build complete" -ForegroundColor Green
+    } finally {
+        Pop-Location
+    }
 }
 
-# 1. npm tarball
-Write-Host "`n→ Creating npm tarball..." -ForegroundColor White
-Push-Location $viewerDir
+$distDir = Join-Path $viewerDir 'dist'
+if (-not (Test-Path $distDir)) {
+    Write-Host "Error: dist/ not found. Run build first or remove -SkipBuild." -ForegroundColor Red
+    exit 1
+}
+
+# ── Step 1: Create clean staging directory ───────────────────────────────
+
+$stageDir = Join-Path ([System.IO.Path]::GetTempPath()) "livedoc-viewer-pack-$([System.IO.Path]::GetRandomFileName())"
+Write-Host "`n→ Creating staging directory..." -ForegroundColor White
+New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
 try {
-    Ensure-RuntimeDepsPresent -ViewerDir $viewerDir -PkgJson $pkgJson
-    pnpm pack --config.node-linker=hoisted
-    if ($LASTEXITCODE -ne 0) {
-        throw "pnpm pack failed"
+    # Copy dist/
+    Copy-Item -Path $distDir -Destination (Join-Path $stageDir 'dist') -Recurse -Force
+    Write-Host "  ✓ Copied dist/" -ForegroundColor Green
+
+    # ── Step 2: Resolve workspace:* and write clean package.json ─────────
+
+    Write-Host "`n→ Resolving workspace:* references..." -ForegroundColor White
+    $pkgContent = Get-Content (Join-Path $viewerDir 'package.json') -Raw | ConvertFrom-Json
+
+    # Find actual versions for workspace deps
+    $workspaceDeps = @{}
+
+    # Build a map of package name → version from all packages in the monorepo
+    $packageVersions = @{}
+    foreach ($pkgDir in (Get-ChildItem (Join-Path $repoRoot 'packages') -Directory)) {
+        $pkgJsonPath = Join-Path $pkgDir.FullName 'package.json'
+        if (Test-Path $pkgJsonPath) {
+            $depPkg = Get-Content $pkgJsonPath -Raw | ConvertFrom-Json
+            $packageVersions[$depPkg.name] = $depPkg.version
+        }
     }
 
-    # Move .tgz to output dir
-    $tgzFiles = Get-ChildItem -Path $viewerDir -Filter "*.tgz"
-    foreach ($tgz in $tgzFiles) {
-        Move-Item -Path $tgz.FullName -Destination $outputDir -Force
-        Write-Host "  ✓ $($tgz.Name)" -ForegroundColor Green
+    foreach ($prop in $pkgContent.dependencies.PSObject.Properties) {
+        if ($prop.Value -match '^workspace:') {
+            $depName = $prop.Name
+            if ($packageVersions.ContainsKey($depName)) {
+                $workspaceDeps[$depName] = $packageVersions[$depName]
+                Write-Host "  ✓ $depName → $($packageVersions[$depName])" -ForegroundColor Green
+            } else {
+                throw "Cannot find monorepo package for workspace dep '$depName'"
+            }
+        }
     }
+
+    # Replace workspace:* with resolved versions in the raw JSON
+    $rawJson = Get-Content (Join-Path $viewerDir 'package.json') -Raw
+    foreach ($dep in $workspaceDeps.GetEnumerator()) {
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:*`""), "`"$($dep.Key)`": `"$($dep.Value)`""
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:^`""), "`"^$($dep.Value)`""
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:~`""), "`"~$($dep.Value)`""
+    }
+
+    # Remove bundleDependencies — we'll have real node_modules, no need to bundle
+    # Actually keep it — npm pack uses this to include node_modules in the tarball
+    Set-Content -Path (Join-Path $stageDir 'package.json') -Value $rawJson -Encoding utf8
+    Write-Host "  ✓ Wrote resolved package.json" -ForegroundColor Green
+
+    # ── Step 3: Install deps in staging ────────────────────────────────────
+    # Workspace packages aren't on npm, so we pack them first as tarballs,
+    # then install everything together.
+
+    Write-Host "`n→ Packing workspace dependencies..." -ForegroundColor White
+    $workspaceTarballs = @{}
+    foreach ($dep in $workspaceDeps.Keys) {
+        # Find the package directory
+        foreach ($pkgDir in (Get-ChildItem (Join-Path $repoRoot 'packages') -Directory)) {
+            $pkgJsonPath = Join-Path $pkgDir.FullName 'package.json'
+            if (Test-Path $pkgJsonPath) {
+                $depPkg = Get-Content $pkgJsonPath -Raw | ConvertFrom-Json
+                if ($depPkg.name -eq $dep) {
+                    Push-Location $pkgDir.FullName
+                    try {
+                        $tgz = & pnpm pack 2>&1 | Select-String '\.tgz$' | Select-Object -Last 1
+                        $tgzPath = Join-Path $pkgDir.FullName ($tgz.ToString().Trim())
+                        if (Test-Path $tgzPath) {
+                            $workspaceTarballs[$dep] = $tgzPath
+                            Write-Host "  ✓ Packed $dep" -ForegroundColor Green
+                        } else {
+                            throw "Failed to pack $dep"
+                        }
+                    } finally {
+                        Pop-Location
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    # Rewrite the staged package.json to point workspace deps at local tarballs
+    $stagedPkgJson = Get-Content (Join-Path $stageDir 'package.json') -Raw
+    foreach ($entry in $workspaceTarballs.GetEnumerator()) {
+        $tgzPath = $entry.Value -replace '\\', '/'
+        $stagedPkgJson = $stagedPkgJson -replace [regex]::Escape("`"$($entry.Key)`": `"$($workspaceDeps[$entry.Key])`""), "`"$($entry.Key)`": `"file:$tgzPath`""
+    }
+    Set-Content -Path (Join-Path $stageDir 'package.json') -Value $stagedPkgJson -Encoding utf8
+
+    Write-Host "`n→ Installing production dependencies..." -ForegroundColor White
+    Push-Location $stageDir
+    try {
+        & npm install --omit=dev --no-audit --fund false --legacy-peer-deps 2>&1 | ForEach-Object {
+            $line = $_.ToString()
+            if ($line -match 'warn|ERR') {
+                Write-Host "  npm: $line" -ForegroundColor DarkYellow
+            }
+        }
+        if ($LASTEXITCODE -ne 0) { throw "npm install failed in staging directory" }
+        Write-Host "  ✓ Dependencies installed" -ForegroundColor Green
+    } finally {
+        Pop-Location
+    }
+
+    # ── Step 4: Restore real versions in package.json for distribution ────
+    # The file:// references were only for npm install. Consumers need real versions.
+    $finalPkgJson = $rawJson
+    Set-Content -Path (Join-Path $stageDir 'package.json') -Value $finalPkgJson -Encoding utf8
+
+    # ── Step 5: npm pack from staging dir ────────────────────────────────
+
+    Write-Host "`n→ Creating tarball..." -ForegroundColor White
+    Push-Location $stageDir
+    try {
+        $packOutput = & npm pack --json 2>&1 | Out-String
+        if ($LASTEXITCODE -ne 0) { throw "npm pack failed: $packOutput" }
+    } finally {
+        Pop-Location
+    }
+
+    # Find the generated .tgz
+    $tgzFile = Get-ChildItem -Path $stageDir -Filter '*.tgz' | Select-Object -First 1
+    if (-not $tgzFile) {
+        throw "npm pack did not produce a .tgz file"
+    }
+    Write-Host "  ✓ Created $($tgzFile.Name) ($([math]::Round($tgzFile.Length / 1KB)) KB)" -ForegroundColor Green
+
+    # ── Step 6: Move to releases/ ────────────────────────────────────────
+
+    $outputDir = Join-Path $repoRoot 'releases\@swedevtools\livedoc-viewer'
+    if (-not (Test-Path $outputDir)) {
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+    }
+
+    Move-Item -Path $tgzFile.FullName -Destination $outputDir -Force
+    Write-Host "`n✓ Artifact: $(Join-Path $outputDir $tgzFile.Name)" -ForegroundColor Green
+
 } finally {
-    Pop-Location
-}
-
-# 2. Standalone executable [FUTURE]
-# TODO: Bundle viewer server + client into standalone .exe for Windows
-# Options to evaluate:
-#   - Node.js SEA (Single Executable Application) - built-in, requires Node 20+
-#   - pkg (vercel/pkg) - mature but ESM support is limited
-#   - esbuild bundle + sea-config.json - lightweight approach
-#   - nexe - alternative to pkg
-# The exe should:
-#   - Embed the built React client assets
-#   - Run the Express/Fastify server on a configurable port
-#   - Support winget distribution (MSIX packaging) as a future step
-Write-Host "`n→ Standalone exe: not yet implemented (future phase)" -ForegroundColor DarkGray
-
-# List output
-Write-Host ""
-$artifacts = Get-ChildItem -Path $outputDir -File
-if ($artifacts.Count -gt 0) {
-    Write-Host "✓ Artifacts in $outputDir`:" -ForegroundColor Green
-    foreach ($a in $artifacts) {
-        Write-Host "  - $($a.Name)" -ForegroundColor Gray
+    # Clean up staging dir
+    Remove-Item -Path $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+    # Clean up workspace tarballs
+    foreach ($tgz in $workspaceTarballs.Values) {
+        Remove-Item -Path $tgz -Force -ErrorAction SilentlyContinue
     }
-} else {
-    Write-Host "✗ No artifacts found." -ForegroundColor Red
 }
+
+# Summary
+Write-Host ""
+Write-Host "══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "  Done: $packageName@$version" -ForegroundColor Cyan
+Write-Host "══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Validate with:  .\scripts\validate-release.ps1 -SkipVitest" -ForegroundColor DarkGray
+Write-Host ""
