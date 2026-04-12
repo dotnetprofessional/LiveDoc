@@ -117,6 +117,50 @@ if (-not $SkipViewer) {
     New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
     try {
+        # ── Test 0: Tarball content verification (pre-install) ──
+        # Checks the archive directly — catches issues before npm touches anything
+        Write-Check "Verifying tarball contents (pre-install)..."
+        $tarEntries = tar -tzf $ViewerTgz 2>&1 | Out-String
+
+        # 0a: No '../' paths
+        if ($tarEntries -match '\.\.\/') {
+            Write-Fail "Tarball archive contains '../' relative paths"
+            Record-Fail "viewer/tar-archive-paths" "Archive has '../' entries"
+        } else {
+            Write-Pass "No '../' paths in archive"
+            Record-Pass "viewer/tar-archive-paths"
+        }
+
+        # 0b: zod stubs present in archive
+        $zodStubsInArchive = @('typeAliases.js', 'partialUtil.js')
+        $missingInArchive = @()
+        foreach ($stub in $zodStubsInArchive) {
+            if ($tarEntries -notmatch "zod/v3/helpers/$stub") {
+                $missingInArchive += $stub
+            }
+        }
+        if ($missingInArchive.Count -gt 0) {
+            Write-Fail "Archive missing zod stubs: $($missingInArchive -join ', ')"
+            Record-Fail "viewer/tar-archive-zod" "Missing in archive: $($missingInArchive -join ', ')"
+        } else {
+            Write-Pass "zod v3 helper stubs present in archive"
+            Record-Pass "viewer/tar-archive-zod"
+        }
+
+        # 0c: package.json in archive has no workspace:*
+        $archivePkgDir = Join-Path ([System.IO.Path]::GetTempPath()) "livedoc-validate-archive-$([System.IO.Path]::GetRandomFileName())"
+        New-Item -ItemType Directory -Path $archivePkgDir -Force | Out-Null
+        tar -xzf $ViewerTgz -C $archivePkgDir 'package/package.json' 2>&1 | Out-Null
+        $archivePkgContent = Get-Content (Join-Path $archivePkgDir 'package\package.json') -Raw -ErrorAction SilentlyContinue
+        Remove-Item $archivePkgDir -Recurse -Force -ErrorAction SilentlyContinue
+        if ($archivePkgContent -match 'workspace:\*|workspace:\^|workspace:~') {
+            Write-Fail "Archive package.json has unresolved workspace:* references"
+            Record-Fail "viewer/tar-archive-workspace" "workspace:* in archived package.json"
+        } else {
+            Write-Pass "Archive package.json has resolved dependency versions"
+            Record-Pass "viewer/tar-archive-workspace"
+        }
+
         # ── Test 1: npm install (no errors) ──
         Write-Check "Installing tarball..."
         $installLog = & npm install --prefix $stageDir $ViewerTgz 2>&1 | Out-String

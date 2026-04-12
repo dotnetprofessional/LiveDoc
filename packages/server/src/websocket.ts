@@ -18,6 +18,12 @@ export class WebSocketManager {
   constructor(server: Server) {
     this.wss = new WebSocketServer({ server, path: '/ws' });
     
+    // Forward server-level errors (e.g. EADDRINUSE) so they don't crash
+    // as unhandled 'error' events on the WebSocketServer instance.
+    this.wss.on('error', () => {
+      // Handled by the HTTP server's own error listener in createServer
+    });
+    
     this.wss.on('connection', (ws) => {
       console.log('🔌 WebSocket client connected');
       
