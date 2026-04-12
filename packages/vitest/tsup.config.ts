@@ -14,6 +14,6 @@ export default defineConfig({
   sourcemap: false,
   clean: true,
   treeshake: true,
-  external: ["vitest", "playwright"],
+  external: ["vitest", "playwright", "@swedevtools/livedoc-vitest"],
   noExternal: ["@swedevtools/livedoc-schema"]
 });

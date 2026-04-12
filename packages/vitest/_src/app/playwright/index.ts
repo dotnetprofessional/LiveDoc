@@ -23,8 +23,12 @@
  */
 
 import { beforeAll, afterAll } from "vitest";
-import { onScenarioStart, onScenarioEnd } from "../livedoc";
-import type { StepContext } from "../model/StepContext";
+// IMPORTANT: Import from the package's own name so that at runtime the
+// playwright entry point shares the SAME module instance (and therefore
+// the same scenarioStartHooks / scenarioEndHooks arrays) as the main
+// entry point.  tsup marks this as external so it is NOT inlined.
+import { onScenarioStart, onScenarioEnd } from "@swedevtools/livedoc-vitest";
+import type { StepContext } from "@swedevtools/livedoc-vitest";
 
 // ─── Minimal Playwright interfaces ──────────────────────────────────
 // We define minimal shapes here to avoid a compile-time dependency on

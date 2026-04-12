@@ -62,3 +62,10 @@
 - **Source maps disabled in all npm packages**: Set `sourcemap: false` in tsup configs for schema, server, and vitest. Savings: schema 61.8KB, server 514.8KB, vitest 4,301.9KB — total ~4.9MB removed (67% reduction across all three packages).
 - **Source maps should stay off for published packages**: Consumers get IntelliSense from `.d.ts` files. React, Vue, Vitest, Zod all ship without source maps. Viewer (Vite) is unchanged since it's a bundled app, not an npm library.
 - **Pre-existing server test failures**: 48 tests in packages/server fail due to temp directory issues (ENOENT on history files). These are pre-existing and unrelated to framework changes.
+
+### Playwright Module Duplication Fix (v0.1.10)
+
+- **Root cause**: `splitting: false` in tsup caused each entry point to bundle its own copy of all shared code. The playwright entry point inlined the entire `livedoc.ts` module, creating independent `scenarioStartHooks`/`scenarioEndHooks` arrays that were invisible to the main `scenario()` function. This broke `freshContextPerScenario` completely — hooks registered by `useBrowser()` went into the wrong array.
+- **Fix**: Changed playwright entry point to use self-referencing package imports (`import { onScenarioStart, onScenarioEnd } from '@swedevtools/livedoc-vitest'`) and added `@swedevtools/livedoc-vitest` to tsup's `external` array. Both ESM and CJS bundles now emit a real import/require of the main package, sharing the same module instance at runtime.
+- **Key pattern for multi-entry packages**: When a package has multiple entry points built by tsup with `splitting: false`, any shared mutable state (arrays, singletons, registries) MUST be accessed through a single module instance. Self-referencing imports (package importing itself via its own name + exports map) is the robust solution for both ESM and CJS.
+- **Verification**: playwright bundle dropped from ~320KB to ~2.9KB; `scenarioStartHooks` count in playwright bundle went from 4 to 0; all tests pass.
