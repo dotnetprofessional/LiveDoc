@@ -56,3 +56,9 @@
 - **Playwright cleanup is fine**: The simplified `afterAll → browser.close()` approach in `useBrowser()` is correct and sufficient. Playwright's browser.close() properly shuts down the browser subprocess and its DevTools WebSocket. The cached `playwrightModule` from `ensurePlaywright()` holds no persistent resources (no servers, no subprocesses).
 - **Key architecture insight**: Vitest's `exit()` flow — `close()` method runs global teardown → closes Vite servers → closes pool → runs `_onClose` callbacks → returns. Then if the process doesn't exit naturally within `teardownTimeout` (10s), it force-exits. The `hanging-process` reporter can help diagnose what's keeping the event loop alive.
 - **Key file paths**: Vitest close logic lives in `cli-api.*.js` chunk around line 13799 (in Vitest 4.1.0). The `teardownTimeout` config option controls the grace period.
+
+### Source Map Removal (2026-04-12)
+
+- **Source maps disabled in all npm packages**: Set `sourcemap: false` in tsup configs for schema, server, and vitest. Savings: schema 61.8KB, server 514.8KB, vitest 4,301.9KB — total ~4.9MB removed (67% reduction across all three packages).
+- **Source maps should stay off for published packages**: Consumers get IntelliSense from `.d.ts` files. React, Vue, Vitest, Zod all ship without source maps. Viewer (Vite) is unchanged since it's a bundled app, not an npm library.
+- **Pre-existing server test failures**: 48 tests in packages/server fail due to temp directory issues (ENOENT on history files). These are pre-existing and unrelated to framework changes.

@@ -422,6 +422,28 @@ livedoc-viewer export -i ./test-results/livedoc-report.json -o report.html
 - Content area is `flex-1 min-h-0 overflow-hidden relative` (KEY fix)
 - NavArrows absolute within content area (not viewport)
 - Progress bar and filmstrip are `shrink-0` siblings
+
+---
+
+### Disable Source Maps in Published npm Packages
+
+**Author:** Wash  
+**Date:** 2026-04-12  
+**Status:** Implemented
+
+**Decision:** Set `sourcemap: false` in tsup configs for schema, server, and vitest packages. Viewer (Vite-based) left unchanged — its source maps serve development purposes.
+
+**Rationale:**
+- Source maps added ~4.9MB to distributable packages with minimal consumer value
+- Standard npm practice is to ship without maps unless explicitly requested
+- Zero impact on development experience (source maps still available locally during builds)
+
+**Impact:**
+- `packages/schema/tsup.config.ts` — sourcemap: false
+- `packages/server/tsup.config.ts` — sourcemap: false
+- `packages/vitest/tsup.config.ts` — sourcemap: false
+- **Savings:** 4.9MB total (67% reduction in vitest dist: 5950KB → 1648KB)
+- All 701 vitest tests pass
 - JsonRenderer/TextRenderer use `max-h-full` instead of viewport-relative calc
 
 **Rationale:** `min-h-0` overrides CSS flexbox default, in-flow is more predictable, `max-h-full` is correct for constrained parent.
