@@ -25,3 +25,16 @@
 - **2026-07-26 — Fresh Context Per Scenario Integration Test.** Created `packages/vitest/_src/test/Playwright/fresh-context-per-scenario.Spec.ts` with 7 scenarios testing localStorage, cookie, and sessionStorage isolation between scenarios when `freshContextPerScenario: true`. Requires Playwright + running viewer on port 3100.
 - `onScenarioStart`/`onScenarioEnd` hooks are module-level arrays (`scenarioStartHooks`, `scenarioEndHooks` in livedoc.ts). They accumulate globally — no clear/reset API exists. Tests must track their own counters via closures.
 - Hooks fire in `beforeAll` of each scenario's `describe` block — by the time a `given` step runs, the start hook has already executed. Test assertions should account for this timing.
+- **2026-07-27 — Module Identity Regression Tests (v0.1.9 bundling bug).** Created `packages/vitest/_src/test/Playwright/module-identity.Spec.ts` with 6 scenarios (16 steps) covering: function reference equality across import paths, hook-fires-during-scenario integration, multi-hook registration, end-hook parity, and payload accumulation. Guards against tsup `splitting: false` duplicating the `scenarioStartHooks` array across entry points. All 16 tests pass; 717 existing tests unaffected.
+
+### Multi-Model Review Panel: Module Identity Test Findings (2026-04-12)
+
+- **Review Consensus**: REQUEST CHANGES (2/3 reviewers) — gpt54 and goldeneye block on test quality issues
+- **Finding 1 (gpt54)**: Test identified as false positive — doesn't exercise packaged/bundled scenario (actual npm package or bundled dist/ files). Needs real packaged-artifact integration test to prove hook registration works when consuming from `@swedevtools/livedoc-vitest` package import.
+- **Finding 2 (goldeneye)**: Cross-entry-point discovery — `setup.js` and `reporter/index.js` ALSO inline `scenarioStartHooks` (pre-existing architectural issue, not caused by this change). Current test only covers playwright entry point. Real test must exercise all entry points independently registering hooks.
+- **Code fix correct** (all reviewers agree). Fix itself using self-referencing imports is sound.
+- **Action assigned**: Wash to refactor test with packaged artifacts + comprehensive cross-entry-point coverage before merge
+
+---
+
+

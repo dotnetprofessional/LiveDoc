@@ -609,6 +609,195 @@ livedoc-viewer export --input .livedoc/data/MyProject/local/lastrun.json --outpu
 
 ---
 
+### Decision: Fix Playwright Module Duplication via Self-Referencing Imports
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented  
+**Affects:** `packages/vitest` — tsup config, playwright entry point
+
+**Context:** With `splitting: false` in tsup, each entry point bundles its own copy of all shared code. The playwright entry point (`dist/playwright/index.js`) was importing `onScenarioStart`/`onScenarioEnd` from `../livedoc`, causing tsup to inline the entire livedoc module. This created **two independent copies** of the `scenarioStartHooks`/`scenarioEndHooks` arrays at runtime — one in the main bundle and one in the playwright bundle.
+
+When `useBrowser({ freshContextPerScenario: true })` registered hooks via `onScenarioStart()`, they went into the playwright copy's array. When `scenario()` ran, it read from the main copy's array (empty). Hooks never fired, and no page was ever created.
+
+This was a regression in v0.1.9 because `beforeAll` now skips page creation when `freshContext=true`, relying entirely on the (broken) hooks.
+
+**Decision:** Use self-referencing package imports (Option C from analysis):
+1. Changed `playwright/index.ts` to import from `@swedevtools/livedoc-vitest` instead of `../livedoc`
+2. Added `@swedevtools/livedoc-vitest` to `external` in `tsup.config.ts`
+
+This ensures the playwright bundle emits a real `import`/`require` of the main package at runtime rather than inlining it. Both ESM and CJS consumers resolve through the package.json `exports` map to the correct format.
+
+**Why Not Other Options:**
+- **Option A (splitting: true)**: Only works for ESM in tsup; CJS would still duplicate.
+- **Option B (mark relative paths as external)**: Fragile and tsup doesn't natively support it well.
+- **Option C (self-referencing)**: Works for both ESM and CJS, leverages Node.js self-referencing (supported since Node 12.7+), and is the standard pattern for multi-entry-point packages.
+
+**Verification:**
+- Playwright ESM bundle: 0 occurrences of `scenarioStartHooks` (was ~4 before fix)
+- Playwright CJS bundle: 0 occurrences of `scenarioStartHooks`
+- Main ESM/CJS bundles: 4 occurrences each (unchanged)
+- Playwright bundle size dropped from ~320KB to ~2.9KB
+- All existing tests pass (exit code 0)
+
+**Impact:**
+- `packages/vitest/tsup.config.ts` — added `@swedevtools/livedoc-vitest` to external
+- `packages/vitest/src/playwright/index.ts` — changed to self-referencing import
+
+---
+
+### Decision: FinalizeOutlineStats Bug Fix Applied
+
+**Author:** Zoe  
+**Date:** 2025-07-25  
+**Status:** Applied
+
+**Context:** While refactoring `Message_Sink_Fallback_Spec.cs` to remove singleton pollution, the `FinalizeOutlineStats_all_skipped` regression test caught that Bug #2 (Skipped→Pending mapping) was **never actually applied** to the source code.
+
+**What was wrong in `LiveDocTestRunReporter.FinalizeOutlineStats`:**
+1. The ternary chain had no Skipped branch: `Failed → Passed → Pending` (missing Skipped)
+2. `stats.Skipped = 0;` was hardcoded
+3. `execution.Status` only checked `Failed → Passed` (no Skipped cascade)
+
+**Fix applied:**
+1. Added `g.All(r => r.Result.Status == Skipped) ? Skipped : Pending` branch
+2. Replaced `stats.Skipped = 0` with `stats.Skipped = rowStatuses.Count(s => s == Skipped)`
+3. Added `stats.Pending = rowStatuses.Count(s => s == Pending)`
+4. Added Skipped cascade to `execution.Status`: `Failed > 0 → Passed > 0 → Skipped > 0 → Pending`
+
+**Impact:** `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` lines 654–676
+
+**Verification:** 458 tests pass. JSON export shows `summary.total` (446) == `sum(doc.statistics.total)` (446).
+
+---
+
+### Decision: Search & Navigation UX Fixes
+
+**Date:** 2025-07-18  
+**Author:** Kaylee  
+**Status:** Implemented  
+**Commit:** `79793e3`
+
+**Context:** Two related UX bugs in the viewer's search/filter system left users stranded:
+1. **Tag filter dead-end**: Applying a tag like `@attachments` while viewing a folder that has no matching children showed "No matching results" with no way to find the actual matches elsewhere in the test run.
+2. **Step navigation gap**: Clicking a text search result that resolved to a Step node rendered only the Feature header and Background — the Scenario containing the step was invisible.
+
+**Decisions:**
+
+**1. Global result cards in GroupView (not just a root-navigation link)**
+- **Chose**: Compute up to 5 global matches from `run.itemById` and render them as clickable cards inline in the empty-state area — with status badges, kind labels, and titles.
+- **Rationale**: Showing actual result items with one-click navigation eliminates friction entirely. The user sees *what* matched and can jump directly there. Capped at 5 items + overflow message to keep the UI clean.
+
+**2. Parent Scenario rendering for Step nodes (not redirect)**
+- **Chose**: Add a `parentScenario` memo in NodeView that finds the owning Scenario/Rule, then render it via ScenarioBlock. Also expose the container's children list for sibling navigation.
+- **Rationale**: Rendering in-place preserves the navigation intent and shows the full context (Feature → Background → Parent Scenario with all steps → sibling Scenarios list).
+
+**Files Changed:**
+- `packages/viewer/src/client/components/GroupView.tsx` — Replaced `globalMatchCount` with `globalResultInfo` memo; new empty-state render with clickable result cards
+- `packages/viewer/src/client/components/NodeView.tsx` — Added `parentScenario` memo, Step render block via ScenarioBlock, modified `children` derivation for Step context
+
+---
+
+### Decision: LIVEDOC_REPORT_ALL_TESTS Debug Flag
+
+**Author:** Simon  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Context:** The "Spec" suffix filter in `LiveDocTestFramework.ReportTestResult` hides `[Feature]`/`[Specification]` classes whose names don't end in "Spec". This is correct production behavior — it prevents helper/fixture classes from cluttering the viewer. However, when debugging test count mismatches between xUnit and the viewer, the filter itself can be the culprit, and there was no way to temporarily bypass it.
+
+**Decision:** Added an environment variable `LIVEDOC_REPORT_ALL_TESTS`. When set to `true` (case-insensitive), the suffix filter is skipped and all `[Feature]`/`[Specification]` classes are reported to the viewer regardless of naming convention.
+
+Default behavior (env var unset or any value other than `true`) is unchanged — filter stays ON.
+
+**Activation:**
+- **Visual Studio**: Test → Configure Run Settings → Select Solution Wide runsettings File → pick `dotnet/xunit/tests/debug.runsettings`. Deselect to restore normal filtering.
+- **CLI**: `dotnet test -s tests/debug.runsettings`
+
+**Impact:**
+- `dotnet/xunit/src/LiveDocTestFramework.cs` — 4 new lines around the existing suffix filter
+- `dotnet/xunit/tests/debug.runsettings` — new file (env var injection)
+
+---
+
+### Decision: Run Aggregation Phase 1 — xUnit suiteKey Support
+
+**Analyst:** Simon  
+**Status:** Approved with checklist  
+**Scope:** Phase 1 - Add `suiteKey` support to xUnit reporter
+
+**Effort:** SMALL (1-2 hours)
+
+**SuiteKey Derivation Strategy for .NET:**
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | `LIVEDOC_SUITE_KEY` env var | `"integration"` |
+| 2 | Assembly name (auto-derive) | `"MyProject.Tests"` |
+| 3 | `"default"` fallback | `"default"` |
+
+**Required Changes (3 files):**
+1. `LiveDocConfig.cs` — Add `SuiteKeyEnvVar` constant, `SuiteKey` property with lazy resolution, `ResolveSuiteKey()` method
+2. `Reporter/Models/ReporterModels.cs` — Add `SuiteKey` property to `StartRunRequest`
+3. `LiveDocReporter.cs` — Send `SuiteKey` in `StartRunAsync()`
+
+**Backward Compatibility:** ✅ Full (additive-only change, optional field)
+
+**Recommendation:** ✅ Approve with existing implementation checklist in full decision document.
+
+---
+
+### Decision: Fallback Path Outline Row Guard
+
+**Author:** Simon  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Context:** The message sink fallback path in `LiveDocTestFramework.cs` handles test result reporting for tests that don't go through `LiveDocContext` (e.g., fixture classes with empty method bodies). Outline tests (`[ScenarioOutline]`/`[RuleOutline]` with multiple `[Example]` attributes) share a single test ID across all example rows by design.
+
+**Problem:** The `HasTest(testId)` guard was applied uniformly to both outline and non-outline tests. After the 1st example row created the outline shell in `_tests`, subsequent rows saw `HasTest == true` and returned early — dropping every 2nd+ example row. This caused the viewer to show fewer tests than Test Explorer.
+
+**Decision:** Split the `HasTest` guard by test type:
+- **Non-outline tests**: Keep the existing `HasTest` guard (prevents overwriting LiveDocContext's richer data).
+- **Outline tests**: Check `_outlineRowCounters.ContainsKey(testId)` first. If the counter exists, the fallback path owns this outline and subsequent rows must proceed. Only fall through to `HasTest` when the counter is absent (to detect LiveDocContext ownership).
+
+This leverages the existing `_outlineRowCounters` dictionary as a lightweight ownership tracker with zero new state.
+
+**Impact:**
+- `dotnet/xunit/src/LiveDocTestFramework.cs` — `ReportTestResult` HasTest guard
+- `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` — `FinalizeOutlineStats` status logic
+
+---
+
+### Decision: Journey Fixture Uses --no-build
+
+**Author:** Simon  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** `JourneyFixtureBase.InitializeAsync()` now passes `--no-build` to `dotnet run` when launching the server process. The fixture assumes the server project is already built as part of the solution build (`dotnet test` builds all projects in the solution).
+
+**Rationale:** Without `--no-build`, the fixture triggers a redundant rebuild of the server project. On Windows, the DLL from the solution build is often still locked (by Microsoft Defender real-time scanning or the build process itself), causing CS2012 file lock errors and failing all 7 journey tests.
+
+**Impact:**
+- `dotnet/xunit/src/Journeys/JourneyFixtureBase.cs` — line 132 arguments changed
+- Also removed `-p:UseSharedCompilation=false` since no compilation occurs with `--no-build`
+- **Constraint:** Consumers must ensure the server project is built before running tests (standard when using `dotnet test` on the solution)
+
+---
+
+### Decision: User Directive for Multi-Model Review Panel
+
+**Date:** 2026-04-12T17:18:18Z  
+**By:** Garry (via Copilot)  
+**Status:** Noted
+
+**Directive:** For multi-model review panel: use GPT-5.4 (not GPT-5.2) and Goldeneye (not Gemini). We don't have Gemini access.
+
+**Rationale:** User request — captured for team memory
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

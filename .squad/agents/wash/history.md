@@ -57,11 +57,23 @@
 - **Key architecture insight**: Vitest's `exit()` flow — `close()` method runs global teardown → closes Vite servers → closes pool → runs `_onClose` callbacks → returns. Then if the process doesn't exit naturally within `teardownTimeout` (10s), it force-exits. The `hanging-process` reporter can help diagnose what's keeping the event loop alive.
 - **Key file paths**: Vitest close logic lives in `cli-api.*.js` chunk around line 13799 (in Vitest 4.1.0). The `teardownTimeout` config option controls the grace period.
 
-### Source Map Removal (2026-04-12)
+### Playwright Module Identity & Cross-Entry-Point Testing (2026-04-12)
 
-- **Source maps disabled in all npm packages**: Set `sourcemap: false` in tsup configs for schema, server, and vitest. Savings: schema 61.8KB, server 514.8KB, vitest 4,301.9KB — total ~4.9MB removed (67% reduction across all three packages).
-- **Source maps should stay off for published packages**: Consumers get IntelliSense from `.d.ts` files. React, Vue, Vitest, Zod all ship without source maps. Viewer (Vite) is unchanged since it's a bundled app, not an npm library.
-- **Pre-existing server test failures**: 48 tests in packages/server fail due to temp directory issues (ENOENT on history files). These are pre-existing and unrelated to framework changes.
+- **Multi-Model Review Panel Results (2/3 consensus REQUEST CHANGES)**:
+  - ✅ **Approved by opus** (Claude 4.5) with non-blocking note on duplicate imports
+  - 🔴 **REQUEST CHANGES from gpt54** (Code Quality Reviewer) — Test is false positive; doesn't exercise packaged/bundled scenario. Needs real npm package artifact test.
+  - 🔴 **REQUEST CHANGES from goldeneye** (Rapid Challenger) — Found cross-entry-point issue affects `setup.js` and `reporter/index.js` too (pre-existing). Current test only covers playwright entry point.
+  
+- **Root Issues Identified**:
+  1. Test doesn't exercise actual packaged/bundled scenario (gpt54)
+  2. Other entry points (setup.js, reporter/index.js) also inline hooks — not covered (goldeneye)
+  3. Missing comprehensive cross-entry-point integration test
+
+- **Action Items**: Assigned to Wash to refactor test with packaged artifacts + comprehensive cross-entry-point coverage before merge.
+
+---
+
+
 
 ### Playwright Module Duplication Fix (v0.1.10)
 
