@@ -6,7 +6,10 @@ import { LiveDocSpec, LiveDocReporterOptions } from './LiveDocSpec';
 import { DefaultColorTheme } from './ColorTheme';
 import { LiveDocReporter } from './LiveDocReporter';
 import { LiveDocViewerReporter } from './LiveDocViewerReporter';
-import { livedoc } from '../livedoc';
+// IMPORTANT: Import from the package's own name so that at runtime the
+// reporter entry point shares the SAME module instance as the main entry.
+// tsup marks this as external so it is NOT inlined.
+import { livedoc } from "@swedevtools/livedoc-vitest";
 import * as model from '../model/index';
 import { DescriptionParser } from '../parser/Parser';
 import type { File, Task, TaskResultPack } from '@vitest/runner';

@@ -19,6 +19,10 @@
  * ```
  */
 
+// IMPORTANT: Import from the package's own name so that at runtime the
+// setup entry point shares the SAME module instance (and therefore the same
+// scenarioStartHooks / scenarioEndHooks arrays) as the main entry point.
+// tsup marks this as external so it is NOT inlined.
 import {
     feature,
     scenario,
@@ -29,7 +33,7 @@ import {
     Then,
     and,
     but,
-} from "./livedoc";
+} from "@swedevtools/livedoc-vitest";
 
 // Register global functions for use in tests without explicit imports
 // NOTE: 'then' is registered as lowercase here because globalThis is not
