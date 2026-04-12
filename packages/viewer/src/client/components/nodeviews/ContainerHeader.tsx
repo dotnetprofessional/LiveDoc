@@ -43,7 +43,20 @@ export function ContainerHeader({
           // Container pages (Feature/Specification/Suite) should not show a non-clickable final crumb.
           // Scenario pages should include the owning Feature (clickable), but not the current Scenario.
           const crumbs = isContainer ? breadcrumbs.slice(0, -1) : breadcrumbs;
-          if (crumbs.length === 0) return null;
+          
+          // If no crumbs remain after slicing, show the home-only fallback
+          if (crumbs.length === 0) {
+            return (
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => navigate('group', 'group:/')}
+                  className="flex items-center gap-1.5 hover:text-foreground transition-colors px-1 py-0.5 rounded-md hover:bg-muted/50"
+                >
+                  <Home className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          }
 
           return crumbs.map((item, index) => {
             const isRoot = item.title === 'Root' && index === 0;
@@ -76,8 +89,6 @@ export function ContainerHeader({
             >
               <Home className="w-3.5 h-3.5" />
             </button>
-            <ChevronRight className="w-4 h-4 text-muted-foreground/40" />
-            <span className="font-medium text-foreground px-1 py-0.5">{containerTitleWithKind || containerTitle}</span>
           </div>
         )}
       </nav>

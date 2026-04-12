@@ -45,6 +45,10 @@ export function NodeView({ node }: NodeViewProps) {
       if (!n) return false;
       if (n.id === node.id) return true;
 
+      // Check background first (before tests)
+      const bg = (n as any).background;
+      if (bg && containsId(bg)) return true;
+
       const children =
         (n.tests as any[] | undefined) ??
         (n.children as any[] | undefined) ??
@@ -80,10 +84,15 @@ export function NodeView({ node }: NodeViewProps) {
   }, [containerTestCase]);
 
   const background = useMemo<AnyTest | undefined>(() => {
-    if (!feature) return undefined;
+    if (!containerTestCase) return undefined;
 
-    return feature.background as AnyTest | undefined;
-  }, [feature]);
+    return containerTestCase.background as AnyTest | undefined;
+  }, [containerTestCase]);
+
+  // Check if the current node is actually the background of its container
+  const isViewingBackground = useMemo(() => {
+    return background && node.id === background.id;
+  }, [background, node.id]);
 
   // When viewing a Step, find its parent Scenario/Rule for rendering context
   const parentScenario = useMemo<AnyTest | undefined>(() => {
@@ -233,8 +242,8 @@ export function NodeView({ node }: NodeViewProps) {
         );
       })()}
 
-      {/* ========== SCENARIO SECTION (when viewing a child of a Feature) ========== */}
-      {feature && !isTestCaseNode(node) && kind === 'scenario' && (
+      {/* ========== SCENARIO SECTION (when viewing a scenario) ========== */}
+      {!isTestCaseNode(node) && kind === 'scenario' && !isViewingBackground && (
         <div className="space-y-3">
           <ScenarioBlock
             label="Scenario"
@@ -251,8 +260,8 @@ export function NodeView({ node }: NodeViewProps) {
         </div>
       )}
 
-      {/* ========== RULE SECTION (when viewing a child of a Specification) ========== */}
-      {isSpecificationContainer && !isTestCaseNode(node) && kind === 'rule' && (
+      {/* ========== RULE SECTION (when viewing a rule) ========== */}
+      {!isTestCaseNode(node) && kind === 'rule' && (
         <div className="space-y-3">
           <ScenarioBlock
             label="Rule"
@@ -269,18 +278,18 @@ export function NodeView({ node }: NodeViewProps) {
       )}
 
       {/* ========== SCENARIO OUTLINE SECTION ========== */}
-      {feature && !isTestCaseNode(node) && kind === 'scenariooutline' && (
+      {!isTestCaseNode(node) && kind === 'scenariooutline' && (
         <OutlineNodeView
           label="Scenario Outline"
           node={node as any}
           isBusiness={isBusiness}
           tone="scenario"
-          featurePath={typeof (feature as any)?.path === 'string' ? String((feature as any).path) : undefined}
+          featurePath={typeof (containerTestCase as any)?.path === 'string' ? String((containerTestCase as any).path) : undefined}
         />
       )}
 
-      {/* ========== RULE OUTLINE SECTION (Specification) ========== */}
-      {isSpecificationContainer && !isTestCaseNode(node) && kind === 'ruleoutline' && (
+      {/* ========== RULE OUTLINE SECTION ========== */}
+      {!isTestCaseNode(node) && kind === 'ruleoutline' && (
         <OutlineNodeView
           label="Rule Outline"
           node={node as any}
@@ -307,17 +316,6 @@ export function NodeView({ node }: NodeViewProps) {
           showErrorStack={!isBusiness}
         />
       )}
-
-      {/* ========== OUTLINES (ScenarioOutline / RuleOutline) ========== */}
-      {kind === 'ruleoutline' && !isRuleOutlineView ? (
-        <OutlineNodeView
-          label="Rule Outline"
-          node={node as any}
-          isBusiness={isBusiness}
-          tone="scenario"
-          featurePath={typeof (containerTestCase as any)?.path === 'string' ? String((containerTestCase as any).path) : undefined}
-        />
-      ) : null}
 
       {/* ========== CHILDREN (when viewing a container) ========== */}
       <ChildrenList
