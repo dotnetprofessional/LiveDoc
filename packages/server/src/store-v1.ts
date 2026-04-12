@@ -8,6 +8,7 @@ import type {
 } from '@swedevtools/livedoc-schema';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { sessionManager } from './session-manager.js';
 
 function sanitizeName(name: string): string {
   return name.replace(/[<>:"/\\|?*]/g, '_').trim() || 'unknown';
@@ -257,6 +258,9 @@ export class RunStore {
 
     try {
       await fs.mkdir(this.dataDir, { recursive: true });
+      
+      // Initialize session manager
+      await sessionManager.initialize();
 
       let projects: string[] = [];
       try {
@@ -389,9 +393,13 @@ export class RunStore {
   }
 
   createRun(runId: string, project: string, environment: string, framework: string, timestamp: string): TestRunV1 {
+    // Assign session
+    const sessionId = sessionManager.assignSession(project, environment, runId, timestamp);
+    
     const run: TestRunV1 = {
       protocolVersion: '1.0',
       runId,
+      sessionId,
       project,
       environment,
       framework,
@@ -715,6 +723,30 @@ export class RunStore {
     if (summary) record.run.summary = summary;
 
     void this.saveRun(record.run, true);
+    
+    // Update session
+    const sessionId = record.run.sessionId;
+    if (sessionId) {
+      const sessionRuns = this.getRunsForSession(sessionId);
+      sessionManager.onRunCompleted(sessionId, record.run, sessionRuns);
+      
+      // Rebuild session with all runs from this session
+      const session = sessionManager.getSession(sessionId);
+      if (session) {
+        sessionManager.rebuildSessionFromRuns(sessionId, sessionRuns);
+        sessionManager.mergeDocuments(session, sessionRuns);
+      }
+    }
+  }
+  
+  private getRunsForSession(sessionId: string): TestRunV1[] {
+    const runs: TestRunV1[] = [];
+    for (const record of this.runs.values()) {
+      if (record.run.sessionId === sessionId) {
+        runs.push(record.run);
+      }
+    }
+    return runs;
   }
 
   async flush(): Promise<void> {
@@ -728,3 +760,4 @@ export class RunStore {
 }
 
 export const runStore = new RunStore();
+export { sessionManager } from './session-manager.js';

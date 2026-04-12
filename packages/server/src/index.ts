@@ -40,6 +40,9 @@ export * from './schema.js';
 // Re-export store
 export { RunStore, runStore } from './store.js';
 
+// Re-export SessionManager
+export { SessionManager, sessionManager } from './session-manager.js';
+
 // Re-export WebSocketManager
 export { WebSocketManager } from './websocket.js';
 
@@ -558,9 +561,55 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         summary: body.summary ?? run.summary,
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
+      
+      // Broadcast session update
+      const sessionId = run.sessionId;
+      if (sessionId) {
+        const { sessionManager } = await import('./session-manager.js');
+        const session = sessionManager.getSession(sessionId);
+        if (session) {
+          const sessionEvent: V1WebSocketEvent = {
+            type: 'session:v1:updated',
+            sessionId,
+            project: session.project,
+            environment: session.environment,
+            status: session.status,
+            summary: session.summary,
+          };
+          wsManager.broadcast(sessionEvent, runId, session.project, session.environment);
+        }
+      }
     }
 
     return c.json({ success: true });
+  });
+  
+  // Session endpoints
+  app.get('/api/v1/sessions', async (c) => {
+    const project = c.req.query('project');
+    const environment = c.req.query('environment');
+    
+    if (!project || !environment) {
+      return c.json({ error: 'Missing required query parameters: project, environment' }, 400);
+    }
+    
+    const { sessionManager } = await import('./session-manager.js');
+    const sessions = sessionManager.listSessions(project, environment);
+    
+    return c.json({ sessions });
+  });
+  
+  app.get('/api/v1/sessions/:sessionId', async (c) => {
+    const sessionId = c.req.param('sessionId');
+    
+    const { sessionManager } = await import('./session-manager.js');
+    const session = sessionManager.getSession(sessionId);
+    
+    if (!session) {
+      return c.json({ error: 'Session not found' }, 404);
+    }
+    
+    return c.json(session);
   });
   
   httpServer.on('request', async (req: IncomingMessage, res: ServerResponse) => {

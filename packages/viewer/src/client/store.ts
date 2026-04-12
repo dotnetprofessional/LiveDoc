@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV1 } from '@swedevtools/livedoc-schema';
+import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV1, SessionV1 } from '@swedevtools/livedoc-schema';
 
 function getInitialAudienceMode(): 'business' | 'developer' {
   try {
@@ -17,6 +17,31 @@ export interface Run {
   itemById: Record<string, TestCase | AnyTest>;
 }
 
+/** Session aggregate - has the same document shape as a Run, so most rendering code can reuse */
+export interface Session {
+  session: SessionV1;
+  /** Index for fast lookup by id (TestCase/Test/Step/etc) */
+  itemById: Record<string, TestCase | AnyTest>;
+}
+
+/** Common view data type - either a Run or a Session, both expose documents/summary/status */
+export type ViewData = Run | Session;
+
+/** Helper to extract run-like data from ViewData for components that need it */
+export interface RunLike {
+  run: {
+    documents?: TestCase[];
+    summary: Statistics;
+    status: Status;
+    timestamp: string;
+    duration: number;
+    project: string;
+    environment: string;
+    framework?: string;
+  };
+  itemById: Record<string, TestCase | AnyTest>;
+}
+
 // Project hierarchy for navigation
 export interface HistoryRun {
   runId: string;
@@ -28,6 +53,7 @@ export interface HistoryRun {
 export interface Environment {
   name: string;
   latestRun?: Run;
+  latestSession?: Session;
   historyCount: number;
   history: HistoryRun[];
 }
@@ -53,10 +79,12 @@ export interface CurrentView {
 interface AppState {
   // Data
   runs: Run[];
+  sessions: Session[];
   projectHierarchy: ProjectNode[];
   
   // Selection
   selectedRunId: string | null;
+  selectedSessionId: string | null;
   selectedNodeId: string | null;
   
   // Navigation
@@ -79,9 +107,15 @@ interface AppState {
   addRun: (run: Run) => void;
   updateRun: (runId: string, updates: Partial<Run>) => void;
   removeRun: (runId: string) => void;
+  
+  setSessions: (sessions: Session[]) => void;
+  addSession: (session: Session) => void;
+  updateSession: (sessionId: string, updates: Partial<Session>) => void;
+  
   setProjectHierarchy: (hierarchy: ProjectNode[]) => void;
   
   selectRun: (runId: string | null) => void;
+  selectSession: (sessionId: string | null) => void;
   
   // Navigation actions
   navigate: (type: ViewType, id?: string) => void;
@@ -105,6 +139,11 @@ interface AppState {
   
   // Computed selectors
   getCurrentRun: () => Run | undefined;
+  getCurrentSession: () => Session | undefined;
+  /** Returns either the current session or current run (session takes priority) */
+  getCurrentView: () => { type: 'session'; data: Session } | { type: 'run'; data: Run } | undefined;
+  /** Returns a RunLike object (normalized view) for components */
+  getCurrentViewData: () => RunLike | undefined;
   getCurrentNode: () => TestCase | AnyTest | undefined;
 }
 
@@ -135,6 +174,23 @@ function buildItemIndex(run: TestRunV1): Record<string, TestCase | AnyTest> {
 
 export function makeRunState(run: TestRunV1): Run {
   return { run, itemById: buildItemIndex(run) };
+}
+
+export function makeSessionState(session: SessionV1): Session {
+  // SessionV1 has the same document shape as TestRunV1, so we can reuse the same index builder
+  const fakeRun: TestRunV1 = {
+    protocolVersion: '1.0',
+    runId: session.sessionId,
+    project: session.project,
+    environment: session.environment,
+    framework: 'vitest',
+    timestamp: session.timestamp,
+    status: session.status,
+    duration: session.duration,
+    summary: session.summary,
+    documents: session.documents,
+  };
+  return { session, itemById: buildItemIndex(fakeRun) };
 }
 
 function mergeExecution(existing: ExecutionResult, patch: Partial<ExecutionResult>): ExecutionResult {
@@ -279,8 +335,10 @@ function withDerivedRunState(run: TestRunV1): TestRunV1 {
 export const useStore = create<AppState>((set, get) => ({
   // Initial state
   runs: [],
+  sessions: [],
   projectHierarchy: [],
   selectedRunId: null,
+  selectedSessionId: null,
   selectedNodeId: null,
   currentView: { type: 'summary' },
   connectionStatus: 'connecting',
@@ -298,8 +356,8 @@ export const useStore = create<AppState>((set, get) => ({
   
   addRun: (run) => set((state) => ({
     runs: [run, ...state.runs],
-    // Auto-select if first run
-    selectedRunId: state.selectedRunId ?? run.run.runId,
+    // Auto-select if first run and no session selected
+    selectedRunId: (!state.selectedSessionId && !state.selectedRunId) ? run.run.runId : state.selectedRunId,
   })),
   
   updateRun: (runId, updates) => set((state) => ({
@@ -316,10 +374,10 @@ export const useStore = create<AppState>((set, get) => ({
   
   removeRun: (runId) => set((state) => {
     const newRuns = state.runs.filter(r => r.run.runId !== runId);
-    // If we removed the selected run, select another
+    // If we removed the selected run, select another (or fall back to session if available)
     let newSelectedRunId = state.selectedRunId;
     if (state.selectedRunId === runId) {
-      newSelectedRunId = newRuns.length > 0 ? newRuns[0].run.runId : null;
+      newSelectedRunId = newRuns.length > 0 && !state.selectedSessionId ? newRuns[0].run.runId : null;
     }
     // Clean up expandedItems for the removed run to prevent memory leak
     const removedRun = state.runs.find(r => r.run.runId === runId);
@@ -333,16 +391,45 @@ export const useStore = create<AppState>((set, get) => ({
     return { 
       runs: newRuns,
       selectedRunId: newSelectedRunId,
-      currentView: newSelectedRunId ? state.currentView : { type: 'summary' },
+      currentView: (newSelectedRunId || state.selectedSessionId) ? state.currentView : { type: 'summary' },
       expandedItems: newExpandedItems,
     };
   }),
+  
+  setSessions: (sessions) => set({ sessions }),
+  
+  addSession: (session) => set((state) => ({
+    sessions: [session, ...state.sessions],
+    // Auto-select session (takes priority over runs)
+    selectedSessionId: session.session.sessionId,
+    selectedRunId: null,
+  })),
+  
+  updateSession: (sessionId, updates) => set((state) => ({
+    sessions: state.sessions.map((s) =>
+      s.session.sessionId === sessionId
+        ? (
+            updates.session
+              ? { ...s, ...updates, itemById: buildItemIndex({ ...s.session, ...updates.session } as any) }
+              : { ...s, ...updates }
+          )
+        : s
+    ),
+  })),
   
   setProjectHierarchy: (hierarchy) => set({ projectHierarchy: hierarchy }),
   
   // Selection actions
   selectRun: (runId) => set({
     selectedRunId: runId,
+    selectedSessionId: null,
+    selectedNodeId: null,
+    currentView: { type: 'summary' },
+  }),
+  
+  selectSession: (sessionId) => set({
+    selectedSessionId: sessionId,
+    selectedRunId: null,
     selectedNodeId: null,
     currentView: { type: 'summary' },
   }),
@@ -480,8 +567,77 @@ export const useStore = create<AppState>((set, get) => ({
     return state.runs.find((r) => r.run.runId === state.selectedRunId);
   },
   
+  getCurrentSession: () => {
+    const state = get();
+    return state.sessions.find((s) => s.session.sessionId === state.selectedSessionId);
+  },
+  
+  getCurrentView: () => {
+    const state = get();
+    // Session takes priority
+    if (state.selectedSessionId) {
+      const session = state.sessions.find((s) => s.session.sessionId === state.selectedSessionId);
+      if (session) return { type: 'session' as const, data: session };
+    }
+    // Fall back to run
+    if (state.selectedRunId) {
+      const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
+      if (run) return { type: 'run' as const, data: run };
+    }
+    return undefined;
+  },
+  
+  getCurrentViewData: () => {
+    const state = get();
+    // Session takes priority
+    if (state.selectedSessionId) {
+      const session = state.sessions.find((s) => s.session.sessionId === state.selectedSessionId);
+      if (session) {
+        return {
+          run: {
+            documents: session.session.documents,
+            summary: session.session.summary,
+            status: session.session.status,
+            timestamp: session.session.timestamp,
+            duration: session.session.duration,
+            project: session.session.project,
+            environment: session.session.environment,
+            framework: 'vitest',
+          },
+          itemById: session.itemById,
+        };
+      }
+    }
+    // Fall back to run
+    if (state.selectedRunId) {
+      const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
+      if (run) {
+        return {
+          run: {
+            documents: run.run.documents,
+            summary: run.run.summary,
+            status: run.run.status,
+            timestamp: run.run.timestamp,
+            duration: run.run.duration,
+            project: run.run.project,
+            environment: run.run.environment,
+            framework: run.run.framework,
+          },
+          itemById: run.itemById,
+        };
+      }
+    }
+    return undefined;
+  },
+  
   getCurrentNode: () => {
     const state = get();
+    // Check session first (takes priority)
+    if (state.selectedSessionId) {
+      const session = state.sessions.find((s) => s.session.sessionId === state.selectedSessionId);
+      if (session && state.selectedNodeId) return session.itemById[state.selectedNodeId];
+    }
+    // Fall back to run
     const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
     if (!run || !state.selectedNodeId) return undefined;
     return run.itemById[state.selectedNodeId];

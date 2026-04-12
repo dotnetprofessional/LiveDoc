@@ -6,12 +6,12 @@ import { ClipboardList, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 export function MainContent() {
-  const { currentView, getCurrentRun, getCurrentNode, connectionStatus } = useStore();
+  const { currentView, getCurrentViewData, getCurrentNode, connectionStatus } = useStore();
   
-  const run = getCurrentRun();
+  const viewData = getCurrentViewData();
   const node = getCurrentNode();
 
-  if (!run) {
+  if (!viewData) {
     return (
       <main className="flex-1 overflow-auto flex items-center justify-center bg-background/50">
         <motion.div 
@@ -53,7 +53,7 @@ export function MainContent() {
           className="p-6 md:p-10"
         >
           {currentView.type === 'summary' && (
-            <SummaryView run={run} />
+            <SummaryView run={viewData as any} />
           )}
           
           {currentView.type === 'node' && node && (
@@ -61,7 +61,7 @@ export function MainContent() {
           )}
 
           {currentView.type === 'group' && currentView.id && (
-            <GroupView run={run} groupId={currentView.id} />
+            <GroupView run={viewData as any} groupId={currentView.id} />
           )}
         </motion.div>
       </AnimatePresence>

@@ -48,14 +48,20 @@ export function Sidebar() {
     navigate,
     toggleExpanded,
     getCurrentRun,
+    getCurrentSession,
+    getCurrentView,
     runs,
+    sessions,
     projectHierarchy,
     selectRun,
+    selectSession,
     filterText,
     filterTags,
   } = useStore();
 
   const currentRun = getCurrentRun();
+  const currentSession = getCurrentSession();
+  const currentViewData = getCurrentView();
 
   const [projectMenuOpen, setProjectMenuOpen] = React.useState(false);
   const [envMenuOpen, setEnvMenuOpen] = React.useState(false);
@@ -67,15 +73,14 @@ export function Sidebar() {
       .filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
     if (fromHierarchy.length > 0) return fromHierarchy;
 
-    const uniq = new Set(
-      (runs ?? [])
-        .map((r) => r?.run?.project)
-        .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
-    );
+    // Fallback: extract from sessions and runs
+    const fromSessions = (sessions ?? []).map((s) => s?.session?.project);
+    const fromRuns = (runs ?? []).map((r) => r?.run?.project);
+    const uniq = new Set([...fromSessions, ...fromRuns].filter((n): n is string => typeof n === 'string' && n.trim().length > 0));
     return Array.from(uniq);
-  }, [projectHierarchy, runs]);
+  }, [projectHierarchy, runs, sessions]);
 
-  const currentProject = currentRun?.run.project ?? projectNames[0] ?? '';
+  const currentProject = currentSession?.session.project ?? currentRun?.run.project ?? projectNames[0] ?? '';
 
   const environmentNames = React.useMemo(() => {
     const projectFromHierarchy = (projectHierarchy ?? []).find((p) => p.name === currentProject);
@@ -85,42 +90,58 @@ export function Sidebar() {
 
     if (fromHierarchy.length > 0) return fromHierarchy;
 
-    const uniq = new Set(
-      (runs ?? [])
-        .filter((r) => r?.run?.project === currentProject)
-        .map((r) => r?.run?.environment)
-        .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
-    );
+    // Fallback: extract from sessions and runs
+    const fromSessions = (sessions ?? []).filter((s) => s?.session?.project === currentProject).map((s) => s?.session?.environment);
+    const fromRuns = (runs ?? []).filter((r) => r?.run?.project === currentProject).map((r) => r?.run?.environment);
+    const uniq = new Set([...fromSessions, ...fromRuns].filter((n): n is string => typeof n === 'string' && n.trim().length > 0));
     return Array.from(uniq);
-  }, [currentProject, projectHierarchy, runs]);
+  }, [currentProject, projectHierarchy, runs, sessions]);
 
-  const currentEnvironment = currentRun?.run.environment ?? environmentNames[0] ?? 'default';
+  const currentEnvironment = currentSession?.session.environment ?? currentRun?.run.environment ?? environmentNames[0] ?? 'default';
 
   const selectProject = React.useCallback((project: string) => {
     if (!project) return;
 
-    // Prefer: latest run in the currently-selected environment (if present)
-    const currentEnv = currentRun?.run.environment;
-    const candidates = (runs ?? []).filter((r) => r.run.project === project);
+    // Prefer: latest session for this project
+    const sessionCandidates = (sessions ?? []).filter((s) => s.session.project === project);
+    if (sessionCandidates.length > 0) {
+      const latestSession = sessionCandidates
+        .slice()
+        .sort((a, b) => (Date.parse(b.session.timestamp) || 0) - (Date.parse(a.session.timestamp) || 0))[0];
+      selectSession(latestSession.session.sessionId);
+      return;
+    }
+
+    // Fallback: latest run in the currently-selected environment (if present)
+    const currentEnv = currentSession?.session.environment ?? currentRun?.run.environment;
+    const runCandidates = (runs ?? []).filter((r) => r.run.project === project);
 
     const candidateInSameEnv = currentEnv
-      ? candidates.filter((r) => r.run.environment === currentEnv)
+      ? runCandidates.filter((r) => r.run.environment === currentEnv)
       : [];
 
-    const pickLatest = (arr: typeof candidates) => {
+    const pickLatest = (arr: typeof runCandidates) => {
       return arr
         .slice()
         .sort((a, b) => (Date.parse(b.run.timestamp) || 0) - (Date.parse(a.run.timestamp) || 0))[0];
     };
 
-    const chosen = pickLatest(candidateInSameEnv.length > 0 ? candidateInSameEnv : candidates);
+    const chosen = pickLatest(candidateInSameEnv.length > 0 ? candidateInSameEnv : runCandidates);
     if (chosen) {
       selectRun(chosen.run.runId);
       return;
     }
 
-    // Fallback: if we have hierarchy but no loaded runs, try latestRun (but only if it's already loaded)
+    // Fallback: if we have hierarchy but no loaded data, try latestSession/latestRun
     const proj = (projectHierarchy ?? []).find((p) => p.name === project);
+    const latestSession = proj?.environments
+      ?.map((e) => e.latestSession)
+      .filter(Boolean)[0];
+    if (latestSession && (sessions ?? []).some((s) => s.session.sessionId === latestSession.session.sessionId)) {
+      selectSession(latestSession.session.sessionId);
+      return;
+    }
+
     const latestFromHierarchy = proj?.environments
       ?.map((e) => e.latestRun)
       .filter(Boolean)
@@ -130,39 +151,71 @@ export function Sidebar() {
     if (runId && (runs ?? []).some((r) => r.run.runId === runId)) {
       selectRun(runId);
     }
-  }, [currentRun?.run.environment, projectHierarchy, runs, selectRun]);
+  }, [currentRun?.run.environment, currentSession?.session.environment, projectHierarchy, runs, sessions, selectRun, selectSession]);
 
   const selectEnvironment = React.useCallback((environment: string) => {
     if (!environment || !currentProject) return;
 
-    const candidates = (runs ?? []).filter(
+    // Prefer: latest session for this project+environment
+    const sessionCandidates = (sessions ?? []).filter(
+      (s) => s.session.project === currentProject && s.session.environment === environment
+    );
+
+    if (sessionCandidates.length > 0) {
+      const chosen = sessionCandidates
+        .slice()
+        .sort((a, b) => (Date.parse(b.session.timestamp) || 0) - (Date.parse(a.session.timestamp) || 0))[0];
+      selectSession(chosen.session.sessionId);
+      return;
+    }
+
+    // Fallback: latest run for this project+environment
+    const runCandidates = (runs ?? []).filter(
       (r) => r.run.project === currentProject && r.run.environment === environment
     );
 
-    const chosen = candidates
+    const chosen = runCandidates
       .slice()
       .sort((a, b) => (Date.parse(b.run.timestamp) || 0) - (Date.parse(a.run.timestamp) || 0))[0];
 
     if (chosen) {
       selectRun(chosen.run.runId);
     }
-  }, [currentProject, runs, selectRun]);
+  }, [currentProject, runs, sessions, selectRun, selectSession]);
 
   const runsForDropdown = React.useMemo(() => {
+    // Phase 1: Keep it simple - just show "Latest" which represents the session aggregate
+    // Individual run history will come in Phase 2
     return (runs ?? [])
       .filter((r) => r.run.project === currentProject && r.run.environment === currentEnvironment)
       .slice()
       .sort((a, b) => (Date.parse(b.run.timestamp) || 0) - (Date.parse(a.run.timestamp) || 0));
   }, [currentEnvironment, currentProject, runs]);
 
-  const latestRunIdForSelection = runsForDropdown[0]?.run.runId;
+  // In Phase 1: "Latest" is either the latest session or the latest run
+  const latestSessionId = React.useMemo(() => {
+    const sessionCandidates = (sessions ?? []).filter(
+      (s) => s.session.project === currentProject && s.session.environment === currentEnvironment
+    );
+    if (sessionCandidates.length === 0) return null;
+    return sessionCandidates
+      .slice()
+      .sort((a, b) => (Date.parse(b.session.timestamp) || 0) - (Date.parse(a.session.timestamp) || 0))[0]
+      ?.session.sessionId;
+  }, [currentEnvironment, currentProject, sessions]);
+
+  const latestRunId = runsForDropdown[0]?.run.runId;
 
   const currentRunLabel = React.useMemo(() => {
-    if (latestRunIdForSelection && currentRun?.run.runId === latestRunIdForSelection) return 'Latest';
-    return currentRun?.run.timestamp ?? '—';
-  }, [currentRun?.run.runId, currentRun?.run.timestamp, latestRunIdForSelection]);
+    // If we're viewing a session and it's the latest, show "Latest"
+    if (latestSessionId && currentSession?.session.sessionId === latestSessionId) return 'Latest';
+    // If we're viewing a run and it's the latest (and no session), show "Latest"
+    if (!latestSessionId && latestRunId && currentRun?.run.runId === latestRunId) return 'Latest';
+    // Otherwise show timestamp
+    return currentSession?.session.timestamp ?? currentRun?.run.timestamp ?? '—';
+  }, [currentRun?.run.runId, currentRun?.run.timestamp, currentSession?.session.sessionId, currentSession?.session.timestamp, latestRunId, latestSessionId]);
 
-  const documents = currentRun?.run.documents ?? [];
+  const documents = currentSession?.session.documents ?? currentRun?.run.documents ?? [];
   const navTree = React.useMemo(() => buildGroupedNavTree(documents), [documents]);
 
   const navTreeForSidebar = React.useMemo(() => {
@@ -415,7 +468,7 @@ export function Sidebar() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Run</span>
-              {runsForDropdown.length > 0 ? (
+              {(runsForDropdown.length > 0 || latestSessionId) ? (
                 <DropdownMenu open={runMenuOpen} onOpenChange={setRunMenuOpen}>
                   <DropdownMenuTrigger
                     asChild
@@ -432,15 +485,29 @@ export function Sidebar() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    {latestRunIdForSelection && (
+                    {latestSessionId && (
                       <DropdownMenuItem
                         onSelect={() => {
-                          selectRun(latestRunIdForSelection);
+                          selectSession(latestSessionId);
                           setRunMenuOpen(false);
                         }}
                         className={cn(
                           "text-xs",
-                          latestRunIdForSelection === currentRun?.run.runId && "bg-muted"
+                          latestSessionId === currentSession?.session.sessionId && "bg-muted"
+                        )}
+                      >
+                        Latest
+                      </DropdownMenuItem>
+                    )}
+                    {!latestSessionId && latestRunId && (
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          selectRun(latestRunId);
+                          setRunMenuOpen(false);
+                        }}
+                        className={cn(
+                          "text-xs",
+                          latestRunId === currentRun?.run.runId && "bg-muted"
                         )}
                       >
                         Latest
@@ -470,11 +537,11 @@ export function Sidebar() {
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</span>
               <div className="flex items-center gap-2">
-                {currentRun?.run.status === 'running' && (
+                {(currentSession?.session.status === 'running' || currentRun?.run.status === 'running') && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-hidden="true" />
                 )}
-                {currentRun?.run.status ? (
-                  <StatusBadge status={currentRun.run.status} size="xs" />
+                {(currentSession?.session.status || currentRun?.run.status) ? (
+                  <StatusBadge status={(currentSession?.session.status ?? currentRun?.run.status) as any} size="xs" />
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}

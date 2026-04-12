@@ -1,4 +1,4 @@
-import { Run } from '../store';
+import { RunLike } from '../store';
 import { StatsBar } from './StatsBar';
 import { useStore } from '../store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
@@ -11,7 +11,7 @@ import { NavItem } from '../lib/nav-tree';
 import { formatDuration } from '../lib/status-utils';
 
 interface SummaryViewProps {
-  run: Run;
+  run: RunLike;
 }
 
 export function SummaryView({ run }: SummaryViewProps) {

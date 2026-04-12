@@ -149,6 +149,7 @@ export const V1FrameworkSchema = z.string();
 export const V1TestRunSchema = z.object({
   protocolVersion: z.literal('1.0'),
   runId: z.string(),
+  sessionId: z.string().optional(),
   project: z.string(),
   environment: z.string(),
   framework: V1FrameworkSchema,
@@ -173,6 +174,7 @@ export const V1StartRunRequestSchema = z.object({
 export const V1StartRunResponseSchema = z.object({
   protocolVersion: z.literal('1.0'),
   runId: z.string(),
+  sessionId: z.string().optional(),
   websocketUrl: z.string(),
 });
 
@@ -225,6 +227,32 @@ export const V1CompleteRunRequestSchema = z.object({
 });
 
 // =============================================================================
+// Session Aggregation Schemas
+// =============================================================================
+
+export const V1SessionRunInfoSchema = z.object({
+  runId: z.string(),
+  framework: z.string(),
+  status: V1StatusSchema,
+  timestamp: z.string(),
+  duration: z.number().nonnegative(),
+  summary: V1StatisticsSchema,
+  documentCount: z.number().int().nonnegative(),
+});
+
+export const V1SessionSchema = z.object({
+  sessionId: z.string(),
+  project: z.string(),
+  environment: z.string(),
+  status: V1StatusSchema,
+  timestamp: z.string(),
+  duration: z.number().nonnegative(),
+  summary: V1StatisticsSchema,
+  runs: z.array(V1SessionRunInfoSchema),
+  documents: z.array(V1TestCaseSchema),
+});
+
+// =============================================================================
 // WebSocket events (v1)
 // =============================================================================
 
@@ -272,6 +300,15 @@ export const V1WsRunCompletedSchema = z.object({
   summary: V1StatisticsSchema,
 });
 
+export const V1WsSessionUpdatedSchema = z.object({
+  type: z.literal('session:v1:updated'),
+  sessionId: z.string(),
+  project: z.string(),
+  environment: z.string(),
+  status: V1StatusSchema,
+  summary: V1StatisticsSchema,
+});
+
 export const V1WebSocketEventSchema = z.union([
   V1WsRunStartedSchema,
   V1WsTestCaseUpsertSchema,
@@ -279,6 +316,7 @@ export const V1WebSocketEventSchema = z.union([
   V1WsTestExecutionSchema,
   V1WsOutlineExampleResultsSchema,
   V1WsRunCompletedSchema,
+  V1WsSessionUpdatedSchema,
 ]);
 
 export type V1WebSocketEvent = z.infer<typeof V1WebSocketEventSchema>;
@@ -291,3 +329,5 @@ export type V1UpsertScenarioStepsRequest = z.infer<typeof V1UpsertScenarioStepsR
 export type V1PatchExecutionRequest = z.infer<typeof V1PatchExecutionRequestSchema>;
 export type V1UpsertOutlineExampleResultsRequest = z.infer<typeof V1UpsertOutlineExampleResultsRequestSchema>;
 export type V1CompleteRunRequest = z.infer<typeof V1CompleteRunRequestSchema>;
+export type V1SessionRunInfo = z.infer<typeof V1SessionRunInfoSchema>;
+export type V1Session = z.infer<typeof V1SessionSchema>;

@@ -261,6 +261,7 @@ export interface TestRunV1 {
   protocolVersion: '1.0';
 
   runId: string;
+  sessionId?: string; // Server-assigned, read-only for clients
   project: string;
   environment: string;
   framework: Framework;
@@ -272,4 +273,30 @@ export interface TestRunV1 {
   summary: Statistics;
 
   documents: TestCase[];
+}
+
+// =============================================================================
+// Session Aggregation
+// =============================================================================
+
+export interface SessionRunInfo {
+  runId: string;
+  framework: string;
+  status: Status;
+  timestamp: string;
+  duration: number;
+  summary: Statistics;
+  documentCount: number;
+}
+
+export interface SessionV1 {
+  sessionId: string;
+  project: string;
+  environment: string;
+  status: Status; // Worst-of all member runs
+  timestamp: string; // Earliest member run timestamp
+  duration: number; // Wall-clock: latest end - earliest start
+  summary: Statistics; // Aggregated across all runs
+  runs: SessionRunInfo[]; // Info about each member run
+  documents: TestCase[]; // Union of all documents, last-writer-wins
 }

@@ -1,6 +1,6 @@
 import { Folder, FileText, BookOpen, ScrollText, LayoutList, Clock, ChevronRight, Home } from 'lucide-react';
 import { useMemo } from 'react';
-import { Run, useStore } from '../store';
+import { RunLike, useStore } from '../store';
 import { buildGroupedNavTree, findNavItemById, findNavPath, NavItem } from '../lib/nav-tree';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '../lib/utils';
@@ -32,7 +32,7 @@ function getIconForKind(kind: string) {
   }
 }
 
-export function GroupView({ run, groupId }: { run: Run; groupId: string }) {
+export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
   const { navigate, filterText, filterTags } = useStore();
 
   const documents = run.run.documents ?? [];
