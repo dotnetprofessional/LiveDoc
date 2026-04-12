@@ -92,6 +92,10 @@ const backgroundItExecutedMap: Map<model.Feature, boolean> = new Map();
 // These remain global since they're reset per-scenario
 let backgroundStepsComplete = false;
 
+// Scenario lifecycle hooks — registered by plugins (e.g. playwright integration)
+const scenarioStartHooks: Array<() => Promise<void>> = [];
+const scenarioEndHooks: Array<() => Promise<void>> = [];
+
 // Track whether we're inside a pending (skipped) context
 let isPendingContext = false;
 
@@ -403,9 +407,18 @@ function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opt
         beforeAll(async () => {
             scenarioId = thisScenarioId;
             backgroundStepsComplete = false;
+            // Run scenario lifecycle start hooks (e.g. playwright fresh context)
+            for (const hook of scenarioStartHooks) {
+                await hook();
+            }
         });
 
         afterAll(async () => {
+            // Run scenario lifecycle end hooks (e.g. playwright context cleanup)
+            // Errors are isolated so one failing hook doesn't block others or afterBackground
+            for (const hook of scenarioEndHooks) {
+                try { await hook(); } catch { /* cleanup hooks must not block */ }
+            }
             // Lookup afterBackground for THIS scenario's feature (captured at registration)
             const featureForScenario = scenarioModel.parent as model.Feature;
             const afterBackgroundFn = featureForScenario ? afterBackgroundFnMap.get(featureForScenario) : null;
@@ -552,6 +565,22 @@ export function afterBackground(fn: Function): void {
 }
 
 /**
+ * Register a hook that runs at the START of each scenario/example.
+ * Used by plugins like the Playwright integration to create fresh browser contexts.
+ */
+export function onScenarioStart(fn: () => Promise<void>): void {
+    scenarioStartHooks.push(fn);
+}
+
+/**
+ * Register a hook that runs at the END of each scenario/example.
+ * Used by plugins like the Playwright integration to clean up browser contexts.
+ */
+export function onScenarioEnd(fn: () => Promise<void>): void {
+    scenarioEndHooks.push(fn);
+}
+
+/**
  * Internal scenario outline implementation
  */
 function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
@@ -613,12 +642,21 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
                     }
                 }
 
-                beforeAll(() => {
+                beforeAll(async () => {
                     scenarioId = thisScenarioId;
                     backgroundStepsComplete = false;
+                    // Run scenario lifecycle start hooks (e.g. playwright fresh context)
+                    for (const hook of scenarioStartHooks) {
+                        await hook();
+                    }
                 });
 
                 afterAll(async () => {
+                    // Run scenario lifecycle end hooks (e.g. playwright context cleanup)
+                    // Errors are isolated so one failing hook doesn't block others or afterBackground
+                    for (const hook of scenarioEndHooks) {
+                        try { await hook(); } catch { /* cleanup hooks must not block */ }
+                    }
                     // Lookup afterBackground for THIS example's feature
                     // Note: ScenarioExample.parent is the Feature directly (not ScenarioOutline)
                     const featureForExample = example.parent as model.Feature;

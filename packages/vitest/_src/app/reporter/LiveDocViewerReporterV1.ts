@@ -1097,7 +1097,7 @@ export class LiveDocViewerReporter implements IPostReporter {
     try {
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
         body: JSON.stringify(body),
         signal: controller.signal,
       });

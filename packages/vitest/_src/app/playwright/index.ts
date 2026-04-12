@@ -23,6 +23,7 @@
  */
 
 import { beforeAll, afterAll } from "vitest";
+import { onScenarioStart, onScenarioEnd } from "../livedoc";
 import type { StepContext } from "../model/StepContext";
 
 // ─── Minimal Playwright interfaces ──────────────────────────────────
@@ -194,6 +195,7 @@ export async function screenshot(
 export function useBrowser(options?: PlaywrightOptions): PlaywrightFixture {
     const baseUrl = options?.baseUrl ?? "http://localhost:3000";
     const browserName: BrowserName = options?.browser ?? "chromium";
+    const freshContext = options?.freshContextPerScenario ?? false;
 
     let _browser: PlaywrightBrowser | undefined;
     let _context: PlaywrightBrowserContext | undefined;
@@ -203,20 +205,42 @@ export function useBrowser(options?: PlaywrightOptions): PlaywrightFixture {
         const pw = await ensurePlaywright();
         const launcher = pw[browserName] as { launch: (opts?: Record<string, unknown>) => Promise<PlaywrightBrowser> };
         _browser = await launcher.launch(options?.launch ?? { headless: true });
-        _context = await _browser.newContext(options?.context ?? {});
-        _page = await _context.newPage();
+
+        if (!freshContext) {
+            // Shared context: one context + page for all scenarios
+            _context = await _browser.newContext(options?.context ?? {});
+            _page = await _context.newPage();
+        }
 
         // Reset screenshot counter per feature file
         _screenshotIndex = 0;
     });
 
+    if (freshContext) {
+        onScenarioStart(async () => {
+            // Fresh context + page per scenario — isolates localStorage, cookies, etc.
+            _context = await _browser!.newContext(options?.context ?? {});
+            _page = await _context.newPage();
+        });
+
+        onScenarioEnd(async () => {
+            await _context?.close().catch(() => {});
+            _page = undefined;
+            _context = undefined;
+        });
+    }
+
     afterAll(async () => {
-        await _page?.close().catch(() => {});
-        await _context?.close().catch(() => {});
-        await _browser?.close().catch(() => {});
-        _page = undefined;
-        _context = undefined;
-        _browser = undefined;
+        try {
+            // Closing browser closes all contexts and pages beneath it
+            await _browser?.close();
+        } catch {
+            // Ignore close errors (already closed, crashed, etc.)
+        } finally {
+            _page = undefined;
+            _context = undefined;
+            _browser = undefined;
+        }
     });
 
     return {

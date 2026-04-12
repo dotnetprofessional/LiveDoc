@@ -22,6 +22,8 @@ export {
     it,
     describe,
     livedoc,
+    onScenarioStart,
+    onScenarioEnd,
 } from "./livedoc";
 
 // Export DSL functions - Specification pattern

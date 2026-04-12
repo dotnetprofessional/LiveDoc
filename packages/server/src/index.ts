@@ -118,7 +118,9 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
     
     // Verify server is actually running
     try {
-      const response = await fetch(`http://localhost:${port}/api/health`);
+      const response = await fetch(`http://localhost:${port}/api/health`, {
+        headers: { 'Connection': 'close' },
+      });
       if (response.ok) {
         return {
           url: `http://localhost:${port}`,
