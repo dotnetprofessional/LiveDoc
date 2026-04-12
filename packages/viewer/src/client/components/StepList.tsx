@@ -177,8 +177,8 @@ function StepItem({ step, stepIndex, showStatus = true, highlightValues, bindVal
       {/* 3. Content Column (Flexible) */}
       <div className="flex-1 min-w-0">
         {/* Title Row */}
-        <div className="flex items-baseline justify-between gap-4">
-           <div className="text-sm leading-relaxed text-foreground/90 font-medium">
+        <div className="flex items-baseline gap-4">
+           <div className="flex-1 min-w-0 text-sm leading-relaxed text-foreground/90 font-medium">
              {renderTitle(step.title, highlightValues)}
            </div>
 
