@@ -26,7 +26,7 @@ public class LiveDocTestRunReporter : IDisposable
     private readonly ConcurrentDictionary<string, TestCase> _testCases = new();
     private readonly ConcurrentDictionary<string, BaseTest> _tests = new();
     private readonly ConcurrentDictionary<string, string> _testToTestCase = new();
-    private readonly Stopwatch _runStopwatch;
+    private Stopwatch _runStopwatch;
     private bool _disposed;
     private Task? _flushTask;
     private readonly object _flushLock = new();
@@ -37,8 +37,8 @@ public class LiveDocTestRunReporter : IDisposable
     private const int BatchChunkSize = 25;
     private readonly SemaphoreSlim _runStartLock = new(1, 1);
     private readonly LiveDocConfig _config;
-    private readonly DateTime _startedAt;
-    private readonly ConcurrentBag<Task> _realtimeTasks = new();
+    private DateTime _startedAt;
+    private ConcurrentBag<Task> _realtimeTasks = new();
 
     /// <summary>
     /// Gets the singleton instance.
@@ -296,6 +296,9 @@ public class LiveDocTestRunReporter : IDisposable
 
             // Ensure export completes
             await exportTask;
+
+            // Reset all state so the singleton can handle a new test assembly
+            Reset();
         }
         catch (Exception ex)
         {
@@ -833,6 +836,35 @@ public class LiveDocTestRunReporter : IDisposable
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes)[..8].ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Resets all run state so the singleton can handle a new test assembly.
+    /// Called automatically after a successful flush.
+    /// </summary>
+    private void Reset()
+    {
+        _testCases.Clear();
+        _tests.Clear();
+        _testToTestCase.Clear();
+        _totalCount = 0;
+        _passedCount = 0;
+        _failedCount = 0;
+        _skippedCount = 0;
+        _startedAt = DateTime.UtcNow;
+        _runStopwatch = Stopwatch.StartNew();
+        _realtimeTasks = new ConcurrentBag<Task>();
+
+        lock (_flushLock)
+        {
+            _flushTask = null;
+        }
+
+        // Reset the HTTP reporter's run ID so a new run can start
+        _reporter.ResetRun();
+
+        // Re-resolve project name for the next assembly
+        _config.ReResolveProject();
     }
 
     public void Dispose()

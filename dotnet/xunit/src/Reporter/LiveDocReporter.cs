@@ -325,6 +325,15 @@ public class LiveDocReporter : IDisposable
         }
     }
 
+    /// <summary>
+    /// Resets the run state so a new run can be started.
+    /// Call after CompleteRunAsync() when reusing the reporter instance.
+    /// </summary>
+    public void ResetRun()
+    {
+        _runId = null;
+    }
+
     public void Dispose()
     {
         if (!_disposed)

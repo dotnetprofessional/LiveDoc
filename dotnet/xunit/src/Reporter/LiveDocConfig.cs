@@ -142,6 +142,15 @@ public class LiveDocConfig
     }
 
     /// <summary>
+    /// Clears the cached project name so the next access re-resolves it.
+    /// Used when the reporter resets between assemblies in a shared process.
+    /// </summary>
+    internal void ReResolveProject()
+    {
+        _project = null;
+    }
+
+    /// <summary>
     /// Gets the default shared configuration.
     /// </summary>
     public static LiveDocConfig Default { get; } = new();
