@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { cn } from "../lib/utils"
+import { getSessionLatestActivity } from "../lib/session-utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { buildGroupedNavTree, ContainerKind, NavItem } from '../lib/nav-tree';
 import { subtreeHasMatch } from '../lib/filter-utils';
@@ -109,7 +110,7 @@ export function Sidebar() {
     if (sessionCandidates.length > 0) {
       const latestSession = sessionCandidates
         .slice()
-        .sort((a, b) => (Date.parse(b.session.timestamp) || 0) - (Date.parse(a.session.timestamp) || 0))[0];
+        .sort((a, b) => (Date.parse(getSessionLatestActivity(b.session)) || 0) - (Date.parse(getSessionLatestActivity(a.session)) || 0))[0];
       selectSession(latestSession.session.sessionId);
       return;
     }
@@ -198,7 +199,7 @@ export function Sidebar() {
     if (sessionCandidates.length > 0) {
       const chosen = sessionCandidates
         .slice()
-        .sort((a, b) => (Date.parse(b.session.timestamp) || 0) - (Date.parse(a.session.timestamp) || 0))[0];
+        .sort((a, b) => (Date.parse(getSessionLatestActivity(b.session)) || 0) - (Date.parse(getSessionLatestActivity(a.session)) || 0))[0];
       selectSession(chosen.session.sessionId);
       return;
     }
@@ -234,7 +235,7 @@ export function Sidebar() {
     if (sessionCandidates.length === 0) return null;
     return sessionCandidates
       .slice()
-      .sort((a, b) => (Date.parse(b.session.timestamp) || 0) - (Date.parse(a.session.timestamp) || 0))[0]
+      .sort((a, b) => (Date.parse(getSessionLatestActivity(b.session)) || 0) - (Date.parse(getSessionLatestActivity(a.session)) || 0))[0]
       ?.session.sessionId;
   }, [currentEnvironment, currentProject, sessions]);
 

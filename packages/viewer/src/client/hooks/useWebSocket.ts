@@ -6,14 +6,13 @@ import type { V1WebSocketEvent, TestRunV1, SessionV1 } from '@swedevtools/livedo
 export function useWebSocket(skip = false) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasConnectedRef = useRef(false);
   
   const { 
     setConnectionStatus, 
-    setRuns, 
     addRun, 
     updateRun, 
     selectRun,
-    setSessions,
     addSession,
     updateSession,
     selectSession,
@@ -99,17 +98,35 @@ export function useWebSocket(skip = false) {
       const hierarchy = state.projectHierarchy;
       
       if (hierarchy.length > 0) {
+        // vx-4: Find project/environment with most recent activity instead of index[0]
+        let bestProject = hierarchy[0];
+        let bestEnv = bestProject?.environments?.[0];
+        let bestTime = '';
+        for (const proj of hierarchy) {
+          for (const env of proj.environments) {
+            const sessionTime = env.latestSession?.session?.timestamp || '';
+            const runTime = env.latestRun?.run?.timestamp || '';
+            const t = sessionTime > runTime ? sessionTime : runTime;
+            if (t > bestTime) {
+              bestTime = t;
+              bestProject = proj;
+              bestEnv = env;
+            }
+          }
+        }
+
         // Check if hierarchy already includes a latestSession (from Wash's server-side fix)
-        const latestSession = hierarchy[0].environments[0]?.latestSession;
+        const latestSession = bestEnv?.latestSession;
         if (latestSession?.session?.sessionId) {
-          setSessions([latestSession]);
+          // vx-3: upsert instead of replacing entire array
+          addSession(latestSession);
           selectSession(latestSession.session.sessionId);
           return; // Session loaded from hierarchy - done
         }
 
         // Fallback: fetch sessions with required project/environment params
-        const defaultProject = hierarchy[0].name;
-        const defaultEnv = hierarchy[0].environments[0]?.name || 'local';
+        const defaultProject = bestProject?.name;
+        const defaultEnv = bestEnv?.name || 'local';
         try {
           const sessionsListResponse = await fetch(
             `${getApiBaseUrl()}/api/v1/sessions?project=${encodeURIComponent(defaultProject)}&environment=${encodeURIComponent(defaultEnv)}`,
@@ -131,7 +148,8 @@ export function useWebSocket(skip = false) {
               );
               const valid = fullSessions.filter((s): s is Session => s !== null);
               if (valid.length > 0) {
-                setSessions(valid);
+                // vx-3: upsert each session instead of replacing entire array
+                valid.forEach(s => addSession(s));
                 selectSession(valid[0].session.sessionId);
                 return; // Session mode - don't load individual runs
               }
@@ -154,7 +172,6 @@ export function useWebSocket(skip = false) {
         : [];
 
       if (v1RunsList.length === 0) {
-        setRuns([]);
         return;
       }
       
@@ -165,7 +182,8 @@ export function useWebSocket(skip = false) {
       );
       
       const validRuns = fullRuns.filter((r): r is Run => r !== null);
-      setRuns(validRuns);
+      // vx-3: upsert each run instead of replacing entire array
+      validRuns.forEach(r => addRun(r));
       
       if (validRuns.length > 0) {
         selectRun(validRuns[0].run.runId);
@@ -173,21 +191,29 @@ export function useWebSocket(skip = false) {
     } catch (error) {
       console.error('Failed to fetch initial data:', error);
     }
-  }, [fetchProjectHierarchy, fetchRunById, fetchSessionById, selectRun, selectSession, setRuns, setSessions]);
+  }, [fetchProjectHierarchy, fetchRunById, fetchSessionById, selectRun, selectSession, addRun, addSession]);
 
   const handleSessionUpdated = useCallback(async (sessionId: string) => {
     const fullSession = await fetchSessionById(sessionId);
     if (!fullSession) return;
 
-    const existing = useStore.getState().sessions.some((s) => s.session.sessionId === sessionId);
+    // vx-2: Determine current project BEFORE merging
+    const state = useStore.getState();
+    const currentProject = state.sessions.find(
+      (s) => s.session.sessionId === state.selectedSessionId
+    )?.session.project;
+
+    const existing = state.sessions.some((s) => s.session.sessionId === sessionId);
     if (existing) {
       updateSession(sessionId, fullSession);
     } else {
       addSession(fullSession);
     }
 
-    // Keep the Viewer on the latest session by default
-    selectSession(sessionId);
+    // vx-2: Only auto-select if same project or nothing selected
+    if (!state.selectedSessionId || fullSession.session.project === currentProject) {
+      selectSession(sessionId);
+    }
     fetchProjectHierarchy();
   }, [addSession, fetchProjectHierarchy, fetchSessionById, selectSession, updateSession]);
 
@@ -323,6 +349,20 @@ export function useWebSocket(skip = false) {
       } catch {
         // ignore
       }
+
+      // vx-1: On reconnect, rehydrate active session to recover missed events
+      if (hasConnectedRef.current) {
+        const { selectedSessionId } = useStore.getState();
+        if (selectedSessionId) {
+          void fetchSessionById(selectedSessionId).then((freshSession) => {
+            if (freshSession) {
+              useStore.getState().addSession(freshSession);
+            }
+          });
+        }
+        void fetchProjectHierarchy();
+      }
+      hasConnectedRef.current = true;
       
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -352,7 +392,7 @@ export function useWebSocket(skip = false) {
       console.error('WebSocket error:', error);
       setConnectionStatus('error');
     };
-  }, [setConnectionStatus, handleMessage]);
+  }, [setConnectionStatus, handleMessage, fetchSessionById, fetchProjectHierarchy]);
 
   useEffect(() => {
     if (skip) return;

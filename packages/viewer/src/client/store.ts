@@ -38,6 +38,8 @@ export interface RunLike {
     project: string;
     environment: string;
     framework?: string;
+    /** Present when backed by a session — member run info for recency/summary */
+    runs?: Array<{ runId: string; timestamp: string; duration: number; summary: Statistics; status: Status; framework: string; documentCount: number }>;
   };
   itemById: Record<string, TestCase | AnyTest>;
 }
@@ -354,11 +356,20 @@ export const useStore = create<AppState>((set, get) => ({
   // Data actions
   setRuns: (runs) => set({ runs }),
   
-  addRun: (run) => set((state) => ({
-    runs: [run, ...state.runs],
-    // Auto-select if first run and no session selected
-    selectedRunId: (!state.selectedSessionId && !state.selectedRunId) ? run.run.runId : state.selectedRunId,
-  })),
+  addRun: (run) => set((state) => {
+    const idx = state.runs.findIndex((r) => r.run.runId === run.run.runId);
+    if (idx >= 0) {
+      // Upsert: replace existing run data
+      const newRuns = [...state.runs];
+      newRuns[idx] = run;
+      return { runs: newRuns };
+    }
+    return {
+      runs: [run, ...state.runs],
+      // Auto-select if first run and no session selected
+      selectedRunId: (!state.selectedSessionId && !state.selectedRunId) ? run.run.runId : state.selectedRunId,
+    };
+  }),
   
   updateRun: (runId, updates) => set((state) => ({
     runs: state.runs.map((r) =>
@@ -398,12 +409,19 @@ export const useStore = create<AppState>((set, get) => ({
   
   setSessions: (sessions) => set({ sessions }),
   
-  addSession: (session) => set((state) => ({
-    sessions: [session, ...state.sessions],
-    // Auto-select session (takes priority over runs)
-    selectedSessionId: session.session.sessionId,
-    selectedRunId: null,
-  })),
+  addSession: (session) => set((state) => {
+    const idx = state.sessions.findIndex(
+      (s) => s.session.sessionId === session.session.sessionId
+    );
+    if (idx >= 0) {
+      // Upsert: replace existing session data (pure merge, no auto-select)
+      const newSessions = [...state.sessions];
+      newSessions[idx] = session;
+      return { sessions: newSessions };
+    }
+    // New session: prepend (no auto-select — callers decide)
+    return { sessions: [session, ...state.sessions] };
+  }),
   
   updateSession: (sessionId, updates) => set((state) => ({
     sessions: state.sessions.map((s) =>
@@ -622,6 +640,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (state.selectedSessionId) {
       const session = state.sessions.find((s) => s.session.sessionId === state.selectedSessionId);
       if (session) {
+        // Include runs array so SummaryView can use latest run's summary (vx-9)
         return {
           run: {
             documents: session.session.documents,
@@ -632,6 +651,7 @@ export const useStore = create<AppState>((set, get) => ({
             project: session.session.project,
             environment: session.session.environment,
             framework: 'vitest',
+            runs: session.session.runs,
           },
           itemById: session.itemById,
         };

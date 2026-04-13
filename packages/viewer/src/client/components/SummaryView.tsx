@@ -22,7 +22,14 @@ export function SummaryView({ run }: SummaryViewProps) {
   const runModel = run.run;
   const documents = runModel.documents ?? [];
   
-  const summary = runModel.summary;
+  // vx-9: For sessions, use the latest run's summary (not cumulative session summary)
+  // because documents are last-writer-wins — the cumulative totals can exceed visible tests.
+  const latestRunInfo = (runModel.runs && runModel.runs.length > 0)
+    ? runModel.runs
+        .slice()
+        .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))[0]
+    : undefined;
+  const summary = latestRunInfo?.summary ?? runModel.summary;
   const duration = runModel.duration;
   const status = runModel.status;
 
