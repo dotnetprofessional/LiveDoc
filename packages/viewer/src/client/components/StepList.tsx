@@ -182,6 +182,13 @@ function StepItem({ step, stepIndex, showStatus = true, highlightValues, bindVal
              {renderTitle(step.title, highlightValues)}
            </div>
 
+           {showDurations && duration > 0 && (
+            <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {formatDuration(duration)}
+            </span>
+           )}
+
            {allAttachments.length > 0 && (
              <button
                onClick={handleAttachmentClick}
@@ -194,13 +201,6 @@ function StepItem({ step, stepIndex, showStatus = true, highlightValues, bindVal
                )}
              </button>
            )}
-           
-           {showDurations && duration > 0 && (
-            <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Clock className="w-3 h-3" />
-              {formatDuration(duration)}
-            </span>
-          )}
         </div>
 
         {boundDescription && (

@@ -5,10 +5,11 @@ import { Markdown } from './Markdown';
 import { Badge } from './ui/badge';
 import { formatTagLabel } from '../lib/filter-utils';
 import { StepList } from './StepList';
-import { Tag, Images, Paperclip } from 'lucide-react';
+import { Tag, Images, Paperclip, Clock } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { AttachmentViewer } from './AttachmentViewer';
 import { collectScenarioAttachments } from '../utils/gallery';
+import { formatDuration } from '../lib/status-utils';
 import type { GalleryItem } from '../utils/gallery';
 
 export interface ScenarioBlockProps {
@@ -22,6 +23,8 @@ export interface ScenarioBlockProps {
   showDurations: boolean;
   showErrorStack: boolean;
   tone: 'scenario' | 'background';
+  /** Scenario-level execution duration in ms */
+  duration?: number;
 }
 
 export function ScenarioBlock({
@@ -34,7 +37,8 @@ export function ScenarioBlock({
   highlightValues,
   showDurations,
   showErrorStack,
-  tone
+  tone,
+  duration
 }: ScenarioBlockProps) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const bgClass = tone === 'background' ? 'bg-muted/20' : 'bg-card/60';
@@ -87,6 +91,12 @@ export function ScenarioBlock({
                   <GalleryIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
                   <span className="text-xs font-bold">{totalAttachments}</span>
                 </button>
+              )}
+              {showDurations && duration !== undefined && duration > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-muted-foreground/50">
+                  <Clock className="w-3.5 h-3.5" />
+                  {formatDuration(duration)}
+                </span>
               )}
               {status && <StatusBadge status={status} size="lg" showLabel />}
             </div>

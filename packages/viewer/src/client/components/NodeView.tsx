@@ -200,6 +200,7 @@ export function NodeView({ node }: NodeViewProps) {
             showDurations={!isBusiness}
             showErrorStack={!isBusiness}
             tone="background"
+            duration={(background as any).execution?.duration as number | undefined}
           />
         </div>
       )}
@@ -232,6 +233,7 @@ export function NodeView({ node }: NodeViewProps) {
               showDurations={!isBusiness}
               showErrorStack={!isBusiness}
               tone={tone}
+              duration={(parentScenario as any).execution?.duration as number | undefined}
             />
           </div>
         );
@@ -251,6 +253,7 @@ export function NodeView({ node }: NodeViewProps) {
             showDurations={!isBusiness}
             showErrorStack={!isBusiness}
             tone="scenario"
+            duration={(node as any).execution?.duration as number | undefined}
           />
         </div>
       )}
@@ -268,6 +271,7 @@ export function NodeView({ node }: NodeViewProps) {
             showDurations={!isBusiness}
             showErrorStack={!isBusiness}
             tone="scenario"
+            duration={(node as any).execution?.duration as number | undefined}
           />
         </div>
       )}
