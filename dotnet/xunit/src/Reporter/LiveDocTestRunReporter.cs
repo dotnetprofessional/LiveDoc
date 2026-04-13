@@ -166,9 +166,62 @@ public class LiveDocTestRunReporter : IDisposable
             .Where(t => t != null)
             .ToList();
 
+        // vx-7: Snapshot outline tests under the same lock used by Add() calls.
+        // Without this, the serializer can enumerate ExampleResults/Rows while
+        // a parallel test thread is still appending to them.
+        for (int i = 0; i < testsForCase.Count; i++)
+        {
+            var test = testsForCase[i];
+            if (test is ScenarioOutlineTest sot)
+            {
+                lock (sot)
+                {
+                    testsForCase[i] = new ScenarioOutlineTest
+                    {
+                        Id = sot.Id,
+                        Title = sot.Title,
+                        Description = sot.Description,
+                        Tags = sot.Tags,
+                        Steps = sot.Steps,
+                        Execution = sot.Execution,
+                        Examples = sot.Examples.Select(dt => new DataTable
+                        {
+                            Name = dt.Name,
+                            Headers = dt.Headers,
+                            Rows = dt.Rows.ToList()
+                        }).ToList(),
+                        ExampleResults = sot.ExampleResults.ToList(),
+                        Statistics = new Statistics()
+                    };
+                }
+            }
+            else if (test is RuleOutlineTest rot)
+            {
+                lock (rot)
+                {
+                    testsForCase[i] = new RuleOutlineTest
+                    {
+                        Id = rot.Id,
+                        Title = rot.Title,
+                        Description = rot.Description,
+                        Tags = rot.Tags,
+                        Execution = rot.Execution,
+                        Examples = rot.Examples.Select(dt => new DataTable
+                        {
+                            Name = dt.Name,
+                            Headers = dt.Headers,
+                            Rows = dt.Rows.ToList()
+                        }).ToList(),
+                        ExampleResults = rot.ExampleResults.ToList(),
+                        Statistics = new Statistics()
+                    };
+                }
+            }
+        }
+
         testCase.Tests = testsForCase!;
 
-        // Finalize outline stats from their exampleResults before sending
+        // Finalize outline stats from their (now-snapshotted) exampleResults
         foreach (var test in testsForCase)
         {
             if (test is ScenarioOutlineTest sot)
