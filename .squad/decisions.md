@@ -798,6 +798,358 @@ This leverages the existing `_outlineRowCounters` dictionary as a lightweight ow
 
 ---
 
+### 2026-04-13: User directives on audit findings
+
+**By:** Garry (via Copilot)  
+**Date:** 2026-04-13  
+**Status:** Noted
+
+**What:**
+- sv-5 (legacy endpoint back-compat): NOT needed. Skip.
+- vx-2 (auto-select on session update): Only a bug when update comes from a DIFFERENT project. Same-project auto-refresh is fine. Consider a follow-latest toggle.
+
+**Rationale:** User triage of audit findings
+
+---
+
+### 2026-04-13: Cost directive — Premium Models
+
+**By:** Garry (via Copilot)  
+**Date:** 2026-04-13  
+**Status:** Noted
+
+**What:** Upgrade models - we don't care about cost. Use premium models. Have Goldeneye review all changes.
+
+**Rationale:** User directive - quality over cost for this fix batch
+
+---
+
+### Team Directive: No Hacks — Root Cause Analysis Required
+
+**Status:** ACTIVE  
+**Priority:** CRITICAL  
+**Issued by:** Project Lead
+
+**Directive:** We DO NOT HACK. We IDENTIFY ROOT CAUSES AND FIX.
+
+Every bug fix MUST follow this process:
+
+1. **Reproduce** — Create or identify a test case that demonstrates the failure
+2. **Diagnose** — Trace the root cause through the code. Do not stop at symptoms.
+3. **Prove** — Write a test that PROVES the root cause before writing the fix
+4. **Fix** — Address the root cause, not the symptoms
+5. **Verify** — Confirm the fix resolves the original test case AND doesn't break existing tests
+
+**What Constitutes a "Hack":**
+- Removing guards/gates that exist for a reason without understanding WHY they fail
+- Adding fallback values that mask undefined/null data instead of fixing the source
+- Wrapping code in try/catch to swallow errors that indicate real problems
+- Any change where the justification is "it works now" without explaining WHY it was broken
+
+**Context:** This directive was issued after a viewer regression where rendering gates (`feature && ...`) were removed to "fix" scenario pages not rendering. The real cause was `getCurrentRun()` returning `undefined` in session mode — a one-line root cause that the hack obscured while leaving the actual defect in place.
+
+Removing symptoms without understanding causes erodes trust with our consumers and creates compounding technical debt.
+
+---
+
+### Session Loading: Hierarchy-First Strategy
+
+**Author:** Kaylee  
+**Date:** 2025-07-24  
+**Status:** Implemented
+
+**Decision:** Changed session loading in the viewer to follow a hierarchy-first approach rather than calling `/api/v1/sessions` without parameters.
+
+**Flow:**
+1. Fetch project hierarchy (already existed)
+2. Check if `latestSession` is embedded in hierarchy (Wash's server-side enhancement)
+3. If not, derive default project/environment from hierarchy[0] and fetch with params
+4. Unwrap `{ sessions: [...] }` envelope from server response
+5. Hydrate ALL returned sessions, not just the first
+6. Fall back to runs only if sessions unavailable
+
+**Sidebar project switching** now fetches from server when no local session data exists for the selected project, using `addSession` to merge rather than `setSessions` to replace.
+
+**Impact:**
+- `packages/viewer/src/client/hooks/useWebSocket.ts` — `fetchInitialData` rewritten
+- `packages/viewer/src/client/components/Sidebar.tsx` — `selectProject` made async with server fallback
+
+---
+
+### Decision: Fix Background Scenario Navigation
+
+**Date:** 2026-04-12  
+**Author:** Kaylee (Frontend Dev)  
+**Status:** Implemented
+
+## Context
+
+The viewer failed to render scenarios correctly when the document contained backgrounds. Key symptom: breadcrumb showed only "🏠 >" and feature/scenario titles were missing, with only raw steps visible.
+
+### Critical Finding (Coordinator Investigation)
+
+Comparing working vs broken files revealed:
+- **Working** (history/2026-04-12T17-59-01_84gtepcw.json): Zero documents with backgrounds → renders correctly
+- **Broken** (lastrun.json): 3 documents with backgrounds → breadcrumb/titles broken
+
+### Root Cause
+
+Backgrounds are built with `buildScenarioLike()` in the reporter, giving them `kind: 'Scenario'` instead of a distinct kind like `'Background'`. This makes backgrounds indistinguishable from real scenarios in the viewer's flat `itemById` lookup:
+
+```json
+"background": {
+  "id": "8766u8:12ik8g",
+  "kind": "Scenario",  // ← Same as real scenarios!
+  "title": "Clean state",
+  "steps": [...]
+}
+```
+
+When backgrounds are added to `itemById` (store.ts:168), they become navigable like any other scenario. This caused three specific issues:
+
+1. **Container lookup failure**: The `containerTestCase` finder in NodeView didn't traverse `doc.background`, so when viewing a scenario in a feature with a background, the parent container wasn't found.
+
+2. **Background rendering scope**: Background resolution used `feature` instead of `containerTestCase`, breaking for Specifications and when container lookup failed.
+
+3. **Double-rendering**: If navigating directly to a background ID, it would render both as a Background (correct) AND as a Scenario (wrong), since `kind === 'scenario'` matched both rendering paths.
+
+## Fix Applied
+
+### 1. Container Lookup Enhancement
+
+Added background traversal to the `containsId` recursion in `containerTestCase` memo:
+
+```typescript
+const containsId = (n: any): boolean => {
+  if (!n) return false;
+  if (n.id === node.id) return true;
+
+  // Check background first (before tests)
+  const bg = (n as any).background;
+  if (bg && containsId(bg)) return true;
+
+  // ... rest of traversal
+};
+```
+
+This ensures backgrounds and their steps are included when searching for the parent container.
+
+### 2. Background Resolution Generalization
+
+Changed background lookup from:
+```typescript
+const background = useMemo(() => {
+  if (!feature) return undefined;
+  return feature.background as AnyTest | undefined;
+}, [feature]);
+```
+
+To:
+```typescript
+const background = useMemo(() => {
+  if (!containerTestCase) return undefined;
+  return containerTestCase.background as AnyTest | undefined;
+}, [containerTestCase]);
+```
+
+This works for all container types (Feature, Specification, Suite), not just Features.
+
+### 3. Background Double-Render Prevention
+
+Added detection flag:
+```typescript
+const isViewingBackground = useMemo(() => {
+  return background && node.id === background.id;
+}, [background, node.id]);
+```
+
+Used in scenario rendering condition:
+```typescript
+{!isTestCaseNode(node) && kind === 'scenario' && !isViewingBackground && (
+  <ScenarioBlock label="Scenario" ... />
+)}
+```
+
+This prevents backgrounds from rendering twice when navigated to directly.
+
+### 4. Previous Fixes (Context)
+
+Also completed in this session:
+- Fixed ContainerHeader breadcrumb empty-state (was returning `null`, now shows home fallback)
+- Removed overly strict parent-container checks from Scenario/Rule/Outline rendering
+- Removed duplicate RuleOutline rendering block
+
+## Rationale
+
+### Why Not Fix in the Reporter?
+
+The schema types `background` as `AnyTest`, which includes `ScenarioTest` with `kind: 'Scenario'`. This is semantically correct — backgrounds ARE scenarios that run before each test. The reporter's use of `buildScenarioLike()` follows the schema's design.
+
+### Why Fix in the Viewer?
+
+The viewer must handle the schema as-is. Since backgrounds are valid `AnyTest` nodes with `kind: 'Scenario'`, the viewer's navigation and rendering logic must distinguish them by structure (checking `doc.background` reference) rather than by kind alone.
+
+This approach:
+- ✅ Respects the schema's type hierarchy
+- ✅ Maintains compatibility with any reporter implementation
+- ✅ Handles edge cases (direct navigation to background IDs)
+- ✅ Works for all container types, not just Features
+
+## Impact
+
+- ✅ Files with backgrounds now render correctly (breadcrumb, feature title, scenario title all visible)
+- ✅ Container lookup succeeds when viewing scenarios in features with backgrounds
+- ✅ Backgrounds render exactly once in their dedicated section
+- ✅ Direct navigation to background IDs handled gracefully
+- ✅ Works for Features, Specifications, and any future container types with backgrounds
+- ⚠️ No changes to data flow or store indexing — backgrounds still in `itemById` (necessary for step navigation)
+
+---
+
+### E2E Test Strategy for LiveDoc
+
+**Author:** Mal  
+**Date:** 2025-01-XX  
+**Status:** Proposed
+
+## Problem Statement
+
+Multiple regressions have reached consumers that unit tests didn't catch:
+
+1. **v0.1.9 Module Duplication Bug**: Playwright hooks were inlined into separate bundles, breaking cross-module hook registration
+2. **Viewer Rendering Bug**: Breadcrumb/header not showing feature/scenario titles when navigating to a scenario's steps
+3. **Data vs Rendering Gap**: The `lastrun.json` data is correct (proper nesting, all fields present), but the viewer fails to render the hierarchy
+
+**Root Cause**: No end-to-end validation of the full pipeline:
+```
+Spec File → Reporter → JSON → Server → Viewer → User sees correct UI
+```
+
+Unit tests validate components in isolation. We need E2E tests that validate the entire flow.
+
+---
+
+## E2E Test Categories
+
+### Category 1: Reporter Output Validation (Schema Compliance)
+**Goal**: Ensure the reporter generates valid JSON that matches the schema  
+**Location**: `packages/vitest/e2e/reporter-output/`
+
+**Tests**:
+- `Reporter-Output-Schema-Compliance.Spec.ts`
+  - Run a fixture spec → validate JSON against Zod schema
+  - Verify all required fields are present (feature, scenarios, steps, execution, status, summary)
+  - Verify nesting structure (feature → scenarios → steps)
+  - Verify scenario outline examples are properly flattened
+  - Verify background steps are duplicated into each scenario
+  - Verify attachments are included in ExecutionResult
+
+- `Reporter-Output-Completeness.Spec.ts`
+  - Run fixture with all node types (Feature, Scenario, ScenarioOutline, Background, Rule, Step)
+  - Verify tags, descriptions, titles, durations are all captured
+  - Verify pass/fail/skip statuses are correctly reported
+  - Verify summary statistics match actual test outcomes
+
+**Fixture Strategy**: Create real spec files in `packages/vitest/e2e/fixtures/specs/` with known content:
+- `simple-feature.Spec.ts` — minimal passing feature
+- `scenario-outline.Spec.ts` — scenario outline with examples
+- `background-steps.Spec.ts` — background + scenarios
+- `failing-scenarios.Spec.ts` — intentional failures
+- `attachments.Spec.ts` — screenshots, JSON attachments
+
+**Execution**: Run Vitest programmatically against fixtures, capture reporter output, validate JSON.
+
+---
+
+### Multi-Project Session Fix Plan
+
+**Author:** Mal  
+**Date:** 2026-04-13  
+**Status:** Proposed  
+**Requested by:** Garry
+
+## Architecture Assessment
+
+The good news: the session model itself is fundamentally sound. `SessionManager` already does the right job — it groups runs by `project/environment`, assigns a stable `sessionId`, rolls up status and summary, and maintains a merged document view. That is a valid abstraction for "latest state of a project stream," and I would not redesign it.
+
+What is broken is the contract between layers. The viewer, server hierarchy, and xUnit publisher are each making slightly different assumptions about discovery, hydration, and lifecycle. So this is not a data-model failure; it is a **boundary alignment problem** plus one real .NET lifecycle bug caused by process-level singleton state.
+
+---
+
+## Prioritized Fix Plan
+
+| Order | Bug | User Impact | Fix Complexity | Risk | Specific file changes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Viewer calls `/api/v1/sessions` without `project/environment` | **Critical** — session mode never boots, UI falls back to runs | Low | Low | `packages/viewer/src/client/hooks/useWebSocket.ts` |
+| 2 | Viewer expects array; server returns `{ sessions }` | **Critical** — even a successful response is misread | Low | Low | `packages/viewer/src/client/hooks/useWebSocket.ts` |
+| 3 | Hierarchy omits `latestSession` | **High** — project/environment switching has no session target | Low-Med | Low | `packages/server/src/store-v1.ts`, viewer hierarchy mapping |
+| 4 | Sidebar selection does not fetch session data on demand | **High** — switching projects appears broken unless data was preloaded | Medium | Low-Med | `packages/viewer/src/client/components/Sidebar.tsx`, shared fetch helper |
+| 5 | Only one session is hydrated on startup | **High** symptom — multi-project experience feels random/incomplete | Medium | Medium | `packages/viewer/src/client/hooks/useWebSocket.ts`, `packages/viewer/src/client/store.ts` |
+| 6 | `session:v1:updated` is only broadcast on completion | **Medium-High** — live sessions appear late | Low | Low | `packages/server/src/index.ts` around `/api/v1/runs/start` |
+| 7 | Static singleton `LiveDocTestRunReporter` in xUnit | **High** for .NET users — sequential runs contaminate each other | Medium | Medium | `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs`, framework lifecycle wiring |
+| 8 | xUnit `_runId` persists after flush | **High** — second run reuses old server run | Low | Low | `dotnet/xunit/src/Reporter/LiveDocReporter.cs` |
+| 9 | Possible Vitest singleton issue | **Low** — reviewed and not reproduced | None | None | No change required |
+
+### Recommended implementation order
+
+1. **Fix the viewer/server contract first**  
+   - `useWebSocket.ts`: call `/api/v1/sessions?project=<project>&environment=<environment>` after hierarchy discovery  
+   - unwrap `payload.sessions` instead of treating the body as a raw array
+
+2. **Make hierarchy session-aware**  
+   - `store-v1.ts#getProjectHierarchy()` should include `latestSession` metadata alongside `latestRun`
+
+3. **Make selection lazy-load instead of eager-assume**  
+   - `Sidebar.tsx` should fetch `/api/v1/sessions/:sessionId` when the chosen session is not yet in Zustand
+
+4. **Fix live updates and startup hydration**  
+   - do not rely on a single initial session fetch  
+   - merge/upsert fetched sessions instead of replacing state blindly  
+   - emit `session:v1:updated` when a run starts, not just when it completes
+
+5. **Reset xUnit reporter state per run**  
+   - clear dictionaries, counters, `_runId`, and flush task state after completion  
+   - ideally remove the effective process-lifetime singleton behavior
+
+---
+
+### Wash — Session endpoint contract recommendation
+
+**Date:** 2026-04-13  
+**Requested by:** Garry
+
+## Decision
+
+Treat sessions as **project/environment-scoped resources**. The viewer should always call:
+
+`GET /api/v1/sessions?project=<project>&environment=<environment>`
+
+and should read the existing response envelope:
+
+```json
+{ "sessions": [ ... ] }
+```
+
+## Why
+
+- The server-side `SessionManager` is already keyed by `project/environment`, so explicit filters match the real ownership model.
+- A no-param global listing blurs project boundaries and makes multi-project state harder to reason about.
+- Keeping the `{ sessions }` envelope is consistent with other collection responses like `{ projects }` and leaves room for metadata later (`count`, paging, diagnostics).
+
+## Required follow-up fixes
+
+1. **Viewer request** — pass `project` and `environment` when fetching sessions instead of calling `/api/v1/sessions` unscoped.
+2. **Viewer parsing** — unwrap `payload.sessions` instead of treating the JSON body as a raw array.
+3. **Hierarchy payload** — include `latestSession` in `store-v1.ts#getProjectHierarchy()` so the viewer can bootstrap session mode correctly.
+4. **Run-start broadcast** — emit `session:v1:updated` alongside `run:v1:started` when a new run is assigned to a session.
+5. **Hydration logic** — load all returned sessions, not just `[latestSession]`.
+
+## Outcome
+
+This keeps the contract explicit, minimizes server ambiguity, and fixes the current broken session bootstrap path without introducing a second "global list" behavior that clients may misuse.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
