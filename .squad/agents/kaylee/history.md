@@ -73,3 +73,17 @@
 
 These changes ensure files with backgrounds render correctly — the coordinator identified that lastrun.json (3 docs with backgrounds) was broken while history files (0 docs with backgrounds) worked fine. Root cause was backgrounds being indexed in `itemById` with `kind: 'Scenario'`, interfering with parent/child navigation and causing breadcrumb/title rendering failures.
 
+### Viewer Audit Bug Fixes (2025-07-25)
+
+**vx-1 — No rehydration after WebSocket reconnect**: Added `hasConnectedOnceRef` to track reconnects. On reconnect, after re-subscribing, the hook now re-fetches the currently selected run or session to recover events missed during disconnect.
+
+**vx-2 — Cross-project session update kicks user out**: `handleSessionUpdated` now accepts `eventProject` from the WS event. It always merges the session data via `addSession`, but only calls `selectSession` if the event's project matches the currently viewed project (or nothing is selected). Also made `addSession` in the store a pure merge/upsert — it no longer auto-selects or clears `selectedRunId`.
+
+**vx-3 — fetchInitialData replaces arrays**: Replaced `setSessions([...])` calls with per-session `addSession()` merges. The store's `addSession` now upserts (updates existing by sessionId, or prepends if new) without side-effecting selection state.
+
+**vx-4 — Default project selection uses index[0] not latest timestamp**: `fetchInitialData` now scans all hierarchy projects/environments to find the one with the most recent `latestSession` or `latestRun` timestamp, instead of blindly picking `hierarchy[0]`.
+
+**vx-8 — Session timestamp = earliest run, sorted as "latest"**: Created `lib/session-utils.ts` with `getSessionLatestActivity()` helper that returns the latest run's timestamp from `SessionV1.runs[]` instead of the session's own `timestamp` (which is the earliest run). Applied to all three session sorting locations in Sidebar: `selectProject`, `selectEnvironment`, and `latestSessionId` memo.
+
+**vx-9 — Session summary sums all runs but documents are last-writer-wins**: `getCurrentViewData` now passes `session.runs` through to `RunLike.run.runs`. SummaryView picks the latest run's summary (by timestamp) when `runs[]` is present, so the displayed totals match the visible last-writer-wins documents.
+

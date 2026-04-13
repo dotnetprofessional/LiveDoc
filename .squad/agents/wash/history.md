@@ -98,3 +98,24 @@
 - **Also packed**: `livedoc-viewer@0.0.12` via `scripts/pack-viewer.ps1`.
 - **Git tag**: `v0.1.10` created with annotated message.
 - **Learning**: `releases/` is gitignored — binary artifacts are not committed. Only source changes (self-referencing imports + regression tests) go into git.
+
+### Vitest SDK Audit Bug Fixes (2026-07-27)
+
+- **sv-1 (CRITICAL) — calculateSummary() ignores suites, duration always 0**: `calculateSummary()` in `LiveDocViewerReporterV1.ts` only counted features and specifications but completely ignored suites. Duration was read from `results.executionTime` which is never populated. Fix: added recursive suite test counting to the summary, and aggregated individual test durations as fallback when `executionTime` is not set.
+- **sv-2 (High) — specifications never serialized in dynamic execution**: `executeDynamicTestAsync()` in `livedoc.ts` serialized `features` and `suites` but omitted `specifications`. Fix: added `specifications: specificationRegistry.map(s => s.toJSON())` to the serialization output, added `reconstructSpecification()` method for deserialization (handles Rule, RuleOutline, RuleExample), and added the reconstruction loop alongside features and suites.
+- **sv-3 (High) — module-global state reused across dynamic runs**: Module-level variables (`scenarioStartHooks`, `scenarioEndHooks`, `capturedThrownException`, `resultsFileWritten`, `specificationRegistry`, background maps, etc.) were never reset between dynamic test executions. Fix: created `resetDynamicState()` function that clears all 16 module-global mutable variables, called at the start of `executeDynamicTestAsync()`.
+- **sv-6 (High) — default port disagreement**: Server defaults to 3100, but `PublishOptions.ts` used 3200 and `LiveDocViewerReporter` used 3000. Fix: aligned both to 3100. Also added `console.warn()` in silent mode so publish failures produce a visible warning instead of being completely swallowed.
+- **Build verification**: ESM and CJS bundles build successfully. DTS error is pre-existing (self-referencing import TS7016) — not introduced by these changes.
+
+## Learnings
+
+- **`resetDynamicState()` pattern**: When a module has many mutable globals that must be reset between runs, centralize the reset into a single function rather than scattering partial resets. The function serves as documentation of all mutable state and prevents future additions from being forgotten.
+- **DTS build error is pre-existing**: `pnpm run build` in `packages/vitest` fails at the DTS stage due to self-referencing imports (`@swedevtools/livedoc-vitest`) not having declaration files at build time. ESM/CJS bundles compile fine. This is a known issue — not a regression from any code changes.
+- **`RuleExample` constructor requires 2 args**: `new RuleExample(parent: Specification, ruleOutline: RuleOutline)` — the parent specification AND the parent outline are both required, unlike `ScenarioExample` which only takes the parent feature.
+
+### Goldeneye Rejection Fixes — Round 2 (2026-07-27)
+
+- **sv-8 (deleteRun session cleanup)**: `store-v1.ts.deleteRun()` removed the run from the store but never told SessionManager. Session's `runIds`, `runs`, `documents`, and `summary` went stale. Fix: `deleteRun()` now calls `sessionManager.rebuildSessionFromRuns()` with remaining runs after deletion. `rebuildSessionFromRuns()` now also syncs `activeSession.runIds` and calls `mergeDocuments()` so the session is fully consistent in one call.
+- **sv-9 (shutdown ordering)**: `server.stop()` flushed pending saves BEFORE closing inbound traffic, so new requests could race during flush. Also didn't clear SessionManager's seal/grace timers. Fix: reordered to close HTTP → close WebSocket → clear timers → flush. Added `clearTimers()` method to SessionManager.
+- **sv-2 (dynamic specification support)**: The wrapped import for dynamic execution omitted `specification`, `rule`, and `ruleOutline` exports — specs couldn't run in dynamic mode. `reconstructSpecification()` lost outline tables and example payloads during deserialization. Fix: added all 3 exports to the import line; added `outline.tables` reconstruction (matching ScenarioOutline pattern) and `example.example`/`exampleRaw`/`sequence` fields to RuleExample reconstruction.
+- **sv-3 (livedoc.options not reset)**: `resetDynamicState()` missed `livedoc.options` and `displayedViolations`. Filters/rules could leak across dynamic runs, and violation deduplication could suppress legitimate violations in subsequent runs. Fix: reset `livedoc.options` to fresh `new LiveDocOptions()` and clear `displayedViolations` object.
