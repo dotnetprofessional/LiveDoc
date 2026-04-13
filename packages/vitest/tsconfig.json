@@ -20,7 +20,10 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@swedevtools/livedoc-vitest": ["./_src/app/index.ts"]
+    }
   },
   "include": [
     "_src/**/*"
