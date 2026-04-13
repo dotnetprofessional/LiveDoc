@@ -222,6 +222,9 @@ export class SessionManager {
     const session = activeSession.session;
     session.runs = [];
 
+    // Sync runIds to match the provided runs
+    activeSession.runIds = new Set(runs.map((r) => r.runId));
+
     for (const run of runs) {
       const runInfo: SessionRunInfo = {
         runId: run.runId,
@@ -236,6 +239,7 @@ export class SessionManager {
     }
 
     this.computeAggregates(session);
+    this.mergeDocuments(session, runs);
     void this.saveSession(session);
   }
 
@@ -344,6 +348,19 @@ export class SessionManager {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Clear all pending seal/grace timers. Used during shutdown to prevent
+   * timers from firing after the server has stopped.
+   */
+  clearTimers(): void {
+    for (const activeSession of this.activeSessions.values()) {
+      if (activeSession.timer) {
+        clearTimeout(activeSession.timer);
+        activeSession.timer = undefined;
+      }
+    }
   }
 }
 

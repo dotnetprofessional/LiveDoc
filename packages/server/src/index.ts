@@ -741,22 +741,26 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         // Ignore errors during cleanup
       }
       
-      // Flush pending saves
-      await store.flush();
-      
-      // Close WebSocket connections
-      if (wsManager) {
-        wsManager.close();
-        wsManager = null;
-      }
-      
-      // Close HTTP server
-      return new Promise((resolve, reject) => {
+      // 1. Close inbound traffic first (HTTP stops accepting new connections)
+      await new Promise<void>((resolve, reject) => {
         httpServer.close((err) => {
           if (err) reject(err);
           else resolve();
         });
       });
+      
+      // 2. Close WebSocket connections
+      if (wsManager) {
+        wsManager.close();
+        wsManager = null;
+      }
+      
+      // 3. Clear pending seal/grace timers in SessionManager
+      const { sessionManager: sm } = await import('./session-manager.js');
+      sm.clearTimers();
+      
+      // 4. Flush pending saves (no new traffic can arrive now)
+      await store.flush();
     },
     
     getPort(): number {

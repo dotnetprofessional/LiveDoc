@@ -439,11 +439,12 @@ export class RunStore {
 
   async deleteRun(runId: string): Promise<boolean> {
     const record = this.runs.get(runId);
-    this.runs.delete(runId);
-
     if (!record) return false;
 
     const run = record.run;
+    const sessionId = run.sessionId;
+
+    this.runs.delete(runId);
 
     const key = `${run.project}/${run.environment}`;
     const projectRuns = this.runsByProject.get(key) || [];
@@ -451,6 +452,15 @@ export class RunStore {
 
     if (newProjectRuns.length === 0) this.runsByProject.delete(key);
     else this.runsByProject.set(key, newProjectRuns);
+
+    // Rebuild session after removing the run
+    if (sessionId) {
+      const remainingRuns = this.getRunsForSession(sessionId);
+      const session = sessionManager.getSession(sessionId);
+      if (session) {
+        sessionManager.rebuildSessionFromRuns(sessionId, remainingRuns);
+      }
+    }
 
     try {
       const historyDir = this.getHistoryDir(run.project, run.environment);
