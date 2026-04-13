@@ -359,6 +359,24 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         timestamp: run.timestamp,
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
+
+      // Broadcast session update so the viewer knows about the session immediately
+      const sessionId = run.sessionId;
+      if (sessionId) {
+        const { sessionManager } = await import('./session-manager.js');
+        const session = sessionManager.getSession(sessionId);
+        if (session) {
+          const sessionEvent: V1WebSocketEvent = {
+            type: 'session:v1:updated',
+            sessionId,
+            project: session.project,
+            environment: session.environment,
+            status: session.status,
+            summary: session.summary,
+          };
+          wsManager.broadcast(sessionEvent, runId, session.project, session.environment);
+        }
+      }
     }
 
     const response: V1StartRunResponse = {

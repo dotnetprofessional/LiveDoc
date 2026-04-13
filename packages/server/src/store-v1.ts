@@ -73,6 +73,7 @@ type ProjectHierarchy = Array<{
   environments: Array<{
     name: string;
     latestRun?: TestRunV1;
+    latestSession?: import('@swedevtools/livedoc-schema').SessionV1;
     historyCount: number;
     history: Array<{ runId: string; timestamp: string; status: string; summary?: Statistics }>;
   }>;
@@ -512,7 +513,7 @@ export class RunStore {
           };
         });
 
-        envList.push({ name: envName, latestRun, historyCount: runIds.length, history });
+        envList.push({ name: envName, latestRun, latestSession: sessionManager.getLatestSession(projectName, envName), historyCount: runIds.length, history });
       }
 
       result.push({ name: projectName, environments: envList });
