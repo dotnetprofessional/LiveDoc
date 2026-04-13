@@ -1,7 +1,8 @@
 import * as React from "react"
-import { useStore } from '../store';
+import { useStore, makeSessionState, type Session } from '../store';
+import { getApiBaseUrl } from '../config';
 import { StatusBadge } from './StatusBadge';
-import type { AnyTest, TestCase } from '@swedevtools/livedoc-schema';
+import type { AnyTest, TestCase, SessionV1 } from '@swedevtools/livedoc-schema';
 import { 
   ChevronRight, 
   ChevronDown, 
@@ -55,6 +56,7 @@ export function Sidebar() {
     projectHierarchy,
     selectRun,
     selectSession,
+    addSession,
     filterText,
     filterTags,
   } = useStore();
@@ -99,7 +101,7 @@ export function Sidebar() {
 
   const currentEnvironment = currentSession?.session.environment ?? currentRun?.run.environment ?? environmentNames[0] ?? 'default';
 
-  const selectProject = React.useCallback((project: string) => {
+  const selectProject = React.useCallback(async (project: string) => {
     if (!project) return;
 
     // Prefer: latest session for this project
@@ -150,8 +152,40 @@ export function Sidebar() {
     const runId = latestFromHierarchy?.run.runId;
     if (runId && (runs ?? []).some((r) => r.run.runId === runId)) {
       selectRun(runId);
+      return;
     }
-  }, [currentRun?.run.environment, currentSession?.session.environment, projectHierarchy, runs, sessions, selectRun, selectSession]);
+
+    // Bug 4 fix: No local data found — fetch from server
+    const env = proj?.environments?.[0]?.name || 'local';
+    try {
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/sessions?project=${encodeURIComponent(project)}&environment=${encodeURIComponent(env)}`,
+        { cache: 'no-store' }
+      );
+      if (response.ok) {
+        const payload = await response.json();
+        const sessionsList = payload.sessions || [];
+        if (sessionsList.length > 0) {
+          const sessionId = sessionsList[0].sessionId;
+          if (sessionId) {
+            const sessionResponse = await fetch(
+              `${getApiBaseUrl()}/api/v1/sessions/${sessionId}`,
+              { cache: 'no-store' }
+            );
+            if (sessionResponse.ok) {
+              const fullSessionData = (await sessionResponse.json()) as SessionV1;
+              const fullSession = makeSessionState(fullSessionData);
+              addSession(fullSession);
+              selectSession(fullSession.session.sessionId);
+              return;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.debug('Failed to fetch session for project:', e);
+    }
+  }, [addSession, currentRun?.run.environment, currentSession?.session.environment, projectHierarchy, runs, sessions, selectRun, selectSession]);
 
   const selectEnvironment = React.useCallback((environment: string) => {
     if (!environment || !currentProject) return;

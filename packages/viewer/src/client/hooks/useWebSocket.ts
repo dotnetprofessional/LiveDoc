@@ -94,34 +94,52 @@ export function useWebSocket(skip = false) {
     try {
       await fetchProjectHierarchy();
       
-      // Try to fetch sessions first (Phase 1)
-      try {
-        const sessionsListResponse = await fetch(`${getApiBaseUrl()}/api/v1/sessions`, {
-          cache: 'no-store'
-        });
-        
-        if (sessionsListResponse.ok) {
-          const sessionsList = await sessionsListResponse.json();
-          const validSessions = Array.isArray(sessionsList)
-            ? sessionsList.filter((s: any) => s?.sessionId)
-            : [];
-          
-          if (validSessions.length > 0) {
-            // Fetch full session data for the latest one
-            const latestSessionId = validSessions[0]?.sessionId;
-            if (latestSessionId) {
-              const fullSession = await fetchSessionById(latestSessionId);
-              if (fullSession) {
-                setSessions([fullSession]);
-                selectSession(latestSessionId);
+      // Try to load session data from hierarchy first (Bug 1 fix: don't call /sessions without params)
+      const state = useStore.getState();
+      const hierarchy = state.projectHierarchy;
+      
+      if (hierarchy.length > 0) {
+        // Check if hierarchy already includes a latestSession (from Wash's server-side fix)
+        const latestSession = hierarchy[0].environments[0]?.latestSession;
+        if (latestSession?.session?.sessionId) {
+          setSessions([latestSession]);
+          selectSession(latestSession.session.sessionId);
+          return; // Session loaded from hierarchy - done
+        }
+
+        // Fallback: fetch sessions with required project/environment params
+        const defaultProject = hierarchy[0].name;
+        const defaultEnv = hierarchy[0].environments[0]?.name || 'local';
+        try {
+          const sessionsListResponse = await fetch(
+            `${getApiBaseUrl()}/api/v1/sessions?project=${encodeURIComponent(defaultProject)}&environment=${encodeURIComponent(defaultEnv)}`,
+            { cache: 'no-store' }
+          );
+
+          if (sessionsListResponse.ok) {
+            const payload = await sessionsListResponse.json();
+            // Bug 2 fix: unwrap { sessions } envelope
+            const sessionsList = payload.sessions || [];
+            const validSessions = Array.isArray(sessionsList)
+              ? sessionsList.filter((s: any) => s?.sessionId)
+              : [];
+
+            // Bug 3 fix: hydrate ALL sessions, not just the first
+            if (validSessions.length > 0) {
+              const fullSessions = await Promise.all(
+                validSessions.map((s: any) => fetchSessionById(s.sessionId))
+              );
+              const valid = fullSessions.filter((s): s is Session => s !== null);
+              if (valid.length > 0) {
+                setSessions(valid);
+                selectSession(valid[0].session.sessionId);
                 return; // Session mode - don't load individual runs
               }
             }
           }
+        } catch (e) {
+          console.debug('Sessions endpoint not available, falling back to runs:', e);
         }
-      } catch (e) {
-        // Sessions endpoint might not exist - graceful fallback to runs
-        console.debug('Sessions endpoint not available, falling back to runs:', e);
       }
       
       // Fallback: load runs (backward compatibility)
