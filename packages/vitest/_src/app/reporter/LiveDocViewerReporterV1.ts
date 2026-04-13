@@ -52,7 +52,7 @@ export class LiveDocViewerReporter implements IPostReporter {
 
   constructor(options?: LiveDocViewerOptions) {
     this.options = {
-      server: options?.server || 'http://localhost:3000',
+      server: options?.server || 'http://localhost:3100',
       project: options?.project || 'default',
       environment: options?.environment || 'local',
       timeout: options?.timeout || 10000,
@@ -1036,12 +1036,16 @@ export class LiveDocViewerReporter implements IPostReporter {
 
   private calculateSummary(results: ExecutionResults): { summary: Statistics; duration: number } {
     const summary: Statistics = { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 };
+    let aggregatedDuration = 0;
 
-    const addResult = (status: SpecStatus) => {
+    const addResult = (status: SpecStatus, testDuration?: number) => {
       summary.total += 1;
       if (status === SpecStatus.pass) summary.passed += 1;
       else if (status === SpecStatus.fail) summary.failed += 1;
       else summary.pending += 1;
+      if (typeof testDuration === 'number' && testDuration > 0) {
+        aggregatedDuration += testDuration;
+      }
     };
 
     // Count feature scenarios (1 per scenario, 1 per outline example row)
@@ -1050,10 +1054,10 @@ export class LiveDocViewerReporter implements IPostReporter {
         const outline = scenario as SDKScenarioOutline;
         if ((outline as any).examples && (outline as any).examples.length > 0) {
           for (const example of outline.examples) {
-            addResult(this.calculateScenarioStatus(example));
+            addResult(this.calculateScenarioStatus(example), (example as any).executionTime ?? 0);
           }
         } else {
-          addResult(this.calculateScenarioStatus(scenario as SDKScenario));
+          addResult(this.calculateScenarioStatus(scenario as SDKScenario), (scenario as any).executionTime ?? 0);
         }
       }
     }
@@ -1063,15 +1067,35 @@ export class LiveDocViewerReporter implements IPostReporter {
       for (const rule of spec.rules || []) {
         if (Array.isArray((rule as any).examples) && (rule as any).examples.length > 0) {
           for (const example of (rule as any).examples) {
-            addResult(example?.status ?? SpecStatus.pending);
+            addResult(example?.status ?? SpecStatus.pending, example?.executionTime ?? 0);
           }
         } else {
-          addResult((rule as any).status ?? SpecStatus.pending);
+          addResult((rule as any).status ?? SpecStatus.pending, (rule as any).executionTime ?? 0);
         }
       }
     }
 
-    const duration = (results as any).executionTime ?? 0;
+    // Count suite tests (1 per flattened test in each suite)
+    for (const suite of ((results as any).suites || []) as SDKVitestSuite[]) {
+      const countSuiteTests = (s: SDKVitestSuite) => {
+        const tests = Array.isArray((s as any).tests) ? ((s as any).tests as any[]) : [];
+        for (const t of tests) {
+          const status = (t?.status ?? SpecStatus.unknown) as SpecStatus;
+          const dur = Number(t?.duration ?? 0) || 0;
+          addResult(status, dur);
+        }
+        const children = Array.isArray((s as any).children) ? ((s as any).children as SDKVitestSuite[]) : [];
+        for (const child of children) {
+          countSuiteTests(child);
+        }
+      };
+      countSuiteTests(suite);
+    }
+
+    // Use executionTime if available, otherwise fall back to aggregated test durations
+    const duration = ((results as any).executionTime && (results as any).executionTime > 0)
+      ? (results as any).executionTime
+      : aggregatedDuration;
 
     return { summary, duration };
   }
@@ -1111,6 +1135,8 @@ export class LiveDocViewerReporter implements IPostReporter {
             // ignore
           }
           console.error(`LiveDocViewerReporter: HTTP ${response.status} at ${p}. Error: ${errorText}`);
+        } else {
+          console.warn(`LiveDocViewerReporter: publish failed (HTTP ${response.status} at ${p})`);
         }
         return null;
       }
@@ -1123,6 +1149,8 @@ export class LiveDocViewerReporter implements IPostReporter {
     } catch (e) {
       if (!this.options.silent) {
         console.error(`LiveDocViewerReporter: Failed request to ${url}`, e);
+      } else {
+        console.warn(`LiveDocViewerReporter: publish failed (${(e as Error)?.message || 'connection error'} at ${url})`);
       }
       return null;
     } finally {

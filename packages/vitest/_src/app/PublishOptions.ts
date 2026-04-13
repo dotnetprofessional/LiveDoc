@@ -1,6 +1,6 @@
 export class PublishOptions {
-    /** Server URL, e.g., 'http://localhost:3200' */
-    public server: string = "http://localhost:3200";
+    /** Server URL, e.g., 'http://localhost:3100' */
+    public server: string = "http://localhost:3100";
     /** Project name (defaults to 'default') */
     public project: string = "default";
     /** Environment name (defaults to 'local') */

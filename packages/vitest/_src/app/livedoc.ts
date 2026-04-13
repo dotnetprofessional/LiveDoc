@@ -113,6 +113,41 @@ let capturedThrownException: { type: string; message: string; data?: any } | nul
 // Track if we've already written the results file (to prevent double-writes)
 let resultsFileWritten = false;
 
+/**
+ * Reset all module-global mutable state between dynamic test executions.
+ * Prevents stale errors, duplicate hooks, and cross-run contamination.
+ */
+function resetDynamicState(): void {
+    currentFeature = null;
+    currentScenario = null;
+    currentBackground = null;
+    currentStep = null;
+    scenarioCount = 0;
+    scenarioId = 0;
+    currentSpecification = null;
+    ruleCount = 0;
+    specificationRegistry.length = 0;
+    afterBackgroundFnMap.clear();
+    backgroundStepsMap.clear();
+    backgroundItExecutedMap.clear();
+    backgroundStepsComplete = false;
+    scenarioStartHooks.length = 0;
+    scenarioEndHooks.length = 0;
+    isPendingContext = false;
+    isFilteredContext = false;
+    isDynamicExecution = false;
+    capturedThrownException = null;
+    resultsFileWritten = false;
+
+    // Reset options to prevent filter/rule leakage across dynamic runs
+    livedoc.options = new LiveDocOptions();
+
+    // Clear violation tracking to prevent cross-run deduplication
+    for (const key in displayedViolations) {
+        delete displayedViolations[key];
+    }
+}
+
 // ES Module __dirname equivalent (needed for livedocPath calculation)
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -136,7 +171,8 @@ if (dynamicResultsFile) {
             const fs = require('fs');
             const results: any = {
                 features: featureRegistry.map(f => f.toJSON()),
-                suites: suiteRegistry.map(s => s.toJSON())
+                suites: suiteRegistry.map(s => s.toJSON()),
+                specifications: specificationRegistry.map(s => s.toJSON())
             };
             
             // Include any captured exception
@@ -1542,7 +1578,8 @@ export class LiveDoc {
                 throw new Error("feature is empty!");
             }
 
-            // Clear and enable dynamic execution mode
+            // Reset all module-global state before dynamic execution
+            resetDynamicState();
             featureRegistry.length = 0;
             suiteRegistry.length = 0;
             isDynamicExecution = true;
@@ -1601,7 +1638,7 @@ export class LiveDoc {
             // The results file writing is handled by the livedoc module itself
             // when it detects the LIVEDOC_DYNAMIC_RESULTS_FILE env var
             const wrappedContent = `
-import { feature, scenario, scenarioOutline, background, afterBackground, before, given, when, Then as then, and, but, it, test, describe, livedoc } from "${livedocPath}";
+import { feature, scenario, scenarioOutline, background, afterBackground, before, given, when, Then as then, and, but, it, test, describe, specification, rule, ruleOutline, livedoc } from "${livedocPath}";
 import { writeFileSync } from 'fs';
 import * as chai from 'chai';
 chai.should();
@@ -1760,6 +1797,14 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                     for (const suiteData of resultsData.suites) {
                         const suite = this.reconstructSuite(suiteData);
                         results.addSuite(suite);
+                    }
+                }
+                
+                // Reconstruct Specification objects from JSON
+                if (resultsData.specifications && Array.isArray(resultsData.specifications)) {
+                    for (const specData of resultsData.specifications) {
+                        const spec = this.reconstructSpecification(specData);
+                        results.addSpecification(spec);
                     }
                 }
                 
@@ -2074,6 +2119,88 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
         }
         
         return suite;
+    }
+
+    /**
+     * Reconstruct a Specification object from JSON data
+     */
+    private static reconstructSpecification(data: any): model.Specification {
+        const spec = new model.Specification();
+        spec.title = data.title || '';
+        spec.description = data.description || '';
+        spec.tags = data.tags || [];
+        spec.filename = data.filename || '';
+        spec.id = data.id || '';
+        spec.executionTime = data.executionTime || 0;
+
+        // Reconstruct rules
+        if (data.rules && Array.isArray(data.rules)) {
+            for (const ruleData of data.rules) {
+                const isOutline = Array.isArray(ruleData.examples) && ruleData.examples.length > 0;
+                let rule: model.Rule;
+
+                if (isOutline) {
+                    const outline = new model.RuleOutline(spec);
+
+                    // Reconstruct tables (parallel to ScenarioOutline table reconstruction)
+                    if (ruleData.tables && Array.isArray(ruleData.tables)) {
+                        outline.tables = ruleData.tables.map((tableData: any) => {
+                            const table = new model.Table();
+                            table.name = tableData.name || '';
+                            table.description = tableData.description || '';
+                            table.dataTable = tableData.dataTable || [];
+                            return table;
+                        });
+                    }
+
+                    for (const exData of ruleData.examples) {
+                        const example = new model.RuleExample(spec, outline);
+                        example.title = exData.title || '';
+                        example.id = exData.id || '';
+                        example.status = exData.status ?? model.SpecStatus.unknown;
+                        example.executionTime = exData.executionTime || 0;
+                        example.example = exData.example || {};
+                        example.exampleRaw = exData.exampleRaw || exData.example || {};
+                        example.sequence = exData.sequence ?? outline.examples.length;
+                        outline.examples.push(example);
+                    }
+                    rule = outline;
+                } else {
+                    rule = new model.Rule(spec);
+                }
+
+                rule.title = ruleData.title || '';
+                rule.description = ruleData.description || '';
+                rule.id = ruleData.id || '';
+                rule.status = ruleData.status ?? model.SpecStatus.unknown;
+                rule.executionTime = ruleData.executionTime || 0;
+                rule.tags = ruleData.tags || [];
+                rule.sequence = ruleData.sequence ?? spec.rules.length;
+
+                // Reconstruct ruleViolations if present
+                if (ruleData.ruleViolations && Array.isArray(ruleData.ruleViolations)) {
+                    rule.ruleViolations = ruleData.ruleViolations.map((v: any) =>
+                        this.reconstructRuleViolation(v)
+                    );
+                }
+
+                spec.rules.push(rule);
+            }
+        }
+
+        // Reconstruct ruleViolations if present
+        if (data.ruleViolations && Array.isArray(data.ruleViolations)) {
+            spec.ruleViolations = data.ruleViolations.map((v: any) =>
+                this.reconstructRuleViolation(v)
+            );
+        }
+
+        // Copy statistics if present
+        if (data.statistics) {
+            Object.assign(spec.statistics, data.statistics);
+        }
+
+        return spec;
     }
 
     /**
