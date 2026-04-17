@@ -47,7 +47,11 @@ import { feature, scenario, scenarioOutline, background, given, when, Then as th
 // Specification pattern imports
 import { specification, rule, ruleOutline } from "@swedevtools/livedoc-vitest";
 
-// Or use globals mode (vitest.config.ts: globals: true) for all lowercase without imports
+// Or use globals mode — requires BOTH settings in vitest.config.ts:
+//   globals: true
+//   setupFiles: ['@swedevtools/livedoc-vitest/setup']
+// Note: globals mode only registers BDD keywords (feature, scenario, given, when, then, etc.)
+// Specification keywords (specification, rule, ruleOutline) must still be imported explicitly.
 ```
 
 ## Structures
@@ -167,6 +171,7 @@ then("assertion", (ctx) => { expect(x).toBe(y); });
 ```
 
 - **Only steps support `async`** - feature, scenario, scenarioOutline, background do NOT
+- In the Specification pattern, `rule` and `ruleOutline` also support `async`
 
 ## Specification Pattern (MSpec-style)
 
@@ -246,11 +251,14 @@ specification("Email Validation", () => {
 - Access table values via `ctx.example.columnName`
 - Access title values via `ctx.rule.values`, `ctx.rule.params` (same as `rule`)
 - Supports `.skip()` and `.only()` modifiers
+- Supports `async` callbacks
 
 ### Specification Context
 
 ```typescript
-specification("My Spec @tag1", (ctx) => {
+specification(`My Spec
+    @tag1
+    `, (ctx) => {
     rule("Access context", (ctx) => {
         ctx.specification.title       // "My Spec"
         ctx.specification.tags        // ["tag1"]
@@ -308,12 +316,14 @@ given(`data:
 Two-column → entity object:
 ```typescript
 given(`config:
-    | key   | value |
-    | debug | true  |
+    | debug   | true |
+    | timeout | 5000 |
     `, (ctx) => {
-    // ctx.step.tableAsEntity => {debug: true}
-    // First column is the key, second is the value
+    // ctx.step.tableAsEntity => {debug: true, timeout: 5000}
+    // Every row is a key-value pair (first column = key, second = value)
+    // Note: ALL rows are included — there is no header row skip
     expect(ctx.step.tableAsEntity.debug).toBe(true);
+    expect(ctx.step.tableAsEntity.timeout).toBe(5000);
 });
 ```
 

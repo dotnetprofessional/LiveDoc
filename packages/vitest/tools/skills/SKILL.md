@@ -143,6 +143,12 @@ import { specification, rule, ruleOutline } from "@swedevtools/livedoc-vitest";
 
 // Playwright (optional)
 import { useBrowser, screenshot } from "@swedevtools/livedoc-vitest/playwright";
+
+// Or use globals mode — requires BOTH settings in vitest.config.ts:
+//   globals: true
+//   setupFiles: ['@swedevtools/livedoc-vitest/setup']
+// Note: globals mode only registers BDD keywords (feature, scenario, given, when, then, etc.)
+// Specification keywords (specification, rule, ruleOutline) must still be imported explicitly.
 ```
 
 **CRITICAL**: Import `Then` (uppercase) and alias as `then` (lowercase). ESM thenable detection requires the uppercase export name.
@@ -193,8 +199,8 @@ feature(`Shopping Cart
 
 ### Async Rules
 
-- **Only step callbacks and `rule` support `async`**
-- `feature`, `scenario`, `scenarioOutline`, `background` must be **synchronous**
+- **Only step callbacks, `rule`, and `ruleOutline` support `async`**
+- `feature`, `scenario`, `scenarioOutline`, `specification`, `background` must be **synchronous**
 
 ### Modifiers
 
@@ -208,7 +214,7 @@ rule.only("...", fn);        rule.skip("...", fn);
 
 ```bash
 pnpm --filter @swedevtools/livedoc-vitest test          # Run all specs
-pnpm --filter @swedevtools/livedoc-vitest test -- --testPathPattern="MyFeature"
+pnpm --filter @swedevtools/livedoc-vitest test MyFeature.Spec.ts
 ```
 
 ---

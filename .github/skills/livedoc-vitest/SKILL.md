@@ -1,7 +1,7 @@
 ---
 name: livedoc-vitest
 description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the @swedevtools/livedoc-vitest framework. Generates self-documenting TypeScript specs with correct API usage, value extraction, and living documentation patterns.
-sdk_version: 0.1.6
+sdk_version: 0.2.0
 ---
 
 # LiveDoc Vitest Test Author
@@ -10,13 +10,13 @@ sdk_version: 0.1.6
 
 ## Version Check
 
-This skill targets **@swedevtools/livedoc-vitest v0.1.6**. Before writing tests, verify the installed version matches:
+This skill targets **@swedevtools/livedoc-vitest v0.2.0**. Before writing tests, verify the installed version matches:
 
 ```bash
 npm ls @swedevtools/livedoc-vitest   # or: pnpm ls @swedevtools/livedoc-vitest
 ```
 
-If the installed version differs from `0.1.6`, tell the developer: *"Your LiveDoc skill files target v0.1.6 but you have vX.Y.Z installed. Run `npx livedoc-vitest-setup` to update the skill files, or check the changelog for breaking changes."*
+If the installed version differs from `0.2.0`, tell the developer: *"Your LiveDoc skill files target v0.2.0 but you have vX.Y.Z installed. Run `npx livedoc-vitest-setup` to update the skill files, or check the changelog for breaking changes."*
 
 ## Use this skill when
 - Creating or modifying `.Spec.ts` test files using `@swedevtools/livedoc-vitest`
@@ -143,6 +143,12 @@ import { specification, rule, ruleOutline } from "@swedevtools/livedoc-vitest";
 
 // Playwright (optional)
 import { useBrowser, screenshot } from "@swedevtools/livedoc-vitest/playwright";
+
+// Or use globals mode — requires BOTH settings in vitest.config.ts:
+//   globals: true
+//   setupFiles: ['@swedevtools/livedoc-vitest/setup']
+// Note: globals mode only registers BDD keywords (feature, scenario, given, when, then, etc.)
+// Specification keywords (specification, rule, ruleOutline) must still be imported explicitly.
 ```
 
 **CRITICAL**: Import `Then` (uppercase) and alias as `then` (lowercase). ESM thenable detection requires the uppercase export name.
@@ -193,8 +199,8 @@ feature(`Shopping Cart
 
 ### Async Rules
 
-- **Only step callbacks and `rule` support `async`**
-- `feature`, `scenario`, `scenarioOutline`, `background` must be **synchronous**
+- **Only step callbacks, `rule`, and `ruleOutline` support `async`**
+- `feature`, `scenario`, `scenarioOutline`, `specification`, `background` must be **synchronous**
 
 ### Modifiers
 
@@ -208,7 +214,7 @@ rule.only("...", fn);        rule.skip("...", fn);
 
 ```bash
 pnpm --filter @swedevtools/livedoc-vitest test          # Run all specs
-pnpm --filter @swedevtools/livedoc-vitest test -- --testPathPattern="MyFeature"
+pnpm --filter @swedevtools/livedoc-vitest test MyFeature.Spec.ts
 ```
 
 ---

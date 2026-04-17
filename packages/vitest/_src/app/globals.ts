@@ -19,7 +19,7 @@ export interface LiveDocTestContext {
     /** Framework metadata about the current step */
     step?: StepContext;
     /** Framework metadata about the current scenario outline example */
-    example?: ScenarioContext;
+    example?: Record<string, any>;
     /** Framework metadata about the background */
     background?: BackgroundContext;
 }
@@ -45,7 +45,7 @@ declare global {
     /**
      * Define a scenario within a feature
      */
-    function scenario(title: string, fn: (ctx: LiveDocTestContext) => void | Promise<void>): void;
+    function scenario(title: string, fn: (ctx: LiveDocTestContext) => void): void;
 
     /**
      * Define a scenario outline (data-driven test)
