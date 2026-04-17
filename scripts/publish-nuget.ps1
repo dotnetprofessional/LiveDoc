@@ -63,6 +63,13 @@ if ($DryRun) {
     Write-Host "Mode: DRY RUN (no actual publish)" -ForegroundColor Yellow
 }
 
+# Sync skill versions before pack
+$syncScript = Join-Path $PSScriptRoot 'sync-skill-versions.ps1'
+if (Test-Path $syncScript) {
+    Write-Host "`n→ Syncing skill versions..." -ForegroundColor White
+    & $syncScript -RepoRoot $repoRoot
+}
+
 # Pack first if not skipped
 if (-not $SkipPack) {
     Write-Host "`n→ Packing..." -ForegroundColor White

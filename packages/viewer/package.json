@@ -1,6 +1,6 @@
 {
   "name": "@swedevtools/livedoc-viewer",
-  "version": "0.0.14",
+  "version": "0.2.0",
   "description": "LiveDoc BDD Test Results Viewer - Real-time test visualization",
   "author": "Garry McGlennon",
   "license": "MIT",

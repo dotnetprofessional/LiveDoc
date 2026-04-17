@@ -6,7 +6,7 @@
     Publishes one or more packages to npm with support for dry-run, beta tags, and dependency ordering.
 
 .PARAMETER Package
-    Package to publish: schema, server, vitest, viewer, or all.
+    Package to publish: vitest, viewer, or all.
 
 .PARAMETER DryRun
     If set, runs npm publish --dry-run instead of actual publish.
@@ -29,7 +29,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('schema', 'server', 'vitest', 'viewer', 'all')]
+    [ValidateSet('vitest', 'viewer', 'all')]
     [string]$Package,
 
     [switch]$DryRun,
@@ -45,25 +45,15 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 
 # Package info with dependency order
 $packages = [ordered]@{
-    'schema' = @{
-        Name = '@swedevtools/livedoc-schema'
-        Path = 'packages/schema'
-        DependsOn = @()
-    }
-    'server' = @{
-        Name = '@swedevtools/livedoc-server'
-        Path = 'packages/server'
-        DependsOn = @('schema')
-    }
     'vitest' = @{
         Name = '@swedevtools/livedoc-vitest'
         Path = 'packages/vitest'
-        DependsOn = @('schema')
+        DependsOn = @()
     }
     'viewer' = @{
         Name = '@swedevtools/livedoc-viewer'
         Path = 'packages/viewer'
-        DependsOn = @('schema', 'server')
+        DependsOn = @()
     }
 }
 
@@ -94,6 +84,13 @@ function Publish-Package {
 
     Push-Location $pkgPath
     try {
+        # Sync skill versions before build
+        $syncScript = Join-Path $repoRoot 'scripts\sync-skill-versions.ps1'
+        if (Test-Path $syncScript) {
+            Write-Host "`n→ Syncing skill versions..." -ForegroundColor White
+            & $syncScript -RepoRoot $repoRoot
+        }
+
         # Build if not skipped
         if (-not $SkipBuild) {
             Write-Host "`n→ Building..." -ForegroundColor White
@@ -103,12 +100,11 @@ function Publish-Package {
             }
         }
 
-        # Publish
-        $publishArgs = @('publish')
+        # Publish (use pnpm to resolve workspace: protocols; --ignore-scripts
+        # skips prepublishOnly since we already built explicitly above)
+        $publishArgs = @('publish', '--ignore-scripts')
         if ($DryRun) {
             $publishArgs += '--dry-run'
-            # Skip prepublishOnly scripts for dry-run since we already built
-            $publishArgs += '--ignore-scripts'
         }
         if ($Tag -eq 'beta') {
             $publishArgs += '--tag'
@@ -117,8 +113,8 @@ function Publish-Package {
         $publishArgs += '--access'
         $publishArgs += 'public'
 
-        Write-Host "`n→ Running: npm $($publishArgs -join ' ')" -ForegroundColor White
-        & npm @publishArgs
+        Write-Host "`n→ Running: pnpm $($publishArgs -join ' ')" -ForegroundColor White
+        & pnpm @publishArgs
 
         if ($LASTEXITCODE -ne 0) {
             throw "Publish failed for $($Info.Name)"
