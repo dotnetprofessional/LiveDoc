@@ -9,7 +9,7 @@
     "url": "git+https://github.com/dotnetprofessional/LiveDoc.git",
     "directory": "packages/viewer"
   },
-  "homepage": "https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/viewer#readme",
+  "homepage": "https://livedoc.swedevtools.com/viewer/learn/getting-started",
   "bugs": {
     "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
   },
