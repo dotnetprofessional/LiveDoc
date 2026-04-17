@@ -101,8 +101,9 @@ function Publish-Package {
         }
 
         # Publish (use pnpm to resolve workspace: protocols; --ignore-scripts
-        # skips prepublishOnly since we already built explicitly above)
-        $publishArgs = @('publish', '--ignore-scripts')
+        # skips prepublishOnly since we already built explicitly above;
+        # --no-git-checks allows publish from any branch)
+        $publishArgs = @('publish', '--ignore-scripts', '--no-git-checks')
         if ($DryRun) {
             $publishArgs += '--dry-run'
         }
@@ -114,7 +115,13 @@ function Publish-Package {
         $publishArgs += 'public'
 
         Write-Host "`n→ Running: pnpm $($publishArgs -join ' ')" -ForegroundColor White
-        & pnpm @publishArgs
+        & pnpm @publishArgs 2>&1 | ForEach-Object {
+            $line = $_.ToString()
+            # Filter cosmetic npm warnings about pnpm-only flags
+            if ($line -notmatch 'npm warn Unknown (cli|env) config') {
+                Write-Host $line
+            }
+        }
 
         if ($LASTEXITCODE -ne 0) {
             throw "Publish failed for $($Info.Name)"

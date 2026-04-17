@@ -15,6 +15,7 @@
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
     <RepositoryUrl>https://github.com/dotnetprofessional/LiveDoc</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <VSTestLogger>false</VSTestLogger>
     <IsTestContainer>false</IsTestContainer>
     <!-- Prevent VS Test Explorer from discovering this assembly -->
@@ -43,8 +44,9 @@
     <None Remove="tools\journey-generator\**" />
   </ItemGroup>
 
-  <!-- Include readme.txt and MSBuild targets in the NuGet package -->
+  <!-- Include README and readme.txt and MSBuild targets in the NuGet package -->
   <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="readme.txt" Pack="true" PackagePath="" />
     <None Include="build\SweDevTools.LiveDoc.xUnit.targets" Pack="true" PackagePath="build\" />
   </ItemGroup>

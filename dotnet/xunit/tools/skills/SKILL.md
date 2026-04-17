@@ -234,5 +234,5 @@ cd samples && dotnet test
 - Tests missing from Test Explorer → verify `[Scenario]` or `[Rule]` attributes are present
 - `ctx.Step` is null → use the `Action<LiveDocContext>` overload, not `Action`
 - Conversion fails → check exception message — includes step title and available values
-- Placeholder not replaced → `<Param>` must match method parameter name exactly
+- Placeholder not replaced → `<Param>` matching is case-insensitive; check spelling
 - Journey failures → see `resources/journey-testing.md` → Failure Handling section

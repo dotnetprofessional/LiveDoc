@@ -35,13 +35,13 @@ public class ShippingCostsTests : FeatureTest
 
         When("the customer's order totals '$100'", ctx =>
         {
-            _cart.AddItem(new CartItem { Price = ctx.Values[0] });
+            _cart.AddItem(new CartItem { Price = ctx.Step!.Values[0].AsDecimal() });
             _cart.Calculate();
         });
 
         Then("they are charged 'Free' shipping", ctx =>
         {
-            Assert.Equal(ctx.ValuesRaw[0], _cart.ShippingType);
+            Assert.Equal(ctx.Step!.Values[0].AsString(), _cart.ShippingType);
         });
     }
 }

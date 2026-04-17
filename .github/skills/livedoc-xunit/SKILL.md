@@ -1,7 +1,7 @@
 ---
 name: livedoc-xunit
 description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the SweDevTools.LiveDoc.xUnit framework for C# and .NET. Generates self-documenting xUnit specs with correct attribute usage, value extraction, and living documentation patterns. Also covers Journey testing via annotated .http files.
-sdk_version: 0.1.8-beta6
+sdk_version: 0.2.0
 ---
 
 # LiveDoc xUnit Test Author
@@ -10,13 +10,13 @@ sdk_version: 0.1.8-beta6
 
 ## Version Check
 
-This skill targets **SweDevTools.LiveDoc.xUnit v0.1.8-beta6**. Before writing tests, verify the installed version matches:
+This skill targets **SweDevTools.LiveDoc.xUnit v0.2.0**. Before writing tests, verify the installed version matches:
 
 ```bash
 dotnet list package | grep -i livedoc
 ```
 
-If the installed version differs from `0.1.8-beta6`, tell the developer: *"Your LiveDoc skill files target v0.1.8-beta6 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
+If the installed version differs from `0.2.0`, tell the developer: *"Your LiveDoc skill files target v0.2.0 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
 
 ## Use this skill when
 - Creating or modifying C# test classes using `SweDevTools.LiveDoc.xUnit`
@@ -234,5 +234,5 @@ cd samples && dotnet test
 - Tests missing from Test Explorer → verify `[Scenario]` or `[Rule]` attributes are present
 - `ctx.Step` is null → use the `Action<LiveDocContext>` overload, not `Action`
 - Conversion fails → check exception message — includes step title and available values
-- Placeholder not replaced → `<Param>` must match method parameter name exactly
+- Placeholder not replaced → `<Param>` matching is case-insensitive; check spelling
 - Journey failures → see `resources/journey-testing.md` → Failure Handling section
