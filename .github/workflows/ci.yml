@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# ─────────────────────────────────────────────────────────────
+# Build & Test
+# ─────────────────────────────────────────────────────────────
+
 jobs:
   build-and-test-js:
     name: TypeScript (Vitest, Viewer, VS Code, Docs)
@@ -67,7 +71,7 @@ jobs:
 
       - name: Generate Vitest HTML report
         if: always()
-        run: node packages/viewer/dist/cli.js export -i reports/vitest-report.json -o reports/vitest-report.html -t "LiveDoc Vitest — CI"
+        run: node packages/viewer/dist/cli.js export -i reports/vitest-report.json -o reports/vitest/index.html -t "LiveDoc Vitest"
         continue-on-error: true
 
       - name: Upload Vitest test report
@@ -133,7 +137,7 @@ jobs:
 
       - name: Generate .NET HTML report
         if: always()
-        run: node packages/viewer/dist/cli.js export -i reports/dotnet-report.json -o reports/dotnet-report.html -t "LiveDoc xUnit — CI"
+        run: node packages/viewer/dist/cli.js export -i reports/dotnet-report.json -o reports/dotnet/index.html -t "LiveDoc xUnit"
         continue-on-error: true
 
       - name: Upload .NET test report
@@ -144,3 +148,172 @@ jobs:
           path: reports/
           retention-days: 30
           if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────────────────────
+  # Detect changes (for conditional deploys on master)
+  # ─────────────────────────────────────────────────────────────
+
+  detect-changes:
+    name: Detect changes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'pnpm-lock.yaml'
+              - 'netlify.toml'
+
+  # ─────────────────────────────────────────────────────────────
+  # Deploy test reports to GitHub Pages (master only)
+  # ─────────────────────────────────────────────────────────────
+
+  deploy-reports:
+    name: Deploy test reports
+    needs: [build-and-test-js, build-and-test-dotnet]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Download Vitest report
+        uses: actions/download-artifact@v4
+        with:
+          name: livedoc-vitest-report
+          path: site
+
+      - name: Download .NET report
+        uses: actions/download-artifact@v4
+        with:
+          name: livedoc-dotnet-report
+          path: site
+
+      - name: Create index page
+        run: |
+          cat > site/index.html << 'HEREDOC'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>LiveDoc — Test Reports</title>
+            <style>
+              :root { color-scheme: dark; }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a; color: #e5e5e5;
+                display: flex; align-items: center; justify-content: center;
+                min-height: 100vh; padding: 2rem;
+              }
+              .container { max-width: 640px; width: 100%; }
+              h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+              .subtitle { color: #a3a3a3; margin-bottom: 2rem; }
+              .cards { display: flex; flex-direction: column; gap: 1rem; }
+              a.card {
+                display: block; padding: 1.5rem; border-radius: 0.75rem;
+                border: 1px solid #262626; background: #141414;
+                text-decoration: none; color: inherit;
+                transition: border-color 0.15s, background 0.15s;
+              }
+              a.card:hover { border-color: #525252; background: #1a1a1a; }
+              .card h2 { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.25rem; }
+              .card p { color: #a3a3a3; font-size: 0.875rem; }
+              .badge {
+                display: inline-block; font-size: 0.75rem; padding: 0.125rem 0.5rem;
+                border-radius: 9999px; font-weight: 500; margin-left: 0.5rem;
+              }
+              .badge-ts { background: #1e3a5f; color: #60a5fa; }
+              .badge-cs { background: #3b1f5e; color: #c084fc; }
+              footer { margin-top: 2rem; text-align: center; color: #525252; font-size: 0.75rem; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>LiveDoc</h1>
+              <p class="subtitle">Living documentation from executable specifications</p>
+              <div class="cards">
+                <a class="card" href="./vitest/">
+                  <h2>Vitest Test Report <span class="badge badge-ts">TypeScript</span></h2>
+                  <p>BDD features and specifications from the @swedevtools/livedoc-vitest package</p>
+                </a>
+                <a class="card" href="./dotnet/">
+                  <h2>xUnit Test Report <span class="badge badge-cs">C#</span></h2>
+                  <p>BDD features and specifications from the SweDevTools.LiveDoc.xUnit package</p>
+                </a>
+              </div>
+              <footer>Generated by LiveDoc Viewer — updated on each push to master</footer>
+            </div>
+          </body>
+          </html>
+          HEREDOC
+
+      - name: Add .nojekyll
+        run: touch site/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ─────────────────────────────────────────────────────────────
+  # Deploy documentation to Netlify (master only, when docs changed)
+  # ─────────────────────────────────────────────────────────────
+
+  deploy-docs:
+    name: Deploy documentation
+    needs: [detect-changes, build-and-test-js]
+    if: github.event_name == 'push' && needs.detect-changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build documentation site
+        run: pnpm --filter livedoc-docs build
+
+      - name: Deploy to Netlify
+        run: npx netlify-cli deploy --prod --dir=docs/build
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

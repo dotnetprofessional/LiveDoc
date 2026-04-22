@@ -1,15 +1,8 @@
 # Netlify configuration for LiveDoc documentation site
 # https://docs.netlify.com/configure-builds/file-based-configuration/
-
-[build]
-  # Docusaurus site lives in the docs/ subdirectory
-  base = "docs/"
-  command = "npm install && npm run build"
-  publish = "build/"
-
-# Node version for the build environment
-[build.environment]
-  NODE_VERSION = "22"
+#
+# Builds are handled by GitHub Actions (see .github/workflows/ci.yml).
+# This file provides runtime configuration only.
 
 # SPA-style redirects for Docusaurus client-side routing
 [[redirects]]
