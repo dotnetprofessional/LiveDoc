@@ -75,7 +75,7 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.19.7
-        version: 1.19.11(hono@4.12.8)
+        version: 1.19.11(hono@4.12.14)
       '@swedevtools/livedoc-schema':
         specifier: workspace:*
         version: link:../schema
@@ -83,8 +83,8 @@ importers:
         specifier: ^12.1.0
         version: 12.1.0
       hono:
-        specifier: ^4.11.1
-        version: 4.12.8
+        specifier: ^4.12.14
+        version: 4.12.14
       open:
         specifier: ^10.2.0
         version: 10.2.0
@@ -121,7 +121,7 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.19.7
-        version: 1.19.11(hono@4.12.8)
+        version: 1.19.11(hono@4.12.14)
       '@radix-ui/react-collapsible':
         specifier: ^1.1.12
         version: 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -168,8 +168,8 @@ importers:
         specifier: ^12.23.26
         version: 12.38.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       hono:
-        specifier: ^4.11.1
-        version: 4.12.8
+        specifier: ^4.12.14
+        version: 4.12.14
       lucide-react:
         specifier: ^0.330.0
         version: 0.330.0(react@19.2.4)
@@ -5169,8 +5169,8 @@ packages:
   hoist-non-react-statics@3.3.2:
     resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
 
-  hono@4.12.8:
-    resolution: {integrity: sha512-VJCEvtrezO1IAR+kqEYnxUOoStaQPGrCmX3j4wDTNOcD1uRPFpGlwQUIW8niPuvHXaTUxeOUl5MMDGrl+tmO9A==}
+  hono@4.12.14:
+    resolution: {integrity: sha512-am5zfg3yu6sqn5yjKBNqhnTX7Cv+m00ox+7jbaKkrLMRJ4rAdldd1xPd/JzbBWspqaQv6RSTrgFN95EsfhC+7w==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@4.1.0:
@@ -10656,9 +10656,9 @@ snapshots:
     dependencies:
       '@hapi/hoek': 9.3.0
 
-  '@hono/node-server@1.19.11(hono@4.12.8)':
+  '@hono/node-server@1.19.11(hono@4.12.14)':
     dependencies:
-      hono: 4.12.8
+      hono: 4.12.14
 
   '@iconify/types@2.0.0': {}
 
@@ -14284,7 +14284,7 @@ snapshots:
     dependencies:
       react-is: 16.13.1
 
-  hono@4.12.8: {}
+  hono@4.12.14: {}
 
   hosted-git-info@4.1.0:
     dependencies:
