@@ -198,7 +198,12 @@ if ($Command) {
         'build'        { Run-Build; return }
         'build-packages' { Run-BuildPackages; return }
         'clean'        { Invoke-InDirectory -Path $repoRoot -Action { pnpm run clean }; return }
-        'test'         { Invoke-InDirectory -Path $repoRoot -Action { pnpm -r test }; return }
+        'test'         {
+            Invoke-InDirectory -Path (Join-Path $repoRoot 'packages\vitest') -Action { pnpm run test }
+            $slnFile = Get-ChildItem (Join-Path $repoRoot 'dotnet\xunit') -Filter '*.sln' | Select-Object -First 1
+            if ($slnFile) { Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $slnFile.FullName --logger LiveDoc } }
+            return
+        }
         'docs-build'   { Invoke-InDirectory -Path (Join-Path $repoRoot 'docs') -Action { npx docusaurus build }; return }
         'docs-serve'   { Invoke-InDirectory -Path (Join-Path $repoRoot 'docs') -Action { npx docusaurus start --port 4000 }; return }
         'pack'         { Pack-AllToReleases; return }
@@ -265,16 +270,26 @@ $items.Add((New-MenuItem -Label 'Build & Package' -HotKey 'b' -Children @(
 
 # --- Test submenu ---
 $items.Add((New-MenuItem -Label 'Test' -HotKey 't' -Children @(
-    (New-MenuItem -Label 'All (pnpm -r test)' -HotKey '1' `
-        -Action { Invoke-InDirectory -Path $repoRoot -Action { pnpm -r test } } `
-        -Description 'Run all package tests recursively')
+    (New-MenuItem -Label 'All (sequential)' -HotKey '1' `
+        -Action {
+            Write-Host "`n═══ @swedevtools/livedoc-vitest ═══`n" -ForegroundColor Cyan
+            Invoke-InDirectory -Path (Join-Path $repoRoot 'packages\vitest') -Action {
+                pnpm run test
+            }
+            Write-Host "`n═══ dotnet/xunit ═══`n" -ForegroundColor Cyan
+            $slnFile = Get-ChildItem (Join-Path $repoRoot 'dotnet\xunit') -Filter '*.sln' | Select-Object -First 1
+            if ($slnFile) {
+                Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $slnFile.FullName --logger LiveDoc }
+            }
+        }.GetNewClosure() `
+        -Description 'Run vitest then xunit sequentially (LiveDoc reporters)')
     (New-MenuItem -Label '@swedevtools/livedoc-vitest' -HotKey '2' `
         -Action {
             Invoke-InDirectory -Path (Join-Path $repoRoot 'packages\vitest') -Action {
                 pnpm run test
             }
         }.GetNewClosure() `
-        -Description 'Vitest unit + spec tests')
+        -Description 'Vitest specs with LiveDoc reporter')
     (New-MenuItem -Label 'dotnet/xunit' -HotKey '3' `
         -Action {
             $slnFile = Get-ChildItem (Join-Path $repoRoot 'dotnet\xunit') -Filter '*.sln' | Select-Object -First 1
