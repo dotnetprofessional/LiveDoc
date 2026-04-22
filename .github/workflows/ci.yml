@@ -172,8 +172,6 @@ jobs:
           filters: |
             docs:
               - 'docs/**'
-              - 'pnpm-lock.yaml'
-              - 'netlify.toml'
 
   # ─────────────────────────────────────────────────────────────
   # Deploy test reports to GitHub Pages (master only)
