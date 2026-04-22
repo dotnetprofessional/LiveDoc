@@ -47,7 +47,7 @@
     "@hono/node-server": "^1.19.7",
     "@swedevtools/livedoc-schema": "workspace:*",
     "commander": "^12.1.0",
-    "hono": "^4.11.1",
+    "hono": "^4.12.14",
     "open": "^10.2.0",
     "ws": "^8.18.3"
   },
