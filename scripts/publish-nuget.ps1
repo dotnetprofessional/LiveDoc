@@ -107,6 +107,9 @@ if ($DryRun) {
 if (-not $ApiKey) {
     $ApiKey = $env:NUGET_API_KEY
 }
+if (-not $ApiKey) {
+    $ApiKey = [Environment]::GetEnvironmentVariable('NUGET_API_KEY', 'User')
+}
 
 if (-not $ApiKey) {
     Write-Host "`n✗ No API key provided." -ForegroundColor Red

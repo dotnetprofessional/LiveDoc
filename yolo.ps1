@@ -168,9 +168,18 @@ Write-Host "============================================================" -Foreg
 Write-Host ""
 
 $mcpConfig = ".github\copilot\mcp.json"
-if (Test-Path $mcpConfig) {
-    copilot --yolo --experimental --banner --additional-mcp-config "@$mcpConfig"
-} else {
-    Write-Host "MCP config not found at $mcpConfig, launching without it..." -ForegroundColor $warning
-    copilot --yolo --experimental --banner
+$agentFile = ".github\agents\squad.agent.md"
+
+$baseArgs = @("--yolo", "--experimental", "--banner", "--resume")
+
+if (Test-Path $agentFile) {
+    $baseArgs += @("--agent", "squad")
+    Write-Host "  Squad agent detected — activating team orchestration" -ForegroundColor $ok
+    Write-Host ""
 }
+
+if (Test-Path $mcpConfig) {
+    $baseArgs += @("--additional-mcp-config", "@$mcpConfig")
+}
+
+& copilot @baseArgs

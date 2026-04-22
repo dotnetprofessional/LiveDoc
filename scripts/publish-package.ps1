@@ -54,6 +54,7 @@ $packages = [ordered]@{
         Name = '@swedevtools/livedoc-viewer'
         Path = 'packages/viewer'
         DependsOn = @()
+        ExtraPublishArgs = @('--config.node-linker=hoisted')
     }
 }
 
@@ -104,6 +105,9 @@ function Publish-Package {
         # skips prepublishOnly since we already built explicitly above;
         # --no-git-checks allows publish from any branch)
         $publishArgs = @('publish', '--ignore-scripts', '--no-git-checks')
+        if ($Info.ExtraPublishArgs) {
+            $publishArgs += $Info.ExtraPublishArgs
+        }
         if ($DryRun) {
             $publishArgs += '--dry-run'
         }
