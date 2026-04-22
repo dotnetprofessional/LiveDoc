@@ -6,11 +6,13 @@ hide_table_of_contents: true
 hide_title: true
 ---
 
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 <div className="hero-section">
 
 <div className="hero-inner">
 
-<img src="/img/logo-full.png" alt="LiveDoc" className="hero-logo" />
+<img src={useBaseUrl('/img/logo-full.png')} alt="LiveDoc" className="hero-logo" />
 
 <div className="hero-text">
 
@@ -194,9 +196,9 @@ This works with any AI coding tool — **GitHub Copilot**, **Cursor**, **Claude 
 
 ---
 
-## See It Live
+## See It Live — We Eat Our Own Dogfood 🐕
 
-Want to see what LiveDoc produces? These reports are generated automatically by our CI pipeline on every commit:
+LiveDoc documents itself. Every test in this project is a LiveDoc spec, and our CI pipeline publishes the results automatically on every merge. What you see below is the real output — **LiveDoc documenting LiveDoc**.
 
 <div className="sdk-grid">
 
@@ -204,7 +206,7 @@ Want to see what LiveDoc produces? These reports are generated automatically by 
 
 ### Vitest Test Results
 
-Browse the full LiveDoc Vitest test suite — features, specifications, and scenarios with pass/fail status, data tables, and step details.
+Browse the full LiveDoc Vitest test suite — features, specifications, and scenarios with pass/fail status, data tables, and step details. This is our live documentation, generated from our own tests.
 
 **View Vitest Report →**
 
@@ -214,7 +216,7 @@ Browse the full LiveDoc Vitest test suite — features, specifications, and scen
 
 ### xUnit Test Results
 
-Browse the LiveDoc xUnit test suite — BDD features, journey tests, and .NET specifications.
+Browse the LiveDoc xUnit test suite — BDD features, journey tests, and .NET specifications. Same framework, same workflow — just in .NET.
 
 **View xUnit Report →**
 
