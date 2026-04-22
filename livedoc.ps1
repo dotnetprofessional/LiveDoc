@@ -263,6 +263,28 @@ $items.Add((New-MenuItem -Label 'Build & Package' -HotKey 'b' -Children @(
         -Description 'Remove all build artifacts')
 ) -Description 'Build and package workflows'))
 
+# --- Test submenu ---
+$items.Add((New-MenuItem -Label 'Test' -HotKey 't' -Children @(
+    (New-MenuItem -Label 'All (pnpm -r test)' -HotKey '1' `
+        -Action { Invoke-InDirectory -Path $repoRoot -Action { pnpm -r test } } `
+        -Description 'Run all package tests recursively')
+    (New-MenuItem -Label '@swedevtools/livedoc-vitest' -HotKey '2' `
+        -Action {
+            Invoke-InDirectory -Path (Join-Path $repoRoot 'packages\vitest') -Action {
+                pnpm run test
+            }
+        }.GetNewClosure() `
+        -Description 'Vitest unit + spec tests')
+    (New-MenuItem -Label 'dotnet/xunit' -HotKey '3' `
+        -Action {
+            $slnFile = Get-ChildItem (Join-Path $repoRoot 'dotnet\xunit') -Filter '*.sln' | Select-Object -First 1
+            if ($slnFile) {
+                Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $slnFile.FullName --logger LiveDoc }
+            }
+        }.GetNewClosure() `
+        -Description 'dotnet test with LiveDoc logger')
+) -Description 'Run tests across packages'))
+
 # --- Publish submenu ---
 $publishScriptsDir = Join-Path $repoRoot 'scripts'
 
