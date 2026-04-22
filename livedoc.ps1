@@ -200,8 +200,8 @@ if ($Command) {
         'clean'        { Invoke-InDirectory -Path $repoRoot -Action { pnpm run clean }; return }
         'test'         {
             Invoke-InDirectory -Path (Join-Path $repoRoot 'packages\vitest') -Action { pnpm run test }
-            $slnFile = Get-ChildItem (Join-Path $repoRoot 'dotnet\xunit') -Filter '*.sln' | Select-Object -First 1
-            if ($slnFile) { Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $slnFile.FullName --logger LiveDoc } }
+            $testProj = Join-Path $repoRoot 'dotnet\xunit\tests\LiveDoc.xUnit.Tests.csproj'
+            Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $testProj --logger LiveDoc }
             return
         }
         'docs-build'   { Invoke-InDirectory -Path (Join-Path $repoRoot 'docs') -Action { npx docusaurus build }; return }
@@ -277,10 +277,8 @@ $items.Add((New-MenuItem -Label 'Test' -HotKey 't' -Children @(
                 pnpm run test
             }
             Write-Host "`n═══ dotnet/xunit ═══`n" -ForegroundColor Cyan
-            $slnFile = Get-ChildItem (Join-Path $repoRoot 'dotnet\xunit') -Filter '*.sln' | Select-Object -First 1
-            if ($slnFile) {
-                Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $slnFile.FullName --logger LiveDoc }
-            }
+            $xunitTestProj = Join-Path $repoRoot 'dotnet\xunit\tests\LiveDoc.xUnit.Tests.csproj'
+            Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $xunitTestProj --logger LiveDoc }
         }.GetNewClosure() `
         -Description 'Run vitest then xunit sequentially (LiveDoc reporters)')
     (New-MenuItem -Label '@swedevtools/livedoc-vitest' -HotKey '2' `
@@ -292,10 +290,8 @@ $items.Add((New-MenuItem -Label 'Test' -HotKey 't' -Children @(
         -Description 'Vitest specs with LiveDoc reporter')
     (New-MenuItem -Label 'dotnet/xunit' -HotKey '3' `
         -Action {
-            $slnFile = Get-ChildItem (Join-Path $repoRoot 'dotnet\xunit') -Filter '*.sln' | Select-Object -First 1
-            if ($slnFile) {
-                Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $slnFile.FullName --logger LiveDoc }
-            }
+            $xunitTestProj = Join-Path $repoRoot 'dotnet\xunit\tests\LiveDoc.xUnit.Tests.csproj'
+            Invoke-InDirectory -Path (Join-Path $repoRoot 'dotnet\xunit') -Action { dotnet test $xunitTestProj --logger LiveDoc }
         }.GetNewClosure() `
         -Description 'dotnet test with LiveDoc logger')
 ) -Description 'Run tests across packages'))
@@ -409,15 +405,19 @@ if ($xunitSln) {
             -Action { Invoke-InDirectory -Path $xunitDir -Action { dotnet build $slnPath } }.GetNewClosure() `
             -Description 'dotnet build')
         (New-MenuItem -Label 'Test' -HotKey '2' `
-            -Action { Invoke-InDirectory -Path $xunitDir -Action { dotnet test $slnPath --logger LiveDoc } }.GetNewClosure() `
+            -Action {
+                $testProj = Join-Path $xunitDir 'tests\LiveDoc.xUnit.Tests.csproj'
+                Invoke-InDirectory -Path $xunitDir -Action { dotnet test $testProj --logger LiveDoc }
+            }.GetNewClosure() `
             -Description 'dotnet test with LiveDoc logger')
         (New-MenuItem -Label 'Test (with Viewer)' -HotKey '3' `
             -Action {
+                $testProj = Join-Path $xunitDir 'tests\LiveDoc.xUnit.Tests.csproj'
                 $env:LIVEDOC_SERVER_URL = 'http://localhost:19275'
                 $env:LIVEDOC_PROJECT = 'LiveDoc.xUnit'
                 $env:LIVEDOC_ENVIRONMENT = 'local'
                 try {
-                    Invoke-InDirectory -Path $xunitDir -Action { dotnet test $slnPath --logger LiveDoc }
+                    Invoke-InDirectory -Path $xunitDir -Action { dotnet test $testProj --logger LiveDoc }
                 } finally {
                     Remove-Item Env:\LIVEDOC_SERVER_URL -ErrorAction SilentlyContinue
                     Remove-Item Env:\LIVEDOC_PROJECT -ErrorAction SilentlyContinue
