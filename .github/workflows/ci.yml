@@ -69,6 +69,13 @@ jobs:
       - name: Build documentation site
         run: pnpm --filter livedoc-docs build
 
+      - name: Upload docs build
+        uses: actions/upload-artifact@v7
+        with:
+          name: livedoc-docs-build
+          path: docs/build/
+          retention-days: 1
+
       - name: Generate Vitest HTML report
         if: always()
         run: node packages/viewer/dist/cli.js export -i reports/vitest-report.json -o reports/vitest/index.html -t "LiveDoc Vitest"
@@ -150,35 +157,13 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────
-  # Detect changes (for conditional deploys on master)
+  # Deploy to GitHub Pages (master only)
+  #   / ............ Docusaurus documentation site
+  #   /reports/ .... LiveDoc test reports (Vitest + xUnit)
   # ─────────────────────────────────────────────────────────────
 
-  detect-changes:
-    name: Detect changes
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    outputs:
-      docs: ${{ steps.filter.outputs.docs }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Check changed paths
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            docs:
-              - 'docs/**'
-
-  # ─────────────────────────────────────────────────────────────
-  # Deploy test reports to GitHub Pages (master only)
-  # ─────────────────────────────────────────────────────────────
-
-  deploy-reports:
-    name: Deploy test reports
+  deploy-pages:
+    name: Deploy to GitHub Pages
     needs: [build-and-test-js, build-and-test-dotnet]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -194,21 +179,27 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      - name: Download docs build
+        uses: actions/download-artifact@v4
+        with:
+          name: livedoc-docs-build
+          path: site
+
       - name: Download Vitest report
         uses: actions/download-artifact@v4
         with:
           name: livedoc-vitest-report
-          path: site
+          path: site/reports
 
       - name: Download .NET report
         uses: actions/download-artifact@v4
         with:
           name: livedoc-dotnet-report
-          path: site
+          path: site/reports
 
-      - name: Create index page
+      - name: Create reports index page
         run: |
-          cat > site/index.html << 'HEREDOC'
+          cat > site/reports/index.html << 'HEREDOC'
           <!DOCTYPE html>
           <html lang="en">
           <head>
@@ -280,38 +271,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-  # ─────────────────────────────────────────────────────────────
-  # Deploy documentation to Netlify (master only, when docs changed)
-  # ─────────────────────────────────────────────────────────────
-
-  deploy-docs:
-    name: Deploy documentation
-    needs: [detect-changes, build-and-test-js]
-    if: github.event_name == 'push' && needs.detect-changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build documentation site
-        run: pnpm --filter livedoc-docs build
-
-      - name: Deploy to Netlify
-        run: npx netlify-cli deploy --prod --dir=docs/build
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
