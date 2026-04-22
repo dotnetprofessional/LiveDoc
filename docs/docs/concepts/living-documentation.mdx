@@ -1,0 +1,130 @@
+---
+sidebar_position: 1
+description: "Learn how LiveDoc turns executable tests into living documentation that never goes stale."
+---
+
+# Living Documentation
+
+<p className="intro">
+Documentation that writes itself — and stays accurate forever. LiveDoc turns your tests into
+human-readable specifications that are always in sync with your code, because they *execute*.
+</p>
+
+## The Problem: Documentation Drift
+
+Every development team has experienced it. You write a beautiful specification in Confluence, Word, or a wiki. It describes exactly how the system should behave. For a few weeks, maybe even months, it's accurate.
+
+Then the code changes. A new edge case is handled differently. A parameter is renamed. A workflow is simplified. But nobody updates the document. Why would they? The spec lives in one place, the code in another, and there's no mechanism to keep them in sync.
+
+This is **documentation drift** — the inevitable divergence between what the documentation says and what the code actually does. It's not a failure of discipline; it's a failure of architecture. When documentation and code are separate artifacts, drift isn't a risk — it's a certainty.
+
+```mermaid
+graph TD
+    Spec["📄 Spec<br/>(Word / Confluence)"] -->|"separate artifact"| Code["💻 Code<br/>(source files)"]
+    Code -->|"separate artifact"| Tests["🧪 Tests<br/>(assertions only)"]
+    Spec -.-|"❌ Stale within weeks"| Drift["Documentation Drift"]
+    Code -.-|"✅ Keeps evolving"| Reality["Reality"]
+    Tests -.-|"⚠️ Pass/fail only"| NoDoc["No documentation value"]
+```
+
+## The Solution: Tests ARE the Documentation
+
+What if the documentation *was* the code? What if the specification itself executed, and a failing spec meant the documentation was wrong — or the code was?
+
+That's the core insight behind **living documentation**: your tests don't just *verify* behavior — they *describe* it. When written with the right structure and vocabulary, a test suite becomes a browsable, hierarchical, always-accurate specification of your entire system.
+
+```mermaid
+graph LR
+    Spec["📝 Executable Specification<br/>(.Spec.ts / .cs)"] -->|"runs as"| Test["🧪 Test"]
+    Spec -->|"outputs"| Docs["📖 Documentation"]
+    Test -->|"catches"| Regressions["✅ Regressions"]
+    Docs -->|"always"| Accurate["✅ Accurate"]
+```
+
+The key difference is that there's **one artifact, not two**. The specification and the test are the same file. If the behavior changes, the test must change — and when the test changes, the documentation updates automatically.
+
+## What Makes Documentation "Living"?
+
+Living documentation has three essential properties:
+
+| Property         | Meaning                                                                 |
+| ---------------- | ----------------------------------------------------------------------- |
+| **Executable**   | It runs. A failing spec is a bug in the code *or* the documentation.    |
+| **Readable**     | Non-developers can understand what it describes without reading code.   |
+| **Structured**   | It produces hierarchical, browsable output — not just pass/fail.        |
+
+Traditional unit tests satisfy the first property but fail the other two. A test named `test_calc_1` that asserts `assertEquals(4, result)` tells you nothing about what the system is supposed to do. Living documentation requires tests that read like specifications.
+
+## How LiveDoc Makes This Practical
+
+LiveDoc provides two complementary patterns for writing executable specifications:
+
+### The BDD Pattern
+
+For behavior that stakeholders care about — user journeys, business rules, acceptance criteria — LiveDoc supports the full [**Gherkin vocabulary**](https://cucumber.io/docs/gherkin/reference/): Feature, Scenario, Given, When, Then.
+
+```
+Feature: Shopping Cart Checkout
+  Scenario: Applying a discount code
+    Given the cart total is $100.00
+    When the user applies discount code 'SAVE20'
+    Then the cart total should be $80.00
+```
+
+This reads like a specification because it *is* one — and it executes. Learn more in [BDD Pattern](./bdd-pattern.mdx).
+
+:::note Conceptual Syntax
+The examples above use the [Gherkin](https://cucumber.io/docs/gherkin/reference/) vocabulary to express concepts. Each LiveDoc SDK implements this vocabulary using its platform's native idioms — function calls in TypeScript, classes and attributes in C#. See the SDK-specific sections for actual code syntax.
+:::
+
+### The Specification Pattern
+
+For technical components, algorithms, and APIs where Given/When/Then adds ceremony without value, LiveDoc offers the **Specification pattern** — inspired by MSpec (Machine.Specifications):
+
+```
+Specification: Email Validator
+  Rule: Accepts standard email formats
+  Rule: Rejects addresses without @ symbol
+  Rule: Rejects addresses with spaces
+```
+
+Direct, compact, and self-documenting. Learn more in [Specification Pattern](./specification-pattern.mdx).
+
+## The Output IS the Documentation
+
+LiveDoc doesn't just run your tests — it produces structured, hierarchical documentation output. Every feature, scenario, specification, and rule is captured with its title, description, tags, steps, and results. This output can be:
+
+- **Browsed in real-time** using the [LiveDoc Viewer](/viewer/learn/getting-started) — a web-based dashboard that shows your specifications as they execute
+- **Viewed in your IDE** with the [VS Code extension](/vscode/overview) — inline documentation alongside your code
+- **Exported as reports** for stakeholders, audits, or compliance documentation
+
+The result is a documentation system where the question "is this spec still accurate?" always has the same answer: *run it and find out*.
+
+## The LiveDoc Ecosystem
+
+LiveDoc is a platform, not a single library. The ecosystem includes:
+
+| Component                          | Purpose                                    | Language/Platform     |
+| ---------------------------------- | ------------------------------------------ | --------------------- |
+| **@swedevtools/livedoc-vitest**    | Core SDK for TypeScript/JavaScript         | TypeScript + Vitest   |
+| **SweDevTools.LiveDoc.xUnit**      | Core SDK for .NET                          | C# + xUnit            |
+| **@swedevtools/livedoc-viewer**    | Real-time specification browser            | React web app         |
+| **livedoc-vscode**                 | IDE integration                            | VS Code extension     |
+
+The concept pages in this section apply to **all SDKs** — the philosophy is the same whether you're writing TypeScript or C#. The SDK-specific sections cover the API details:
+
+- **TypeScript/Vitest**: [Getting Started](/vitest/learn/getting-started)
+- **C#/xUnit**: [Getting Started](/xunit/learn/getting-started)
+
+## Recap
+
+- **Documentation drift** is inevitable when specs and code are separate artifacts.
+- **Living documentation** eliminates drift by making tests and documentation the same thing.
+- LiveDoc provides two patterns — [BDD](./bdd-pattern.mdx) and [Specification](./specification-pattern.mdx) — that make tests readable as specifications.
+- The structured output is browsable documentation, not just pass/fail results.
+- LiveDoc supports both [TypeScript/Vitest](/vitest/learn/getting-started) and [C#/xUnit](/xunit/learn/getting-started).
+
+## Next Steps
+
+- **Next in this series**: [BDD Pattern](./bdd-pattern.mdx) — learn the Given/When/Then structure for behavior-driven specifications
+- **Jump to code**: [Vitest Getting Started](/vitest/learn/getting-started) or [xUnit Getting Started](/xunit/learn/getting-started)

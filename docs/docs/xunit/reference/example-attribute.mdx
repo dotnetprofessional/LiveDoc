@@ -1,0 +1,317 @@
+---
+sidebar_position: 5
+description: "Complete reference for the [Example] attribute — parameter matching, multiple examples, dynamic Example property, typed access, and placeholder replacement."
+---
+
+# `[Example]` Attribute
+
+<p className="intro">
+The `[Example]` attribute provides data rows for `[ScenarioOutline]` and
+`[RuleOutline]` tests. It inherits from xUnit's `DataAttribute`, so each
+`[Example]` produces a separate test case with typed method parameters.
+</p>
+
+```csharp
+[ScenarioOutline]
+[Example("Australia", 100.00, "Free")]
+[Example("Australia", 49.99, "Standard")]
+[Example("New Zealand", 200.00, "International")]
+public void Calculate_shipping(string country, decimal total, string expectedType)
+{
+    Given("a customer from <country>", () =>
+    {
+        _cart = new ShoppingCart { Country = country };
+    });
+
+    When("the order totals <total>", () =>
+    {
+        _cart.Total = total;
+        _cart.Calculate();
+    });
+
+    Then("shipping type is <expectedType>", () =>
+    {
+        Assert.Equal(expectedType, _cart.ShippingType);
+    });
+}
+```
+
+---
+
+## Reference {#reference}
+
+### `[Example(params object[] data)]` {#constructor}
+
+```csharp
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+public class ExampleAttribute : DataAttribute
+```
+
+Provides one row of test data. Parameters are matched **by position** to the method's parameters and automatically type-converted by xUnit.
+
+#### Parameters {#parameters}
+
+- **`data`**: `params object[]` — The data values for this example row. Each value maps positionally to the corresponding method parameter.
+
+```csharp
+[Example("Alice", 30, true)]
+//        ↓       ↓   ↓
+public void Method(string name, int age, bool active) { }
+```
+
+#### Caveats {#caveats}
+
+- The number of values in `[Example]` **must match** the number of method parameters. A mismatch causes a runtime error.
+- Attribute arguments must be compile-time constants (`string`, `int`, `double`, `bool`, `typeof(...)`, enums). Complex objects cannot be passed directly.
+- For `decimal` parameters, use `double` in the attribute and xUnit will convert: `[Example(99.99)]` with parameter `decimal total`.
+
+---
+
+## Usage {#usage}
+
+### Basic: Multiple examples {#basic-usage}
+
+Each `[Example]` generates a separate test case in Test Explorer:
+
+```csharp
+[Specification("Math")]
+public class MathSpec : SpecificationTest
+{
+    public MathSpec(ITestOutputHelper output) : base(output) { }
+
+    [RuleOutline("Adding '<a>' and '<b>' returns '<result>'")]
+    [Example(1, 2, 3)]
+    [Example(0, 0, 0)]
+    [Example(-5, 5, 0)]
+    [Example(100, 200, 300)]
+    public void Addition(int a, int b, int result)
+    {
+        Assert.Equal(result, a + b);
+    }
+}
+```
+
+**Test Explorer shows:**
+```
+📁 MathSpec
+  ✅ Addition(a: 1, b: 2, result: 3)
+  ✅ Addition(a: 0, b: 0, result: 0)
+  ✅ Addition(a: -5, b: 5, result: 0)
+  ✅ Addition(a: 100, b: 200, result: 300)
+```
+
+### Parameter matching by position {#positional-matching}
+
+Values are matched strictly by position — the first `[Example]` argument maps to the first method parameter, the second to the second, and so on:
+
+```csharp
+[ScenarioOutline]
+[Example("Premium", 0.20, true)]
+//        ↓ pos 0   ↓ pos 1  ↓ pos 2
+public void Discount_rules(string tier, double rate, bool freeShipping)
+{
+    Given("a <tier> customer", () =>
+    {
+        _customer = new Customer { Tier = tier };
+    });
+
+    Then("discount rate is <rate>", () =>
+    {
+        Assert.Equal(rate, _customer.DiscountRate);
+    });
+
+    And("free shipping is <freeShipping>", () =>
+    {
+        Assert.Equal(freeShipping, _customer.HasFreeShipping);
+    });
+}
+```
+
+### Dynamic `Example` property {#example-dynamic}
+
+Inside `[ScenarioOutline]` and `[RuleOutline]` methods, the `Example` property on the base class provides dynamic access to the current row's data by column name:
+
+```csharp
+[ScenarioOutline]
+[Example("Alice", 25)]
+[Example("Bob", 30)]
+public void User_creation(string name, int age)
+{
+    Given("a user named <name> aged <age>", () =>
+    {
+        // Dynamic access via Example property
+        string userName = Example.name;    // "Alice" or "Bob"
+        int userAge = (int)Example.age;    // 25 or 30
+
+        _user = new User(userName, userAge);
+    });
+
+    Then("the user is created", () =>
+    {
+        Assert.NotNull(_user);
+    });
+}
+```
+
+:::info Dynamic vs. typed access
+The `Example` property uses `dynamic`, which skips compile-time type checking. Method parameters provide **typed** access and are generally preferred. Use `Example.ColumnName` when you need dynamic access inside steps that don't have direct parameter scope.
+:::
+
+### Typed access via method parameters {#typed-access}
+
+Method parameters are the recommended way to access example data — they're compile-time safe and benefit from IntelliSense:
+
+```csharp
+[RuleOutline]
+[Example("test@example.com", true)]
+[Example("not-an-email", false)]
+[Example("user@.com", false)]
+public void Email_validation(string email, bool isValid)
+{
+    // Direct typed access — no casting needed
+    var result = EmailValidator.IsValid(email);
+    Assert.Equal(isValid, result);
+}
+```
+
+### Placeholder replacement in titles {#placeholder-replacement}
+
+In step titles and rule titles, `<parameterName>` segments are replaced with the current example's values in the formatted output:
+
+```csharp
+[ScenarioOutline("Validate <input> returns <expected>")]
+[Example("hello", "HELLO")]
+[Example("world", "WORLD")]
+public void Uppercase_conversion(string input, string expected)
+{
+    When("converting <input> to uppercase", () =>
+    {
+        _result = input.ToUpper();
+    });
+
+    Then("the result is <expected>", () =>
+    {
+        Assert.Equal(expected, _result);
+    });
+}
+```
+
+**Formatted output for first example:**
+```
+Scenario Outline: Validate hello returns HELLO
+  When converting hello to uppercase
+  Then the result is HELLO
+
+  ✓ 2 passing (3ms)
+```
+
+### Method name placeholders (`_ALLCAPS`) {#method-name-placeholders}
+
+When no explicit title is provided, `_ALLCAPS` segments in the method name become `<placeholder>` markers matched to method parameters:
+
+```csharp
+[ScenarioOutline]
+[Example("Australia", 100.00, "Free")]
+[Example("New Zealand", 50.00, "Standard")]
+public void Shipping_for_COUNTRY_totalling_TOTAL_is_TYPE(
+    string country, decimal total, string type)
+{
+    Given("a customer from <country>", () =>
+    {
+        _cart.Country = country;
+    });
+
+    When("the order totals <total>", () =>
+    {
+        _cart.Total = total;
+    });
+
+    Then("shipping is <type>", () =>
+    {
+        Assert.Equal(type, _cart.ShippingType);
+    });
+}
+// Display: "Shipping for 'Australia' totalling '100.00' is 'Free'"
+```
+
+**Matching rules:**
+- `_COUNTRY` matches parameter `country` (case-insensitive)
+- Unmatched ALLCAPS segments remain as literal text
+
+### Mixed types {#mixed-types}
+
+`[Example]` supports all types valid in C# attribute arguments:
+
+```csharp
+[RuleOutline]
+[Example("active", true, 42, 3.14)]
+[Example("inactive", false, 0, 0.0)]
+public void Status_check(string status, bool isActive, int count, double rate)
+{
+    // All parameters are strongly typed by xUnit
+    Assert.Equal(isActive, status == "active");
+}
+```
+
+| C# Type | Example Literal | Notes |
+|---------|-----------------|-------|
+| `string` | `"hello"` | Most common |
+| `int` | `42` | |
+| `long` | `42L` | |
+| `double` | `3.14` | |
+| `float` | `3.14f` | |
+| `bool` | `true`, `false` | |
+| `char` | `'x'` | |
+| `Type` | `typeof(string)` | |
+| `enum` | `MyEnum.Value` | Named enum values |
+
+:::caution Decimal values
+C# attributes do not support `decimal` literals. Use `double` in the `[Example]` and declare the parameter as `decimal` — xUnit handles the conversion.
+:::
+
+---
+
+## Troubleshooting {#troubleshooting}
+
+### Parameter count mismatch {#param-count-mismatch}
+
+If you see `System.InvalidOperationException: The test method expected N parameter values, but M parameter values were provided`, the number of values in `[Example]` doesn't match the method's parameter count.
+
+**Solution**: Ensure every `[Example]` has the same number of arguments as the method has parameters.
+
+```csharp
+// ❌ Mismatch: 2 values, 3 parameters
+[Example("Alice", 25)]
+public void Test(string name, int age, bool active) { }
+
+// ✅ Fixed: 3 values, 3 parameters
+[Example("Alice", 25, true)]
+public void Test(string name, int age, bool active) { }
+```
+
+### Placeholders not replaced in output {#placeholder-not-replaced}
+
+If `<paramName>` appears literally in the output instead of being replaced, verify that the placeholder name matches a method parameter name exactly (case-insensitive).
+
+```csharp
+// ❌ Mismatch: <region> vs parameter "country"
+[ScenarioOutline]
+[Example("Australia")]
+public void Test(string country)
+{
+    Given("a customer from <region>", () => { }); // Won't replace
+}
+
+// ✅ Fixed: <country> matches parameter "country"
+Given("a customer from <country>", () => { });
+```
+
+---
+
+## See Also {#see-also}
+
+- [Attributes](./attributes.mdx) — all LiveDoc attributes overview
+- [`FeatureTest`](./feature-test.mdx) — `[ScenarioOutline]` usage with `FeatureTest`
+- [`SpecificationTest`](./specification-test.mdx) — `[RuleOutline]` usage with `SpecificationTest`
+- [Value Extraction API](./value-extraction-api.mdx) — extracting values from step/rule titles
+- [Scenario Outlines](../learn/scenario-outlines.mdx) — tutorial on data-driven tests

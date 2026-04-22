@@ -1,0 +1,213 @@
+---
+sidebar_position: 10
+description: "Set up the LiveDoc development environment, understand the project structure, and contribute changes."
+---
+
+# How to Contribute
+
+<p className="intro">
+This guide walks you through setting up the LiveDoc development environment,
+understanding the project structure, and submitting changes. By the end,
+you'll be ready to fix bugs, add features, or improve documentation.
+</p>
+
+:::info Prerequisites
+- Git
+- Node.js 18+
+- pnpm (`npm install -g pnpm`)
+:::
+
+## Overview
+
+LiveDoc is a pnpm monorepo. The core Vitest integration lives in
+`packages/vitest`. Tests are written using LiveDoc itself (dogfooding). All
+test files end in `.Spec.ts`.
+
+## Step 1: Clone and Install
+
+```bash
+git clone https://github.com/dotnetprofessional/LiveDoc.git
+cd livedoc
+pnpm install
+```
+
+## Step 2: Build the Package
+
+```bash
+pnpm --filter @swedevtools/livedoc-vitest build
+```
+
+## Step 3: Run Tests
+
+```bash
+# Run all specs
+pnpm --filter @swedevtools/livedoc-vitest test
+
+# Run a specific spec file
+pnpm --filter @swedevtools/livedoc-vitest test -- --testPathPattern="Feature"
+
+# Watch mode
+pnpm --filter @swedevtools/livedoc-vitest test -- --watch
+```
+
+## Step 4: Understand the Project Structure
+
+```
+packages/vitest/
+├── _src/
+│   ├── app/                # Core implementation
+│   │   ├── livedoc.ts      # DSL functions (feature, scenario, etc.)
+│   │   ├── parser/         # Title and data parsing
+│   │   ├── model/          # Data structures (Feature, Scenario, Step)
+│   │   └── reporter/       # Output formatters
+│   └── test/               # Specs for the package itself
+├── docs/                   # Source documentation
+├── dist/                   # Build output
+└── package.json
+```
+
+Key files:
+
+| File | Purpose |
+| ---- | ------- |
+| `_src/app/livedoc.ts` | DSL functions (`feature`, `scenario`, `given`, etc.) |
+| `_src/app/index.ts` | Public exports |
+| `_src/app/setup.ts` | Global registration for globals mode |
+| `_src/app/globals.d.ts` | TypeScript declarations for globals |
+| `_src/app/model/` | Data model classes |
+| `_src/app/reporter/` | Reporter implementations |
+
+## Step 5: Make Your Changes
+
+1. Create a feature branch: `git checkout -b feature/my-feature`
+2. Make your changes in `_src/app/`
+3. Add or update tests in `_src/test/`
+4. Run tests: `pnpm --filter @swedevtools/livedoc-vitest test`
+5. Build: `pnpm --filter @swedevtools/livedoc-vitest build`
+
+## Complete Example: Adding a DSL Feature
+
+If adding a new keyword or modifying DSL behavior:
+
+1. **Update `livedoc.ts`** — add or modify the function
+2. **Update `index.ts`** — export it
+3. **Update `setup.ts`** — register on `globalThis` (if applicable)
+4. **Update `globals.d.ts`** — add the TypeScript declaration
+5. **Add tests** — cover happy path and edge cases
+6. **Update docs** — document the new feature
+
+Example test (LiveDoc specs use LiveDoc):
+
+```typescript
+// _src/test/MyFeature.Spec.ts
+import { feature, scenario, given, when, Then as then } from '../app/livedoc';
+
+feature(`My New Feature
+    @core
+    Tests for the newly added DSL keyword.
+    `, () => {
+
+  scenario("Basic usage works correctly", () => {
+    given("a spec using the new keyword", () => {
+      // setup
+    });
+
+    when("the spec is executed", () => {
+      // action
+    });
+
+    then("the expected behavior occurs", () => {
+      // assertion
+      expect(true).toBe(true);
+    });
+  });
+});
+```
+
+## Common Variations
+
+### Writing Tests — Key Guidelines
+
+1. **Embed test data in step titles** (LiveDoc's core practice):
+   ```typescript
+   // ✅ Good — self-documenting
+   given("a user with '$100' balance", (ctx) => {
+     const balance = ctx.step.values[0];
+   });
+
+   // ❌ Avoid — hidden values
+   given("a user with balance", () => {
+     const balance = 100;
+   });
+   ```
+
+2. **One concept per scenario** — keep scenarios focused
+3. **Descriptive scenario names** — describe the behavior, not the test
+
+### Code Style
+
+- **TypeScript strict mode** — no `any` unless absolutely necessary
+- **Meaningful names** — `createStepFunction` not `csf`
+- **Comments for "why"** — code shows "what", comments explain "why"
+
+### Running the Viewer During Development
+
+```powershell
+# Start the viewer for visual testing
+./scripts/start-viewer.ps1 -KillStale
+
+# Start the LiveDoc server
+./scripts/start-livedoc-server.ps1 -KillStale
+```
+
+## Submitting a Pull Request
+
+1. Ensure tests pass: `pnpm --filter @swedevtools/livedoc-vitest test`
+2. Ensure build succeeds: `pnpm --filter @swedevtools/livedoc-vitest build`
+3. Push your branch and open a PR with:
+   - Clear description of **what** changed and **why**
+   - Link to any related issues
+   - Screenshots if UI-related
+
+### PR Checklist
+
+- [ ] Tests added or updated
+- [ ] Documentation updated (if applicable)
+- [ ] Build passes
+- [ ] No new TypeScript errors
+- [ ] Test data embedded in step titles (self-documenting)
+
+## Reporting Bugs
+
+Open an issue with:
+
+1. **What you expected** to happen
+2. **What happened instead**
+3. **Steps to reproduce**
+4. **Your environment** (Node version, OS, Vitest version)
+5. **Minimal reproduction** (if possible)
+
+## Feature Requests
+
+Open an issue with:
+
+1. **The problem** you're trying to solve
+2. **Your proposed solution**
+3. **Alternatives** you considered
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| `pnpm install` fails | Wrong pnpm version | Install latest pnpm: `npm install -g pnpm` |
+| Build errors | Missing dependencies | Run `pnpm install` from the repo root |
+| Tests fail after changes | Regression in DSL code | Check the specific failure — compare with the Mocha reference in `_archive/livedoc-mocha` |
+| Import errors in tests | Wrong import path | Tests import from `../app/livedoc`, not from the package name |
+| Viewer not connecting | Server not running | Use `./scripts/start-viewer.ps1 -KillStale` |
+
+## Related
+
+- [Setup: Explicit Imports](./setup-imports.mdx) — how end-users configure the package
+- [Custom Reporters](./custom-reporters.mdx) — extending the reporter system
+- [Best Practices](./best-practices.mdx) — writing quality specs
+- [Migration from Mocha](./migration-from-mocha.mdx) — understanding the legacy codebase

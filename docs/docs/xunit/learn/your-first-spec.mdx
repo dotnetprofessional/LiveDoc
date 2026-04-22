@@ -1,0 +1,373 @@
+---
+sidebar_position: 3
+title: "Your First Specification"
+description: "Learn the Specification/Rule pattern for concise unit tests — direct assertions, value extraction with Rule.Values, and data-driven RuleOutlines."
+---
+
+# Your First Specification
+
+<p className="intro">
+Not every test needs the ceremony of Given / When / Then. The
+<strong>Specification pattern</strong> gives you a lighter-weight alternative
+for unit tests — direct assertions in compact rules, with the same
+self-documenting value extraction.
+</p>
+
+## When to Use Specification vs BDD
+
+| Aspect | BDD (`[Feature]` / `[Scenario]`) | Specification (`[Specification]` / `[Rule]`) |
+| --- | --- | --- |
+| **Audience** | Business + Technical | Technical |
+| **Verbosity** | Higher (Given/When/Then steps) | Lower (direct assertions) |
+| **Best for** | User stories, workflows, acceptance tests | Unit tests, algorithms, edge cases |
+| **Data-driven** | `[ScenarioOutline]` + `[Example]` | `[RuleOutline]` + `[Example]` |
+| **Collaboration** | Discovery workshops, BDD sessions | Code reviews, developer specs |
+
+:::tip Mix and match
+You can use both patterns in the same project. Use `[Feature]` for acceptance
+tests where stakeholders need to read the output, and `[Specification]` for
+developer-focused unit tests.
+:::
+
+---
+
+## Step 1: Create a Specification Class
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace MyProject.Tests.Math;
+
+[Specification("Calculator Operations", Description = @"
+    Core arithmetic rules for the calculator module.
+    Uses the specification pattern for clean unit tests.
+")]
+public class CalculatorSpec : SpecificationTest
+{
+    public CalculatorSpec(ITestOutputHelper output) : base(output)
+    {
+    }
+}
+```
+
+The structure mirrors `FeatureTest`:
+- **`[Specification]`** instead of `[Feature]`
+- **`SpecificationTest`** base class instead of `FeatureTest`
+- Same constructor pattern with `ITestOutputHelper`
+
+---
+
+## Step 2: Write Simple Rules
+
+A `[Rule]` is the Specification equivalent of a `[Scenario]` — but without
+step methods. Write assertions directly:
+
+```csharp
+[Rule]
+public void Adding_positive_numbers_works()
+{
+    var result = Add(5, 3);
+    Assert.Equal(8, result);
+}
+
+[Rule]
+public void Multiplying_by_zero_returns_zero()
+{
+    var result = Multiply(100, 0);
+    Assert.Equal(0, result);
+}
+
+[Rule("Division by zero throws DivideByZeroException")]
+public void Division_by_zero_throws()
+{
+    Assert.Throws<DivideByZeroException>(() => Divide(10, 0));
+}
+
+private static int Add(int a, int b) => a + b;
+private static int Multiply(int a, int b) => a * b;
+private static int Divide(int a, int b) => a / b;
+```
+
+The formatted output reads like a specification document:
+
+```
+Specification: Calculator Operations
+
+  ✓ Adding positive numbers works
+  ✓ Multiplying by zero returns zero
+  ✓ Division by zero throws DivideByZeroException
+
+  ✓ 3 passing (8ms)
+```
+
+:::info Attribute titles
+When you pass a string to `[Rule("...")]`, it becomes the display name. When
+you omit it, the method name is used (with underscores converted to spaces).
+:::
+
+---
+
+## Step 3: Extract Values with Rule.Values
+
+Just like BDD steps use `ctx.Step.Values`, rules use `Rule.Values` to extract
+quoted values from the rule title. This keeps the specification self-documenting:
+
+```csharp
+[Rule("Adding '5' and '3' returns '8'")]
+public void Add_with_values()
+{
+    var (a, b, expected) = Rule.Values.As<int, int, int>();
+    Assert.Equal(expected, Add(a, b));
+}
+```
+
+The title tells the reader exactly what's being tested. The implementation
+extracts the values from the title — so they can never drift apart.
+
+### Individual Value Access
+
+```csharp
+[Rule("Multiplying '7' by '6' returns '42'")]
+public void Multiply_with_individual_access()
+{
+    var a = Rule.Values[0].AsInt();       // 7
+    var b = Rule.Values[1].AsInt();       // 6
+    var expected = Rule.Values[2].AsInt(); // 42
+    Assert.Equal(expected, Multiply(a, b));
+}
+```
+
+---
+
+## Step 4: Use Named Parameters with Rule.Params
+
+For more readable tests, use named parameters with the `<name:value>` syntax:
+
+```csharp
+[Rule("Subtracting <b:3> from <a:10> returns <expected:7>")]
+public void Subtract_with_named_params()
+{
+    var a = Rule.Params["a"].AsInt();
+    var b = Rule.Params["b"].AsInt();
+    var expected = Rule.Params["expected"].AsInt();
+    Assert.Equal(expected, a - b);
+}
+```
+
+In the formatted output, named parameters display with just their values:
+
+```
+  ✓ Subtracting 3 from 10 returns 7
+```
+
+Named parameters are **case-insensitive** — `Rule.Params["A"]` and
+`Rule.Params["a"]` access the same value.
+
+---
+
+## Step 5: Data-Driven Rules with RuleOutline
+
+When you need to test multiple input combinations, use `[RuleOutline]` with
+`[Example]` attributes — the Specification equivalent of `[ScenarioOutline]`:
+
+```csharp
+[RuleOutline("Adding '<a>' and '<b>' returns '<result>'")]
+[Example(1, 2, 3)]
+[Example(5, 5, 10)]
+[Example(100, 0, 100)]
+[Example(-5, 5, 0)]
+public void Addition_examples(int a, int b, int result)
+{
+    Assert.Equal(result, Add(a, b));
+}
+```
+
+Each `[Example]` creates a separate test run. The output shows every combination:
+
+```
+Specification: Calculator Operations
+
+  Rule Outline: Adding '<a>' and '<b>' returns '<result>'
+    ✓ Adding '1' and '2' returns '3'
+    ✓ Adding '5' and '5' returns '10'
+    ✓ Adding '100' and '0' returns '100'
+    ✓ Adding '-5' and '5' returns '0'
+```
+
+:::caution Parameter count must match
+The number of values in each `[Example(...)]` must match the number of method
+parameters. A mismatch causes a compile-time error.
+:::
+
+---
+
+## Step 6: Method Name Placeholders
+
+When you don't provide a display name, `_ALLCAPS` segments in the method name
+become placeholders matched to parameters:
+
+```csharp
+[RuleOutline]
+[Example(10, 2, 5)]
+[Example(100, 10, 10)]
+[Example(7, 1, 7)]
+public void Dividing_A_by_B_returns_RESULT(int a, int b, int result)
+{
+    Assert.Equal(result, Divide(a, b));
+}
+```
+
+The output replaces the placeholders with actual values:
+
+```
+  ✓ Dividing '10' by '2' returns '5'
+  ✓ Dividing '100' by '10' returns '10'
+```
+
+Rules for method name placeholders:
+- `_ALLCAPS` segments match parameter names case-insensitively
+- `_A` matches parameter `a`, `A`, or `_a`
+- Unmatched segments remain as literal text
+
+---
+
+## Complete Example: Email Validation
+
+Here's a complete specification for email validation, showing all the patterns
+together:
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace MyProject.Tests.Validation;
+
+[Specification("Email Validation Rules", Description = @"
+    Rules for validating email addresses across different formats.
+    Includes edge cases for international domains and special characters.
+")]
+public class EmailValidationSpec : SpecificationTest
+{
+    public EmailValidationSpec(ITestOutputHelper output) : base(output)
+    {
+    }
+
+    [Rule("Empty emails are always invalid")]
+    public void Empty_email_is_invalid()
+    {
+        Assert.False(IsValidEmail(""));
+        Assert.False(IsValidEmail(null!));
+    }
+
+    [Rule("Email '<email:user@example.com>' is valid")]
+    public void Standard_email_is_valid()
+    {
+        var email = Rule.Params["email"].AsString();
+        Assert.True(IsValidEmail(email));
+    }
+
+    [RuleOutline("Email '<email>' is <validity>")]
+    [Example("test@example.com", "valid")]
+    [Example("user.name@domain.org", "valid")]
+    [Example("invalid-email", "invalid")]
+    [Example("@nodomain.com", "invalid")]
+    [Example("spaces in@email.com", "invalid")]
+    public void Email_validation(string email, string validity)
+    {
+        var isValid = IsValidEmail(email);
+        var expected = validity == "valid";
+        Assert.Equal(expected, isValid);
+    }
+
+    private static bool IsValidEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 0 || atIndex >= email.Length - 1) return false;
+        if (email.Contains(' ')) return false;
+        return true;
+    }
+}
+```
+
+---
+
+## Quick Comparison
+
+Here's the same test written both ways, so you can see when each pattern shines:
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="spec" label="Specification (concise)" default>
+    ```csharp
+    [Specification("Addition")]
+    public class AdditionSpec : SpecificationTest
+    {
+        public AdditionSpec(ITestOutputHelper output) : base(output) { }
+
+        [Rule("Adding '2' and '3' returns '5'")]
+        public void Two_plus_three()
+        {
+            var (a, b, expected) = Rule.Values.As<int, int, int>();
+            Assert.Equal(expected, a + b);
+        }
+    }
+    ```
+  </TabItem>
+  <TabItem value="bdd" label="BDD (descriptive)">
+    ```csharp
+    [Feature("Addition")]
+    public class AdditionTests : FeatureTest
+    {
+        public AdditionTests(ITestOutputHelper output) : base(output) { }
+
+        [Scenario("Adding two positive numbers")]
+        public void Two_plus_three()
+        {
+            int result = 0;
+            Given("the first number is '2'", ctx =>
+            {
+                result = ctx.Step!.Values[0].AsInt();
+            });
+            When("I add '3'", ctx =>
+            {
+                result += ctx.Step!.Values[0].AsInt();
+            });
+            Then("the result is '5'", ctx =>
+            {
+                Assert.Equal(ctx.Step!.Values[0].AsInt(), result);
+            });
+        }
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+Both produce living documentation. Choose based on your audience and how much
+context the reader needs.
+
+---
+
+## Recap
+
+- **`[Specification]`** — class-level attribute for the spec container, with optional `Description`
+- **`[Rule]`** — method-level, inherits `[Fact]`, for single assertions
+- **`[RuleOutline]`** + `[Example]` — data-driven rules, inherits `[Theory]`
+- **`Rule.Values`** — extract quoted values from rule titles
+- **`Rule.Params`** — extract named `<key:value>` parameters
+- **Method name placeholders** — `_ALLCAPS` segments auto-map to parameters
+- **`SpecificationTest`** — base class, same constructor pattern as `FeatureTest`
+
+---
+
+## Next Steps
+
+- **Next in this series**: [Value Extraction](./value-extraction.mdx) — the complete guide to `Values`, `Params`, type coercion, and error handling
+- **Deep dive**: [SpecificationTest Reference](../reference/specification-test.mdx) — full API for the Specification base class
+- **Deep dive**: [Value Extraction API](../reference/value-extraction-api.mdx) — exhaustive reference for LiveDocValue
+- **Practical use**: [Debugging](../guides/debugging.mdx) — step through tests with F11

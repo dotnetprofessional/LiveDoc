@@ -1,0 +1,366 @@
+---
+sidebar_position: 4
+title: "Best Practices"
+description: "Patterns and conventions for writing clean, maintainable LiveDoc xUnit tests — from namespace organization to self-documenting titles."
+---
+
+# Best Practices
+
+<p className="intro">
+This guide covers the conventions and patterns that make LiveDoc xUnit
+tests readable, maintainable, and useful as living documentation. Follow
+these practices to get the most out of the framework.
+</p>
+
+---
+
+## Namespace Organization for Report Hierarchy {#namespace-organization}
+
+The C# namespace of each test class determines its position in the
+LiveDoc Viewer tree. The reporter strips the assembly name prefix and
+converts namespace segments into a folder-like hierarchy.
+
+### Recommended Structure
+
+```
+MyApp.Tests/
+├── Checkout/                    → "Checkout" node in viewer
+│   ├── CartTests.cs             → Checkout/CartTests.cs
+│   └── PaymentTests.cs          → Checkout/PaymentTests.cs
+├── Shipping/                    → "Shipping" node in viewer
+│   └── ShippingCostsTests.cs    → Shipping/ShippingCostsTests.cs
+└── Auth/                        → "Auth" node in viewer
+    ├── LoginTests.cs            → Auth/LoginTests.cs
+    └── RegistrationTests.cs     → Auth/RegistrationTests.cs
+```
+
+```csharp
+// ✅ GOOD: Grouped by domain area
+namespace MyApp.Tests.Checkout;
+
+[Feature("Shopping Cart")]
+public class CartTests : FeatureTest { ... }
+```
+
+```csharp
+// ❌ BAD: Flat namespace produces a flat, hard-to-navigate list
+namespace MyApp.Tests;
+
+[Feature("Shopping Cart")]
+public class CartTests : FeatureTest { ... }
+```
+
+:::tip
+Mirror your domain boundaries — align namespace segments with bounded
+contexts or feature areas. This produces a viewer tree that maps to how
+your team talks about the system.
+:::
+
+---
+
+## Self-Documenting Test Titles {#self-documenting-titles}
+
+The core principle of living documentation: **all test inputs and expected
+outputs must be visible in step titles**. A reader should understand what
+a test does without reading the implementation.
+
+```csharp
+// ✅ GOOD: Values in titles, extracted via context
+[Scenario]
+public void Free_shipping_for_orders_over_100()
+{
+    Given("the customer is from 'Australia'", ctx =>
+    {
+        _cart.Country = ctx.Step!.Values[0].AsString();
+    });
+
+    When("the order totals '100.00' dollars", ctx =>
+    {
+        _cart.Total = ctx.Step!.Values[0].AsDecimal();
+        _cart.Calculate();
+    });
+
+    Then("shipping type is 'Free'", ctx =>
+    {
+        Assert.Equal(ctx.Step!.Values[0].AsString(), _cart.ShippingType);
+    });
+}
+```
+
+```csharp
+// ❌ BAD: Values hidden inside code — not living documentation
+[Scenario]
+public void Free_shipping()
+{
+    Given("the customer is from their country", () =>
+    {
+        _cart.Country = "Australia";  // What country? Title doesn't say
+    });
+
+    Then("shipping is correct", () =>
+    {
+        Assert.Equal("Free", _cart.ShippingType);  // What's "correct"?
+    });
+}
+```
+
+---
+
+## Use the Description Attribute {#descriptions}
+
+Add `Description` to container attributes (`[Feature]`, `[Specification]`)
+and optionally to test attributes. Descriptions appear in the formatted
+output and viewer, providing context that is otherwise lost.
+
+```csharp
+[Feature("Shopping Cart", Description = @"
+    Business rules for the shopping cart checkout flow.
+    Covers GST calculation, shipping tiers, and discount codes.")]
+public class CartTests : FeatureTest
+{
+    public CartTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario(Description = "Validates that Australian orders over $100 receive free shipping")]
+    public void Free_shipping_in_Australia() { ... }
+}
+```
+
+```csharp
+[Specification("Email Validation", Description = @"
+    Rules for validating email addresses across common formats.
+    Includes edge cases for international domains.")]
+public class EmailSpec : SpecificationTest
+{
+    public EmailSpec(ITestOutputHelper output) : base(output) { }
+}
+```
+
+---
+
+## Choosing BDD vs. Specification {#bdd-vs-specification}
+
+LiveDoc supports two patterns. Choose based on your audience and the
+type of behavior you're testing:
+
+| Aspect          | BDD / Gherkin                          | Specification / MSpec                  |
+| --------------- | -------------------------------------- | -------------------------------------- |
+| **Base class**  | `FeatureTest`                          | `SpecificationTest`                    |
+| **Attributes**  | `[Feature]`, `[Scenario]`              | `[Specification]`, `[Rule]`            |
+| **Audience**    | Business + Technical                   | Technical                              |
+| **Best for**    | User journeys, acceptance tests        | Unit rules, edge cases, algorithms     |
+| **Verbosity**   | Higher (Given/When/Then steps)         | Lower (direct assertions)             |
+| **Data-driven** | `[ScenarioOutline]` + `[Example]`      | `[RuleOutline]` + `[Example]`          |
+
+### Use BDD when stakeholders will read the tests
+
+```csharp
+[Feature("User Registration")]
+public class RegistrationTests : FeatureTest
+{
+    [Scenario]
+    public void Successful_registration()
+    {
+        Given("a new user with email 'alice@example.com'", ctx => { ... });
+        When("they submit the registration form", () => { ... });
+        Then("the account is created", () => { ... });
+        And("a welcome email is sent to 'alice@example.com'", ctx => { ... });
+    }
+}
+```
+
+### Use Specification when tests are developer-focused
+
+```csharp
+[Specification("Calculator Operations", Description = "Core arithmetic rules")]
+public class CalculatorSpec : SpecificationTest
+{
+    public CalculatorSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("Adding '5' and '3' returns '8'")]
+    public void Addition()
+    {
+        var (a, b, expected) = Rule.Values.As<int, int, int>();
+        Assert.Equal(expected, a + b);
+    }
+
+    [RuleOutline("Dividing '<a>' by '<b>' returns '<result>'")]
+    [Example(10, 2, 5)]
+    [Example(100, 10, 10)]
+    public void Division(int a, int b, int result)
+    {
+        Assert.Equal(result, a / b);
+    }
+}
+```
+
+:::tip
+You can mix both patterns in the same project. Use `[Feature]` for
+acceptance tests and `[Specification]` for unit/component tests.
+:::
+
+---
+
+## Value Extraction Over Hardcoding {#value-extraction}
+
+Never hardcode values inside step implementations that are already
+present in the title. Always extract them using the context APIs to
+prevent **value drift** — where the title says one thing but the code
+tests another.
+
+```csharp
+// ✅ CORRECT: Values extracted from context
+Then("the balance should be '300' dollars", ctx =>
+{
+    Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _account.Balance);
+});
+
+// ✅ ALSO CORRECT: Named parameters
+Then("the balance should be <expected:300> dollars", ctx =>
+{
+    Assert.Equal(ctx.Step!.Params["expected"].AsDecimal(), _account.Balance);
+});
+
+// ❌ WRONG: Value drift risk — title says 300, code checks 200
+Then("the balance should be '300' dollars", ctx =>
+{
+    Assert.Equal(200m, _account.Balance);  // BUG: title and code disagree
+});
+```
+
+For `ScenarioOutline` and `RuleOutline`, use method parameters — they're
+automatically injected from `[Example]` data:
+
+```csharp
+[ScenarioOutline]
+[Example("Australia", 100.00, "Free")]
+public void Shipping(string country, decimal total, string expected)
+{
+    // ✅ Parameters are typed and injected — no manual extraction needed
+    Then("shipping type is <expected>", () =>
+    {
+        Assert.Equal(expected, _cart.ShippingType);
+    });
+}
+```
+
+---
+
+## Test Isolation {#test-isolation}
+
+Each xUnit test class is instantiated per test method. Use the
+constructor for shared setup and ensure each test is independent:
+
+```csharp
+[Feature("Order Processing")]
+public class OrderTests : FeatureTest
+{
+    private readonly OrderService _service;
+    private Order _order = null!;
+
+    public OrderTests(ITestOutputHelper output) : base(output)
+    {
+        // Runs before each Scenario — fresh state every time
+        _service = new OrderService();
+    }
+
+    [Scenario]
+    public void Create_new_order()
+    {
+        Given("a valid customer", () => { ... });
+        When("they place an order", () =>
+        {
+            _order = _service.CreateOrder(...);
+        });
+        Then("the order status is 'Pending'", ctx => { ... });
+    }
+}
+```
+
+:::caution
+Avoid shared mutable state across test methods. xUnit creates a new
+class instance per test, but shared static fields or singletons can leak
+state between tests.
+:::
+
+---
+
+## One Assertion Per Rule {#one-assertion}
+
+In the Specification pattern, each `[Rule]` should test a single,
+focused assertion. This produces clear pass/fail reporting and readable
+specification documents.
+
+```csharp
+// ✅ GOOD: One assertion per rule — clear and focused
+[Rule("Adding '2' and '3' returns '5'")]
+public void Addition()
+{
+    var (a, b, expected) = Rule.Values.As<int, int, int>();
+    Assert.Equal(expected, a + b);
+}
+
+[Rule("Adding '0' and '0' returns '0'")]
+public void Addition_identity()
+{
+    var (a, b, expected) = Rule.Values.As<int, int, int>();
+    Assert.Equal(expected, a + b);
+}
+```
+
+```csharp
+// ❌ BAD: Multiple assertions in one rule — unclear which failed
+[Rule("Addition works correctly")]
+public void Addition()
+{
+    Assert.Equal(5, 2 + 3);
+    Assert.Equal(0, 0 + 0);
+    Assert.Equal(-1, -3 + 2);
+}
+```
+
+---
+
+## One Feature Per Class {#one-feature}
+
+Each test class should represent a single feature or specification. This
+keeps files focused and maps cleanly to the viewer's tree structure.
+
+```csharp
+// ✅ GOOD: One feature per class
+[Feature("Shopping Cart", Description = "Rules for adding/removing cart items")]
+public class ShoppingCartTests : FeatureTest { ... }
+
+[Feature("Checkout", Description = "Rules for the checkout payment flow")]
+public class CheckoutTests : FeatureTest { ... }
+```
+
+```csharp
+// ❌ BAD: Multiple features crammed into one class
+[Feature("Shopping")]  // Too broad — what aspect of shopping?
+public class ShoppingTests : FeatureTest
+{
+    // Mixing cart, checkout, and shipping scenarios in one class
+}
+```
+
+---
+
+## Summary Checklist
+
+- [ ] **Namespaces** mirror domain boundaries for clean viewer hierarchy
+- [ ] **Step titles** contain all inputs and expected outputs
+- [ ] **Descriptions** added to `[Feature]` and `[Specification]` attributes
+- [ ] **Values extracted** via `ctx.Step.Values` or `ctx.Step.Params` — never hardcoded
+- [ ] **Constructor** accepts `ITestOutputHelper` and passes to `base(output)`
+- [ ] **One feature/specification** per class
+- [ ] **One assertion** per `[Rule]`
+- [ ] **Pattern chosen** appropriately: BDD for stakeholders, Specification for developers
+
+---
+
+## Related
+
+- [Value Extraction API](../reference/value-extraction-api.mdx) — full reference for `Values` and `Params`
+- [Attributes](../reference/attributes.mdx) — complete attribute reference
+- [Your First Feature](../learn/your-first-feature.mdx) — step-by-step BDD tutorial
+- [Your First Specification](../learn/your-first-spec.mdx) — step-by-step MSpec tutorial

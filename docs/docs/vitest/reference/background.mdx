@@ -1,0 +1,224 @@
+---
+sidebar_position: 4
+title: "background()"
+description: "Shared setup that runs before every scenario in a feature, with optional cleanup via ctx.afterBackground()."
+---
+
+# `background()`
+
+<p className="intro">
+`background` defines shared setup steps that run before **every** scenario in a
+feature. Use it to avoid duplicating common preconditions across scenarios.
+</p>
+
+```typescript
+import { feature, scenario, background, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("User Profile", () => {
+  background("User is logged in", () => {
+    given("a registered user 'Alice'", () => {
+      currentUser = authenticateUser("Alice");
+    });
+  });
+
+  scenario("View profile", () => {
+    when("they visit '/profile'", () => { page = navigate("/profile"); });
+    then("they see their name", () => { expect(page.name).toBe("Alice"); });
+  });
+
+  scenario("Edit profile", () => {
+    when("they update their name to 'Bob'", (ctx) => {
+      currentUser.name = ctx.step.values[0];
+    });
+    then("the name is saved", () => { expect(currentUser.name).toBe("Bob"); });
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `background(title, fn)` {#background}
+
+Registers background steps that execute before each scenario within the enclosing `feature()`.
+
+```typescript
+function background(title: string, fn: (ctx: BackgroundCtx) => void): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — A descriptive title for the background block. Unlike `feature()` and `scenario()`, the title is typically a simple string (not multi-line with tags).
+
+- **`fn`**: `(ctx: BackgroundCtx) => void` — Callback containing step functions and optionally a cleanup handler via `ctx.afterBackground()`. **Must not be `async`**.
+
+#### The `ctx` Parameter {#ctx}
+
+| Property                   | Type                | Description                                         |
+| -------------------------- | ------------------- | --------------------------------------------------- |
+| `ctx.feature`              | `FeatureContext`    | `{ filename, title, description, tags }`            |
+| `ctx.background`           | `BackgroundContext` | `{ title, description, tags }` (extends ScenarioContext) |
+| `ctx.afterBackground(fn)`  | `(fn: () => void) => void` | Register a cleanup function that runs after each scenario |
+
+#### Returns {#returns}
+
+`void` — Backgrounds are registered as side effects.
+
+#### Caveats {#caveats}
+
+- **Not async**: The background callback must be synchronous.
+- A feature should have at most **one** background block.
+- Background steps run before **every** scenario in the feature, including `scenarioOutline` iterations.
+- Each feature gets its own isolated `afterBackground` handler — they don't leak between features.
+- Keep backgrounds short. If setup is complex, extract it into helper functions.
+
+---
+
+## `ctx.afterBackground()` {#afterbackground}
+
+### `ctx.afterBackground(fn)` {#afterbackground-fn}
+
+Registers a cleanup function that runs **after** each scenario in the feature completes. This is the background's teardown mechanism.
+
+```typescript
+ctx.afterBackground(fn: () => void): void
+```
+
+#### Parameters {#afterbackground-params}
+
+- **`fn`**: `() => void` — Cleanup function. Called once after each scenario finishes (whether it passes or fails).
+
+#### Caveats {#afterbackground-caveats}
+
+- Must be called inside the `background()` callback, not inside a step.
+- The cleanup runs after the entire scenario, not after each step.
+- Multiple calls to `ctx.afterBackground()` register multiple cleanup handlers.
+
+---
+
+## Usage {#usage}
+
+### Basic: Shared precondition {#basic-usage}
+
+```typescript
+import { feature, scenario, background, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Shopping Cart", () => {
+  let cart: Cart;
+
+  background("Empty cart exists", () => {
+    given("an empty shopping cart", () => {
+      cart = new Cart();
+    });
+  });
+
+  scenario("Add a single item", () => {
+    when("the user adds 'Widget' to the cart", (ctx) => {
+      cart.add(ctx.step.values[0]);
+    });
+    then("the cart has '1' item", (ctx) => {
+      expect(cart.count).toBe(ctx.step.values[0]);
+    });
+  });
+
+  scenario("Add multiple items", () => {
+    when("the user adds '3' items", (ctx) => {
+      for (let i = 0; i < ctx.step.values[0]; i++) {
+        cart.add(`item-${i}`);
+      }
+    });
+    then("the cart has '3' items", (ctx) => {
+      expect(cart.count).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+### With afterBackground cleanup {#with-cleanup}
+
+```typescript
+import { feature, scenario, background, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Database Tests", () => {
+  let connection: DatabaseConnection;
+
+  background("Database setup", (ctx) => {
+    given("a database connection", () => {
+      connection = openDatabase();
+    });
+
+    // Runs AFTER each scenario completes
+    ctx.afterBackground(() => {
+      connection.rollback();
+      connection.close();
+    });
+  });
+
+  scenario("Insert a record", () => {
+    when("inserting a user named 'Alice'", (ctx) => {
+      connection.insert("users", { name: ctx.step.values[0] });
+    });
+    then("the record exists in the database", () => {
+      expect(connection.count("users")).toBe(1);
+    });
+    // afterBackground runs here → rollback + close
+  });
+
+  scenario("Update a record", () => {
+    when("updating the user's email", () => {
+      connection.update("users", { email: "new@example.com" });
+    });
+    then("the email is updated", () => {
+      expect(connection.find("users", 1).email).toBe("new@example.com");
+    });
+    // afterBackground runs here → rollback + close
+  });
+});
+```
+
+### Multiple given steps in background {#multiple-givens}
+
+```typescript
+import { feature, scenario, background, given, and, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("E-Commerce Checkout", () => {
+  let user: User;
+  let cart: Cart;
+
+  background("User with items in cart", () => {
+    given("a logged-in user 'Alice'", (ctx) => {
+      user = authenticateUser(ctx.step.values[0]);
+    });
+
+    and("the cart contains 'Laptop' priced at '999'", (ctx) => {
+      cart = new Cart(user);
+      cart.add({ name: ctx.step.values[0], price: ctx.step.values[1] });
+    });
+
+    and("the user has a valid payment method", () => {
+      user.paymentMethod = createTestPaymentMethod();
+    });
+  });
+
+  scenario("Complete checkout", () => {
+    when("the user clicks checkout", () => {
+      result = checkout(cart, user);
+    });
+    then("the order is placed", () => {
+      expect(result.success).toBe(true);
+    });
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`feature()`](./feature.mdx) — parent container where backgrounds are defined
+- [`scenario()`](./scenario.mdx) — scenarios that receive the background setup
+- [Steps: `given` / `when` / `then`](./steps.mdx) — step functions used inside backgrounds
+- [Context Object](./context.mdx) — full reference for `ctx.background`

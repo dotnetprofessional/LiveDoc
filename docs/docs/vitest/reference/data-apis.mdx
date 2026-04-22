@@ -1,0 +1,423 @@
+---
+sidebar_position: 10
+title: "Data Extraction APIs"
+description: "Complete reference for extracting data from step and rule titles: quoted values, named params, data tables, entity tables, single-column lists, doc strings, and raw accessors."
+---
+
+# Data Extraction APIs
+
+<p className="intro">
+LiveDoc automatically extracts structured data from step and rule titles — quoted
+values, named parameters, data tables, and doc strings — making your tests both
+self-documenting and data-driven.
+</p>
+
+```typescript
+given("the user has '100' items and active is 'true'", (ctx) => {
+  const [count, isActive] = ctx.step.values;
+  // count = 100 (number), isActive = true (boolean)
+});
+```
+
+---
+
+## Step Data: `ctx.step` {#step-data}
+
+All step data properties are available on `ctx.step` inside `given`, `when`, `then`, `and`, `but`, and `rule` callbacks.
+
+### `ctx.step.values` {#values}
+
+Type-coerced array of values extracted from single-quoted `'...'` strings in the step title.
+
+```typescript
+function get values(): any[]
+```
+
+#### Type Coercion Rules {#coercion-rules}
+
+| Input String   | Coerced Value   | Type      |
+| -------------- | --------------- | --------- |
+| `'42'`         | `42`            | `number`  |
+| `'3.14'`       | `3.14`          | `number`  |
+| `'true'`       | `true`          | `boolean` |
+| `'false'`      | `false`         | `boolean` |
+| `'hello'`      | `"hello"`       | `string`  |
+| `'[1,2,3]'`    | `[1, 2, 3]`    | `array`   |
+| `'2024-01-15'` | `Date` object   | `Date`    |
+
+#### Examples {#values-examples}
+
+```typescript
+// Single value
+given("the cart has '5' items", (ctx) => {
+  const count = ctx.step.values[0]; // 5 (number)
+  expect(count).toBe(5);
+});
+
+// Multiple values
+then("the result of '10' + '20' should be '30'", (ctx) => {
+  const [a, b, expected] = ctx.step.values;
+  // a = 10, b = 20, expected = 30
+  expect(a + b).toBe(expected);
+});
+
+// Mixed types
+given("user 'Alice' has '3' items and premium is 'true'", (ctx) => {
+  const [name, count, isPremium] = ctx.step.values;
+  // name = "Alice" (string), count = 3 (number), isPremium = true (boolean)
+});
+```
+
+### `ctx.step.valuesRaw` {#values-raw}
+
+Raw string array of quoted values before type coercion.
+
+```typescript
+function get valuesRaw(): string[]
+```
+
+```typescript
+given("the price is '42.99'", (ctx) => {
+  ctx.step.values[0];    // 42.99 (number)
+  ctx.step.valuesRaw[0]; // "42.99" (string)
+});
+```
+
+---
+
+### `ctx.step.params` {#params}
+
+Type-coerced object of named parameters extracted from `<name:value>` patterns in the step title.
+
+```typescript
+function get params(): Record<string, any>
+```
+
+Spaces in parameter names are stripped (e.g., `<user name:John>` → `ctx.step.params.username`).
+
+#### Examples {#params-examples}
+
+```typescript
+// Named parameters
+given("a user with <name:Alice> and <age:30>", (ctx) => {
+  ctx.step.params.name; // "Alice" (string)
+  ctx.step.params.age;  // 30 (number)
+});
+
+// Numeric parameters
+when("transferring <amount:250> dollars", (ctx) => {
+  ctx.step.params.amount; // 250 (number)
+});
+
+// Boolean parameters
+given("debug mode is <debug:true>", (ctx) => {
+  ctx.step.params.debug; // true (boolean)
+});
+```
+
+### `ctx.step.paramsRaw` {#params-raw}
+
+Raw string object of named parameters before type coercion.
+
+```typescript
+function get paramsRaw(): Record<string, string>
+```
+
+```typescript
+given("a user with <age:30>", (ctx) => {
+  ctx.step.params.age;    // 30 (number)
+  ctx.step.paramsRaw.age; // "30" (string)
+});
+```
+
+---
+
+### `ctx.step.table` {#table}
+
+Multi-column data table parsed as an array of objects, using the first row as header keys.
+
+```typescript
+function get table(): Record<string, any>[]
+```
+
+#### Example {#table-example}
+
+```typescript
+given(`the following users exist:
+  | name  | email             | role  |
+  | Alice | alice@example.com | admin |
+  | Bob   | bob@example.com   | user  |
+`, (ctx) => {
+  const users = ctx.step.table;
+  // [
+  //   { name: "Alice", email: "alice@example.com", role: "admin" },
+  //   { name: "Bob", email: "bob@example.com", role: "user" }
+  // ]
+
+  expect(users).toHaveLength(2);
+  expect(users[0].name).toBe("Alice");
+  expect(users[0].role).toBe("admin");
+  expect(users[1].email).toBe("bob@example.com");
+});
+```
+
+Values in tables are type-coerced using the same rules as quoted values.
+
+---
+
+### `ctx.step.tableAsEntity` {#table-as-entity}
+
+Two-column table parsed as a single key-value object. The first column provides keys, the second provides values.
+
+```typescript
+function get tableAsEntity(): Record<string, any> | undefined
+```
+
+#### Example {#entity-example}
+
+```typescript
+given(`a product with details:
+  | name  | Widget Pro |
+  | price |      29.99 |
+  | stock |        150 |
+  | active |      true |
+`, (ctx) => {
+  const product = ctx.step.tableAsEntity;
+  // { name: "Widget Pro", price: 29.99, stock: 150, active: true }
+
+  expect(product.name).toBe("Widget Pro");
+  expect(product.price).toBe(29.99);
+  expect(product.stock).toBe(150);
+  expect(product.active).toBe(true);
+});
+```
+
+---
+
+### `ctx.step.tableAsSingleList` {#table-as-single-list}
+
+Single-column table parsed as a flat array.
+
+```typescript
+function get tableAsSingleList(): any[]
+```
+
+#### Example {#single-list-example}
+
+```typescript
+given(`the following status codes:
+  | 200 |
+  | 301 |
+  | 404 |
+  | 500 |
+`, (ctx) => {
+  const codes = ctx.step.tableAsSingleList;
+  // [200, 301, 404, 500]
+
+  expect(codes).toContain(200);
+  expect(codes).toContain(404);
+});
+```
+
+---
+
+### `ctx.step.dataTable` {#data-table}
+
+Raw 2D array of the table data, without header interpretation.
+
+```typescript
+function get dataTable(): any[][]
+```
+
+#### Example {#raw-table-example}
+
+```typescript
+given(`raw data:
+  | name  | age |
+  | Alice |  30 |
+  | Bob   |  25 |
+`, (ctx) => {
+  const raw = ctx.step.dataTable;
+  // [
+  //   ["name", "age"],
+  //   ["Alice", 30],
+  //   ["Bob", 25]
+  // ]
+});
+```
+
+---
+
+### `ctx.step.docString` {#doc-string}
+
+Raw multi-line string content enclosed in triple double-quotes (`"""`).
+
+```typescript
+function get docString(): string
+```
+
+#### Example {#doc-string-example}
+
+```typescript
+when(`the user submits the following markdown:
+  """
+  # Hello World
+
+  This is a **test** document.
+  """
+`, (ctx) => {
+  const markdown = ctx.step.docString;
+  expect(markdown).toContain("# Hello World");
+  expect(markdown).toContain("**test**");
+});
+```
+
+---
+
+### `ctx.step.docStringAsEntity` {#doc-string-as-entity}
+
+Doc string parsed as JSON. Returns `undefined` if the content is not valid JSON.
+
+```typescript
+function get docStringAsEntity(): any | undefined
+```
+
+#### Example {#json-doc-example}
+
+```typescript
+given(`the API request body:
+  """
+  {
+    "name": "Widget",
+    "price": 29.99,
+    "tags": ["featured", "new"]
+  }
+  """
+`, (ctx) => {
+  const body = ctx.step.docStringAsEntity;
+  // { name: "Widget", price: 29.99, tags: ["featured", "new"] }
+
+  expect(body.name).toBe("Widget");
+  expect(body.price).toBe(29.99);
+  expect(body.tags).toContain("featured");
+});
+```
+
+---
+
+## Rule Data: `ctx.rule` {#rule-data}
+
+Rules have their own value extraction via `ctx.rule`, in addition to `ctx.step`.
+
+### `ctx.rule.values` {#rule-values}
+
+Type-coerced array of quoted values from the rule title. Identical coercion rules as `ctx.step.values`.
+
+```typescript
+function get values(): any[]
+```
+
+```typescript
+rule("Adding '5' and '3' returns '8'", (ctx) => {
+  const [a, b, expected] = ctx.rule.values;
+  expect(a + b).toBe(expected);
+});
+```
+
+### `ctx.rule.valuesRaw` {#rule-values-raw}
+
+Raw string array of quoted values from the rule title.
+
+```typescript
+function get valuesRaw(): string[]
+```
+
+```typescript
+rule("The price is '42.99' dollars", (ctx) => {
+  ctx.rule.values[0];    // 42.99 (number)
+  ctx.rule.valuesRaw[0]; // "42.99" (string)
+});
+```
+
+### `ctx.rule.params` {#rule-params}
+
+Type-coerced named parameters from the rule title.
+
+```typescript
+function get params(): Record<string, any>
+```
+
+```typescript
+rule("Processing <action:login> for <user:alice>", (ctx) => {
+  ctx.rule.params.action; // "login"
+  ctx.rule.params.user;   // "alice"
+});
+```
+
+### `ctx.rule.paramsRaw` {#rule-params-raw}
+
+Raw string named parameters from the rule title.
+
+```typescript
+function get paramsRaw(): Record<string, string>
+```
+
+```typescript
+rule("Set timeout to <ms:5000>", (ctx) => {
+  ctx.rule.params.ms;    // 5000 (number)
+  ctx.rule.paramsRaw.ms; // "5000" (string)
+});
+```
+
+:::info Rule vs Step Data
+Inside a `rule()` callback, both `ctx.rule` and `ctx.step` provide extracted values and params. Use `ctx.rule` for clearer intent when working with rule-level data.
+:::
+
+---
+
+## Combining Extraction Methods {#combining}
+
+You can combine quoted values with data tables or doc strings in the same step:
+
+```typescript
+given(`a user named 'Alice' with permissions:
+  | read  |
+  | write |
+  | admin |
+`, (ctx) => {
+  const name = ctx.step.values[0];              // "Alice"
+  const perms = ctx.step.tableAsSingleList;     // ["read", "write", "admin"]
+});
+```
+
+---
+
+## Summary Table {#summary}
+
+| Property                    | Extraction Source    | Returns                    | Available In       |
+| --------------------------- | ------------------- | -------------------------- | ------------------ |
+| `ctx.step.values`           | `'quoted'` values   | `any[]` (coerced)          | Steps, Rules       |
+| `ctx.step.valuesRaw`        | `'quoted'` values   | `string[]` (raw)           | Steps, Rules       |
+| `ctx.step.params`           | `<name:value>`      | `Record<string, any>`      | Steps, Rules       |
+| `ctx.step.paramsRaw`        | `<name:value>`      | `Record<string, string>`   | Steps, Rules       |
+| `ctx.step.table`            | Pipe-delimited rows | `object[]`                 | Steps, Rules       |
+| `ctx.step.tableAsEntity`    | 2-column table      | `object`                   | Steps, Rules       |
+| `ctx.step.tableAsSingleList`| 1-column table      | `any[]`                    | Steps, Rules       |
+| `ctx.step.dataTable`        | Pipe-delimited rows | `any[][]` (raw 2D)         | Steps, Rules       |
+| `ctx.step.docString`        | `"""..."""` block    | `string`                   | Steps, Rules       |
+| `ctx.step.docStringAsEntity`| `"""..."""` JSON     | `any \| undefined`         | Steps, Rules       |
+| `ctx.rule.values`           | `'quoted'` values   | `any[]` (coerced)          | Rules only         |
+| `ctx.rule.valuesRaw`        | `'quoted'` values   | `string[]` (raw)           | Rules only         |
+| `ctx.rule.params`           | `<name:value>`      | `Record<string, any>`      | Rules only         |
+| `ctx.rule.paramsRaw`        | `<name:value>`      | `Record<string, string>`   | Rules only         |
+
+---
+
+## See Also {#see-also}
+
+- [Context Object](./context.mdx) — full reference for all `ctx` properties
+- [Steps](./steps.mdx) — where step data extraction is used
+- [`rule()`](./rule.mdx) — where rule data extraction is used
+- [`scenarioOutline()`](./scenario-outline.mdx) — `ctx.example` for data-driven scenarios
+- [`ruleOutline()`](./rule-outline.mdx) — `ctx.example` for data-driven rules
+- [Learn: Data Extraction](../learn/data-extraction.mdx) — tutorial introduction to data APIs

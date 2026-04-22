@@ -1,0 +1,19 @@
+{
+  "name": "livedoc-vitest-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@swedevtools/livedoc-vitest": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.3",
+    "chai": "^5.3.3",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.9.3",
+    "vitest": "4.0.15"
+  }
+}

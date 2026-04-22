@@ -1,0 +1,254 @@
+---
+sidebar_position: 7
+description: "Use Playwright for browser-based E2E tests inside LiveDoc features — with automatic screenshot attachment and shared browser lifecycle."
+---
+
+# How to Use Playwright with LiveDoc
+
+<p className="intro">
+LiveDoc provides a built-in Playwright integration that handles browser lifecycle
+and screenshot attachment. Write Gherkin scenarios that drive a real browser —
+screenshots become part of your living documentation automatically.
+</p>
+
+:::info Prerequisites
+- A working LiveDoc Vitest setup ([imports](./setup-imports.mdx) or [globals](./setup-globals.mdx))
+- A web application to test (running locally or in CI)
+:::
+
+## Install Playwright
+
+```bash
+pnpm add -D playwright
+npx playwright install chromium
+```
+
+LiveDoc's Playwright module is included in `@swedevtools/livedoc-vitest` —
+no additional package is needed.
+
+## Quick Start
+
+```typescript
+import { feature, scenario, given, when, then } from '@swedevtools/livedoc-vitest';
+import { useBrowser, screenshot } from '@swedevtools/livedoc-vitest/playwright';
+
+// Browser launches once, shared across all scenarios in this file
+const { page, baseUrl } = useBrowser({
+    baseUrl: 'http://localhost:5174',
+});
+
+feature('User Login', () => {
+    scenario('Valid credentials', () => {
+        given("user navigates to '/login'", async (ctx) => {
+            await page().goto(`${baseUrl}${ctx.step.values[0]}`);
+            await screenshot(page(), ctx);
+        });
+
+        when("submitting username 'admin' and password 'secret'", async (ctx) => {
+            await page().fill('[name=username]', ctx.step.values[0]);
+            await page().fill('[name=password]', ctx.step.values[1]);
+            await page().click('button[type=submit]');
+        });
+
+        then("the dashboard is displayed", async (ctx) => {
+            await page().waitForURL('**/dashboard');
+            await screenshot(page(), ctx);
+        });
+    });
+});
+```
+
+That's it — two imports, one `useBrowser()` call, and `screenshot()` wherever
+you want visual documentation.
+
+## API Overview
+
+### `useBrowser(options?)`
+
+Call at **module scope** (outside `feature()`) to set up browser lifecycle.
+Returns getters for `page`, `context`, and `browser`.
+
+```typescript
+const { page, context, browser, baseUrl } = useBrowser({
+    baseUrl: 'http://localhost:3000',  // default
+    browser: 'chromium',               // or 'firefox', 'webkit'
+    launch: { headless: true },        // passed to playwright browser.launch()
+    context: { viewport: { width: 1280, height: 720 } },  // passed to browser.newContext()
+});
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `baseUrl` | `string` | `'http://localhost:3000'` | Base URL for navigation |
+| `browser` | `'chromium' \| 'firefox' \| 'webkit'` | `'chromium'` | Browser engine |
+| `launch` | `Record<string, unknown>` | `{ headless: true }` | Playwright [LaunchOptions](https://playwright.dev/docs/api/class-browsertype#browser-type-launch) |
+| `context` | `Record<string, unknown>` | `{}` | Playwright [BrowserContextOptions](https://playwright.dev/docs/api/class-browser#browser-new-context) |
+
+:::caution
+Call `page()` inside steps, not at module scope. The page doesn't exist until `beforeAll` runs.
+```typescript
+// ✅ Correct — inside a step
+given("I open the app", async () => { await page().goto(baseUrl); });
+
+// ❌ Wrong — at module scope (page is not initialized yet)
+const p = page(); // throws!
+```
+:::
+
+### `screenshot(page, ctx, options?)`
+
+Captures a screenshot and attaches it to the current step as a PNG.
+Auto-generates a name from the step title if none is provided.
+
+```typescript
+// Auto-named from step title
+await screenshot(page(), ctx);
+
+// Custom name
+await screenshot(page(), ctx, { name: 'checkout-confirmation' });
+
+// Viewport only (not full page)
+await screenshot(page(), ctx, { fullPage: false });
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `name` | `string` | Auto-generated from step title | Screenshot label |
+| `fullPage` | `boolean` | `true` | Capture entire scrollable area |
+
+Screenshots appear as attachments in the LiveDoc Viewer and static HTML reports.
+
+## Headed Mode for Local Development
+
+Run with a visible browser window during development:
+
+```typescript
+const { page, baseUrl } = useBrowser({
+    baseUrl: 'http://localhost:5174',
+    launch: {
+        headless: process.env.CI === 'true',
+        slowMo: process.env.CI ? 0 : 250,  // slow down for visual debugging
+    },
+});
+```
+
+## Starting Your Dev Server
+
+LiveDoc doesn't manage your dev server — use Vitest's `globalSetup` for that:
+
+```typescript
+// globalSetup.ts
+import { type GlobalSetupContext } from 'vitest/node';
+
+export default async function setup({ provide }: GlobalSetupContext) {
+    // Start your dev server however your framework requires
+    const server = await startMyDevServer({ port: 5174 });
+
+    return async () => {
+        await server.close();
+    };
+}
+```
+
+```typescript
+// vitest.config.ts
+export default defineConfig({
+    test: {
+        globalSetup: './globalSetup.ts',
+    },
+});
+```
+
+## CI Configuration
+
+Playwright tests in CI need two things the local environment already has:
+**browser binaries** and a **running application to test against**.
+
+### Step 1 — Install Browsers
+
+```yaml
+- name: Install Playwright browsers
+  run: npx playwright install chromium --with-deps
+```
+
+The `--with-deps` flag installs system-level libraries (fonts, codecs) that
+headless Chromium needs on Linux runners. Only install the browsers you actually
+test against — `chromium` alone is usually sufficient.
+
+### Step 2 — Start Your Application
+
+Playwright tests navigate to a running web app. Start it in the background
+before running tests:
+
+```yaml
+- name: Start application
+  run: |
+    npm run start &
+    # Wait until the server responds (up to 30 seconds)
+    timeout 30 bash -c 'until curl -sf http://localhost:3000 > /dev/null 2>&1; do sleep 1; done'
+    echo "Application is ready"
+```
+
+:::caution Don't forget the wait
+Without the health-check loop, tests may start before the server is ready —
+leading to flaky connection-refused failures.
+:::
+
+### Step 3 — Run Tests
+
+```yaml
+- name: Run tests (including Playwright)
+  run: npx vitest run --config vitest.config.ci.ts
+```
+
+### Complete GitHub Actions Example
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: 22
+
+  - run: npm ci
+
+  - name: Build
+    run: npm run build
+
+  - name: Install Playwright browsers
+    run: npx playwright install chromium --with-deps
+
+  - name: Start application
+    run: |
+      npm run start &
+      timeout 30 bash -c 'until curl -sf http://localhost:3000 > /dev/null 2>&1; do sleep 1; done'
+
+  - name: Run tests
+    run: npx vitest run --config vitest.config.ci.ts
+```
+
+:::tip Headed vs headless
+Use the `CI` environment variable to toggle headed mode:
+```typescript
+const { page } = useBrowser({
+    launch: { headless: process.env.CI === 'true' },
+});
+```
+GitHub Actions sets `CI=true` automatically, so tests run headless in CI and
+can optionally run headed locally for visual debugging.
+:::
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| `page is not initialized` | `page()` called before `beforeAll` runs | Move `page()` calls inside step functions |
+| `playwright` module not found | Peer dependency missing | Run `pnpm add -D playwright` |
+| Browser fails to launch in CI | Missing system dependencies | Use `npx playwright install --with-deps chromium` |
+| Screenshots are blank | Page hasn't finished loading | Add `await page().waitForLoadState('networkidle')` before screenshot |
+
+## Related
+
+- [CI/CD Guide](./ci-cd.mdx) — full pipeline with JSON export and static reports
+- [Viewer Integration](./viewer-integration.mdx) — see screenshots in the real-time viewer
+- [Best Practices](./best-practices.mdx) — self-documenting step titles

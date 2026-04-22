@@ -1,0 +1,317 @@
+---
+sidebar_position: 5
+title: "given / when / then / and / but"
+description: "The BDD step functions. Define preconditions, actions, and assertions inside scenarios. Supports async, quoted values, named params, data tables, and doc strings."
+---
+
+# `given` / `when` / `then` / `and` / `but`
+
+<p className="intro">
+Steps are the executable lines inside a scenario. They follow the classic BDD triad —
+`given` (preconditions), `when` (actions), `then` (assertions) — plus `and` and `but`
+to continue the previous step type.
+</p>
+
+```typescript
+import { feature, scenario, given, when, Then as then, and, but } from "@swedevtools/livedoc-vitest";
+
+feature("Shopping Cart", () => {
+  scenario("Apply a discount code", () => {
+    given("a cart with total '$100'", (ctx) => {
+      cart = createCart(ctx.step.values[0]);
+    });
+    when("the user applies code 'SAVE10'", (ctx) => {
+      cart.applyDiscount(ctx.step.values[0]);
+    });
+    then("the total is '$90'", (ctx) => {
+      expect(cart.total).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+:::caution The `Then` Import
+`then` is exported as **uppercase `Then`** from `@swedevtools/livedoc-vitest` because ES modules treat lowercase `then` as a thenable indicator, which causes some bundlers and tools to incorrectly await the module namespace. Always alias it:
+
+```typescript
+import { Then as then } from "@swedevtools/livedoc-vitest";
+```
+
+In **globals mode** (`globals: true` in vitest.config.ts), lowercase `then` is available directly without imports.
+:::
+
+---
+
+## Reference {#reference}
+
+### `given(title, fn)` {#given}
+
+Sets up a precondition. The first act of the Given/When/Then triad.
+
+```typescript
+function given(title: string, fn: (ctx: StepCtx) => void | Promise<void>): void
+```
+
+### `when(title, fn)` {#when}
+
+Performs an action. The second act.
+
+```typescript
+function when(title: string, fn: (ctx: StepCtx) => void | Promise<void>): void
+```
+
+### `Then(title, fn)` (aliased as `then`) {#then}
+
+Asserts an outcome. The third act. Exported as uppercase `Then`.
+
+```typescript
+function Then(title: string, fn: (ctx: StepCtx) => void | Promise<void>): void
+```
+
+### `and(title, fn)` {#and}
+
+Continues the previous step type (given, when, or then).
+
+```typescript
+function and(title: string, fn: (ctx: StepCtx) => void | Promise<void>): void
+```
+
+### `but(title, fn)` {#but}
+
+Adds a contrasting continuation to the previous step type.
+
+```typescript
+function but(title: string, fn: (ctx: StepCtx) => void | Promise<void>): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters (all steps) {#parameters}
+
+- **`title`**: `string` — The step description. Can contain:
+  - **Quoted values**: `'value'` → extracted to `ctx.step.values[]`
+  - **Named parameters**: `<name:value>` → extracted to `ctx.step.params`
+  - **Data tables**: pipe-delimited rows → extracted to `ctx.step.table`
+  - **Doc strings**: triple-quoted blocks → extracted to `ctx.step.docString`
+
+- **`fn`**: `(ctx: StepCtx) => void | Promise<void>` — The step implementation. **Supports `async`**.
+
+- **`binding`** *(optional third argument)*: `object | (() => object)` — Secondary binding for `{{placeholder}}` in step titles. Used to inject runtime values into the test narration.
+
+#### The `ctx` Parameter {#ctx}
+
+| Property   | Type           | Description                                                       |
+| ---------- | -------------- | ----------------------------------------------------------------- |
+| `ctx.feature`  | `FeatureContext`  | `{ filename, title, description, tags }`                     |
+| `ctx.scenario` | `ScenarioContext` | `{ title, description, tags, given?, and[], steps }`          |
+| `ctx.step`     | `StepContext`     | Step metadata and extracted data (see [Data APIs](./data-apis.mdx)) |
+| `ctx.example`  | `object`          | Current example row (only in `scenarioOutline`)               |
+
+#### Returns {#returns}
+
+`void` — Steps are registered as Vitest `it()` calls.
+
+#### Caveats {#caveats}
+
+- **Steps support `async`** — this is the only place async is allowed in the BDD pattern. Feature, scenario, scenarioOutline, and background callbacks must be synchronous.
+- Steps must be called inside a `scenario()`, `scenarioOutline()`, or `background()`.
+- Each step maps to a Vitest `it()` call, so each step is an independently reportable test.
+- `and` and `but` inherit the step type (given/when/then) from the preceding step for reporting purposes.
+
+---
+
+## Usage {#usage}
+
+### Basic: The Given/When/Then triad {#basic-usage}
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("User Registration", () => {
+  scenario("Register with valid data", () => {
+    given("a new user with email 'alice@example.com'", (ctx) => {
+      email = ctx.step.values[0];
+    });
+
+    when("they submit the registration form", () => {
+      result = register({ email });
+    });
+
+    then("the account is created successfully", () => {
+      expect(result.success).toBe(true);
+    });
+  });
+});
+```
+
+### Using `and` and `but` {#and-but}
+
+```typescript
+import { feature, scenario, given, when, Then as then, and, but } from "@swedevtools/livedoc-vitest";
+
+feature("Checkout", () => {
+  scenario("Checkout with valid payment", () => {
+    given("a logged-in user", () => { user = authenticate(); });
+    and("they have '3' items in their cart", (ctx) => {
+      cart = createCartWithItems(ctx.step.values[0]);
+    });
+    and("they have a valid payment method", () => {
+      user.paymentMethod = validCard();
+    });
+
+    when("they click checkout", () => {
+      order = checkout(cart, user);
+    });
+
+    then("the order is placed", () => {
+      expect(order.status).toBe("placed");
+    });
+    and("a confirmation email is sent", () => {
+      expect(emailService.sentTo).toBe(user.email);
+    });
+    but("they are not charged until shipping", () => {
+      expect(order.chargedAt).toBeNull();
+    });
+  });
+});
+```
+
+### Async steps {#async-steps}
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("API Integration", () => {
+  scenario("Fetch user data", () => {
+    given("the API is running", async () => {
+      await waitForServer();
+    });
+
+    when("we request user '42'", async (ctx) => {
+      response = await fetch(`/api/users/${ctx.step.values[0]}`);
+      data = await response.json();
+    });
+
+    then("the user name is 'Alice'", (ctx) => {
+      expect(data.name).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+### Named parameters {#named-params}
+
+Named parameters use `<name:value>` syntax for clearer, self-documenting step titles.
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Banking", () => {
+  scenario("Transfer funds between accounts", () => {
+    given("account A has <balance:1000> dollars", (ctx) => {
+      accountA = createAccount(ctx.step.params.balance);
+    });
+
+    when("transferring <amount:250> from A to B", (ctx) => {
+      transfer(accountA, accountB, ctx.step.params.amount);
+    });
+
+    then("account A has <remaining:750> dollars", (ctx) => {
+      expect(accountA.balance).toBe(ctx.step.params.remaining);
+    });
+  });
+});
+```
+
+### Data tables in step titles {#data-tables}
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("User Management", () => {
+  scenario("Create users in bulk", () => {
+    given(`the following users:
+      | name  | email             | role  |
+      | Alice | alice@example.com | admin |
+      | Bob   | bob@example.com   | user  |
+    `, (ctx) => {
+      users = ctx.step.table;
+      // [{ name: "Alice", email: "alice@example.com", role: "admin" },
+      //  { name: "Bob", email: "bob@example.com", role: "user" }]
+    });
+
+    when("they are imported into the system", () => {
+      result = importUsers(users);
+    });
+
+    then("'2' users exist", (ctx) => {
+      expect(result.count).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+### Doc strings {#doc-strings}
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("API Testing", () => {
+  scenario("POST with JSON body", () => {
+    given(`the request body is:
+      """
+      {
+        "name": "Widget",
+        "price": 29.99,
+        "inStock": true
+      }
+      """
+    `, (ctx) => {
+      body = ctx.step.docStringAsEntity;
+      // { name: "Widget", price: 29.99, inStock: true }
+    });
+
+    when("the request is sent to '/api/products'", (ctx) => {
+      response = post(ctx.step.values[0], body);
+    });
+
+    then("the response status is '201'", (ctx) => {
+      expect(response.status).toBe(ctx.step.values[0]);
+    });
+  });
+});
+```
+
+### Secondary binding with `{{...}}` {#secondary-binding}
+
+Inject runtime values into step titles for better test narration. The third argument to a step can be an object or a function returning an object.
+
+```typescript
+import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Dynamic Reporting", () => {
+  scenario("Display runtime data in step titles", () => {
+    let user = { name: "" };
+
+    given("we fetch the current user from the API", async () => {
+      user = await api.getCurrentUser();
+    });
+
+    // {{name}} is replaced at runtime in the test report
+    when("the user {{name}} performs an action", () => {
+      performAction(user);
+    }, () => ({ name: user.name }));
+    // Reporter output: "when the user Alice performs an action"
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`scenario()`](./scenario.mdx) — container for steps
+- [`background()`](./background.mdx) — steps that run before every scenario
+- [Data Extraction APIs](./data-apis.mdx) — complete reference for `ctx.step.values`, `params`, `table`, `docString`
+- [Context Object](./context.mdx) — full reference for the `ctx` parameter
+- [Guide: Setup with Imports](../guides/setup-imports.mdx) — import patterns including the `Then` alias

@@ -1,0 +1,395 @@
+---
+sidebar_position: 5
+title: "Scenario Outlines"
+description: "Write data-driven BDD tests with ScenarioOutline, Example attributes, method parameters, placeholder syntax, and the dynamic Example property."
+---
+
+# Scenario Outlines
+
+<p className="intro">
+When you need to test the same scenario with different data, a
+<strong>Scenario Outline</strong> lets you define the structure once and run
+it multiple times — once for each row of example data.
+</p>
+
+## What You'll Learn
+
+- `[ScenarioOutline]` and `[Example]` attributes
+- Method parameters for typed data access
+- Placeholder syntax `<ParamName>` in step titles
+- The dynamic `Example` property
+- `[RuleOutline]` for Specification tests
+- Adding `Description` for richer documentation
+
+---
+
+## The Problem: Repetitive Scenarios
+
+Without outlines, testing multiple data combinations means duplicating scenarios:
+
+```csharp
+[Scenario("Free shipping for $100 order")]
+public void Free_shipping() { /* ... */ }
+
+[Scenario("Standard shipping for $99 order")]
+public void Standard_shipping() { /* ... */ }
+
+[Scenario("International shipping for NZ")]
+public void International_shipping() { /* ... */ }
+```
+
+Three scenarios with nearly identical structure. Scenario Outlines fix this.
+
+---
+
+## Step 1: Create a ScenarioOutline
+
+Replace repetitive scenarios with a single outline and multiple examples:
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace TeaShop.Tests.Shipping;
+
+[Feature("Shipping Rate Calculator")]
+public class ShippingTests : FeatureTest
+{
+    private ShoppingCart _cart = null!;
+
+    public ShippingTests(ITestOutputHelper output) : base(output)
+    {
+    }
+
+    [ScenarioOutline("Calculate shipping rates")]
+    [Example("Australia", 100.00, "Free")]
+    [Example("Australia", 99.99, "Standard Domestic")]
+    [Example("New Zealand", 100.00, "Standard International")]
+    [Example("New Zealand", 50.00, "Standard International")]
+    public void Calculate_shipping_rates(
+        string CustomerCountry,
+        decimal OrderTotal,
+        string ExpectedShippingRate)
+    {
+        Given("the customer is from <CustomerCountry>", () =>
+        {
+            _cart = new ShoppingCart { Country = CustomerCountry };
+        });
+
+        When("the customer's order totals <OrderTotal>", () =>
+        {
+            _cart.AddItem(new CartItem { Price = OrderTotal });
+            _cart.Calculate();
+        });
+
+        Then("they are charged <ExpectedShippingRate> shipping", () =>
+        {
+            Assert.Equal(ExpectedShippingRate, _cart.ShippingType);
+        });
+    }
+}
+```
+
+### How It Works
+
+1. **`[ScenarioOutline]`** — marks the method as data-driven (inherits `[Theory]`)
+2. **`[Example(...)]`** — each attribute provides one row of data (inherits `[InlineData]`)
+3. **Method parameters** — match the `[Example]` values positionally and by type
+4. **`<Placeholder>`** — references in step titles are replaced with actual values in output
+
+---
+
+## Step 2: Understand the Output
+
+Each `[Example]` row produces a separate test run with placeholders replaced:
+
+```
+Feature: Shipping Rate Calculator
+
+  Scenario Outline: Calculate shipping rates
+    Example: Australia, 100.00, Free
+      Given the customer is from Australia
+      When the customer's order totals 100.00
+      Then they are charged Free shipping
+      ✓ 3 passing (10ms)
+
+    Example: Australia, 99.99, Standard Domestic
+      Given the customer is from Australia
+      When the customer's order totals 99.99
+      Then they are charged Standard Domestic shipping
+      ✓ 3 passing (8ms)
+
+    Example: New Zealand, 100.00, Standard International
+      Given the customer is from New Zealand
+      When the customer's order totals 100.00
+      Then they are charged Standard International shipping
+      ✓ 3 passing (7ms)
+```
+
+In Visual Studio Test Explorer, each example appears as a separate test entry:
+
+```
+📁 ShippingTests
+  ✅ Calculate_shipping_rates(CustomerCountry: "Australia", OrderTotal: 100.00, ...)
+  ✅ Calculate_shipping_rates(CustomerCountry: "Australia", OrderTotal: 99.99, ...)
+  ✅ Calculate_shipping_rates(CustomerCountry: "New Zealand", OrderTotal: 100.00, ...)
+```
+
+---
+
+## Step 3: Method Parameters vs Example Property
+
+There are two ways to access example data inside your outline:
+
+### Option A: Method Parameters (Recommended)
+
+Method parameters give you **compile-time type safety**:
+
+```csharp
+[ScenarioOutline("Tax calculation")]
+[Example("Australia", 100.00, 10.00)]
+[Example("New Zealand", 100.00, 0.00)]
+public void Tax_calculation(string country, decimal total, decimal expectedTax)
+{
+    Given("a customer from <country>", () =>
+    {
+        _cart = new ShoppingCart { Country = country };
+    });
+
+    When("the order totals <total>", () =>
+    {
+        _cart.AddItem(new CartItem { Price = total });
+        _cart.Calculate();
+    });
+
+    Then("the tax is <expectedTax>", () =>
+    {
+        Assert.Equal(expectedTax, _cart.Tax);
+    });
+}
+```
+
+### Option B: The Dynamic `Example` Property
+
+The `Example` property (provided by `FeatureTest`) gives **dynamic access**
+using column names as properties:
+
+```csharp
+[ScenarioOutline("Tax calculation")]
+[Example("Australia", 100.00, 10.00)]
+[Example("New Zealand", 100.00, 0.00)]
+public void Tax_calculation(string country, decimal total, decimal expectedTax)
+{
+    Given("a customer from <country>", () =>
+    {
+        _cart = new ShoppingCart { Country = Example.country };
+    });
+
+    When("the order totals <total>", () =>
+    {
+        _cart.AddItem(new CartItem { Price = Example.total });
+        _cart.Calculate();
+    });
+
+    Then("the tax is <expectedTax>", () =>
+    {
+        Assert.Equal(Example.expectedTax, _cart.Tax);
+    });
+}
+```
+
+| Approach | Pros | Cons |
+| --- | --- | --- |
+| **Method parameters** | Type-safe, IntelliSense support, compile-time errors | Must declare all parameters |
+| **`Example` property** | Flexible, no parameter declarations needed | Dynamic — no compile-time checking |
+
+:::tip Use method parameters
+Method parameters are the recommended approach. They give you full type safety
+and IntelliSense. Use the `Example` property only when you need dynamic access
+or the parameter list would be unwieldy.
+:::
+
+---
+
+## Step 4: Placeholder Syntax in Titles
+
+Placeholders in step titles use angle brackets and match method parameter names:
+
+```csharp
+// Placeholder <CustomerCountry> matches parameter CustomerCountry
+Given("the customer is from <CustomerCountry>", () =>
+{
+    _cart = new ShoppingCart { Country = CustomerCountry };
+});
+```
+
+The placeholder is replaced with the actual value in the formatted output.
+The matching is **case-insensitive**.
+
+### Multiple Placeholders
+
+```csharp
+[ScenarioOutline("GST and shipping")]
+[Example("Australia", 99.99, 9.999, "Standard Domestic")]
+[Example("Australia", 100.00, 10.00, "Free")]
+[Example("New Zealand", 100.00, 0.00, "Standard International")]
+public void GST_and_shipping(
+    string CustomerCountry,
+    decimal OrderTotal,
+    decimal ExpectedGST,
+    string ExpectedShippingRate)
+{
+    Given("the customer is from <CustomerCountry>", () =>
+    {
+        _cart = new ShoppingCart { Country = CustomerCountry };
+    });
+
+    When("the customer's order totals <OrderTotal>", () =>
+    {
+        _cart.AddItem(new CartItem { Price = OrderTotal });
+        _cart.Calculate();
+    });
+
+    Then("the customer pays <ExpectedGST> GST", () =>
+    {
+        Assert.Equal(ExpectedGST, Math.Round(_cart.GST, 3));
+    });
+
+    And("they are charged the <ExpectedShippingRate> shipping rate", () =>
+    {
+        Assert.Equal(ExpectedShippingRate, _cart.ShippingType);
+    });
+}
+```
+
+---
+
+## Step 5: Adding Descriptions
+
+Use the `Description` property to document the business rules behind the outline:
+
+```csharp
+[ScenarioOutline("Calculate shipping rates",
+    Description = @"
+    Shipping rules:
+    - Australian orders $100+ get free shipping
+    - Australian orders under $100 pay $9.95 domestic
+    - All international orders pay $25 flat rate
+")]
+[Example("Australia", 100.00, "Free")]
+[Example("Australia", 99.99, "Standard Domestic")]
+[Example("New Zealand", 100.00, "Standard International")]
+public void Calculate_shipping_rates(string country, decimal total, string rate)
+{
+    // ... steps
+}
+```
+
+The description appears in the formatted output and LiveDoc Viewer, giving
+readers context without reading the code.
+
+---
+
+## Step 6: Combining with Value Extraction
+
+Outline placeholders and step value extraction work together. Use
+**method parameters** for data that varies per row, and **quoted values** for
+constants in the step description:
+
+```csharp
+[ScenarioOutline("Apply discount")]
+[Example("SAVE10", 100.00)]
+[Example("SAVE20", 200.00)]
+public void Apply_discount(string code, decimal orderTotal)
+{
+    Given("a customer with an order of <orderTotal>", () =>
+    {
+        _cart = new ShoppingCart();
+        _cart.AddItem(new CartItem { Price = orderTotal });
+    });
+
+    When("they apply discount code <code>", () =>
+    {
+        _cart.ApplyDiscount(code);
+    });
+
+    Then("a discount of '10' percent is applied", ctx =>
+    {
+        var percent = ctx.Step!.Values[0].AsInt(); // constant from title
+        var expected = orderTotal * (percent / 100m);
+        Assert.Equal(expected, _cart.Discount);
+    });
+}
+```
+
+---
+
+## RuleOutline: The Specification Equivalent
+
+`[RuleOutline]` is the Specification pattern's version of `[ScenarioOutline]`.
+It works the same way but lives inside a `[Specification]` class:
+
+```csharp
+[Specification("String Operations")]
+public class StringSpec : SpecificationTest
+{
+    public StringSpec(ITestOutputHelper output) : base(output)
+    {
+    }
+
+    [RuleOutline("Converting '<input>' to uppercase returns '<expected>'")]
+    [Example("hello", "HELLO")]
+    [Example("World", "WORLD")]
+    [Example("test123", "TEST123")]
+    public void Uppercase_conversion(string input, string expected)
+    {
+        Assert.Equal(expected, input.ToUpperInvariant());
+    }
+
+    [RuleOutline]
+    [Example(5, 25)]
+    [Example(10, 100)]
+    [Example(0, 0)]
+    public void Square_of_N_is_RESULT(int n, int result)
+    {
+        Assert.Equal(result, n * n);
+    }
+}
+```
+
+Notice `Square_of_N_is_RESULT` uses **method name placeholders** — `_N` and
+`_RESULT` are matched to parameters `n` and `result`. See
+[Your First Specification](./your-first-spec.mdx#step-6-method-name-placeholders)
+for details.
+
+---
+
+## Quick Reference
+
+| Attribute | Base | Pattern | Purpose |
+| --- | --- | --- | --- |
+| `[ScenarioOutline]` | `[Theory]` | BDD | Data-driven scenario |
+| `[RuleOutline]` | `[Theory]` | Specification | Data-driven rule |
+| `[Example(...)]` | `[InlineData]` | Both | One row of test data |
+
+---
+
+## Recap
+
+- **`[ScenarioOutline]`** + **`[Example]`** — define once, run with multiple data rows
+- **Method parameters** — typed, compile-time safe access to example data (recommended)
+- **`Example` property** — dynamic access when needed
+- **`<Placeholder>`** — replaced with values in formatted output
+- **`Description`** — document the business rules behind the data
+- **`[RuleOutline]`** — same pattern for Specification tests
+- **Method name placeholders** — `_ALLCAPS` segments auto-map to parameters
+
+---
+
+## Next Steps
+
+- **Next in this series**: [Tutorial](./tutorial.mdx) — build a complete test suite from scratch
+- **Deep dive**: [Example Attribute](../reference/example-attribute.mdx) — full reference for `[Example]`
+- **Deep dive**: [Configuration](../reference/configuration.mdx) — customize output formatting
+- **Practical use**: [Best Practices](../guides/best-practices.mdx) — patterns for great test suites

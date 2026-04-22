@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug runsettings — disables the "Spec" suffix filter in LiveDocTestFramework.
+  All [Feature]/[Specification] classes will be reported to the viewer regardless of name.
+
+  Usage in Visual Studio:
+    Test → Configure Run Settings → Select Solution Wide runsettings File → pick this file.
+    Deselect to restore normal filtering.
+
+  Usage from CLI:
+    dotnet test -s tests/debug.runsettings
+-->
+<RunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <LIVEDOC_REPORT_ALL_TESTS>true</LIVEDOC_REPORT_ALL_TESTS>
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>

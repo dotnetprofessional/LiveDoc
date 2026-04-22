@@ -1,0 +1,331 @@
+---
+slug: /
+sidebar_position: 0
+title: LiveDoc
+hide_table_of_contents: true
+hide_title: true
+---
+
+<div className="hero-section">
+
+<div className="hero-inner">
+
+<img src="/img/logo-full.png" alt="LiveDoc" className="hero-logo" />
+
+<div className="hero-text">
+
+<h1 className="hero-title">LiveDoc</h1>
+
+<p className="hero-tagline">
+Living Documentation from Executable Specifications
+</p>
+
+<p className="hero-subtitle">
+Write tests that double as documentation. LiveDoc turns your BDD features and specifications
+into browsable, always-up-to-date documentation — powered by the tests you already run.
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+## See the Difference
+
+Most tests verify behavior but document nothing. LiveDoc tests do both:
+
+<div className="comparison-grid">
+
+<div className="comparison-card comparison-before">
+
+**Typical test** — verifies, but tells the reader nothing:
+
+```
+test('discount', () => {
+  const result = applyDiscount(100, 'SAVE20');
+  expect(result).toBe(80);
+});
+```
+
+<span className="comparison-label">✗ What's being tested? Why 80? What's SAVE20?</span>
+
+</div>
+
+<div className="comparison-card comparison-after">
+
+**LiveDoc spec** — verifies *and* documents:
+
+```
+Scenario: Applying a discount code
+  Given the cart total is '$100.00'
+  When the user applies code 'SAVE20'
+  Then the total becomes '$80.00'
+```
+
+<span className="comparison-label">✓ Self-documenting. Values in titles. No drift.</span>
+
+</div>
+
+</div>
+
+The LiveDoc spec on the right executes as a real test *and* generates browsable documentation. When the test changes, the docs update automatically. When the test passes, the documentation is accurate.
+
+<div className="hero-screenshots">
+
+![Terminal Output — LiveDoc BDD](/img/screenshots/terminal-output-hero.svg)
+
+*Colored, structured test output directly in your terminal*
+
+![LiveDoc Viewer — Beautiful Tea Shipping Costs scenario with given/when/then steps and examples table](/img/screenshots/viewer-scenario-steps.png)
+
+*The LiveDoc Viewer — browse your test results as living documentation*
+
+</div>
+
+---
+
+## "Looks Great, But I Don't Have Time to Learn Gherkin"
+
+You don't need to. LiveDoc ships with **AI coding skills** for both SDKs — when you install the package, your AI assistant already knows how to write LiveDoc tests. Just describe what you want to test:
+
+<div className="ai-demo">
+
+<div className="ai-demo-prompt">
+<div className="ai-demo-label">🧑 You say:</div>
+
+*"Write a spec for the discount logic — 10% off orders over $100, 20% off over $200, free shipping over $150"*
+
+</div>
+
+<div className="ai-demo-output">
+<div className="ai-demo-label">🤖 Your AI writes:</div>
+
+```
+Feature: Order Discounts
+  Scenario: Small order gets no discount
+    Given a cart with total '$75.00'
+    When the order is placed
+    Then the discount is '$0.00'
+    And shipping is '$9.95'
+
+  Scenario: Medium order gets 10% off
+    Given a cart with total '$120.00'
+    When the order is placed
+    Then the discount is '$12.00'
+    And shipping is '$9.95'
+
+  Scenario: Large order gets 20% off and free shipping
+    Given a cart with total '$250.00'
+    When the order is placed
+    Then the discount is '$50.00'
+    And shipping is '$0.00'
+```
+
+</div>
+
+</div>
+
+The AI doesn't just produce syntactically correct tests — it produces **well-structured living documentation** with values in titles, edge cases covered, and clear business language. The built-in skills teach it LiveDoc's patterns, value extraction, and self-documenting conventions.
+
+This works with any AI coding tool — **GitHub Copilot**, **Cursor**, **Claude Code**, and others. The skills are installed alongside the SDK, so there's nothing extra to set up.
+
+---
+
+## Why LiveDoc?
+
+<div className="features-grid">
+
+<div className="feature-card">
+<div className="feature-icon">📝</div>
+<h3>Tests <em>Are</em> the Docs</h3>
+<p>Your BDD features and specifications generate documentation automatically. When a test changes, the docs update. No more stale wikis.</p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">🔄</div>
+<h3>Always In Sync</h3>
+<p>Documentation is produced from test results, so it stays aligned with reality. If the test passes, the doc is accurate.</p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">🧑‍💻</div>
+<h3>Developer-Friendly</h3>
+<p>Write tests in the language you already use — TypeScript or C#. No separate <code>.feature</code> files, no extra tooling, no context switching.</p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">👁️</div>
+<h3>Real-Time Feedback</h3>
+<p>The LiveDoc Viewer shows test results as they run, with a searchable, filterable interface your whole team can use.</p>
+</div>
+
+</div>
+
+---
+
+## How It Works
+
+<div className="workflow-steps">
+
+<div className="workflow-step">
+<div className="workflow-number">1</div>
+<h3>Describe</h3>
+<p>Tell your AI assistant what to test — or write specs yourself. The built-in AI skills handle LiveDoc patterns automatically.</p>
+</div>
+
+<div className="workflow-connector">→</div>
+
+<div className="workflow-step">
+<div className="workflow-number">2</div>
+<h3>Run Tests</h3>
+<p>Execute with Vitest or xUnit. LiveDoc captures titles, values, steps, and results into a structured reporting model.</p>
+</div>
+
+<div className="workflow-connector">→</div>
+
+<div className="workflow-step">
+<div className="workflow-number">3</div>
+<h3>Browse Docs</h3>
+<p>The Viewer renders your test results as browsable, hierarchical specifications — filterable by tags, status, and search.</p>
+</div>
+
+</div>
+
+---
+
+## See It Live
+
+Want to see what LiveDoc produces? These reports are generated automatically by our CI pipeline on every commit:
+
+<div className="sdk-grid">
+
+<a className="sdk-card sdk-card--ts" href="https://dotnetprofessional.github.io/LiveDoc/vitest/" target="_blank" rel="noopener">
+
+### Vitest Test Results
+
+Browse the full LiveDoc Vitest test suite — features, specifications, and scenarios with pass/fail status, data tables, and step details.
+
+**View Vitest Report →**
+
+</a>
+
+<a className="sdk-card sdk-card--dotnet" href="https://dotnetprofessional.github.io/LiveDoc/xunit/" target="_blank" rel="noopener">
+
+### xUnit Test Results
+
+Browse the LiveDoc xUnit test suite — BDD features, journey tests, and .NET specifications.
+
+**View xUnit Report →**
+
+</a>
+
+</div>
+
+---
+
+## Choose Your SDK
+
+<div className="sdk-grid">
+
+<div className="sdk-card sdk-card--ts">
+
+### TypeScript — Vitest
+
+BDD and specification patterns for Vitest with zero boilerplate.
+
+```bash
+npm install -D @swedevtools/livedoc-vitest
+```
+
+**[Get Started →](/vitest/learn/getting-started)**
+
+</div>
+
+<div className="sdk-card sdk-card--dotnet">
+
+### .NET — xUnit
+
+Living documentation for .NET projects via xUnit integration.
+Includes **Journey Testing** — end-to-end API flows in `.http` files with auto-generated test classes.
+
+```bash
+dotnet add package SweDevTools.LiveDoc.xUnit
+```
+
+**[Get Started →](/xunit/learn/getting-started)** · [Journey Testing →](/xunit/guides/journey-testing)
+
+</div>
+
+</div>
+
+---
+
+## Featured: Journey Testing <span className="badge badge--dotnet">xUnit</span>
+
+<div className="featured-callout">
+
+<div className="featured-callout-text">
+
+Write your API test flows in standard **`.http` files** with BDD annotations — use them for manual exploration in VS Code *and* as automated regression tests. LiveDoc generates xUnit test classes, validates response contracts against `.Response.json` snapshots, and handles dynamic fields with property rules.
+
+**[See the Journey Testing guide →](/xunit/guides/journey-testing)**
+
+</div>
+
+<div className="featured-callout-code">
+
+```http
+# Feature: User Management
+# Scenario: Create and retrieve a user
+
+# Given I create a new user
+# @name createUser
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{ "name": "Alice", "email": "alice@test.com" }
+
+###
+
+# Then I can retrieve the user
+# @name getUser
+GET {{baseUrl}}/api/users/{{createUser.id}}
+```
+
+</div>
+
+</div>
+
+---
+
+## Explore the Docs
+
+<div className="nav-grid">
+
+<a className="nav-card" href="/category/concepts">
+<strong>📖 Concepts</strong>
+<span>BDD, specifications, data-driven tests, and the reporting model.</span>
+</a>
+
+<a className="nav-card" href="/vitest/learn/getting-started">
+<strong>⚡ Vitest SDK</strong>
+<span>TypeScript API reference, tutorials, and guides.</span>
+</a>
+
+<a className="nav-card" href="/xunit/learn/getting-started">
+<strong>🔷 xUnit SDK</strong>
+<span>.NET API reference, tutorials, and guides.</span>
+</a>
+
+<a className="nav-card" href="/viewer/learn/getting-started">
+<strong>🖥️ Viewer</strong>
+<span>Real-time test result visualizer and dashboard.</span>
+</a>
+
+<a className="nav-card" href="/vscode/overview">
+<strong>🧩 VS Code</strong>
+<span>Editor integration for writing and viewing specs.</span>
+</a>
+
+</div>

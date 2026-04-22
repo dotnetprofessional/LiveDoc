@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="205" viewBox="0 0 500 205">
+  <defs><style>text{white-space:pre;}</style></defs>
+  <rect width="500" height="205" rx="10" fill="#1e1e2e" stroke="#45475a" stroke-width="1"/>
+  <rect width="500" height="36" rx="10" fill="#313244"/>
+  <rect y="26" width="500" height="10" fill="#313244"/>
+  <circle cx="18" cy="18" r="6" fill="#f38ba8"/>
+  <circle cx="38" cy="18" r="6" fill="#f9e2af"/>
+  <circle cx="58" cy="18" r="6" fill="#a6e3a1"/>
+  <text x="250" y="22" font-family="'SF Pro','Segoe UI',system-ui,sans-serif" font-size="12" fill="#6c7086" text-anchor="middle">npx vitest run</text>
+    <text x="16" y="67" font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace" font-size="13"><tspan fill="#d8dee9">  </tspan><tspan fill="#ffd866">Feature: </tspan><tspan fill="#ffffff">Basic Calculator</tspan></text>
+    <text x="16" y="86" font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace" font-size="13"><tspan fill="#d8dee9"> </tspan></text>
+    <text x="16" y="105" font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace" font-size="13"><tspan fill="#d8dee9">    </tspan><tspan fill="#ffd866">Scenario: </tspan><tspan fill="#ffffff">Adding two numbers</tspan></text>
+    <text x="16" y="124" font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace" font-size="13"><tspan fill="#d8dee9">      </tspan><tspan fill="#7ee787">√</tspan><tspan fill="#d8dee9"> </tspan><tspan fill="#ffd866">given</tspan><tspan fill="#d8dee9"> </tspan><tspan fill="#7ee787">I have entered 50 into the calculator</tspan></text>
+    <text x="16" y="143" font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace" font-size="13"><tspan fill="#d8dee9">      </tspan><tspan fill="#7ee787">√</tspan><tspan fill="#d8dee9">   </tspan><tspan fill="#ffd866">and</tspan><tspan fill="#d8dee9"> </tspan><tspan fill="#7ee787">I have entered 70 into the calculator</tspan></text>
+    <text x="16" y="162" font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace" font-size="13"><tspan fill="#d8dee9">      </tspan><tspan fill="#7ee787">√</tspan><tspan fill="#d8dee9"> </tspan><tspan fill="#ffd866">when</tspan><tspan fill="#d8dee9"> </tspan><tspan fill="#7ee787">I press add</tspan></text>
+    <text x="16" y="181" font-family="'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace" font-size="13"><tspan fill="#d8dee9">      </tspan><tspan fill="#7ee787">√</tspan><tspan fill="#d8dee9"> </tspan><tspan fill="#ffd866">then</tspan><tspan fill="#d8dee9"> </tspan><tspan fill="#7ee787">the result should be 120</tspan></text>
+</svg>

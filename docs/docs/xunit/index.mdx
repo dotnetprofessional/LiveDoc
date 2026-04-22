@@ -1,0 +1,101 @@
+---
+sidebar_position: 0
+title: "xUnit SDK"
+description: "Living documentation for .NET — BDD features, specifications, and end-to-end journey testing powered by xUnit."
+hide_table_of_contents: true
+---
+
+# xUnit SDK
+
+<p className="intro">
+Living documentation for .NET projects. Write tests that double as documentation —
+from unit-level specifications to full end-to-end API journeys.
+</p>
+
+## Three Ways to Document Your Code
+
+<div className="features-grid">
+
+<div className="feature-card">
+<div className="feature-icon">🧪</div>
+<h3>BDD Features</h3>
+<p>Gherkin-style Given / When / Then scenarios that read like plain English. Perfect for acceptance tests and business-facing documentation.</p>
+<p><a href="./learn/your-first-feature"><strong>Write your first feature →</strong></a></p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">📐</div>
+<h3>Specifications</h3>
+<p>Lightweight, developer-focused rules for unit and component tests. Less ceremony than BDD — ideal for testing algorithms and edge cases.</p>
+<p><a href="./learn/your-first-spec"><strong>Write your first spec →</strong></a></p>
+</div>
+
+<div className="feature-card">
+<div className="feature-icon">🗺️</div>
+<h3>Journey Testing</h3>
+<p>End-to-end API testing with annotated <code>.http</code> files. Your API journeys work as both manual exploration tools <em>and</em> automated regression tests with response contract validation.</p>
+<p><a href="./guides/journey-testing"><strong>Explore journey testing →</strong></a></p>
+</div>
+
+</div>
+
+---
+
+## Quick Start
+
+```bash
+dotnet add package SweDevTools.LiveDoc.xUnit
+```
+
+```csharp
+[Feature("Shopping Cart")]
+public class CartTests : FeatureTest
+{
+    public CartTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario("Adding an item increases the count")]
+    public void AddItem()
+    {
+        var cart = new Cart();
+
+        Given("an empty cart", () => { });
+        When("I add '1' item", () => cart.Add("Widget"));
+        Then("the cart contains '1' item", () =>
+            Assert.Equal(1, cart.Count));
+    }
+}
+```
+
+```bash
+dotnet test --logger LiveDoc
+```
+
+**[Full getting started guide →](./learn/getting-started)**
+
+---
+
+## Explore the Docs
+
+<div className="nav-grid">
+
+<a className="nav-card" href="./learn/getting-started">
+<strong>🚀 Learn</strong>
+<span>Step-by-step tutorials from install to your first feature, spec, and data-driven test.</span>
+</a>
+
+<a className="nav-card" href="./reference/feature-test">
+<strong>📖 API Reference</strong>
+<span>Every attribute, step method, context property, and configuration option documented.</span>
+</a>
+
+<a className="nav-card" href="./guides/journey-testing">
+<strong>🗺️ Journey Testing</strong>
+<span>End-to-end API flows in .http files with auto-generated test classes and response contracts.</span>
+</a>
+
+<a className="nav-card" href="./guides/best-practices">
+<strong>💡 Guides</strong>
+<span>Best practices, viewer integration, debugging, troubleshooting, and more.</span>
+</a>
+
+</div>

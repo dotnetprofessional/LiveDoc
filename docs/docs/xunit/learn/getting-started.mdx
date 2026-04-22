@@ -1,0 +1,264 @@
+---
+sidebar_position: 1
+title: "Getting Started"
+description: "Install the LiveDoc xUnit NuGet package, create your first BDD test class, and see Gherkin-formatted output in under 5 minutes."
+---
+
+# Getting Started
+
+<p className="intro">
+In this guide you'll install the LiveDoc xUnit package, write your first
+BDD test with Given / When / Then steps, and see beautifully formatted
+test output — all in about five minutes.
+</p>
+
+## What You'll Build
+
+By the end of this page you will have:
+
+- A working **.NET + xUnit** test project with LiveDoc installed
+- A test class using **Gherkin-style syntax** (`Given` / `When` / `Then`)
+- Structured test output that doubles as **living documentation**
+
+---
+
+## Prerequisites
+
+- **.NET 8 SDK** (or later) installed
+- A terminal and a code editor (Visual Studio or VS Code recommended)
+- Basic familiarity with C# and xUnit
+
+---
+
+## Step 1: Create a Test Project
+
+If you already have an xUnit test project, skip to [Step 2](#step-2-install-livedoc).
+
+```bash
+mkdir MyProject.Tests && cd MyProject.Tests
+dotnet new xunit
+```
+
+This scaffolds a standard xUnit project with a single test file.
+
+---
+
+## Step 2: Install LiveDoc
+
+```bash
+dotnet add package SweDevTools.LiveDoc.xUnit
+```
+
+That's it — one package, no extra configuration files.
+
+:::tip Already using xUnit?
+LiveDoc builds on top of xUnit's existing infrastructure. `[Scenario]` inherits
+from `[Fact]` and `[ScenarioOutline]` inherits from `[Theory]`, so your test
+runner, IDE integrations, and CI pipelines all work unchanged.
+:::
+
+---
+
+## Step 3: Write Your First Test
+
+Replace the generated `UnitTest1.cs` with a file called `CalculatorTests.cs`:
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace MyProject.Tests;
+
+[Feature("Calculator")]
+public class CalculatorTests : FeatureTest
+{
+    public CalculatorTests(ITestOutputHelper output) : base(output)
+    {
+    }
+
+    [Scenario("Adding two numbers")]
+    public void Adding_two_numbers()
+    {
+        int result = 0;
+
+        Given("I have entered '50' into the calculator", () =>
+        {
+            result = 50;
+        });
+
+        And("I have entered '70' into the calculator", () =>
+        {
+            result += 70;
+        });
+
+        When("I press equals", () =>
+        {
+            // calculation already happened above
+        });
+
+        Then("the result should be '120'", () =>
+        {
+            Assert.Equal(120, result);
+        });
+    }
+}
+```
+
+### Things to Notice
+
+| Pattern | Why |
+| --- | --- |
+| **`FeatureTest` base class** | Provides the `Given()`, `When()`, `Then()`, `And()`, `But()` step methods. |
+| **`[Feature("...")]`** | Marks the class as a BDD feature — the title appears in formatted output. |
+| **`[Scenario("...")]`** | Marks a test method as a scenario. Inherits `[Fact]`, so xUnit discovers it automatically. |
+| **`ITestOutputHelper`** | Standard xUnit mechanism for capturing test output. Required by the constructor. |
+| **Quoted values `'50'`** | Values in step titles make tests self-documenting. See [Value Extraction](./value-extraction.mdx). |
+
+:::info The constructor pattern
+Every LiveDoc test class must accept `ITestOutputHelper output` in its
+constructor and pass it to `base(output)`. This is how LiveDoc captures and
+formats the test output that appears in your IDE and test reports.
+:::
+
+---
+
+## Step 4: Run It 🎉
+
+```bash
+dotnet test --logger LiveDoc
+```
+
+The `--logger LiveDoc` flag activates LiveDoc's console reporter, which groups results by Feature and Specification:
+
+```
+  Feature: Calculator
+    ✓ Scenario: Adding two numbers
+    ✓ Scenario: Subtracting two numbers
+
+  Tests: 2 passed (18ms)
+```
+
+:::tip Console Logger vs. Test Explorer
+The console logger shows the **Feature → Scenario/Rule** hierarchy at a glance.
+For **step-level detail** (Given / When / Then), click a test in Visual Studio's
+Test Explorer — the full BDD output appears in the detail panel.
+:::
+
+Without the logger flag, `dotnet test` still works — you just get the standard
+xUnit output instead of the grouped BDD view.
+
+---
+
+## Step 5: Add a Second Scenario
+
+Let's add another scenario to see how features group multiple tests:
+
+```csharp
+[Scenario("Subtracting two numbers")]
+public void Subtracting_two_numbers()
+{
+    int result = 0;
+
+    Given("I have entered '100' into the calculator", () =>
+    {
+        result = 100;
+    });
+
+    When("I subtract '37'", () =>
+    {
+        result -= 37;
+    });
+
+    Then("the result should be '63'", () =>
+    {
+        Assert.Equal(63, result);
+    });
+}
+```
+
+Run `dotnet test --logger LiveDoc` again — both scenarios appear under the same feature heading:
+
+```
+  Feature: Calculator
+    ✓ Scenario: Adding two numbers
+    ✓ Scenario: Subtracting two numbers
+
+  Tests: 2 passed (18ms)
+```
+
+Click either test in Visual Studio's Test Explorer detail panel to see the full step output:
+
+```
+Feature: Calculator
+
+  Scenario: Subtracting two numbers
+    Given I have entered '100' into the calculator
+    When I subtract '37'
+    Then the result should be '63'
+
+    ✓ 3 passing (6ms)
+```
+
+---
+
+## Step 6: See It in Your IDE
+
+### Visual Studio Test Explorer
+
+Tests appear as regular xUnit tests:
+
+```
+📁 CalculatorTests
+  ✅ Adding_two_numbers
+```
+
+Click a test to see the formatted BDD output in the **Test Detail Summary** panel.
+
+### VS Code
+
+Install the [.NET Test Explorer](https://marketplace.visualstudio.com/items?itemName=formulahendry.dotnet-test-explorer) extension and run tests directly from the editor. Output appears in the terminal panel.
+
+---
+
+## Namespace Matters
+
+Your C# namespace determines how tests are grouped in the LiveDoc Viewer. Organize
+namespaces by feature area for a clean report hierarchy:
+
+```
+MyProject.Tests/
+├── Checkout/           → "Checkout" in the viewer tree
+│   └── CartTests.cs
+├── Shipping/           → "Shipping" in the viewer tree
+│   └── CostsTests.cs
+└── Auth/               → "Auth" in the viewer tree
+    └── LoginTests.cs
+```
+
+:::caution
+Avoid flat namespaces — placing all tests in a single namespace produces a
+flat, hard-to-navigate list in the viewer.
+:::
+
+---
+
+## Recap
+
+- **Install** `SweDevTools.LiveDoc.xUnit` via NuGet
+- **Inherit** from `FeatureTest` and add `[Feature]` to the class
+- **Mark tests** with `[Scenario]` — it inherits from `[Fact]`
+- **Write steps** with `Given()` / `When()` / `Then()` / `And()` / `But()`
+- **Constructor** must accept `ITestOutputHelper` and pass it to `base(output)`
+- **Run** with `dotnet test --logger LiveDoc` and enjoy structured, readable output
+- **Install AI skills** with `dotnet msbuild -t:LiveDocInstallSkills` so your AI assistant writes correct tests
+
+---
+
+## Next Steps
+
+- **Next in this series**: [Your First Feature](./your-first-feature.mdx) — learn every BDD keyword, step value extraction, and descriptions
+- **AI skills**: [AI Skill Setup](../guides/ai-skill-setup.mdx) — teach your AI assistant to write LiveDoc tests
+- **Deep dive**: [Feature & Scenario Attributes](../reference/attributes.mdx) — full reference for all attributes
+- **Practical use**: [Viewer Integration](../guides/viewer-integration.mdx) — visualize results in the LiveDoc Viewer
+- **End-to-end testing**: [Journey Testing](../guides/journey-testing.mdx) — test full API flows with annotated `.http` files

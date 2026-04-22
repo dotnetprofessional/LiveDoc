@@ -1,0 +1,228 @@
+---
+sidebar_position: 2
+description: "Understand the BDD pattern — Feature, Scenario, Given/When/Then — and how LiveDoc uses it to create executable specifications."
+---
+
+# BDD Pattern
+
+<p className="intro">
+Behavior-Driven Development (BDD) bridges the gap between business stakeholders and developers
+by expressing requirements in a structured, human-readable format — Feature, Scenario,
+Given/When/Then — that also executes as a test.
+</p>
+
+## What Is BDD?
+
+BDD is a collaborative approach to software development where behavior is described through **concrete examples** rather than abstract requirements. Instead of writing "the system shall support discounts," you write:
+
+```
+Given the cart total is $100.00
+When the user applies discount code 'SAVE20'
+Then the cart total should be $80.00
+```
+
+This is simultaneously:
+- A **requirement** that a product owner can read and validate
+- A **test** that a developer can execute
+- **Documentation** that stays accurate as long as the test passes
+
+BDD was pioneered by Dan North in 2003 as an evolution of Test-Driven Development (TDD). Where TDD asks "did I build it right?", BDD asks "did I build the right thing?" — and answers that question in a language everyone on the team can understand.
+
+:::info Gherkin Vocabulary vs. SDK Code
+The examples throughout this page use the [**Gherkin**](https://cucumber.io/docs/gherkin/reference/) vocabulary — the structured language originally created for Cucumber. LiveDoc adopts this vocabulary for its concepts, but **tests are written in your programming language, not in `.feature` files**. Each SDK implements the Gherkin vocabulary using its platform's native idioms:
+- **TypeScript/Vitest**: Function calls — `feature()`, `scenario()`, `given()`, `when()`, `then()`
+- **C#/xUnit**: Classes and attributes — `FeatureTest` base class, `[Scenario]`, `[Given]`, `[When]`, `[Then]`
+
+See [SDK Support](#sdk-support) at the bottom for links to the actual code syntax.
+:::
+
+## The Given-When-Then Structure
+
+Every BDD scenario follows a three-act structure:
+
+| Step      | Purpose                          | Answers                          |
+| --------- | -------------------------------- | -------------------------------- |
+| **Given** | Establish the preconditions      | "What is the starting state?"    |
+| **When**  | Perform the action under test    | "What does the user do?"         |
+| **Then**  | Assert the expected outcome      | "What should happen?"            |
+
+This structure works because it mirrors how humans naturally think about behavior: *if this is true, and I do this, then that should happen*.
+
+### Additional Step Keywords
+
+Beyond the core three, BDD includes connectors for more complex scenarios:
+
+| Keyword   | Purpose                                                        |
+| --------- | -------------------------------------------------------------- |
+| **And**   | Continues the previous step type (another Given, When, or Then)|
+| **But**   | A negative continuation ("But the error message is not shown") |
+
+These keywords don't change the semantics — they're syntactic sugar that makes scenarios read more naturally:
+
+```
+Given the user is logged in
+  And the user has admin privileges
+When the user deletes a project
+Then the project is removed from the list
+  But the project's data is archived, not destroyed
+```
+
+## Features and Scenarios
+
+BDD organizes specifications into a two-level hierarchy:
+
+### Feature
+
+A **Feature** represents a capability of the system — something the software does that delivers value. Features have a title, optional tags, and an optional description:
+
+```
+Feature: Shopping Cart Checkout
+  @e-commerce @critical
+  Users should be able to check out their cart with various
+  payment methods and receive order confirmation.
+```
+
+Features group related scenarios together, creating a natural table of contents for your system's behavior.
+
+### Scenario
+
+A **Scenario** is a single concrete example of how the feature behaves. Each scenario is independent — it sets up its own state, performs an action, and asserts a result:
+
+```
+Feature: Shopping Cart Checkout
+
+  Scenario: Successful checkout with credit card
+    Given the user has items in their cart
+    When the user completes checkout with a valid credit card
+    Then the order confirmation is displayed
+
+  Scenario: Checkout fails with expired card
+    Given the user has items in their cart
+    When the user attempts checkout with an expired card
+    Then an error message explains the card is expired
+```
+
+### ScenarioOutline
+
+When the same behavior applies to multiple sets of data, a **ScenarioOutline** avoids repetition by defining a template with an Examples table:
+
+```
+Feature: Discount Codes
+
+  Scenario Outline: Applying various discount codes
+    Given the cart total is $100.00
+    When the user applies discount code '<code>'
+    Then the cart total should be $<expected>
+
+    Examples:
+    | code    | expected |
+    | SAVE10  | 90.00    |
+    | SAVE20  | 80.00    |
+    | HALF    | 50.00    |
+```
+
+This produces three scenarios in the documentation output, each showing its specific inputs and expected results. Learn more about data-driven approaches in [Data-Driven Tests](./data-driven-tests.mdx).
+
+### Background
+
+A **Background** defines steps that run before *every* scenario in a feature. Use it for shared preconditions that would otherwise be repeated:
+
+```
+Feature: User Dashboard
+
+  Background: Authenticated user
+    Given the user is logged in
+    And the user has an active subscription
+
+  Scenario: View profile
+    When the user navigates to their profile
+    Then their account details are displayed
+
+  Scenario: Update email
+    When the user changes their email to 'new@example.com'
+    Then the confirmation email is sent to 'new@example.com'
+```
+
+## The Gherkin Vocabulary
+
+LiveDoc implements the full **Gherkin vocabulary** — the structured language originally created for Cucumber. Here's the complete set of keywords and their roles:
+
+| Keyword              | Role                          | Contains                     |
+| -------------------- | ----------------------------- | ---------------------------- |
+| **Feature**          | Top-level grouping            | Scenarios, Backgrounds       |
+| **Scenario**         | Single behavior example       | Steps (Given/When/Then)      |
+| **Scenario Outline** | Data-driven behavior template | Steps + Examples table       |
+| **Background**       | Shared preconditions          | Steps (typically Given)      |
+| **Given**            | Precondition step             | Setup logic                  |
+| **When**             | Action step                   | The behavior being tested    |
+| **Then**             | Assertion step                | Expected outcome             |
+| **And**              | Continuation step             | Extends previous step type   |
+| **But**              | Negative continuation         | Extends previous step type   |
+
+:::info
+LiveDoc uses the Gherkin *vocabulary*, but it is **not** Cucumber. Tests are written in your programming language (TypeScript or C#), not in `.feature` files. This means you get full IDE support — autocompletion, type checking, refactoring — while keeping the readable structure. See the [Gherkin Reference](https://cucumber.io/docs/gherkin/reference/) for the original specification that inspired these keywords.
+:::
+
+## Why BDD Works for Living Documentation
+
+BDD is particularly powerful for [living documentation](./living-documentation.mdx) because:
+
+1. **Stakeholder readability** — Product owners, QA, and developers can all read the same specification. There's no translation layer between "what was agreed" and "what was built."
+
+2. **Structured output** — The Feature → Scenario → Step hierarchy produces documentation that's naturally organized and browsable.
+
+3. **Self-documenting values** — When you embed data in step titles (`Given the user has '5' items`), the documentation shows exactly what was tested. See [Self-Documenting Tests](./self-documenting-tests.mdx) for more on this principle.
+
+4. **Traceability** — Tags (`@critical`, `@sprint-12`) let you trace specifications back to requirements, user stories, or compliance criteria.
+
+## When to Use BDD
+
+BDD is the right choice when:
+
+- **Multiple stakeholders** need to read and validate the specifications
+- You're describing **user-facing behavior** — workflows, journeys, business rules
+- The **Given/When/Then structure** adds clarity (not ceremony)
+- You want **living documentation** that serves as acceptance criteria
+- You're working from **user stories** or requirements documents
+
+## BDD vs. Specification Pattern
+
+LiveDoc also offers the [Specification pattern](./specification-pattern.mdx) for cases where BDD's structure adds overhead without value. Here's a quick comparison:
+
+| Aspect              | BDD Pattern                    | Specification Pattern          |
+| ------------------- | ------------------------------ | ------------------------------ |
+| **Structure**       | Feature → Scenario → Steps     | Specification → Rule           |
+| **Step keywords**   | Given / When / Then / And / But| None — direct assertions       |
+| **Best for**        | User behavior, business rules  | Technical components, APIs     |
+| **Audience**        | Business + Technical           | Technical                      |
+| **Verbosity**       | Higher (structured steps)      | Lower (direct code)            |
+| **Data-driven**     | ScenarioOutline + Examples     | RuleOutline + Examples         |
+| **Collaboration**   | Discovery workshops, reviews   | Code reviews, TDD              |
+
+:::tip Mix and Match
+You don't have to choose one pattern for your entire project. Use BDD for acceptance tests and the Specification pattern for unit/component tests — they complement each other naturally.
+:::
+
+## SDK Support
+
+Both LiveDoc SDKs fully support the BDD pattern:
+
+- **TypeScript/Vitest**: Uses function calls — `feature()`, `scenario()`, `given()`, `when()`, `then()`. See [Your First Feature](/vitest/learn/your-first-feature).
+- **C#/xUnit**: Uses classes and methods — inherit from `FeatureTest`, define step methods. See [Your First Feature](/xunit/learn/your-first-feature).
+
+The concepts are identical across both SDKs. Only the syntax differs.
+
+## Recap
+
+- **BDD** describes behavior through concrete examples using **Given/When/Then**.
+- **Features** group related scenarios; **Scenarios** are individual behavior examples.
+- **ScenarioOutline** supports [data-driven testing](./data-driven-tests.mdx) with Examples tables.
+- **Background** provides shared setup across scenarios in a feature.
+- LiveDoc uses the Gherkin vocabulary but tests are written in your language, not `.feature` files.
+- Use BDD for stakeholder-facing behavior; use [Specification](./specification-pattern.mdx) for technical components.
+
+## Next Steps
+
+- **Next in this series**: [Specification Pattern](./specification-pattern.mdx) — the compact alternative for technical tests
+- **Hands-on**: [Vitest: Your First Feature](/vitest/learn/your-first-feature) or [xUnit: Your First Feature](/xunit/learn/your-first-feature)
+- **Data-driven**: [Data-Driven Tests](./data-driven-tests.mdx) — ScenarioOutline and RuleOutline in depth

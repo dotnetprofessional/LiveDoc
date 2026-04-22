@@ -1,0 +1,14 @@
+# Feature: Health Check
+# Description: Verify the sample API is running
+
+# Scenario: Server reports healthy status
+
+# When checking the health endpoint
+# @name healthCheck
+GET {{baseUrl}}/health
+
+?? status == 200
+
+###
+
+# Then the server reports a healthy status

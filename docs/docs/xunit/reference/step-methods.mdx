@@ -1,0 +1,377 @@
+---
+sidebar_position: 4
+description: "Complete reference for Given(), When(), Then(), And(), and But() step methods — signatures, context parameter, async support, and nesting."
+---
+
+# Step Methods
+
+<p className="intro">
+The step methods — `Given()`, `When()`, `Then()`, `And()`, and `But()` — are
+the building blocks of BDD scenarios in `FeatureTest`. Each records a step in the
+formatted output and executes a lambda containing the test logic.
+</p>
+
+```csharp
+Given("a customer from 'Australia'", ctx =>
+{
+    _country = ctx.Step!.Values[0].AsString();
+});
+
+When("the order totals '100.00'", ctx =>
+{
+    _total = ctx.Step!.Values[0].AsDecimal();
+});
+
+Then("shipping is 'Free'", ctx =>
+{
+    Assert.Equal(ctx.Step!.Values[0].AsString(), CalculateShipping(_country, _total));
+});
+```
+
+---
+
+## Reference {#reference}
+
+### Method Signatures {#signatures}
+
+All five keywords share the same four overloads:
+
+```csharp
+// 1. Sync — no context
+void Given(string title, Action action);
+
+// 2. Sync — with context (for value extraction)
+void Given(string title, Action<LiveDocContext> action);
+
+// 3. Async — no context
+Task Given(string title, Func<Task> action);
+
+// 4. Async — with context
+Task Given(string title, Func<LiveDocContext, Task> action);
+```
+
+Replace `Given` with `When`, `Then`, `And`, or `But` — the signatures are identical.
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — The step description. Appears in formatted output. Can contain:
+  - **Quoted values**: `'value'` — extracted via `ctx.Step.Values`
+  - **Named parameters**: `<name:value>` — extracted via `ctx.Step.Params`
+  - **Outline placeholders**: `<paramName>` — replaced with example data in output
+
+- **`action`**: `Action` | `Action<LiveDocContext>` | `Func<Task>` | `Func<LiveDocContext, Task>` — The step implementation. Use the `LiveDocContext` overloads when you need to extract values from the title.
+
+#### Returns {#returns}
+
+- Sync overloads: `void`
+- Async overloads: `Task` — must be `await`ed in the test method
+
+---
+
+## Step Keywords {#keywords}
+
+### `Given()` {#given}
+
+Establishes preconditions — the initial state of the system.
+
+```csharp
+Given("a registered user with email 'alice@example.com'", ctx =>
+{
+    _user = new User { Email = ctx.Step!.Values[0].AsString() };
+});
+```
+
+### `When()` {#when}
+
+Describes the action being performed — the behavior under test.
+
+```csharp
+When("the user submits the login form", () =>
+{
+    _result = _authService.Login(_user.Email, _password);
+});
+```
+
+### `Then()` {#then}
+
+Asserts the expected outcome.
+
+```csharp
+Then("login succeeds", () =>
+{
+    Assert.True(_result.Success);
+});
+```
+
+### `And()` {#and}
+
+Adds a continuation to the previous step type (Given, When, or Then).
+
+```csharp
+Then("the user is redirected to the dashboard", () =>
+{
+    Assert.Equal("/dashboard", _result.RedirectUrl);
+});
+
+And("a session token is issued", () =>
+{
+    Assert.NotNull(_result.Token);
+});
+```
+
+### `But()` {#but}
+
+Adds a negative or contrasting continuation to the previous step type.
+
+```csharp
+Then("the order is placed", () =>
+{
+    Assert.True(_order.IsConfirmed);
+});
+
+But("no confirmation email is sent to unverified users", () =>
+{
+    Assert.False(_emailService.WasCalled);
+});
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Sync steps without context {#basic-usage}
+
+Use the `Action` overload when values are already available (e.g., from ScenarioOutline parameters or class fields):
+
+```csharp
+[Scenario]
+public void Place_an_order()
+{
+    Given("a customer with items in their cart", () =>
+    {
+        _cart = new ShoppingCart();
+        _cart.AddItem(new CartItem { Name = "Tea", Price = 12.99m });
+    });
+
+    When("they proceed to checkout", () =>
+    {
+        _order = _checkout.Process(_cart);
+    });
+
+    Then("the order is confirmed", () =>
+    {
+        Assert.True(_order.IsConfirmed);
+    });
+
+    And("the cart is emptied", () =>
+    {
+        Assert.Empty(_cart.Items);
+    });
+}
+```
+
+### Extracting values with context {#context-usage}
+
+Use the `Action<LiveDocContext>` overload to extract values from the step title, ensuring the documentation and the code stay in sync:
+
+```csharp
+[Scenario]
+public void Apply_discount_code()
+{
+    Given("a cart with total '250.00'", ctx =>
+    {
+        _cart = new ShoppingCart { Total = ctx.Step!.Values[0].AsDecimal() };
+    });
+
+    When("the customer applies code 'SAVE20'", ctx =>
+    {
+        var code = ctx.Step!.Values[0].AsString();
+        _cart.ApplyDiscount(code);
+    });
+
+    Then("the total becomes '200.00'", ctx =>
+    {
+        Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _cart.Total);
+    });
+}
+```
+
+### Async steps {#async-usage}
+
+Use `Func<Task>` or `Func<LiveDocContext, Task>` overloads for async operations. The test method must be `async Task` and each async step must be `await`ed:
+
+```csharp
+[Scenario]
+public async Task Create_user_via_api()
+{
+    await Given("a valid user payload with name 'Alice'", async ctx =>
+    {
+        var name = ctx.Step!.Values[0].AsString();
+        _payload = new CreateUserRequest { Name = name };
+    });
+
+    await When("the API is called", async () =>
+    {
+        _response = await _httpClient.PostAsJsonAsync("/users", _payload);
+    });
+
+    Then("the response status is '201'", ctx =>
+    {
+        Assert.Equal(ctx.Step!.Values[0].AsInt(), (int)_response.StatusCode);
+    });
+}
+```
+
+:::info Mixing sync and async
+You can freely mix sync and async steps in the same scenario. Only async steps need `await`.
+:::
+
+### Named parameters {#named-params}
+
+Use `<name:value>` syntax for self-documenting parameter extraction:
+
+```csharp
+[Scenario]
+public void Transfer_funds()
+{
+    Given("an account with <balance:1000> dollars", ctx =>
+    {
+        var balance = ctx.Step!.Params["balance"].AsDecimal();
+        _account = new Account { Balance = balance };
+    });
+
+    When("transferring <amount:250> dollars", ctx =>
+    {
+        var amount = ctx.Step!.Params["amount"].AsDecimal();
+        _account.Transfer(amount);
+    });
+
+    Then("the balance is <remaining:750> dollars", ctx =>
+    {
+        var expected = ctx.Step!.Params["remaining"].AsDecimal();
+        Assert.Equal(expected, _account.Balance);
+    });
+}
+```
+
+### ScenarioOutline with placeholders {#outline-placeholders}
+
+In `[ScenarioOutline]` methods, `<paramName>` segments in step titles are replaced with the current example's values in the formatted output:
+
+```csharp
+[ScenarioOutline]
+[Example("Australia", 100.00, "Free")]
+[Example("New Zealand", 50.00, "Standard")]
+public void Shipping_rates(string country, decimal total, string type)
+{
+    Given("a customer from <country>", () =>
+    {
+        _cart = new ShoppingCart { Country = country };
+    });
+
+    When("the order totals <total>", () =>
+    {
+        _cart.Total = total;
+        _cart.Calculate();
+    });
+
+    Then("shipping is <type>", () =>
+    {
+        Assert.Equal(type, _cart.ShippingType);
+    });
+}
+```
+
+**Output for first example:**
+```
+Scenario Outline: Shipping rates
+  Given a customer from Australia
+  When the order totals 100.00
+  Then shipping is Free
+```
+
+### Multiple And/But steps {#multiple-continuations}
+
+Chain multiple `And()` and `But()` steps after any primary step:
+
+```csharp
+[Scenario]
+public void Comprehensive_validation()
+{
+    Given("a new user registration form", () =>
+    {
+        _form = new RegistrationForm();
+    });
+
+    When("submitting with email 'test@example.com'", ctx =>
+    {
+        _form.Email = ctx.Step!.Values[0].AsString();
+        _result = _validator.Validate(_form);
+    });
+
+    Then("email is valid", () =>
+    {
+        Assert.True(_result.EmailValid);
+    });
+
+    And("username is required", () =>
+    {
+        Assert.False(_result.UsernameValid);
+    });
+
+    And("password is required", () =>
+    {
+        Assert.False(_result.PasswordValid);
+    });
+
+    But("no error is shown for email", () =>
+    {
+        Assert.Null(_result.EmailError);
+    });
+}
+```
+
+---
+
+## Formatted Output {#formatted-output}
+
+Steps produce indented, Gherkin-style output in Test Explorer:
+
+```
+Feature: User Registration
+
+  Scenario: Comprehensive validation
+    Given a new user registration form
+    When submitting with email test@example.com
+    Then email is valid
+      and username is required
+      and password is required
+      but no error is shown for email
+
+    ✓ 6 passing (12ms)
+```
+
+- `Given`, `When`, `Then` are indented under the scenario
+- `And`, `But` appear as continuations with lowercase keywords
+- Quoted values have their quotes removed in the display
+- Named parameter `<name:value>` displays only the value
+- Outline `<placeholder>` segments are replaced with example data
+
+---
+
+## Caveats {#caveats}
+
+- **Steps are only available in `FeatureTest`** — `SpecificationTest` uses direct assertions in `[Rule]` methods instead.
+- **`ctx.Step` may be null** if you call a step method using the `Action` overload (without `LiveDocContext`). Use the `Action<LiveDocContext>` overload when you need value extraction.
+- **Async steps must be `await`ed** — forgetting `await` causes steps to execute out of order and may suppress exceptions.
+- **Step title is the documentation** — always embed meaningful values in the title string, not just in the lambda body.
+
+---
+
+## See Also {#see-also}
+
+- [`FeatureTest`](./feature-test.mdx) — base class providing step methods
+- [Value Extraction API](./value-extraction-api.mdx) — `Values`, `Params`, `As<T>()` details
+- [Context](./context.mdx) — `LiveDocContext` and `StepContext` reference
+- [`[Example]`](./example-attribute.mdx) — data rows for ScenarioOutline
+- [Your First Feature](../learn/your-first-feature.mdx) — tutorial with step-by-step walkthrough

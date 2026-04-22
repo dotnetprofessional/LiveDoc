@@ -1,0 +1,350 @@
+---
+sidebar_position: 7
+description: "Complete reference for LiveDocContext, StepContext, RuleContext, FeatureContext, ScenarioContext, and SpecificationContext — how context flows through test execution."
+---
+
+# Context
+
+<p className="intro">
+Context objects carry metadata and extracted values through test execution.
+`LiveDocContext` is passed to step lambdas. `FeatureContext`, `ScenarioContext`,
+`StepContext`, `SpecificationContext`, and `RuleContext` provide typed access to
+the current test's title, description, tags, and values.
+</p>
+
+```csharp
+Given("a user with '100' credits", ctx =>
+{
+    // Step-level context
+    var credits = ctx.Step!.Values[0].AsInt();
+    var stepTitle = ctx.Step!.Title;
+
+    // Feature-level context
+    var featureTitle = ctx.Feature?.Title;
+    var featureDesc = ctx.Feature?.Description;
+
+    // Scenario-level context
+    var scenarioName = ctx.Scenario?.Name;
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `LiveDocContext` {#livedoccontext}
+
+The primary context object passed to step lambdas via the `Action<LiveDocContext>` and `Func<LiveDocContext, Task>` overloads.
+
+```csharp
+public class LiveDocContext
+```
+
+#### Properties {#livedoccontext-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Feature` | `FeatureContext?` | Feature metadata (BDD tests only). |
+| `Specification` | `SpecificationContext?` | Specification metadata (MSpec tests only). |
+| `Scenario` | `ScenarioContext?` | Current scenario metadata (BDD tests only). |
+| `Rule` | `RuleContext?` | Current rule metadata (MSpec tests only). |
+| `Step` | `StepContext?` | Current step metadata with extracted values. |
+| `Example` | `dynamic?` | Current example row data (outlines only). |
+| `TestCase` | `object?` | Base test case context. |
+
+:::info Null safety
+Properties are nullable. In a `[Scenario]` method, `Feature` and `Scenario` are populated but `Specification` and `Rule` are null. In a `[Rule]` method, the reverse is true. `Step` is populated inside step lambdas.
+:::
+
+### `StepContext` {#stepcontext}
+
+Contains metadata about the currently executing step, including extracted values and parameters.
+
+```csharp
+public class StepContext
+```
+
+#### Properties {#stepcontext-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Title` | `string` | The original step title as written in code. |
+| `DisplayTitle` | `string` | The rendered title with placeholders replaced and quotes removed. |
+| `Type` | `string` | The step keyword: `"Given"`, `"When"`, `"Then"`, `"And"`, or `"But"`. |
+| `Values` | `LiveDocValueArray` | Ordered array of quoted values (`'value'`). |
+| `ValuesRaw` | `string[]` | Quoted values as raw strings. |
+| `Params` | `LiveDocValueDictionary` | Named parameters (`<name:value>`). |
+| `ParamsRaw` | `IReadOnlyDictionary<string, string>` | Named parameters as raw strings. |
+
+```csharp
+Given("transferring '250.00' from <account:checking>", ctx =>
+{
+    // Values: ordered quoted values
+    var amount = ctx.Step!.Values[0].AsDecimal();     // 250.00m
+
+    // Params: named parameters
+    var account = ctx.Step!.Params["account"].AsString(); // "checking"
+
+    // Metadata
+    var title = ctx.Step!.Title;        // "transferring '250.00' from <account:checking>"
+    var display = ctx.Step!.DisplayTitle; // "transferring 250.00 from checking"
+    var type = ctx.Step!.Type;           // "Given"
+});
+```
+
+### `FeatureContext` {#featurecontext}
+
+Metadata about the current BDD feature, populated from the `[Feature]` attribute.
+
+```csharp
+public class FeatureContext
+```
+
+#### Properties {#featurecontext-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Title` | `string` | The feature title from `[Feature("title")]`. |
+| `Description` | `string?` | The description from `Description = "..."`. |
+| `Tags` | `string[]` | Tags associated with the feature. |
+
+```csharp
+[Feature("Shopping Cart", Description = "Cart checkout rules")]
+public class CartTests : FeatureTest
+{
+    public CartTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario]
+    public void Access_feature_context()
+    {
+        Given("context is available", ctx =>
+        {
+            Assert.Equal("Shopping Cart", ctx.Feature!.Title);
+            Assert.Equal("Cart checkout rules", ctx.Feature!.Description);
+        });
+    }
+}
+```
+
+### `ScenarioContext` {#scenariocontext}
+
+Metadata about the current BDD scenario, populated from the `[Scenario]` or `[ScenarioOutline]` attribute.
+
+```csharp
+public class ScenarioContext
+```
+
+#### Properties {#scenariocontext-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Name` | `string` | The scenario title/display name. |
+| `Description` | `string?` | The scenario description. |
+| `Tags` | `string[]` | Tags associated with the scenario. |
+| `Steps` | `List<StepExecution>` | List of executed steps with results. |
+
+```csharp
+[Scenario("Login with valid credentials", Description = "Happy path")]
+public void Login()
+{
+    Given("a registered user", ctx =>
+    {
+        Assert.Equal("Login with valid credentials", ctx.Scenario!.Name);
+        Assert.Equal("Happy path", ctx.Scenario!.Description);
+    });
+}
+```
+
+### `SpecificationContext` {#specificationcontext}
+
+Metadata about the current MSpec specification, populated from the `[Specification]` attribute.
+
+```csharp
+public class SpecificationContext
+```
+
+#### Properties {#specificationcontext-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Title` | `string` | The specification title. |
+| `Description` | `string?` | The specification description. |
+| `Tags` | `string[]` | Tags associated with the specification. |
+
+### `RuleContext` {#rulecontext}
+
+Metadata and values for the currently executing MSpec rule. This is the primary API for value extraction in `SpecificationTest`.
+
+```csharp
+public class RuleContext
+```
+
+#### Properties {#rulecontext-properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Name` | `string` | The rule title. |
+| `Description` | `string?` | The rule description. |
+| `Tags` | `string[]` | Tags associated with the rule. |
+| `Values` | `LiveDocValueArray` | Ordered array of quoted values from the rule title. |
+| `ValuesRaw` | `string[]` | Quoted values as raw strings. |
+| `Params` | `LiveDocValueDictionary` | Named parameters from the rule title. |
+| `ParamsRaw` | `IReadOnlyDictionary<string, string>` | Named parameters as raw strings. |
+
+```csharp
+[Specification("Calculator")]
+public class CalcSpec : SpecificationTest
+{
+    public CalcSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("Multiplying '6' by '7' returns '42'")]
+    public void Multiplication()
+    {
+        var (a, b, expected) = Rule.Values.As<int, int, int>();
+        Assert.Equal(expected, a * b);
+
+        // Also available:
+        Assert.Equal("Multiplying '6' by '7' returns '42'", Rule.Name);
+    }
+}
+```
+
+---
+
+## `EnsureContext()` {#ensurecontext}
+
+```csharp
+// On FeatureTest
+protected LiveDocContext EnsureContext()
+
+// On SpecificationTest
+protected LiveDocContext EnsureContext()
+```
+
+Returns the current `LiveDocContext`, initializing it if it hasn't been created yet. Normally the context is created automatically when the first step executes, but `EnsureContext()` can be called explicitly if you need context before any steps run.
+
+```csharp
+[Scenario]
+public void Verify_feature_metadata()
+{
+    var ctx = EnsureContext();
+    Assert.Equal("Shopping Cart", ctx.Feature?.Title);
+}
+```
+
+---
+
+## Context Flow {#context-flow}
+
+### BDD / FeatureTest {#bdd-flow}
+
+```
+[Feature] attribute
+  └── FeatureContext (title, description, tags)
+        │
+[Scenario] / [ScenarioOutline] attribute
+  └── ScenarioContext (name, description, tags, steps)
+        │
+Given/When/Then/And/But step method
+  └── StepContext (title, type, values, params)
+        │
+LiveDocContext (aggregates all above)
+  └── Passed to: Action<LiveDocContext> lambda
+```
+
+```csharp
+[Feature("Checkout", Description = "Payment flow")]
+public class CheckoutTests : FeatureTest
+{
+    public CheckoutTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario("Process payment")]
+    public void Process_payment()
+    {
+        // ctx has: Feature, Scenario, Step
+        Given("a valid credit card with number '4111111111111111'", ctx =>
+        {
+            Assert.Equal("Checkout", ctx.Feature!.Title);
+            Assert.Equal("Process payment", ctx.Scenario!.Name);
+            Assert.Equal("Given", ctx.Step!.Type);
+            Assert.Equal("4111111111111111", ctx.Step!.Values[0].AsString());
+        });
+    }
+}
+```
+
+### MSpec / SpecificationTest {#mspec-flow}
+
+```
+[Specification] attribute
+  └── SpecificationContext (title, description, tags)
+        │
+[Rule] / [RuleOutline] attribute
+  └── RuleContext (name, description, tags, values, params)
+        │
+Rule property on SpecificationTest
+  └── Provides: Values, Params, ValuesRaw, ParamsRaw
+```
+
+```csharp
+[Specification("Math", Description = "Core arithmetic rules")]
+public class MathSpec : SpecificationTest
+{
+    public MathSpec(ITestOutputHelper output) : base(output) { }
+
+    [Rule("Adding '2' and '3' returns '5'")]
+    public void Addition()
+    {
+        // Specification context
+        Assert.Equal("Math", Specification.Title);
+        Assert.Equal("Core arithmetic rules", Specification.Description);
+
+        // Rule context with values
+        Assert.Equal("Adding '2' and '3' returns '5'", Rule.Name);
+        var (a, b, expected) = Rule.Values.As<int, int, int>();
+        Assert.Equal(expected, a + b);
+    }
+}
+```
+
+### ScenarioOutline / RuleOutline {#outline-flow}
+
+In outline methods, the `Example` dynamic property provides access to the current row's data:
+
+```csharp
+[ScenarioOutline]
+[Example("Alice", 25)]
+public void Test(string name, int age)
+{
+    Given("user <name> aged <age>", ctx =>
+    {
+        // Method parameters (typed)
+        Assert.Equal("Alice", name);
+        Assert.Equal(25, age);
+
+        // Dynamic Example property
+        Assert.Equal("Alice", (string)ctx.Example!.name);
+        Assert.Equal(25, (int)ctx.Example!.age);
+    });
+}
+```
+
+---
+
+## Caveats {#caveats}
+
+- **`ctx.Step` is only populated inside step lambdas** that use the `Action<LiveDocContext>` or `Func<LiveDocContext, Task>` overload. It is null if you use `Action` (no context).
+- **`Feature` / `Specification` are mutually exclusive** — one is always null depending on the base class.
+- **`Scenario` / `Rule` are mutually exclusive** — one is always null depending on the test attribute.
+- **`Example` is null** unless the test is a `[ScenarioOutline]` or `[RuleOutline]`.
+- **`RuleContext` on `SpecificationTest`** provides `Values` and `Params` directly — you don't need a step lambda to access them.
+
+---
+
+## See Also {#see-also}
+
+- [`FeatureTest`](./feature-test.mdx) — base class providing BDD context
+- [`SpecificationTest`](./specification-test.mdx) — base class providing MSpec context
+- [Value Extraction API](./value-extraction-api.mdx) — `LiveDocValue`, `AsInt()`, type conversions
+- [Step Methods](./step-methods.mdx) — step lambdas receiving `LiveDocContext`
+- [`[Example]`](./example-attribute.mdx) — `Example` property for outline data

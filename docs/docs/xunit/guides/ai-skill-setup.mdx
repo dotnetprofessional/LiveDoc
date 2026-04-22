@@ -1,0 +1,166 @@
+---
+sidebar_position: 2
+title: "AI Skill Setup"
+description: "Install the LiveDoc AI coding skill so your AI assistant writes correct BDD and Specification tests with proper patterns and value extraction."
+---
+
+# AI Skill Setup
+
+<p className="intro">
+LiveDoc ships with AI coding skills that teach your AI assistant how to write
+correct BDD and Specification tests. The skill files are bundled with the NuGet
+package — no extra tools to install.
+</p>
+
+## One Command
+
+From your test project directory, run:
+
+```bash
+dotnet msbuild -t:LiveDocInstallSkills
+```
+
+This installs skill files for **all supported AI tools** into your project. Commit them to share with your team.
+
+### Options
+
+Install for a specific tool only:
+
+```bash
+dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot
+```
+
+Install to your home directory (personal, all projects):
+
+```bash
+dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocScope=user
+```
+
+---
+
+## Supported AI Tools
+
+| AI Tool                      | Project Scope | User Scope |
+| ---------------------------- | :-----------: | :--------: |
+| GitHub Copilot (VS Code/CLI) | ✅            | ✅          |
+| Claude Code                  | ✅            | ✅          |
+| Roo Code                     | ✅            | ✅          |
+| Cursor                       | ✅            | —          |
+| Windsurf                     | ✅            | —          |
+
+:::tip
+**Project scope** installs skill files in your repository. Commit them and
+every developer on the team benefits automatically.
+
+**User scope** installs to your home directory — available across all your projects.
+:::
+
+---
+
+## Where Files Are Installed
+
+The installer places skill instruction files in tool-specific locations:
+
+| AI Tool         | Project Scope Location                      | User Scope Location              |
+| --------------- | ------------------------------------------- | -------------------------------- |
+| GitHub Copilot  | `.github/skills/livedoc-xunit/`             | `~/.copilot/skills/livedoc-xunit/` |
+| Claude Code     | `.claude/skills/livedoc-xunit/`             | `~/.claude/skills/livedoc-xunit/`  |
+| Roo Code        | `.roo/skills/livedoc-xunit/`                | `~/.roo/skills/livedoc-xunit/`     |
+| Cursor          | `.cursor/rules/livedoc-xunit/`              | —                                |
+| Windsurf        | `.windsurf/rules/livedoc-xunit/`            | —                                |
+
+### Manual Fallback
+
+If the MSBuild target doesn't work in your environment, you can copy the files manually.
+The skill files are bundled in the NuGet package under `tools/skills/`. Find them in your
+NuGet cache:
+
+```bash
+# Typical locations:
+~/.nuget/packages/swedevtools.livedoc.xunit/<version>/tools/skills/
+# Or on Windows:
+%USERPROFILE%\.nuget\packages\swedevtools.livedoc.xunit\<version>\tools\skills\
+```
+
+Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`) to the appropriate directory
+from the table above.
+
+---
+
+## What the Skill Provides
+
+Once installed, your AI assistant will:
+
+- **Choose the correct base class** — `FeatureTest` for BDD, `SpecificationTest` for MSpec patterns
+- **Use correct attributes** — `[Feature]`/`[Scenario]`/`[ScenarioOutline]` or `[Specification]`/`[Rule]`/`[RuleOutline]`
+- **Write self-documenting tests** — all inputs and expected outputs embedded in step titles
+- **Extract values correctly** — using `ctx.Step.Values`, `Rule.Values`, `Rule.Params`, or method parameters
+- **Include descriptions** — adding `Description` to container attributes for context
+- **Organize namespaces** — structuring tests for clean viewer hierarchy
+
+### Example: Before and After
+
+**Without the skill**, an AI assistant might write:
+
+```csharp
+[Fact]
+public void TestShipping()
+{
+    var cart = new Cart { Country = "Australia", Total = 100 };
+    cart.Calculate();
+    Assert.Equal("Free", cart.ShippingType);
+}
+```
+
+**With the skill**, the same request produces:
+
+```csharp
+[Feature("Shipping Costs", Description = "Business rules for shipping rate calculation")]
+public class ShippingCostsTests : FeatureTest
+{
+    public ShippingCostsTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario]
+    public void Free_shipping_for_Australian_orders_over_100()
+    {
+        Given("the customer is from 'Australia'", ctx =>
+        {
+            _cart = new Cart { Country = ctx.Step!.Values[0].AsString() };
+        });
+
+        When("the order totals '100.00' dollars", ctx =>
+        {
+            _cart.Total = ctx.Step!.Values[0].AsDecimal();
+            _cart.Calculate();
+        });
+
+        Then("shipping type is 'Free'", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsString(), _cart.ShippingType);
+        });
+    }
+}
+```
+
+---
+
+## Verifying the Installation
+
+After installing, ask your AI assistant to write a LiveDoc test. It should:
+
+- [ ] Inherit from `FeatureTest` or `SpecificationTest`
+- [ ] Use `[Feature]`/`[Scenario]` or `[Specification]`/`[Rule]` attributes
+- [ ] Embed test data in step titles with single quotes
+- [ ] Extract values using `ctx.Step.Values` or `ctx.Step.Params`
+- [ ] Include `ITestOutputHelper` in the constructor
+
+If the assistant doesn't follow these patterns, verify the skill files
+were installed to the correct location for your tool.
+
+---
+
+## Related
+
+- [Getting Started](../learn/getting-started.mdx) — install LiveDoc and write your first test
+- [Best Practices](./best-practices.mdx) — patterns the AI skill enforces
+- [`[Feature]` Attribute](../reference/attributes.mdx#feature) — attribute reference

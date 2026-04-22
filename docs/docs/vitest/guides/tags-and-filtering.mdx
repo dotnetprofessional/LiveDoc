@@ -1,0 +1,261 @@
+---
+sidebar_position: 3
+description: "Use @tag syntax to categorize tests and filter which scenarios run via config or CLI."
+---
+
+# How to Use Tags and Filtering
+
+<p className="intro">
+This guide shows you how to tag your features and scenarios, then filter test
+runs to execute exactly the tests you need. By the end, you'll be able to run
+`@smoke` tests in CI and skip `@slow` tests locally.
+</p>
+
+:::info Prerequisites
+- A working LiveDoc Vitest setup ([imports](./setup-imports.mdx) or [globals](./setup-globals.mdx))
+- Familiarity with `feature` and `scenario` syntax
+:::
+
+## Overview
+
+Tags are `@`-prefixed labels you add to feature and scenario titles. LiveDoc
+parses them automatically and lets you include or exclude tests by tag at
+runtime — without changing your spec files.
+
+## Step 1: Add Tags to Your Specs
+
+Place `@tag` annotations in the title string. Tags can appear on the first
+line or on dedicated tag lines:
+
+```typescript
+feature(`User Management @api @critical
+    @team-backend
+    CRUD operations for user accounts.
+    `, () => {
+
+  scenario("Create user @smoke", () => {
+    given("a valid user payload", () => { /* ... */ });
+    when("the create endpoint is called", () => { /* ... */ });
+    then("a new user is returned", () => { /* ... */ });
+  });
+
+  scenario("Bulk import users @slow @integration", () => {
+    given("a CSV file with '1000' users", (ctx) => { /* ... */ });
+    when("the import endpoint is called", () => { /* ... */ });
+    then("all '1000' users are created", (ctx) => { /* ... */ });
+  });
+});
+```
+
+Common tag conventions:
+
+| Tag | Typical Use |
+| --- | ----------- |
+| `@smoke` | Quick sanity checks |
+| `@slow` | Long-running tests |
+| `@integration` | Tests requiring external services |
+| `@api` / `@ui` | Layer-specific tests |
+| `@wip` | Work in progress |
+| `@critical` | Must-pass tests |
+
+## Step 2: Configure Filters
+
+Set filters using the `livedoc` options singleton. The recommended approach is
+a dedicated setup file:
+
+```typescript
+// test/livedoc.setup.ts
+import { livedoc } from '@swedevtools/livedoc-vitest';
+
+livedoc.options.filters.include = ['@smoke', '@critical'];
+livedoc.options.filters.exclude = ['@slow', '@wip'];
+```
+
+Register the setup file in your Vitest config:
+
+```typescript
+// vitest.config.ts
+export default defineConfig({
+  test: {
+    setupFiles: ['./test/livedoc.setup.ts'],
+    // ... other config
+  },
+});
+```
+
+## Step 3: Understand Filter Logic
+
+**Include filter** — only matching tests run:
+
+```typescript
+livedoc.options.filters.include = ['@smoke'];
+
+scenario("Quick check @smoke", () => {});    // ✅ Runs
+scenario("Full test @integration", () => {}); // ❌ Skipped
+```
+
+**Exclude filter** — matching tests are skipped:
+
+```typescript
+livedoc.options.filters.exclude = ['@slow'];
+
+scenario("Fast test @unit", () => {});        // ✅ Runs
+scenario("Performance test @slow", () => {}); // ❌ Skipped
+```
+
+**Combined** — exclude wins when a test matches both:
+
+```typescript
+livedoc.options.filters.include = ['@api'];
+livedoc.options.filters.exclude = ['@slow'];
+
+scenario("Fast API test @api", () => {});      // ✅ Runs
+scenario("Slow API test @api @slow", () => {}); // ❌ Skipped (exclude wins)
+scenario("UI test @ui", () => {});              // ❌ Skipped (not in include)
+```
+
+## Step 4: Use Tag Inheritance
+
+Tags cascade from features to their scenarios:
+
+```typescript
+feature("Payments @api", () => {
+  scenario("Process payment @critical", () => {
+    // Effective tags: @api, @critical
+  });
+
+  scenario("Refund payment", () => {
+    // Effective tags: @api
+  });
+});
+```
+
+Filtering for `@api` matches all scenarios in the feature.
+
+## Complete Example
+
+```typescript
+// test/livedoc.setup.ts
+import { livedoc } from '@swedevtools/livedoc-vitest';
+
+if (process.env.CI === 'true') {
+  livedoc.options.filters.exclude = ['@slow', '@flaky'];
+} else if (process.env.SMOKE_TEST === 'true') {
+  livedoc.options.filters.include = ['@smoke'];
+}
+```
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    include: ['**/*.Spec.ts'],
+    setupFiles: ['./test/livedoc.setup.ts'],
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+    ],
+  },
+});
+```
+
+```typescript
+// tests/Payments.Spec.ts
+import {
+  feature, scenario, given, when, Then as then,
+} from '@swedevtools/livedoc-vitest';
+
+feature(`Payment Processing @api @critical
+    Handles all payment-related operations.
+    `, () => {
+
+  scenario("Charge a credit card @smoke", () => {
+    given("a valid credit card ending in '4242'", (ctx) => {
+      const lastFour = ctx.step.values[0];
+      // setup card
+    });
+
+    when("a charge of '$99.99' is submitted", (ctx) => {
+      const amount = ctx.step.values[0];
+      // process charge
+    });
+
+    then("the charge is approved", () => {
+      // assert success
+    });
+  });
+
+  scenario("Stress test payment gateway @slow @integration", () => {
+    given("'500' concurrent payment requests", (ctx) => {
+      const count = ctx.step.values[0];
+      // setup load test
+    });
+
+    when("all requests are submitted simultaneously", () => {
+      // fire requests
+    });
+
+    then("at least '95' percent succeed", (ctx) => {
+      const threshold = ctx.step.values[0];
+      // assert success rate
+    });
+  });
+});
+```
+
+Running in CI with `CI=true` skips the `@slow` stress test automatically.
+
+## Common Variations
+
+### Debug Filter Conflicts
+
+When a test matches both `include` and `exclude`, enable conflict reporting:
+
+```typescript
+livedoc.options.filters.showFilterConflicts = true;
+```
+
+Conflicting tests run but are marked in the output, helping you spot
+unintended filter interactions.
+
+### Combine with Vitest's Native Filtering
+
+LiveDoc tag filtering works alongside Vitest's built-in options:
+
+```bash
+# File-level filtering
+npx vitest run tests/api/
+
+# Test name filtering
+npx vitest run -t "Payment"
+
+# Both work with LiveDoc tag filters active
+```
+
+### Filter Quick Reference
+
+| Setting | Type | Effect |
+| ------- | ---- | ------ |
+| `filters.include` | `string[]` | Only run tests with these tags |
+| `filters.exclude` | `string[]` | Skip tests with these tags |
+| `filters.showFilterConflicts` | `boolean` | Show tests matching both include and exclude |
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| Tags not filtering | Filters set inside a spec file | Move filters to a `setupFiles` module — spec files load too late |
+| All tests skipped | Include filter too restrictive | Check your include list matches actual tags in specs |
+| Excluded test still runs | Tag not on the test | Verify the tag is in the title string, prefixed with `@` |
+| Feature tags not inherited | Tags on wrong line | Place tags on the first line or dedicated `@`-prefixed lines in the title |
+| Filter conflicts not shown | Flag not enabled | Set `livedoc.options.filters.showFilterConflicts = true` |
+
+## Related
+
+- [CI/CD Integration](./ci-cd.mdx) — environment-based filtering in pipelines
+- [Configuration](../reference/configuration.mdx) — full filter configuration reference
+- [Best Practices](./best-practices.mdx) — tag naming conventions
+- [`feature()`](../reference/feature.mdx) — tag parsing in feature titles

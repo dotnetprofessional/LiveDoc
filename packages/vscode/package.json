@@ -1,0 +1,202 @@
+{
+    "name": "livedoc-vscode",
+    "displayName": "livedoc",
+    "description": "Tools and snippets for working with LiveDoc BDD testing (Vitest)",
+    "version": "0.0.2",
+    "publisher": "dotnetprofessional",
+    "icon": "images/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/dotnetprofessional/LiveDoc.git"
+    },
+    "engines": {
+        "vscode": "^1.90.0"
+    },
+    "categories": [
+        "Snippets"
+    ],
+    "keywords": [
+        "bdd",
+        "gherkin",
+        "cucumber",
+        "javascript",
+        "testing"
+    ],
+    "activationEvents": [
+        "onLanguage:typescript",
+        "onLanguage:typescriptreact",
+        "onLanguage:javascriptreact",
+        "onLanguage:javascript",
+        "onLanguage:plaintext",
+        "onStartupFinished"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "commands": [
+            {
+                "command": "extension.formatDataTables",
+                "title": "LiveDoc: Format Data Tables"
+            },
+            {
+                "command": "livedoc.openViewer",
+                "title": "LiveDoc: Open Viewer"
+            },
+            {
+                "command": "livedoc.viewItem",
+                "title": "Open in Viewer",
+                "icon": "$(eye)"
+            },
+            {
+                "command": "livedoc.setExplorerLayoutTree",
+                "title": "LiveDoc Explorer: Tree Layout",
+                "icon": "$(list-tree)"
+            },
+            {
+                "command": "livedoc.setExplorerLayoutFlat",
+                "title": "LiveDoc Explorer: Flat Layout",
+                "icon": "$(list-flat)"
+            }
+        ],
+        "menus": {
+            "view/title": [
+                {
+                    "command": "livedoc.setExplorerLayoutTree",
+                    "when": "view == livedoc && livedoc.explorerLayout != 'tree'",
+                    "group": "navigation"
+                },
+                {
+                    "command": "livedoc.setExplorerLayoutFlat",
+                    "when": "view == livedoc && livedoc.explorerLayout != 'flat'",
+                    "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "livedoc.viewItem",
+                    "when": "view == livedoc && viewItem =~ /feature|scenario/",
+                    "group": "inline"
+                }
+            ]
+        },
+        "snippets": [
+            {
+                "language": "typescript",
+                "path": "./snippets/livedoc.json"
+            },
+            {
+                "language": "typescriptreact",
+                "path": "./snippets/livedoc.json"
+            },
+            {
+                "language": "javascript",
+                "path": "./snippets/livedoc.json"
+            }
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "livedoc-explorer",
+                    "title": "livedoc explorer",
+                    "icon": "images/activity-bar-icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "livedoc-explorer": [
+                {
+                    "id": "livedoc",
+                    "name": "livedoc explorer"
+                }
+            ]
+        },
+        "configuration": {
+            "title": "LiveDoc",
+            "properties": {
+                "livedoc.server.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable/disable the LiveDoc server"
+                },
+                "livedoc.server.port": {
+                    "type": "number",
+                    "default": 3100,
+                    "description": "Port for the LiveDoc server"
+                },
+                "livedoc.server.autoStart": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Start server when VS Code opens"
+                },
+                "livedoc.server.mode": {
+                    "type": "string",
+                    "enum": [
+                        "local",
+                        "remote"
+                    ],
+                    "default": "local",
+                    "description": "Run server locally or connect to remote server"
+                },
+                "livedoc.server.dataDir": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Optional data directory for the LiveDoc server (should contain project/environment folders with lastrun.json/history). Leave empty for an ephemeral per-session temp directory. Relative paths are resolved from the workspace folder. Supports ${workspaceFolder}. If you point this at a '.livedoc' folder and '.livedoc/data' contains runs, the extension will auto-use the 'data' subfolder."
+                },
+                "livedoc.server.remoteUrl": {
+                    "type": "string",
+                    "default": "",
+                    "description": "URL of remote LiveDoc server"
+                },
+                "livedoc.treeView.autoRefresh": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Auto-refresh tree when results change"
+                },
+                "livedoc.treeView.layout": {
+                    "type": "string",
+                    "enum": [
+                        "tree",
+                        "flat"
+                    ],
+                    "default": "tree",
+                    "description": "LiveDoc Explorer layout: tree uses the document path to build a folder hierarchy; flat lists documents directly."
+                },
+                "livedoc.treeView.showPassedSteps": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Show passed steps in tree"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "pnpm run compile",
+        "compile": "tsc -p ./ && node copy-viewer.js",
+        "watch": "tsc -watch -p ./",
+        "package": "vsce package --no-dependencies",
+        "test": "pnpm run compile",
+        "link-livedoc": "node scripts/link-livedoc.js",
+        "clean": "rimraf out \"*.vsix\" -g"
+    },
+    "devDependencies": {
+        "@types/mocha": "^10.0.10",
+        "@types/node": "^20.19.27",
+        "@types/react": "^18.3.27",
+        "@types/react-dom": "^18.3.7",
+        "@types/vscode": "^1.90.0",
+        "@types/ws": "^8.18.1",
+        "esbuild": "^0.27.2",
+        "fs-extra": "^11.3.3",
+        "rimraf": "^6.1.2",
+        "typescript": "~5.5.4",
+        "@vscode/vsce": "^3.2.1"
+    },
+    "dependencies": {
+        "@swedevtools/livedoc-schema": "workspace:^",
+        "@swedevtools/livedoc-server": "workspace:*",
+        "@swedevtools/livedoc-vitest": "workspace:*",
+        "aphrodite": "^2.4.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "ws": "^8.18.3"
+    }
+}

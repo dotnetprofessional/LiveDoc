@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SweDevTools.LiveDoc.Tool</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>livedoc</ToolCommandName>
+    <PackageId>SweDevTools.LiveDoc.Tool</PackageId>
+    <Version>0.1.0-beta1</Version>
+    <Authors>dotnetprofessional</Authors>
+    <Description>CLI tool for LiveDoc — installs AI coding skills for BDD/Specification test authoring</Description>
+    <PackageTags>livedoc;bdd;copilot;skill;installer</PackageTags>
+    <RepositoryUrl>https://github.com/dotnetprofessional/LiveDoc</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="Spectre.Console" Version="0.49.1" />
+  </ItemGroup>
+
+  <!-- Copy canonical skill files and embed them -->
+  <Target Name="CopyCanonicalSkillFiles" BeforeTargets="BeforeBuild;BeforeResolveReferences">
+    <ItemGroup>
+      <CanonicalSkillFiles Include="..\..\.github\skills\livedoc-xunit\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(CanonicalSkillFiles)"
+          DestinationFolder="Skills\livedoc-xunit\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <EmbeddedResource Include="Skills\livedoc-xunit\**\*" />
+    </ItemGroup>
+  </Target>
+
+</Project>

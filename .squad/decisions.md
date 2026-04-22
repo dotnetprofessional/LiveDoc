@@ -1,0 +1,1157 @@
+# Squad Decisions
+
+## Active Decisions
+
+### Screenshot/Attachment API Design
+
+**Author:** Wash  
+**Date:** 2025-07-24  
+**Status:** Implemented
+
+**Decision:** Use shared-array reference pattern — StepContext's constructor accepts an optional `Attachment[]` reference (defaulting to `[]`). StepDefinition passes its own `attachments` array into `new StepContext(this.attachments)`. When users call `ctx.attach()` or `ctx.attachScreenshot()`, items push directly to the StepDefinition's array.
+
+**ID generation:** Simple `att-{timestamp}-{counter}` scheme. No crypto dependency.
+
+**Reporter wiring:** `stepExecution()` in V3 reporter reads `step.attachments` and includes them in `ExecutionResult.attachments` (only when non-empty). No server/schema changes needed — types already existed.
+
+**Impact:**
+- `packages/vitest/_src/app/model/StepContext.ts` — new `attach()`, `attachScreenshot()`, `attachments` getter
+- `packages/vitest/_src/app/model/StepDefinition.ts` — new `attachments` field
+- `packages/vitest/_src/app/reporter/LiveDocViewerReporterV3.ts` — attachments included in `ExecutionResult`
+
+---
+
+### ImageLightbox: Radix Primitives for Full-Viewport Layout
+
+**Author:** Kaylee  
+**Date:** 2026-07-24  
+**Status:** Implemented
+
+**Decision:** ImageLightbox uses `@radix-ui/react-dialog` primitives directly (not the shadcn Dialog wrapper) because:
+1. Needs full-viewport overlay layout — not the centered card that shadcn's DialogContent provides
+2. Framer Motion animations require `asChild` + `forceMount`, which conflicts with shadcn wrapper's built-in close button and CSS animations
+3. shadcn Dialog still available in `ui/dialog.tsx` for standard modal use cases
+
+**Impact:**
+- Two dialog patterns coexist: shadcn Dialog for standard modals, raw Radix for the lightbox
+- Future lightbox-style components (video player, code preview) should follow the ImageLightbox pattern
+
+---
+
+### Attachment API on LiveDocTestBase (Not Just FeatureTest)
+
+**Author:** Simon  
+**Date:** 2025-07-18  
+**Status:** Implemented
+
+**Decision:** Placed attachment API (`Attach`, `AttachScreenshot`, `AttachFile`) on `LiveDocTestBase` (the shared base class) rather than `FeatureTest` alone. Both `FeatureTest` and `SpecificationTest` now inherit these methods.
+
+**Rationale:**
+- Avoids code duplication — SpecificationTest users also need attachments during Rule tests
+- Attachments are not step-specific in concept — valid in any test type
+- The underlying `LiveDocContext.AddAttachment()` mechanism is test-type-agnostic
+
+**Impact:**
+- `dotnet/xunit/SweDevTools.LiveDoc.xUnit/LiveDocTestBase.cs` — new public methods
+- `dotnet/xunit/SweDevTools.LiveDoc.xUnit/Execution/LiveDocContext.cs` — attachment collection and transfer logic
+- `dotnet/xunit/SweDevTools.LiveDoc.xUnit/Reporter/Models/ReporterModels.cs` — new `Attachment` class, updated `ExecutionResult`
+
+---
+
+### AttachmentViewer: Multi-MIME Rendering with Raw Radix Primitives
+
+**Author:** Kaylee  
+**Date:** 2026-03-22  
+**Status:** Implemented
+
+**Decision:** Refactored `ImageLightbox` into a general-purpose `AttachmentViewer` component that renders content based on MIME type. Continues to use raw `@radix-ui/react-dialog` primitives (not the shadcn wrapper) — same rationale as the original lightbox decision.
+
+**MIME dispatch strategy:**
+| Category | MIME Patterns | Rendering |
+|---|---|---|
+| `image` | `image/*` | Existing Framer Motion animated `<img>` |
+| `json` | `application/json`, `application/ld+json` | Syntax-highlighted `<pre>` with custom tokenizer, copy button, error handling |
+| `text` | `text/*` | Monospace `<pre>` with scroll, copy button, size estimate |
+| `binary` | Everything else | Metadata card with copy-base64 and download buttons |
+
+**Key decisions:**
+1. **No external syntax highlighting library** — built a lightweight regex-based JSON tokenizer (~40 lines). Keeps bundle small, matches the app's dark overlay theme with semantic colors (sky for keys, emerald for strings, amber for numbers, violet for booleans, rose for null).
+2. **Base64 decoding uses `atob` + `TextDecoder`** — handles UTF-8 correctly, works in all modern browsers.
+3. **`ImageLightbox.tsx` kept as re-export** for backward compatibility. Any future consumers can import from either path.
+4. **StepList icon is context-aware** — Camera icon when all attachments are images/screenshots, Paperclip for mixed or non-image sets.
+
+**Impact:**
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — new primary component
+- `packages/viewer/src/client/components/ImageLightbox.tsx` — reduced to re-export shim
+- `packages/viewer/src/client/components/StepList.tsx` — updated filtering, icon logic, import
+
+---
+
+### attachJSON Convenience Method on StepContext
+
+**Author:** Wash  
+**Date:** 2026-03-22  
+**Status:** Implemented
+
+**Decision:** Added `attachJSON(data: unknown, title?: string)` to `StepContext` as a convenience method for JSON payloads.
+
+**Behavior:**
+- Accepts any value (objects, arrays, strings, primitives)
+- Strings passed through as-is (user may have pre-formatted JSON)
+- Pretty-prints objects with 2-space indent via `JSON.stringify`
+- Base64-encodes using `globalThis.btoa` (browser) with `Buffer` fallback (Node.js)
+- Delegates to `attach()` with `mimeType: 'application/json'` and `kind: 'file'`
+
+**Rationale:**
+- **Dual-environment encoding**: `btoa` + `encodeURIComponent/unescape` handles Unicode safely in browsers; `Buffer` handles it natively in Node. The pattern mirrors common cross-platform base64 recipes.
+- **`kind: 'file'`**: JSON is data, not an image — consistent with the existing attachment taxonomy.
+- **`unknown` over `object`**: Allows attaching arrays, primitives, or pre-serialized strings without type gymnastics.
+
+**Impact:**
+- `packages/vitest/_src/app/model/StepContext.ts` — new `attachJSON` method
+
+---
+
+### AttachJson Convenience Method on LiveDocTestBase
+
+**Author:** Simon  
+**Date:** 2026-03-22  
+**Status:** Implemented
+
+**Decision:** Added `AttachJson(object data, string? title = null)` to `LiveDocTestBase` as a convenience method for JSON payloads.
+
+**Behavior:**
+- Accepts any `object`; if it's already a `string`, uses it as-is (pre-formatted JSON)
+- Serializes via `System.Text.Json.JsonSerializer` with `WriteIndented = true`
+- Base64-encodes the UTF-8 bytes and delegates to `Attach()` with `mimeType: "application/json"`, `kind: "file"`
+
+**Rationale:**
+- **System.Text.Json** over Newtonsoft: aligns with the project's zero-external-dependency approach for the core library.
+- **String passthrough**: lets users attach raw JSON strings from HTTP responses without double-serialization.
+- **WriteIndented**: prioritizes readability in the living documentation output.
+
+**Impact:**
+- `dotnet/xunit/SweDevTools.LiveDoc.xUnit/LiveDocTestBase.cs` — new `AttachJson` method
+
+---
+
+### AttachmentViewer Cinematic Lightbox Redesign
+
+**Author:** Kaylee  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Redesigned `AttachmentViewer` from a basic overlay viewer into a cinematic lightbox gallery with structured layout, film strip navigation, and direction-aware slide animations.
+
+**Architecture changes:**
+1. **Layout shifted from centered overlay to full-viewport flex column** — header bar overlays the top with a gradient fade, content area centers in the middle, film strip anchors at the bottom.
+2. **Decomposed into sub-components** — `HeaderBar`, `NavArrow`, `FilmStrip`, `ThumbnailIcon` are internal components. Keeps the main `AttachmentViewer` focused on state management and layout.
+3. **Direction-aware animations** — New `slideVariants` system tracks navigation direction (+1 forward, -1 backward). Content slides in from the correct side. All sub-renderers accept a `direction` prop and use Framer Motion's `custom` prop for variant resolution.
+4. **Film strip thumbnails** — Image attachments render actual `<img>` thumbnails. JSON/text/binary show typed icons (FileJson, FileCode, FileText) with MIME label badges. Active thumbnail gets a sky-400 ring with box-shadow glow and auto-scrolls into view.
+5. **Glassmorphic controls** — Nav arrows and film strip use `backdrop-blur-sm` + subtle `ring-1 ring-white/[0.08]` for a refined glass effect on the dark overlay.
+
+**Props interface:** Unchanged — `AttachmentViewerProps` and `AttachmentItem` are identical to the previous version. No changes needed to StepList.tsx.
+
+**Preserved behaviors:**
+- Backdrop click dismiss (on content area and top-level container)
+- ESC to close (handled by Radix Dialog)
+- X button close (in header bar now)
+- ArrowLeft/ArrowRight keyboard navigation
+- All MIME-type renderers (image, JSON, text, binary)
+- Raw Radix Dialog primitives (not shadcn wrapper)
+
+**New helper:** `mimeLabel()` function extracts short human-readable labels from MIME types for badges and thumbnail labels.
+
+**Impact:**
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — full rewrite
+- No other files modified
+
+---
+
+### Scenario-Level Attachment Gallery
+
+**Author:** Kaylee  
+**Date:** 2026-03-22  
+**Status:** Implemented  
+**Phase:** Phase 1 (Scenario-level only)
+
+**Decision:** Implemented a full-featured scenario-level attachment gallery that aggregates attachments from all steps in a scenario, providing a unified viewing experience with step-aware navigation, auto-play, and cinematic transitions.
+
+**Architecture:**
+
+**`utils/gallery.ts`** — Centralized gallery logic:
+- `GalleryItem` extends `AttachmentItem` with step context (`stepIndex`, `stepKeyword`, `stepTitle`, `stepStatus`)
+- `StepGroup` for step-grouped navigation with `startIndex` into flat array
+- `collectScenarioAttachments()` — aggregates attachments from all steps with context
+- `groupByStep()` — organizes items by step
+- Navigation helpers: `findGroupAtIndex()`, `jumpToAdjacentGroup()`
+
+**Component Enhancements:**
+
+**AttachmentViewer:**
+- **Backward compatible** — optional step context fields on `AttachmentItem`
+- **StepContextBar** — frosted glass bar showing step N of M, keyword (colorized), title, status icon
+- **Step-boundary transitions** — cross-fade with brightness dim (400ms) vs. standard slide (280ms)
+- **Enhanced keyboard nav**: `[`/`]` for step jump, `Space` for auto-play toggle, `Home`/`End`
+- **Auto-play slideshow** — 3s base interval + 1s step-boundary pause, linear progress bar, stops at end
+- **Film strip dividers** — vertical separators with keyword labels, active group highlighting
+
+**ScenarioBlock:**
+- Gallery button in header (right side, near status badge)
+- Icon adapts: `Images` for all-images, `Paperclip` for mixed
+- Count badge shows total across all steps
+- Smart default: opens at first attachment of first failed step
+- Only shown when attachments exist
+
+**StepList:**
+- Receives `galleryItems` from parent ScenarioBlock
+- Step icons open scenario gallery at that step's position (unified entry)
+- Calculates `initialIndexInGallery` for each step
+- Users can navigate beyond individual step into full scenario context
+
+**Trade-offs:**
+- Optional fields for backward compatibility
+- Auto-play stops (not infinite loop) for intentional control
+- 3s base + 1s step pause creates "chapter break" feel
+
+**Impact:**
+- `packages/viewer/src/client/utils/gallery.ts` — new utility module
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — enhanced with gallery features
+- `packages/viewer/src/client/components/ScenarioBlock.tsx` — added gallery button
+- `packages/viewer/src/client/components/StepList.tsx` — unified entry point
+
+---
+
+### Reporter Consolidation: LiveDocServerReporter → LiveDocSpecReporter
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Consolidated `LiveDocServerReporter` into `LiveDocSpecReporter`. The ~688-line `LiveDocServerReporter.ts` was deleted. Its only unique value — server auto-discovery — was moved into `LiveDocSpecReporter.onInit()`.
+
+**Rationale:**
+- ~800 lines of duplicated model-building code between the two reporters created a maintenance burden and divergence risk
+- The two reporters were always used together in config files (one for console, one for publishing), which is unnecessary complexity for consumers
+- A single reporter with auto-discovery is simpler to configure and reason about
+
+**Key Design Choices:**
+1. **Auto-discovery in `onInit()`** — sets `livedoc.options.publish.enabled/server` so `onTestRunEnd()` picks it up via the existing publish config path. No new state fields needed.
+2. **`onInit` became async** — required for `discoverServer()`. Vitest's Reporter interface accepts async `onInit`.
+3. **Backward-compatible re-export** — `index.ts` re-exports `LiveDocSpecReporter` as `LiveDocServerReporter` with `@deprecated` JSDoc. External consumers' imports won't break.
+4. **Extracted `buildExecutionResults()`** — refactored inline model-building from `onTestRunEnd()` into a private method, improving testability and mirroring the old `LiveDocServerReporter` API surface (used by tests via `as any`).
+
+**Impact:**
+- `packages/vitest/_src/app/reporter/LiveDocSpecReporter.ts` — async `onInit`, extracted `buildExecutionResults`
+- `packages/vitest/_src/app/reporter/LiveDocServerReporter.ts` — **deleted**
+- `packages/vitest/_src/app/reporter/index.ts` — deprecated re-export
+- `packages/vitest/livedoc.vitest.ts` — removed second reporter
+- `packages/vitest/vitest.config.viewer.ts` — removed second reporter
+- `packages/vitest/examples/local-consumer/vitest.config.ts` — simplified to single reporter
+- `packages/vitest/_src/test/Reporter/server-reporter-parses-tags.Spec.ts` — uses `LiveDocSpecReporter`, mock data updated with `meta.livedoc`
+- `packages/vitest/_src/test/Reporter/viewer-reporter-posts-valid-payloads.Spec.ts` — same
+
+---
+
+### Documentation: Single-Reporter Messaging
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** All documentation now positions `LiveDocSpecReporter` as the single reporter needed for both console output and server auto-discovery. `LiveDocServerReporter` is documented as deprecated (backward-compatible re-export) but no longer promoted in examples or guides.
+
+**Rationale:**
+- Reduces cognitive load — users configure one reporter instead of two
+- Auto-discovery is transparent; zero-config is the default happy path
+- Explicit `publish` config and `LiveDocViewerReporter` post-reporter remain available as escape hatches for advanced use
+- Old two-reporter configs still work via the deprecated re-export, so no breaking changes
+
+**Impact:**
+- `docs/docs/vitest/reference/reporters.mdx` — LiveDocSpecReporter section expanded with auto-discovery + publish options; LiveDocServerReporter marked deprecated
+- `docs/docs/vitest/reference/configuration.mdx` — All examples use single reporter
+- `docs/docs/vitest/guides/viewer-integration.mdx` — Simplified to single-reporter approach
+- `docs/docs/viewer/learn/getting-started.mdx` — Auto-discovery primary, explicit config secondary
+- `.github/skills/livedoc-vitest/SKILL.md` — New reporter configuration section (step 8)
+
+---
+
+### JSON File Export via LiveDocSpecReporter
+
+**Author:** Wash  
+**Date:** 2026-03-29  
+**Status:** Implemented
+
+**Decision:** Added a `buildTestRun()` method to `LiveDocViewerReporter` and an `export` config option to `LiveDocSpecReporter` that writes a `TestRunV3`-compatible JSON file directly after the test run — no server needed.
+
+**Rationale:**
+- CI/build servers may not have a LiveDoc server running
+- The static HTML export (`livedoc-viewer export`) requires a `TestRunV3` JSON file as input
+- All conversion logic already existed in `LiveDocViewerReporter` — needed a non-HTTP entry point
+
+**Key Design Choices:**
+1. **Reuse over extraction** — `buildTestRun()` is a public method on the existing `LiveDocViewerReporter` class, reusing all private conversion methods. No code was duplicated or extracted into a separate utility — the class already owns the conversion logic.
+2. **Alongside, not instead of** — JSON export happens after `executionEnd()` (console output + server publishing). Both paths can run simultaneously.
+3. **Project/environment cascade** — publish config → export-level config → sensible defaults (CI env var detection).
+4. **`crypto.randomUUID()`** — used for runId generation. Available in Node.js 16.7+, suitable for this project's minimum Node version.
+
+**Impact:**
+- `packages/vitest/_src/app/reporter/LiveDocViewerReporterV3.ts` — new `buildTestRun()` public method
+- `packages/vitest/_src/app/reporter/LiveDocSpecReporter.ts` — `ExportConfig` interface, constructor parsing, `exportTestRunJson()` method
+
+---
+
+### JSON File Export from xUnit Reporter
+
+**Author:** Simon  
+**Date:** 2026-03-29  
+**Status:** Implemented
+
+**Decision:** Added `LIVEDOC_EXPORT_PATH` environment variable support to the .NET xUnit reporter. When set, the reporter writes a `TestRunV3`-compatible JSON file directly after test run completion — no server needed.
+
+**Key Design Choices:**
+1. **Export runs alongside server publishing** — `FlushCoreAsync` was refactored to build payloads first, then fire export and server publish concurrently. Neither blocks the other; both are independent output channels.
+2. **`IsEnabled` broadened to include export** — `LiveDocTestRunReporter.IsEnabled` now returns true when either server or export path is configured. This ensures `LiveDocContext` and `LiveDocTestFramework` collect data even in server-less CI environments.
+3. **Env var over config file** — `LIVEDOC_EXPORT_PATH` follows the existing pattern (`LIVEDOC_SERVER_URL`, `LIVEDOC_PROJECT`, `LIVEDOC_ENVIRONMENT`). Environment variables are simplest for CI pipelines.
+4. **Reused existing `TestRunV3` model** — No new model classes. The `TestRunV3` in `ReporterModels.cs` already has the exact shape the viewer export command expects.
+
+**Impact:**
+- `dotnet/xunit/src/Reporter/LiveDocConfig.cs` — new `ExportPathEnvVar` constant and `ExportPath` property
+- `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` — refactored `FlushCoreAsync`, added `PublishToServerAsync`, `ExportTestRunJsonAsync`
+
+**Usage:**
+```bash
+# CI pipeline: export JSON for static HTML generation
+LIVEDOC_EXPORT_PATH=./test-results/livedoc-report.json dotnet test
+
+# Then generate static HTML
+livedoc-viewer export -i ./test-results/livedoc-report.json -o report.html
+```
+
+---
+
+### AttachmentViewer Fullscreen Mode
+
+**Author:** Kaylee  
+**Date:** 2026-03-22  
+**Status:** Implemented
+
+**Decision:** Implemented native fullscreen mode for the AttachmentViewer component using the browser's Fullscreen API with CSS fallback for graceful degradation.
+
+**Key Features:**
+- Multiple entry points: Maximize2/Minimize2 button, F key, image click (images only)
+- Vendor-prefixed Fullscreen API with CSS fallback
+- Synced state via `fullscreenchange` events
+- Visual changes: pure black background, reduced padding in fullscreen
+- All existing features preserved (navigation arrows, keyboard shortcuts, auto-play, etc.)
+
+**Rationale:** True fullscreen removes browser chrome. CSS fallback ensures graceful degradation. Multiple triggers improve discoverability.
+
+**Impact:**
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — new state, methods, imports (Maximize2, Minimize2)
+
+---
+
+### Static Mode Client Implementation
+
+**Author:** Kaylee  
+**Date:** 2026-03-22  
+**Status:** Implemented
+
+**Decision:** Implemented client-side static mode for the viewer. When `window.__LIVEDOC_DATA__` contains a `TestRunV3` object, the viewer hydrates entirely from that embedded data — no server, no WebSocket, no REST calls.
+
+**Architecture:**
+1. Detection layer (`config.ts`) — `isStaticMode()` and `getStaticData()` check `window.__LIVEDOC_DATA__`
+2. Hydration hook (`hooks/useStaticData.ts`) — reads TestRunV3, calls `makeRunState()`, synthesizes `ProjectNode[]` hierarchy
+3. WebSocket skip (`useWebSocket.ts`) — added `skip` parameter for early-return
+4. UI adaptation (`Layout.tsx`) — indigo "Static Report" badge, hides live connection status
+
+**Trade-offs:**
+- Single-run only (matches export use case)
+- Synthesized hierarchy from run's own project/environment fields
+- No store changes
+
+**Impact:**
+- `packages/viewer/src/client/config.ts`, `hooks/useStaticData.ts` (new), `App.tsx`, `useWebSocket.ts`, `Layout.tsx`
+
+---
+
+### Static Export: Frontend Data Loading Strategy
+
+**Author:** Kaylee  
+**Date:** 2026-07-26  
+**Status:** Proposed
+
+**Decision:** Viewer client bundle works unchanged for static export. Data bootstrapping layer (`config.ts` + `useWebSocket.ts`) is the only infrastructure change.
+
+**Key Findings:**
+- All data enters through one hook (`useWebSocket.ts`)
+- Zustand store is pure state with no server awareness
+- `window.__LIVEDOC_CONFIG__` pattern already proven in VS Code webview
+- Client-side router doesn't exist (100% Zustand state)
+
+**Proposed Approach:**
+- Add `isStaticMode()` and `getStaticData()` to `config.ts`
+- In `useWebSocket.ts`: early-return if static mode, hydrate from embedded data
+- Static HTML generator serializes data into `window.__LIVEDOC_DATA__`
+- Connection badge shows "Static" label in static mode
+
+**Rationale:** Minimal surface area (~30 lines), no new build target, no store refactoring, reuses proven pattern.
+
+**Impact:**
+- `packages/viewer/src/client/config.ts`, `hooks/useWebSocket.ts`, `store.ts` (add 'static' to ConnectionStatus), `Layout.tsx`
+
+---
+
+### AttachmentViewer: In-Flow Flex Layout over Absolute Positioning
+
+**Author:** Kaylee  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Restructured AttachmentViewer from mixed absolute/flex to pure flex-column layout where all sections (header, step context bar, content, progress, filmstrip) are in-flow with explicit `shrink-0` or `flex-1 min-h-0`.
+
+**Previous Issues:**
+- HeaderBar absolute overlaid with gradient
+- Content area used `pt-14` to clear header
+- No `min-h-0` on flex-1 content → large images overflowed, pushed filmstrip off-screen
+
+**New Approach:**
+- HeaderBar is `shrink-0` in-flow
+- StepContextBar is `shrink-0`
+- Content area is `flex-1 min-h-0 overflow-hidden relative` (KEY fix)
+- NavArrows absolute within content area (not viewport)
+- Progress bar and filmstrip are `shrink-0` siblings
+
+---
+
+### Disable Source Maps in Published npm Packages
+
+**Author:** Wash  
+**Date:** 2026-04-12  
+**Status:** Implemented
+
+**Decision:** Set `sourcemap: false` in tsup configs for schema, server, and vitest packages. Viewer (Vite-based) left unchanged — its source maps serve development purposes.
+
+**Rationale:**
+- Source maps added ~4.9MB to distributable packages with minimal consumer value
+- Standard npm practice is to ship without maps unless explicitly requested
+- Zero impact on development experience (source maps still available locally during builds)
+
+**Impact:**
+- `packages/schema/tsup.config.ts` — sourcemap: false
+- `packages/server/tsup.config.ts` — sourcemap: false
+- `packages/vitest/tsup.config.ts` — sourcemap: false
+- **Savings:** 4.9MB total (67% reduction in vitest dist: 5950KB → 1648KB)
+- All 701 vitest tests pass
+- JsonRenderer/TextRenderer use `max-h-full` instead of viewport-relative calc
+
+**Rationale:** `min-h-0` overrides CSS flexbox default, in-flow is more predictable, `max-h-full` is correct for constrained parent.
+
+**Impact:**
+- `packages/viewer/src/client/components/AttachmentViewer.tsx` — layout restructure only
+
+---
+
+### Decision: Documentation for JSON Export + Static HTML Export
+
+**Author:** Mal  
+**Date:** 2025-07-29  
+**Status:** Implemented
+
+**Decision:** Documented JSON export and static HTML export features across six documentation pages. Positioned `export` config option (TestRunV3 JSON) as primary CI pipeline approach; demoted `JsonReporter` to alternative for custom tooling.
+
+**Key Choices:**
+1. `export` is primary, `JsonReporter` is secondary — `export` produces TestRunV3 format compatible with `livedoc-viewer export`
+2. Single new guide page — `viewer/guides/static-export.mdx` as canonical "share without server" page
+3. Cross-reference graph — every updated page links to related pages
+
+**Impact:**
+- `docs/docs/vitest/reference/reporters.mdx` — new `export` option
+- `docs/docs/vitest/guides/ci-cd.mdx` — rewritten to use `export` as primary
+- `docs/docs/xunit/reference/configuration.mdx` — new Export Configuration section
+- `docs/docs/viewer/reference/cli-options.mdx` — new `export` subcommand section
+- `docs/docs/viewer/guides/static-export.mdx` — **new file**
+- `docs/sidebars.ts` — added static-export guide
+
+---
+
+### Static Viewer Export — Architecture Decision
+
+**Author:** Mal  
+**Date:** 2025-07-26  
+**Status:** Proposed
+
+**Decision:** Export test results as self-contained single HTML file with embedded viewer JS/CSS and test data as `window.__LIVEDOC_DATA__`.
+
+**Where it lives:** `packages/viewer` (owns React client, Vite configs, CLI)
+
+**CLI interface:**
+```
+livedoc-viewer export --input .livedoc/data/MyProject/local/lastrun.json --output report.html
+```
+
+**Client architecture:** Add `useStaticData` hook that checks for `window.__LIVEDOC_DATA__`, hydrates Zustand store, skips WebSocket.
+
+**Build strategy:** Reuse `vite.config.webview.ts` output, inline CSS/JS, embed TestRunV3 JSON.
+
+**Input format:** TestRunV3 (what server persists, what viewer REST API returns)
+
+**Phasing:**
+1. MVP: Single HTML from existing `lastrun.json`, `useStaticData()` hook, `export` subcommand
+2. Phase 2: Reporter integration, folder-based export for large suites
+3. Phase 3: .NET parity
+
+**Impact:**
+- `packages/viewer/src/client/hooks/useStaticData.ts` (new), `App.tsx`, `cli.ts`, `export.ts` (new)
+
+---
+
+### Decision: CLI Export Subcommand Design
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** Added `livedoc-viewer export -i <path> [-o <path>] [-t <title>]` subcommand that generates self-contained static HTML from TestRunV3 JSON.
+
+**Key Design Choices:**
+1. Synchronous file I/O — `readFileSync`/`writeFileSync` for simplicity
+2. `import.meta.url` for asset resolution — works reliably in ESM
+3. Script-safe JSON encoding — `</script>` escaped to `<\/script>` to prevent HTML parser breakage
+4. `window.__LIVEDOC_DATA__` — webview app reads from this global
+5. Default action preserved — Commander's default (server start) remains untouched
+
+**Impact:**
+- `packages/viewer/src/export.ts` (new), `cli.ts` (added export subcommand), `tsconfig.server.json` (added src/export.ts)
+
+---
+
+### Playwright Bug Fix Review: freshContextPerScenario & Close Timeout
+
+**Author:** Mal  
+**Date:** 2026-04-12  
+**Status:** APPROVED with findings
+
+**Decision:** APPROVE both Playwright bug fixes (freshContextPerScenario + close timeout). Architecture is sound. One medium-priority issue to address before or shortly after merge.
+
+**Findings:**
+
+**Finding 1 — No error isolation in scenarioEndHooks (Medium)**
+- **File:** `packages/vitest/_src/app/livedoc.ts`, lines 418-420 and 655-657
+- **Issue:** The `for...of` loop over `scenarioEndHooks` has no try/catch per hook. If one hook throws, subsequent hooks and the `afterBackground` cleanup below are skipped.
+- **Recommendation:** Wrap each hook call in try/catch, collect errors, and throw after all hooks run (or at minimum log and continue).
+
+**Finding 2 — Module-level hook arrays never cleared (Low)**
+- **File:** `packages/vitest/_src/app/livedoc.ts`, lines 96-97
+- **Issue:** `scenarioStartHooks` and `scenarioEndHooks` are module singletons that grow via `push()` and are never cleared.
+- **Note:** Safe under vitest's default threading (each file = own worker = own module state).
+- **Recommendation:** Document the single-worker assumption, or track registrations to prevent duplicates.
+
+**Finding 3 — Skipped scenarios don't fire hooks (Correct)**
+`describe.skip` prevents `beforeAll`/`afterAll` from running, so hooks correctly don't fire for pending/skipped scenarios. No action needed.
+
+**Finding 4 — Export surface is appropriate (Info)**
+`onScenarioStart`/`onScenarioEnd` as public API is the right call.
+
+**Impact:**
+- `packages/vitest/_src/app/livedoc.ts` — scenario lifecycle hooks
+- `packages/vitest/_src/app/playwright/index.ts` — useBrowser() with freshContextPerScenario support
+- `packages/vitest/_src/app/index.ts` — new public exports
+
+---
+
+### Decision: Fix fetch() keep-alive causing Vitest close timeout
+
+**Author:** Wash  
+**Date:** 2026-04-12  
+**Status:** Implemented
+
+**Context:** After tests complete with the LiveDoc reporter publishing to a server, Vitest hangs for ~10 seconds then logs "close timed out after 10000ms" before force-exiting. This occurs because Node.js's global `fetch()` (undici) uses HTTP keep-alive by default — TCP connections from the reporter's HTTP calls linger in the connection pool, preventing the event loop from draining.
+
+**Decision:** Add `'Connection': 'close'` header to all `fetch()` calls in:
+- `LiveDocViewerReporterV1.post()` — the single HTTP method used by the publish reporter
+- `discoverServer()` in `@swedevtools/livedoc-server` — the health check during auto-discovery
+
+**Rationale:**
+- Reporter makes short-lived, one-shot HTTP requests. No benefit to keep-alive.
+- Minimal, targeted fix — avoids masking other issues with `forceExit: true` or reduced `teardownTimeout`.
+- Playwright cleanup was already correct and not contributing to the timeout.
+
+**Impact:**
+- Reporter publish and auto-discovery no longer keep the process alive after tests complete.
+- No behavior change for non-publish test runs.
+
+---
+
+### Decision: Scenario Hook Test Strategy
+
+**Author:** Zoe  
+**Date:** 2026-04-12  
+**Status:** Implemented
+
+**Decision:** Split Playwright `freshContextPerScenario` testing into two files:
+
+1. **`scenario-hooks.Spec.ts`** — Pure unit tests for the `onScenarioStart`/`onScenarioEnd` hook mechanism. No browser required. Runs in CI without prerequisites. Covers: invocation count per scenario, no per-step firing, scenarioOutline example-level hooks, and hook ordering.
+
+2. **`fresh-context-per-scenario.Spec.ts`** — Integration test requiring Playwright + a running viewer on port 3100. Tests real browser isolation (localStorage, cookies, sessionStorage). Only runs when Playwright infrastructure is available.
+
+**Rationale:**
+- Hook mechanism is core logic and can be tested without a browser
+- Browser isolation needs a real browser to prove
+- Separating allows CI to run hook tests always, while integration tests run only in E2E environments
+
+**Key Finding:** Hooks fire in `beforeAll` of each scenario's describe block. By the time a `given` step executes, the start hook has already run. Test assertions must account for this timing — comparing "additional calls since entry" rather than expecting a hook to fire during step execution.
+
+**Impact:**
+- `packages/vitest/_src/test/Playwright/scenario-hooks.Spec.ts` — 7 scenarios, 19 steps, all passing
+- `packages/vitest/_src/test/Playwright/fresh-context-per-scenario.Spec.ts` — 7 scenarios, requires Playwright
+
+---
+
+### Decision: Fix Playwright Module Duplication via Self-Referencing Imports
+
+**Author:** Wash  
+**Date:** 2026-07-25  
+**Status:** Implemented  
+**Affects:** `packages/vitest` — tsup config, playwright entry point
+
+**Context:** With `splitting: false` in tsup, each entry point bundles its own copy of all shared code. The playwright entry point (`dist/playwright/index.js`) was importing `onScenarioStart`/`onScenarioEnd` from `../livedoc`, causing tsup to inline the entire livedoc module. This created **two independent copies** of the `scenarioStartHooks`/`scenarioEndHooks` arrays at runtime — one in the main bundle and one in the playwright bundle.
+
+When `useBrowser({ freshContextPerScenario: true })` registered hooks via `onScenarioStart()`, they went into the playwright copy's array. When `scenario()` ran, it read from the main copy's array (empty). Hooks never fired, and no page was ever created.
+
+This was a regression in v0.1.9 because `beforeAll` now skips page creation when `freshContext=true`, relying entirely on the (broken) hooks.
+
+**Decision:** Use self-referencing package imports (Option C from analysis):
+1. Changed `playwright/index.ts` to import from `@swedevtools/livedoc-vitest` instead of `../livedoc`
+2. Added `@swedevtools/livedoc-vitest` to `external` in `tsup.config.ts`
+
+This ensures the playwright bundle emits a real `import`/`require` of the main package at runtime rather than inlining it. Both ESM and CJS consumers resolve through the package.json `exports` map to the correct format.
+
+**Why Not Other Options:**
+- **Option A (splitting: true)**: Only works for ESM in tsup; CJS would still duplicate.
+- **Option B (mark relative paths as external)**: Fragile and tsup doesn't natively support it well.
+- **Option C (self-referencing)**: Works for both ESM and CJS, leverages Node.js self-referencing (supported since Node 12.7+), and is the standard pattern for multi-entry-point packages.
+
+**Verification:**
+- Playwright ESM bundle: 0 occurrences of `scenarioStartHooks` (was ~4 before fix)
+- Playwright CJS bundle: 0 occurrences of `scenarioStartHooks`
+- Main ESM/CJS bundles: 4 occurrences each (unchanged)
+- Playwright bundle size dropped from ~320KB to ~2.9KB
+- All existing tests pass (exit code 0)
+
+**Impact:**
+- `packages/vitest/tsup.config.ts` — added `@swedevtools/livedoc-vitest` to external
+- `packages/vitest/src/playwright/index.ts` — changed to self-referencing import
+
+---
+
+### Decision: FinalizeOutlineStats Bug Fix Applied
+
+**Author:** Zoe  
+**Date:** 2025-07-25  
+**Status:** Applied
+
+**Context:** While refactoring `Message_Sink_Fallback_Spec.cs` to remove singleton pollution, the `FinalizeOutlineStats_all_skipped` regression test caught that Bug #2 (Skipped→Pending mapping) was **never actually applied** to the source code.
+
+**What was wrong in `LiveDocTestRunReporter.FinalizeOutlineStats`:**
+1. The ternary chain had no Skipped branch: `Failed → Passed → Pending` (missing Skipped)
+2. `stats.Skipped = 0;` was hardcoded
+3. `execution.Status` only checked `Failed → Passed` (no Skipped cascade)
+
+**Fix applied:**
+1. Added `g.All(r => r.Result.Status == Skipped) ? Skipped : Pending` branch
+2. Replaced `stats.Skipped = 0` with `stats.Skipped = rowStatuses.Count(s => s == Skipped)`
+3. Added `stats.Pending = rowStatuses.Count(s => s == Pending)`
+4. Added Skipped cascade to `execution.Status`: `Failed > 0 → Passed > 0 → Skipped > 0 → Pending`
+
+**Impact:** `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` lines 654–676
+
+**Verification:** 458 tests pass. JSON export shows `summary.total` (446) == `sum(doc.statistics.total)` (446).
+
+---
+
+### Decision: Search & Navigation UX Fixes
+
+**Date:** 2025-07-18  
+**Author:** Kaylee  
+**Status:** Implemented  
+**Commit:** `79793e3`
+
+**Context:** Two related UX bugs in the viewer's search/filter system left users stranded:
+1. **Tag filter dead-end**: Applying a tag like `@attachments` while viewing a folder that has no matching children showed "No matching results" with no way to find the actual matches elsewhere in the test run.
+2. **Step navigation gap**: Clicking a text search result that resolved to a Step node rendered only the Feature header and Background — the Scenario containing the step was invisible.
+
+**Decisions:**
+
+**1. Global result cards in GroupView (not just a root-navigation link)**
+- **Chose**: Compute up to 5 global matches from `run.itemById` and render them as clickable cards inline in the empty-state area — with status badges, kind labels, and titles.
+- **Rationale**: Showing actual result items with one-click navigation eliminates friction entirely. The user sees *what* matched and can jump directly there. Capped at 5 items + overflow message to keep the UI clean.
+
+**2. Parent Scenario rendering for Step nodes (not redirect)**
+- **Chose**: Add a `parentScenario` memo in NodeView that finds the owning Scenario/Rule, then render it via ScenarioBlock. Also expose the container's children list for sibling navigation.
+- **Rationale**: Rendering in-place preserves the navigation intent and shows the full context (Feature → Background → Parent Scenario with all steps → sibling Scenarios list).
+
+**Files Changed:**
+- `packages/viewer/src/client/components/GroupView.tsx` — Replaced `globalMatchCount` with `globalResultInfo` memo; new empty-state render with clickable result cards
+- `packages/viewer/src/client/components/NodeView.tsx` — Added `parentScenario` memo, Step render block via ScenarioBlock, modified `children` derivation for Step context
+
+---
+
+### Decision: LIVEDOC_REPORT_ALL_TESTS Debug Flag
+
+**Author:** Simon  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Context:** The "Spec" suffix filter in `LiveDocTestFramework.ReportTestResult` hides `[Feature]`/`[Specification]` classes whose names don't end in "Spec". This is correct production behavior — it prevents helper/fixture classes from cluttering the viewer. However, when debugging test count mismatches between xUnit and the viewer, the filter itself can be the culprit, and there was no way to temporarily bypass it.
+
+**Decision:** Added an environment variable `LIVEDOC_REPORT_ALL_TESTS`. When set to `true` (case-insensitive), the suffix filter is skipped and all `[Feature]`/`[Specification]` classes are reported to the viewer regardless of naming convention.
+
+Default behavior (env var unset or any value other than `true`) is unchanged — filter stays ON.
+
+**Activation:**
+- **Visual Studio**: Test → Configure Run Settings → Select Solution Wide runsettings File → pick `dotnet/xunit/tests/debug.runsettings`. Deselect to restore normal filtering.
+- **CLI**: `dotnet test -s tests/debug.runsettings`
+
+**Impact:**
+- `dotnet/xunit/src/LiveDocTestFramework.cs` — 4 new lines around the existing suffix filter
+- `dotnet/xunit/tests/debug.runsettings` — new file (env var injection)
+
+---
+
+### Decision: Run Aggregation Phase 1 — xUnit suiteKey Support
+
+**Analyst:** Simon  
+**Status:** Approved with checklist  
+**Scope:** Phase 1 - Add `suiteKey` support to xUnit reporter
+
+**Effort:** SMALL (1-2 hours)
+
+**SuiteKey Derivation Strategy for .NET:**
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | `LIVEDOC_SUITE_KEY` env var | `"integration"` |
+| 2 | Assembly name (auto-derive) | `"MyProject.Tests"` |
+| 3 | `"default"` fallback | `"default"` |
+
+**Required Changes (3 files):**
+1. `LiveDocConfig.cs` — Add `SuiteKeyEnvVar` constant, `SuiteKey` property with lazy resolution, `ResolveSuiteKey()` method
+2. `Reporter/Models/ReporterModels.cs` — Add `SuiteKey` property to `StartRunRequest`
+3. `LiveDocReporter.cs` — Send `SuiteKey` in `StartRunAsync()`
+
+**Backward Compatibility:** ✅ Full (additive-only change, optional field)
+
+**Recommendation:** ✅ Approve with existing implementation checklist in full decision document.
+
+---
+
+### Decision: Fallback Path Outline Row Guard
+
+**Author:** Simon  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Context:** The message sink fallback path in `LiveDocTestFramework.cs` handles test result reporting for tests that don't go through `LiveDocContext` (e.g., fixture classes with empty method bodies). Outline tests (`[ScenarioOutline]`/`[RuleOutline]` with multiple `[Example]` attributes) share a single test ID across all example rows by design.
+
+**Problem:** The `HasTest(testId)` guard was applied uniformly to both outline and non-outline tests. After the 1st example row created the outline shell in `_tests`, subsequent rows saw `HasTest == true` and returned early — dropping every 2nd+ example row. This caused the viewer to show fewer tests than Test Explorer.
+
+**Decision:** Split the `HasTest` guard by test type:
+- **Non-outline tests**: Keep the existing `HasTest` guard (prevents overwriting LiveDocContext's richer data).
+- **Outline tests**: Check `_outlineRowCounters.ContainsKey(testId)` first. If the counter exists, the fallback path owns this outline and subsequent rows must proceed. Only fall through to `HasTest` when the counter is absent (to detect LiveDocContext ownership).
+
+This leverages the existing `_outlineRowCounters` dictionary as a lightweight ownership tracker with zero new state.
+
+**Impact:**
+- `dotnet/xunit/src/LiveDocTestFramework.cs` — `ReportTestResult` HasTest guard
+- `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` — `FinalizeOutlineStats` status logic
+
+---
+
+### Decision: Journey Fixture Uses --no-build
+
+**Author:** Simon  
+**Date:** 2026-07-25  
+**Status:** Implemented
+
+**Decision:** `JourneyFixtureBase.InitializeAsync()` now passes `--no-build` to `dotnet run` when launching the server process. The fixture assumes the server project is already built as part of the solution build (`dotnet test` builds all projects in the solution).
+
+**Rationale:** Without `--no-build`, the fixture triggers a redundant rebuild of the server project. On Windows, the DLL from the solution build is often still locked (by Microsoft Defender real-time scanning or the build process itself), causing CS2012 file lock errors and failing all 7 journey tests.
+
+**Impact:**
+- `dotnet/xunit/src/Journeys/JourneyFixtureBase.cs` — line 132 arguments changed
+- Also removed `-p:UseSharedCompilation=false` since no compilation occurs with `--no-build`
+- **Constraint:** Consumers must ensure the server project is built before running tests (standard when using `dotnet test` on the solution)
+
+---
+
+### Decision: User Directive for Multi-Model Review Panel
+
+**Date:** 2026-04-12T17:18:18Z  
+**By:** Garry (via Copilot)  
+**Status:** Noted
+
+**Directive:** For multi-model review panel: use GPT-5.4 (not GPT-5.2) and Goldeneye (not Gemini). We don't have Gemini access.
+
+**Rationale:** User request — captured for team memory
+
+---
+
+### 2026-04-13: User directives on audit findings
+
+**By:** Garry (via Copilot)  
+**Date:** 2026-04-13  
+**Status:** Noted
+
+**What:**
+- sv-5 (legacy endpoint back-compat): NOT needed. Skip.
+- vx-2 (auto-select on session update): Only a bug when update comes from a DIFFERENT project. Same-project auto-refresh is fine. Consider a follow-latest toggle.
+
+**Rationale:** User triage of audit findings
+
+---
+
+### 2026-04-13: Cost directive — Premium Models
+
+**By:** Garry (via Copilot)  
+**Date:** 2026-04-13  
+**Status:** Noted
+
+**What:** Upgrade models - we don't care about cost. Use premium models. Have Goldeneye review all changes.
+
+**Rationale:** User directive - quality over cost for this fix batch
+
+---
+
+### Team Directive: No Hacks — Root Cause Analysis Required
+
+**Status:** ACTIVE  
+**Priority:** CRITICAL  
+**Issued by:** Project Lead
+
+**Directive:** We DO NOT HACK. We IDENTIFY ROOT CAUSES AND FIX.
+
+Every bug fix MUST follow this process:
+
+1. **Reproduce** — Create or identify a test case that demonstrates the failure
+2. **Diagnose** — Trace the root cause through the code. Do not stop at symptoms.
+3. **Prove** — Write a test that PROVES the root cause before writing the fix
+4. **Fix** — Address the root cause, not the symptoms
+5. **Verify** — Confirm the fix resolves the original test case AND doesn't break existing tests
+
+**What Constitutes a "Hack":**
+- Removing guards/gates that exist for a reason without understanding WHY they fail
+- Adding fallback values that mask undefined/null data instead of fixing the source
+- Wrapping code in try/catch to swallow errors that indicate real problems
+- Any change where the justification is "it works now" without explaining WHY it was broken
+
+**Context:** This directive was issued after a viewer regression where rendering gates (`feature && ...`) were removed to "fix" scenario pages not rendering. The real cause was `getCurrentRun()` returning `undefined` in session mode — a one-line root cause that the hack obscured while leaving the actual defect in place.
+
+Removing symptoms without understanding causes erodes trust with our consumers and creates compounding technical debt.
+
+---
+
+### Session Loading: Hierarchy-First Strategy
+
+**Author:** Kaylee  
+**Date:** 2025-07-24  
+**Status:** Implemented
+
+**Decision:** Changed session loading in the viewer to follow a hierarchy-first approach rather than calling `/api/v1/sessions` without parameters.
+
+**Flow:**
+1. Fetch project hierarchy (already existed)
+2. Check if `latestSession` is embedded in hierarchy (Wash's server-side enhancement)
+3. If not, derive default project/environment from hierarchy[0] and fetch with params
+4. Unwrap `{ sessions: [...] }` envelope from server response
+5. Hydrate ALL returned sessions, not just the first
+6. Fall back to runs only if sessions unavailable
+
+**Sidebar project switching** now fetches from server when no local session data exists for the selected project, using `addSession` to merge rather than `setSessions` to replace.
+
+**Impact:**
+- `packages/viewer/src/client/hooks/useWebSocket.ts` — `fetchInitialData` rewritten
+- `packages/viewer/src/client/components/Sidebar.tsx` — `selectProject` made async with server fallback
+
+---
+
+### Decision: Fix Background Scenario Navigation
+
+**Date:** 2026-04-12  
+**Author:** Kaylee (Frontend Dev)  
+**Status:** Implemented
+
+## Context
+
+The viewer failed to render scenarios correctly when the document contained backgrounds. Key symptom: breadcrumb showed only "🏠 >" and feature/scenario titles were missing, with only raw steps visible.
+
+### Critical Finding (Coordinator Investigation)
+
+Comparing working vs broken files revealed:
+- **Working** (history/2026-04-12T17-59-01_84gtepcw.json): Zero documents with backgrounds → renders correctly
+- **Broken** (lastrun.json): 3 documents with backgrounds → breadcrumb/titles broken
+
+### Root Cause
+
+Backgrounds are built with `buildScenarioLike()` in the reporter, giving them `kind: 'Scenario'` instead of a distinct kind like `'Background'`. This makes backgrounds indistinguishable from real scenarios in the viewer's flat `itemById` lookup:
+
+```json
+"background": {
+  "id": "8766u8:12ik8g",
+  "kind": "Scenario",  // ← Same as real scenarios!
+  "title": "Clean state",
+  "steps": [...]
+}
+```
+
+When backgrounds are added to `itemById` (store.ts:168), they become navigable like any other scenario. This caused three specific issues:
+
+1. **Container lookup failure**: The `containerTestCase` finder in NodeView didn't traverse `doc.background`, so when viewing a scenario in a feature with a background, the parent container wasn't found.
+
+2. **Background rendering scope**: Background resolution used `feature` instead of `containerTestCase`, breaking for Specifications and when container lookup failed.
+
+3. **Double-rendering**: If navigating directly to a background ID, it would render both as a Background (correct) AND as a Scenario (wrong), since `kind === 'scenario'` matched both rendering paths.
+
+## Fix Applied
+
+### 1. Container Lookup Enhancement
+
+Added background traversal to the `containsId` recursion in `containerTestCase` memo:
+
+```typescript
+const containsId = (n: any): boolean => {
+  if (!n) return false;
+  if (n.id === node.id) return true;
+
+  // Check background first (before tests)
+  const bg = (n as any).background;
+  if (bg && containsId(bg)) return true;
+
+  // ... rest of traversal
+};
+```
+
+This ensures backgrounds and their steps are included when searching for the parent container.
+
+### 2. Background Resolution Generalization
+
+Changed background lookup from:
+```typescript
+const background = useMemo(() => {
+  if (!feature) return undefined;
+  return feature.background as AnyTest | undefined;
+}, [feature]);
+```
+
+To:
+```typescript
+const background = useMemo(() => {
+  if (!containerTestCase) return undefined;
+  return containerTestCase.background as AnyTest | undefined;
+}, [containerTestCase]);
+```
+
+This works for all container types (Feature, Specification, Suite), not just Features.
+
+### 3. Background Double-Render Prevention
+
+Added detection flag:
+```typescript
+const isViewingBackground = useMemo(() => {
+  return background && node.id === background.id;
+}, [background, node.id]);
+```
+
+Used in scenario rendering condition:
+```typescript
+{!isTestCaseNode(node) && kind === 'scenario' && !isViewingBackground && (
+  <ScenarioBlock label="Scenario" ... />
+)}
+```
+
+This prevents backgrounds from rendering twice when navigated to directly.
+
+### 4. Previous Fixes (Context)
+
+Also completed in this session:
+- Fixed ContainerHeader breadcrumb empty-state (was returning `null`, now shows home fallback)
+- Removed overly strict parent-container checks from Scenario/Rule/Outline rendering
+- Removed duplicate RuleOutline rendering block
+
+## Rationale
+
+### Why Not Fix in the Reporter?
+
+The schema types `background` as `AnyTest`, which includes `ScenarioTest` with `kind: 'Scenario'`. This is semantically correct — backgrounds ARE scenarios that run before each test. The reporter's use of `buildScenarioLike()` follows the schema's design.
+
+### Why Fix in the Viewer?
+
+The viewer must handle the schema as-is. Since backgrounds are valid `AnyTest` nodes with `kind: 'Scenario'`, the viewer's navigation and rendering logic must distinguish them by structure (checking `doc.background` reference) rather than by kind alone.
+
+This approach:
+- ✅ Respects the schema's type hierarchy
+- ✅ Maintains compatibility with any reporter implementation
+- ✅ Handles edge cases (direct navigation to background IDs)
+- ✅ Works for all container types, not just Features
+
+## Impact
+
+- ✅ Files with backgrounds now render correctly (breadcrumb, feature title, scenario title all visible)
+- ✅ Container lookup succeeds when viewing scenarios in features with backgrounds
+- ✅ Backgrounds render exactly once in their dedicated section
+- ✅ Direct navigation to background IDs handled gracefully
+- ✅ Works for Features, Specifications, and any future container types with backgrounds
+- ⚠️ No changes to data flow or store indexing — backgrounds still in `itemById` (necessary for step navigation)
+
+---
+
+### E2E Test Strategy for LiveDoc
+
+**Author:** Mal  
+**Date:** 2025-01-XX  
+**Status:** Proposed
+
+## Problem Statement
+
+Multiple regressions have reached consumers that unit tests didn't catch:
+
+1. **v0.1.9 Module Duplication Bug**: Playwright hooks were inlined into separate bundles, breaking cross-module hook registration
+2. **Viewer Rendering Bug**: Breadcrumb/header not showing feature/scenario titles when navigating to a scenario's steps
+3. **Data vs Rendering Gap**: The `lastrun.json` data is correct (proper nesting, all fields present), but the viewer fails to render the hierarchy
+
+**Root Cause**: No end-to-end validation of the full pipeline:
+```
+Spec File → Reporter → JSON → Server → Viewer → User sees correct UI
+```
+
+Unit tests validate components in isolation. We need E2E tests that validate the entire flow.
+
+---
+
+## E2E Test Categories
+
+### Category 1: Reporter Output Validation (Schema Compliance)
+**Goal**: Ensure the reporter generates valid JSON that matches the schema  
+**Location**: `packages/vitest/e2e/reporter-output/`
+
+**Tests**:
+- `Reporter-Output-Schema-Compliance.Spec.ts`
+  - Run a fixture spec → validate JSON against Zod schema
+  - Verify all required fields are present (feature, scenarios, steps, execution, status, summary)
+  - Verify nesting structure (feature → scenarios → steps)
+  - Verify scenario outline examples are properly flattened
+  - Verify background steps are duplicated into each scenario
+  - Verify attachments are included in ExecutionResult
+
+- `Reporter-Output-Completeness.Spec.ts`
+  - Run fixture with all node types (Feature, Scenario, ScenarioOutline, Background, Rule, Step)
+  - Verify tags, descriptions, titles, durations are all captured
+  - Verify pass/fail/skip statuses are correctly reported
+  - Verify summary statistics match actual test outcomes
+
+**Fixture Strategy**: Create real spec files in `packages/vitest/e2e/fixtures/specs/` with known content:
+- `simple-feature.Spec.ts` — minimal passing feature
+- `scenario-outline.Spec.ts` — scenario outline with examples
+- `background-steps.Spec.ts` — background + scenarios
+- `failing-scenarios.Spec.ts` — intentional failures
+- `attachments.Spec.ts` — screenshots, JSON attachments
+
+**Execution**: Run Vitest programmatically against fixtures, capture reporter output, validate JSON.
+
+---
+
+### Multi-Project Session Fix Plan
+
+**Author:** Mal  
+**Date:** 2026-04-13  
+**Status:** Proposed  
+**Requested by:** Garry
+
+## Architecture Assessment
+
+The good news: the session model itself is fundamentally sound. `SessionManager` already does the right job — it groups runs by `project/environment`, assigns a stable `sessionId`, rolls up status and summary, and maintains a merged document view. That is a valid abstraction for "latest state of a project stream," and I would not redesign it.
+
+What is broken is the contract between layers. The viewer, server hierarchy, and xUnit publisher are each making slightly different assumptions about discovery, hydration, and lifecycle. So this is not a data-model failure; it is a **boundary alignment problem** plus one real .NET lifecycle bug caused by process-level singleton state.
+
+---
+
+## Prioritized Fix Plan
+
+| Order | Bug | User Impact | Fix Complexity | Risk | Specific file changes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Viewer calls `/api/v1/sessions` without `project/environment` | **Critical** — session mode never boots, UI falls back to runs | Low | Low | `packages/viewer/src/client/hooks/useWebSocket.ts` |
+| 2 | Viewer expects array; server returns `{ sessions }` | **Critical** — even a successful response is misread | Low | Low | `packages/viewer/src/client/hooks/useWebSocket.ts` |
+| 3 | Hierarchy omits `latestSession` | **High** — project/environment switching has no session target | Low-Med | Low | `packages/server/src/store-v1.ts`, viewer hierarchy mapping |
+| 4 | Sidebar selection does not fetch session data on demand | **High** — switching projects appears broken unless data was preloaded | Medium | Low-Med | `packages/viewer/src/client/components/Sidebar.tsx`, shared fetch helper |
+| 5 | Only one session is hydrated on startup | **High** symptom — multi-project experience feels random/incomplete | Medium | Medium | `packages/viewer/src/client/hooks/useWebSocket.ts`, `packages/viewer/src/client/store.ts` |
+| 6 | `session:v1:updated` is only broadcast on completion | **Medium-High** — live sessions appear late | Low | Low | `packages/server/src/index.ts` around `/api/v1/runs/start` |
+| 7 | Static singleton `LiveDocTestRunReporter` in xUnit | **High** for .NET users — sequential runs contaminate each other | Medium | Medium | `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs`, framework lifecycle wiring |
+| 8 | xUnit `_runId` persists after flush | **High** — second run reuses old server run | Low | Low | `dotnet/xunit/src/Reporter/LiveDocReporter.cs` |
+| 9 | Possible Vitest singleton issue | **Low** — reviewed and not reproduced | None | None | No change required |
+
+### Recommended implementation order
+
+1. **Fix the viewer/server contract first**  
+   - `useWebSocket.ts`: call `/api/v1/sessions?project=<project>&environment=<environment>` after hierarchy discovery  
+   - unwrap `payload.sessions` instead of treating the body as a raw array
+
+2. **Make hierarchy session-aware**  
+   - `store-v1.ts#getProjectHierarchy()` should include `latestSession` metadata alongside `latestRun`
+
+3. **Make selection lazy-load instead of eager-assume**  
+   - `Sidebar.tsx` should fetch `/api/v1/sessions/:sessionId` when the chosen session is not yet in Zustand
+
+4. **Fix live updates and startup hydration**  
+   - do not rely on a single initial session fetch  
+   - merge/upsert fetched sessions instead of replacing state blindly  
+   - emit `session:v1:updated` when a run starts, not just when it completes
+
+5. **Reset xUnit reporter state per run**  
+   - clear dictionaries, counters, `_runId`, and flush task state after completion  
+   - ideally remove the effective process-lifetime singleton behavior
+
+---
+
+### Wash — Session endpoint contract recommendation
+
+**Date:** 2026-04-13  
+**Requested by:** Garry
+
+## Decision
+
+Treat sessions as **project/environment-scoped resources**. The viewer should always call:
+
+`GET /api/v1/sessions?project=<project>&environment=<environment>`
+
+and should read the existing response envelope:
+
+```json
+{ "sessions": [ ... ] }
+```
+
+## Why
+
+- The server-side `SessionManager` is already keyed by `project/environment`, so explicit filters match the real ownership model.
+- A no-param global listing blurs project boundaries and makes multi-project state harder to reason about.
+- Keeping the `{ sessions }` envelope is consistent with other collection responses like `{ projects }` and leaves room for metadata later (`count`, paging, diagnostics).
+
+## Required follow-up fixes
+
+1. **Viewer request** — pass `project` and `environment` when fetching sessions instead of calling `/api/v1/sessions` unscoped.
+2. **Viewer parsing** — unwrap `payload.sessions` instead of treating the JSON body as a raw array.
+3. **Hierarchy payload** — include `latestSession` in `store-v1.ts#getProjectHierarchy()` so the viewer can bootstrap session mode correctly.
+4. **Run-start broadcast** — emit `session:v1:updated` alongside `run:v1:started` when a new run is assigned to a session.
+5. **Hydration logic** — load all returned sessions, not just `[latestSession]`.
+
+## Outcome
+
+This keeps the contract explicit, minimizes server ambiguity, and fixes the current broken session bootstrap path without introducing a second "global list" behavior that clients may misuse.
+
+---
+
+## Governance
+
+- All meaningful changes require team consensus
+- Document architectural decisions here
+- Keep history focused on work, decisions focused on direction

@@ -1,0 +1,74 @@
+{
+  "name": "@swedevtools/livedoc-server",
+  "version": "1.2.1",
+  "description": "LiveDoc Server - Shared server infrastructure for LiveDoc ecosystem",
+  "author": "Garry McGlennon",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/server#readme",
+  "bugs": {
+    "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js",
+      "require": "./dist/schema.cjs"
+    }
+  },
+  "bin": {
+    "livedoc-server": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx watch src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.7",
+    "@swedevtools/livedoc-schema": "workspace:*",
+    "commander": "^12.1.0",
+    "hono": "^4.11.1",
+    "open": "^10.2.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@swedevtools/livedoc-vitest": "workspace:*",
+    "@types/node": "^22.19.3",
+    "@types/ws": "^8.18.1",
+    "rimraf": "^6.1.2",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "livedoc",
+    "bdd",
+    "testing",
+    "server",
+    "websocket"
+  ]
+}

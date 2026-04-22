@@ -1,0 +1,251 @@
+---
+sidebar_position: 5
+description: "Run LiveDoc xUnit tests in CI — export JSON results, generate static HTML reports, and deploy to GitHub Pages."
+---
+
+# How to Run LiveDoc xUnit in CI/CD
+
+<p className="intro">
+LiveDoc xUnit tests run with standard `dotnet test` in CI. Pass the LiveDoc
+logger with an export path, convert to static HTML, and upload — three steps.
+</p>
+
+:::info Prerequisites
+- A .NET project with `SweDevTools.LiveDoc.xUnit` installed ([Getting Started](../learn/getting-started.mdx))
+- A CI environment (GitHub Actions, GitLab CI, Azure DevOps, or similar)
+:::
+
+## The Pipeline
+
+```mermaid
+graph LR
+    A["1. Run tests"] --> B["2. Export HTML"]
+    B --> C["3. Copy to destination"]
+    style A fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style B fill:#1e293b,stroke:#a78bfa,color:#e2e8f0
+    style C fill:#1e293b,stroke:#34d399,color:#e2e8f0
+```
+
+### Step 1 — Run Tests with JSON Export
+
+Pass the `ExportPath` parameter to the LiveDoc logger:
+
+```bash
+dotnet test --logger "LiveDoc;ExportPath=./test-results/report.json;Project=MyProject;Environment=ci"
+```
+
+| Parameter     | Description                                |
+| ------------- | ------------------------------------------ |
+| `ExportPath`  | Path to write the TestRunV1 JSON file      |
+| `Project`     | Project name label in the report           |
+| `Environment` | Environment label (e.g., `ci`, `staging`)  |
+
+The logger creates directories automatically.
+
+### Step 2 — Generate Static HTML
+
+Convert the JSON into a self-contained HTML file:
+
+```bash
+npx @swedevtools/livedoc-viewer export \
+  -i ./test-results/report.json \
+  -o ./test-results/report.html \
+  -t "MyProject — xUnit Tests"
+```
+
+The HTML file embeds everything inline — works offline on any machine.
+
+### Step 3 — Copy to Destination
+
+Upload as a CI artifact, deploy to Pages, or copy anywhere:
+
+```yaml
+- name: Upload report
+  uses: actions/upload-artifact@v4
+  with:
+    name: livedoc-report
+    path: test-results/report.html
+```
+
+---
+
+## CI Gotchas
+
+### Build Configuration Must Match
+
+When using `--no-build`, the configuration must be consistent:
+
+```bash
+# ✅ Both default to Debug
+dotnet build
+dotnet test --no-build
+
+# ✅ Both explicitly Release
+dotnet build --configuration Release
+dotnet test --no-build --configuration Release
+
+# ❌ Build uses Release, test defaults to Debug → "file not found"
+dotnet build --configuration Release
+dotnet test --no-build
+```
+
+:::danger Configuration mismatch
+`dotnet test --no-build` without `--configuration` defaults to Debug. If you
+built with Release, the test runner looks in `bin/Debug/` and fails with
+"file not found" — the binaries are in `bin/Release/`.
+:::
+
+### Journey Tests in CI
+
+[Journey tests](./journey-testing.mdx) start an API server and run HTTP requests
+via httpyac. Extra considerations for CI:
+
+**Cross-platform output differences** — httpyac produces different assertion
+markers on different platforms:
+
+| Platform | Format                  |
+| -------- | ---------------------- |
+| Windows  | `[✓] status == 200`   |
+| Linux    | `✓ status == 200`     |
+
+LiveDoc handles both formats automatically (v0.1.8-beta4+). If you're on an
+older version, update the NuGet package.
+
+**Excluding journey tests** — if your CI can't run API servers, filter them out:
+
+```csharp
+[Feature("My API Journeys")]
+[Trait("Category", "Journey")]
+public class MyApiJourneys : JourneyTest { ... }
+```
+
+```bash
+dotnet test --filter "Category!=Journey"
+```
+
+### Tag-Based Filtering
+
+Use `dotnet test --filter` to include or exclude by category:
+
+```bash
+dotnet test --filter "Category=Smoke"           # Only smoke tests
+dotnet test --filter "Category!=Slow"           # Skip slow tests
+dotnet test --filter "Category=Smoke|Category=Critical"  # Combine
+```
+
+---
+
+## GitHub Actions — Complete Example
+
+```yaml
+# .github/workflows/livedoc-tests.yml
+name: LiveDoc Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+
+      - name: Run LiveDoc tests
+        run: |
+          dotnet test --no-build \
+            --logger "LiveDoc;ExportPath=test-results/report.json;Project=MyProject;Environment=ci"
+
+      - uses: actions/setup-node@v4
+        if: always()
+        with:
+          node-version: 22
+
+      - name: Generate HTML report
+        if: always()
+        run: npx @swedevtools/livedoc-viewer export -i test-results/report.json -o test-results/report.html -t "MyProject"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: livedoc-results
+          path: test-results/
+          retention-days: 30
+```
+
+### Azure DevOps
+
+```yaml
+# azure-pipelines.yml
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - task: UseDotNet@2
+    inputs:
+      version: '8.0.x'
+
+  - script: dotnet restore && dotnet build --no-restore
+
+  - script: |
+      dotnet test --no-build \
+        --logger "LiveDoc;ExportPath=$(Build.ArtifactStagingDirectory)/report.json;Project=MyProject;Environment=ci"
+
+  - task: PublishBuildArtifacts@1
+    condition: always()
+    inputs:
+      pathToPublish: '$(Build.ArtifactStagingDirectory)'
+      artifactName: 'livedoc-results'
+```
+
+### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+livedoc-tests:
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  stage: test
+  script:
+    - dotnet restore
+    - dotnet build --no-restore
+    - dotnet test --no-build --logger "LiveDoc;ExportPath=test-results/report.json;Project=MyProject;Environment=ci"
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+    expire_in: 30 days
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| `The target "X" does not exist` | Running against solution, not project | Target the `.csproj` with the NuGet installed |
+| Tests pass locally, fail in CI | Build configuration mismatch | Ensure build and test use the same `--configuration` |
+| Journey tests: "file not found" | `dotnet run --no-build` defaults to Debug | Match configuration between build and test steps |
+| Journey tests: invalid JSON | Cross-platform httpyac output | Update to LiveDoc xUnit ≥ 0.1.8-beta4 |
+| Report not generated | Logger not found | Verify the NuGet package is installed and `--logger` syntax is correct |
+| GitHub Pages deploy fails | Environment missing | Create `github-pages` environment in Settings → Environments |
+
+## Related
+
+- [Journey Testing](./journey-testing.mdx) — API journey test setup
+- [Configuration](../reference/configuration.mdx) — all logger parameters
+- [Viewer Integration](./viewer-integration.mdx) — live viewer connection
+- [Static Export](../../viewer/guides/static-export.mdx) — the `export` command in detail
+- [Debugging](./debugging.mdx) — troubleshooting test failures

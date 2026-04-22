@@ -1,0 +1,332 @@
+---
+sidebar_position: 2
+title: "REST API"
+description: "Complete reference for the LiveDoc Viewer REST API — health checks, project listing, run management, and batch/streaming submission."
+---
+
+# REST API
+
+<p className="intro">
+The LiveDoc Viewer exposes a REST API for querying test results, managing runs,
+and submitting data programmatically. All endpoints are served from the same
+host and port as the web UI.
+</p>
+
+**Base URL:** `http://localhost:3100` (default)
+
+All request and response bodies use **JSON** (`Content-Type: application/json`).
+
+---
+
+## Reference {#reference}
+
+### Health Check {#health}
+
+#### `GET /api/health` {#get-health}
+
+Returns the server's health status. Use this to verify the viewer is running
+before sending test results.
+
+```bash
+curl http://localhost:3100/api/health
+```
+
+**Response** `200 OK`:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+---
+
+### Projects {#projects}
+
+#### `GET /api/projects` {#get-projects}
+
+Lists all projects that have submitted test results.
+
+```bash
+curl http://localhost:3100/api/projects
+```
+
+**Response** `200 OK`:
+
+```json
+[
+  {
+    "name": "my-api",
+    "environments": ["local", "ci"]
+  },
+  {
+    "name": "my-web-app",
+    "environments": ["local"]
+  }
+]
+```
+
+---
+
+### Hierarchy {#hierarchy}
+
+#### `GET /api/hierarchy` {#get-hierarchy}
+
+Returns the full project → environment → run tree structure. Useful for
+building navigation or dashboards on top of the viewer data.
+
+```bash
+curl http://localhost:3100/api/hierarchy
+```
+
+**Response** `200 OK`:
+
+```json
+{
+  "projects": [
+    {
+      "name": "my-api",
+      "environments": [
+        {
+          "name": "local",
+          "runs": ["run-001", "run-002"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### Runs {#runs}
+
+#### `GET /api/runs` {#list-runs}
+
+Lists all test runs across all projects and environments.
+
+```bash
+curl http://localhost:3100/api/runs
+```
+
+**Response** `200 OK`:
+
+```json
+[
+  {
+    "runId": "run-001",
+    "project": "my-api",
+    "environment": "local",
+    "startedAt": "2025-01-15T10:30:00Z",
+    "status": "completed",
+    "summary": {
+      "features": 5,
+      "scenarios": 23,
+      "passed": 22,
+      "failed": 1,
+      "skipped": 0
+    }
+  }
+]
+```
+
+---
+
+#### `GET /api/runs/:runId` {#get-run}
+
+Returns the full details of a specific run, including all features, scenarios,
+and step results.
+
+```bash
+curl http://localhost:3100/api/runs/run-001
+```
+
+**Response** `200 OK`:
+
+```json
+{
+  "runId": "run-001",
+  "project": "my-api",
+  "environment": "local",
+  "startedAt": "2025-01-15T10:30:00Z",
+  "completedAt": "2025-01-15T10:30:45Z",
+  "status": "completed",
+  "features": [
+    {
+      "title": "User Authentication",
+      "tags": ["auth"],
+      "scenarios": [
+        {
+          "title": "Successful login",
+          "status": "passed",
+          "steps": [
+            {
+              "keyword": "Given",
+              "title": "a registered user",
+              "status": "passed",
+              "duration": 12
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Response** `404 Not Found` — if the run ID does not exist.
+
+---
+
+#### `DELETE /api/runs/:runId` {#delete-run}
+
+Deletes a specific run and its associated data.
+
+```bash
+curl -X DELETE http://localhost:3100/api/runs/run-001
+```
+
+**Response** `200 OK`:
+
+```json
+{
+  "deleted": "run-001"
+}
+```
+
+**Response** `404 Not Found` — if the run ID does not exist.
+
+---
+
+#### `POST /api/runs` {#post-run-batch}
+
+Submit a complete test run in a single request (batch mode). The entire run
+payload is sent at once after all tests finish.
+
+```bash
+curl -X POST http://localhost:3100/api/runs \
+  -H "Content-Type: application/json" \
+  -d @results.json
+```
+
+**Request body:**
+
+```json
+{
+  "project": "my-api",
+  "environment": "local",
+  "features": [
+    {
+      "title": "Shopping Cart",
+      "scenarios": [
+        {
+          "title": "Add item to cart",
+          "status": "passed",
+          "steps": [
+            {
+              "keyword": "Given",
+              "title": "an empty cart",
+              "status": "passed",
+              "duration": 5
+            },
+            {
+              "keyword": "When",
+              "title": "a product is added",
+              "status": "passed",
+              "duration": 8
+            },
+            {
+              "keyword": "Then",
+              "title": "the cart contains '1' item",
+              "status": "passed",
+              "duration": 3
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Response** `201 Created`:
+
+```json
+{
+  "runId": "run-003",
+  "status": "completed"
+}
+```
+
+---
+
+#### `POST /api/runs/start` {#post-run-streaming}
+
+Start a streaming run. Unlike the batch endpoint, this begins a run that
+receives incremental updates — scenarios and steps are posted as they complete.
+This is the endpoint used by real-time reporters.
+
+```bash
+curl -X POST http://localhost:3100/api/runs/start \
+  -H "Content-Type: application/json" \
+  -d '{"project": "my-api", "environment": "local"}'
+```
+
+**Request body:**
+
+```json
+{
+  "project": "my-api",
+  "environment": "local"
+}
+```
+
+**Response** `201 Created`:
+
+```json
+{
+  "runId": "run-004",
+  "status": "started"
+}
+```
+
+The returned `runId` is used by subsequent WebSocket messages and API calls to
+associate incremental results with this run.
+
+---
+
+## Usage Examples {#examples}
+
+### Check if the viewer is running
+
+```bash
+curl -s http://localhost:3100/api/health | jq .status
+# "ok"
+```
+
+### List all runs and find failures
+
+```bash
+curl -s http://localhost:3100/api/runs | jq '.[] | select(.summary.failed > 0)'
+```
+
+### Download a run as JSON
+
+```bash
+curl -s http://localhost:3100/api/runs/run-001 > run-001.json
+```
+
+### Clean up old runs
+
+```bash
+# Delete a specific run
+curl -X DELETE http://localhost:3100/api/runs/run-001
+```
+
+---
+
+## See Also {#see-also}
+
+- [WebSocket API](./websocket-api.mdx) — real-time event streaming
+- [CLI Options](./cli-options.mdx) — server configuration
+- [CI/CD Dashboards](../guides/ci-cd-dashboards.mdx) — using the API in CI pipelines

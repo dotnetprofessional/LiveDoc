@@ -1,0 +1,18 @@
+# Netlify configuration for LiveDoc documentation site
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  # Docusaurus site lives in the docs/ subdirectory
+  base = "docs/"
+  command = "npm install && npm run build"
+  publish = "build/"
+
+# Node version for the build environment
+[build.environment]
+  NODE_VERSION = "22"
+
+# SPA-style redirects for Docusaurus client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

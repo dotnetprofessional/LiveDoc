@@ -1,0 +1,278 @@
+---
+sidebar_position: 3
+title: "scenarioOutline()"
+description: "Data-driven BDD scenarios with an Examples table. Runs the same scenario once per row, accessing data through ctx.example."
+---
+
+# `scenarioOutline()`
+
+<p className="intro">
+`scenarioOutline` runs the same scenario multiple times with different data sets.
+The Examples table is embedded directly in the title string, and each row produces
+a separate test run.
+</p>
+
+```typescript
+import { feature, scenarioOutline, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Login Validation", () => {
+  scenarioOutline(`Validate credentials
+    Examples:
+    | username | password | result  |
+    | alice    | correct  | success |
+    | alice    | wrong    | failure |
+    | unknown  | any      | failure |
+  `, (ctx) => {
+    given("a user enters '<username>' and '<password>'", () => {
+      credentials = { user: ctx.example.username, pass: ctx.example.password };
+    });
+    when("they submit the login form", () => {
+      result = login(credentials);
+    });
+    then("the result is '<result>'", () => {
+      expect(result.status).toBe(ctx.example.result);
+    });
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `scenarioOutline(title, fn)` {#scenariooutline}
+
+Registers a data-driven scenario. The title must contain an `Examples:` table. The callback runs once per table row.
+
+```typescript
+function scenarioOutline(title: string, fn: (ctx: ScenarioOutlineCtx) => void): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — The scenario outline title followed by an `Examples:` table. Parsed as:
+  - **First line** → scenario title (may include tags on `@`-prefixed lines and description on remaining lines, same as `scenario()`)
+  - **`Examples:` block** → pipe-delimited table where the first row is headers and subsequent rows are data
+
+- **`fn`**: `(ctx: ScenarioOutlineCtx) => void` — Callback containing step functions. **Must not be `async`**. Runs once per example row.
+
+#### The `ctx` Parameter {#ctx}
+
+| Property       | Type              | Description                                            |
+| -------------- | ----------------- | ------------------------------------------------------ |
+| `ctx.feature`  | `FeatureContext`  | `{ filename, title, description, tags }`               |
+| `ctx.scenario` | `ScenarioContext` | `{ title, description, tags, given?, and[], steps }`    |
+| `ctx.example`  | `Record<string, any>` | Current row data keyed by column header name       |
+
+#### The Examples Table {#examples-table}
+
+The table uses pipe-delimited syntax. Values are auto-coerced:
+
+| Input in Table | Coerced Type |
+| -------------- | ------------ |
+| `42`           | `number`     |
+| `3.14`         | `number`     |
+| `true`         | `boolean`    |
+| `false`        | `boolean`    |
+| `hello`        | `string`     |
+
+#### Placeholders in Step Titles {#placeholders}
+
+Use `<columnName>` in step titles. These are **display-only** — they are substituted with the current row's value in test output but have no effect on execution. Always access data via `ctx.example`.
+
+```typescript
+// <username> is replaced with "alice" in the test report
+given("a user named '<username>'", () => {
+  // Access the actual value through ctx.example
+  const name = ctx.example.username;
+});
+```
+
+#### Returns {#returns}
+
+`void` — Scenario outlines are registered as side effects.
+
+#### Caveats {#caveats}
+
+- **Not async**: The callback must be synchronous. Use `async` inside individual steps.
+- The `Examples:` keyword is required. Without it, no data rows are parsed and the outline runs zero times.
+- Column names become property names on `ctx.example`. Use valid JavaScript identifiers (e.g. `unit_price`, not `unit price`).
+- Values in `ctx.example` are type-coerced by default. If you need raw strings, convert explicitly.
+
+---
+
+## Modifiers {#modifiers}
+
+### `scenarioOutline.skip(title, fn)` {#skip}
+
+Skip this scenario outline entirely.
+
+```typescript
+scenarioOutline.skip(`Not ready
+  Examples:
+  | input | expected |
+  | a     | b        |
+`, () => { /* skipped */ });
+```
+
+### `scenarioOutline.only(title, fn)` {#only}
+
+Run only this scenario outline.
+
+```typescript
+scenarioOutline.only(`Debugging this outline
+  Examples:
+  | input | expected |
+  | a     | b        |
+`, () => { /* only this runs */ });
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Simple data-driven scenario {#basic-usage}
+
+```typescript
+import { feature, scenarioOutline, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Calculator", () => {
+  scenarioOutline(`Addition
+    Examples:
+    | a  | b  | sum |
+    | 1  | 2  |   3 |
+    | 10 | 20 |  30 |
+    | -1 | 1  |   0 |
+  `, (ctx) => {
+    let result: number;
+
+    given("the first number is '<a>'", () => {
+      // ctx.example.a is already a number due to auto-coercion
+    });
+
+    when("I add '<a>' and '<b>'", () => {
+      result = ctx.example.a + ctx.example.b;
+    });
+
+    then("the result is '<sum>'", () => {
+      expect(result).toBe(ctx.example.sum);
+    });
+  });
+});
+```
+
+### Multiple example tables {#multiple-tables}
+
+You can define multiple named `Examples:` blocks. All rows from all tables are merged and executed.
+
+```typescript
+import { feature, scenarioOutline, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Shipping", () => {
+  scenarioOutline(`Shipping rates by region
+
+    Examples: Domestic
+    | weight | rate  |
+    |      1 |  5.00 |
+    |      5 | 12.00 |
+    |     10 | 20.00 |
+
+    Examples: International
+    | weight | rate  |
+    |      1 | 15.00 |
+    |      5 | 35.00 |
+    |     10 | 60.00 |
+  `, (ctx) => {
+    let shippingCost: number;
+
+    given("a package weighing '<weight>' kg", () => {
+      // weight is auto-coerced to number
+    });
+
+    when("the shipping rate is calculated", () => {
+      shippingCost = calculateShipping(ctx.example.weight);
+    });
+
+    then("the rate is '<rate>'", () => {
+      expect(shippingCost).toBe(ctx.example.rate);
+    });
+  });
+});
+```
+
+The table labels (`Domestic`, `International`) are for documentation only — they appear in test output to explain the grouping but do not affect execution.
+
+### With tags and description {#with-tags}
+
+```typescript
+import { feature, scenarioOutline, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Email Validation", () => {
+  scenarioOutline(`Validate email formats
+    @validation @email
+    Ensures that the email validator correctly identifies valid and invalid formats
+
+    Examples:
+    | email             | valid |
+    | user@example.com  | true  |
+    | invalid           | false |
+    | user@domain.org   | true  |
+    | @nodomain.com     | false |
+    | user@.com         | false |
+  `, (ctx) => {
+    let isValid: boolean;
+
+    when("validating '<email>'", () => {
+      isValid = validateEmail(ctx.example.email);
+    });
+
+    then("the result is '<valid>'", () => {
+      expect(isValid).toBe(ctx.example.valid);
+    });
+  });
+});
+```
+
+### Combining with background {#with-background}
+
+```typescript
+import { feature, scenarioOutline, background, given, when, Then as then } from "@swedevtools/livedoc-vitest";
+
+feature("Pricing Engine", () => {
+  let engine: PricingEngine;
+
+  background("Engine is initialized", () => {
+    given("the pricing engine is running", () => {
+      engine = new PricingEngine();
+    });
+  });
+
+  scenarioOutline(`Discount tiers
+    Examples:
+    | spend | discount |
+    |    50 |        0 |
+    |   100 |        5 |
+    |   500 |       15 |
+  `, (ctx) => {
+    when("a customer spends '<spend>' dollars", () => {
+      engine.setSpend(ctx.example.spend);
+    });
+
+    then("the discount is '<discount>' percent", () => {
+      expect(engine.getDiscount()).toBe(ctx.example.discount);
+    });
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`scenario()`](./scenario.mdx) — single-data-set variant
+- [`feature()`](./feature.mdx) — parent container
+- [`ruleOutline()`](./rule-outline.mdx) — data-driven rules (specification pattern)
+- [Data Extraction APIs](./data-apis.mdx) — details on type coercion and table parsing
+- [Context Object](./context.mdx) — full reference for `ctx.example`

@@ -1,0 +1,91 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <RootNamespace>SweDevTools.LiveDoc.xUnit</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>true</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
+    <Version>0.2.0</Version>
+    <Authors>dotnetprofessional</Authors>
+    <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
+    <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
+    <RepositoryUrl>https://github.com/dotnetprofessional/LiveDoc</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <VSTestLogger>false</VSTestLogger>
+    <IsTestContainer>false</IsTestContainer>
+    <!-- Prevent VS Test Explorer from discovering this assembly -->
+    <GenerateTestArtifacts>false</GenerateTestArtifacts>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.extensibility.core" Version="2.9.0" />
+    <PackageReference Include="xunit.extensibility.execution" Version="2.9.0" />
+    <PackageReference Include="xunit.abstractions" Version="2.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="samples\**" />
+    <EmbeddedResource Remove="samples\**" />
+    <None Remove="samples\**" />
+    <Compile Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <None Remove="tests\**" />
+    <Compile Remove="logger\**" />
+    <EmbeddedResource Remove="logger\**" />
+    <None Remove="logger\**" />
+    <Compile Remove="tools\journey-generator\**" />
+    <EmbeddedResource Remove="tools\journey-generator\**" />
+    <None Remove="tools\journey-generator\**" />
+  </ItemGroup>
+
+  <!-- Include README and readme.txt and MSBuild targets in the NuGet package -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="readme.txt" Pack="true" PackagePath="" />
+    <None Include="build\SweDevTools.LiveDoc.xUnit.targets" Pack="true" PackagePath="build\" />
+  </ItemGroup>
+
+  <!-- Bundle AI skill files and setup script in the NuGet package -->
+  <ItemGroup>
+    <None Include="tools\skills\**\*" Pack="true" PackagePath="tools\skills\" />
+    <None Include="tools\livedoc-setup.ps1" Pack="true" PackagePath="tools\" />
+    <None Include="tools\livedoc-setup.sh" Pack="true" PackagePath="tools\" />
+  </ItemGroup>
+
+  <!-- Bundle journey generator tool assets in the NuGet package -->
+  <ItemGroup>
+    <None Include="tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.dll"
+          Pack="true" PackagePath="tools\journey-generator\net8.0\" />
+    <None Include="tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.deps.json"
+          Pack="true" PackagePath="tools\journey-generator\net8.0\" />
+    <None Include="tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.runtimeconfig.json"
+          Pack="true" PackagePath="tools\journey-generator\net8.0\" />
+  </ItemGroup>
+
+  <!-- Bundle the console logger DLL so VSTest can discover it (both TFMs) -->
+  <ItemGroup>
+    <None Include="logger\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
+          Pack="true" PackagePath="build\net8.0\" />
+    <None Include="logger\bin\$(Configuration)\net10.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
+          Pack="true" PackagePath="build\net10.0\" />
+  </ItemGroup>
+
+  <Target Name="BuildJourneyGeneratorTool" BeforeTargets="GenerateNuspec">
+    <MSBuild Projects="tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="BuildLoggerTool" BeforeTargets="GenerateNuspec">
+    <MSBuild Projects="logger\LiveDoc.TestLogger.csproj"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
+</Project>

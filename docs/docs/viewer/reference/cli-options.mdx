@@ -1,0 +1,272 @@
+---
+sidebar_position: 1
+title: "CLI Options"
+description: "Complete reference for all livedoc-viewer command-line options: server mode, export subcommand, port, host, and more."
+---
+
+# CLI Options
+
+<p className="intro">
+The <code>livedoc-viewer</code> CLI has two modes: <strong>server mode</strong> (default)
+for real-time test visualization, and the <strong>export subcommand</strong> for
+generating self-contained static HTML reports.
+</p>
+
+```bash
+# Server mode
+livedoc-viewer [options]
+
+# Export mode
+livedoc-viewer export --input <path> [--output <path>] [--title <title>]
+```
+
+---
+
+## Server Options {#server-options}
+
+### `--port <port>` / `-p` {#port}
+
+Port number the viewer server listens on.
+
+```bash
+--port <port>
+-p <port>
+```
+
+**Default:** `3100`
+
+```bash
+livedoc-viewer --port 8080
+livedoc-viewer -p 8080
+```
+
+If the specified port is already in use, the viewer exits with an error message
+suggesting an alternative.
+
+---
+
+### `--host <host>` / `-H` {#host}
+
+Network interface to bind the server to.
+
+```bash
+--host <host>
+-H <host>
+```
+
+**Default:** `localhost`
+
+```bash
+# Bind to all interfaces (allows remote access)
+livedoc-viewer --host 0.0.0.0
+
+# Bind to a specific IP
+livedoc-viewer -H 192.168.1.50
+```
+
+:::caution Security
+Binding to `0.0.0.0` exposes the viewer to your entire network. Only do this
+on trusted networks or in CI environments behind a firewall.
+:::
+
+---
+
+### `--no-open` {#no-open}
+
+Prevent the viewer from automatically opening a browser window on startup.
+
+```bash
+--no-open
+```
+
+**Default:** browser opens automatically
+
+```bash
+livedoc-viewer --no-open
+```
+
+This is essential for **CI/CD environments** and **headless servers** where no
+browser is available. See the [CI/CD Dashboards](../guides/ci-cd-dashboards.mdx)
+guide for more.
+
+---
+
+### `--version` / `-V` {#version}
+
+Print the installed version number and exit.
+
+```bash
+--version
+-V
+```
+
+```bash
+livedoc-viewer --version
+# 1.2.3
+```
+
+---
+
+### `--help` / `-h` {#help}
+
+Display the help text with all available options and exit.
+
+```bash
+--help
+-h
+```
+
+```bash
+livedoc-viewer --help
+```
+
+---
+
+## `export` Subcommand {#export-subcommand}
+
+Generate a self-contained static HTML report from a TestRunV1 JSON file. The
+output file embeds all JavaScript, CSS, and images inline — it can be opened in
+any browser on any computer with zero external dependencies.
+
+```bash
+livedoc-viewer export --input <path> [--output <path>] [--title <title>]
+```
+
+### `--input <path>` / `-i` {#export-input}
+
+**(Required)** Path to a TestRunV1 JSON file. This is the file produced by the
+[`export` option](../../vitest/reference/reporters.mdx#export-options) on
+`LiveDocSpecReporter` or by the
+[`LIVEDOC_EXPORT_PATH`](../../xunit/reference/configuration.mdx#export-env-var)
+environment variable in the .NET reporter.
+
+```bash
+livedoc-viewer export --input ./test-results/livedoc-report.json
+livedoc-viewer export -i ./test-results/livedoc-report.json
+```
+
+The file must contain valid JSON with `protocolVersion: "1.0"`. If the file is
+missing or the format is invalid, the command exits with a descriptive error.
+
+### `--output <path>` / `-o` {#export-output}
+
+Output path for the generated HTML file. Directories are created automatically.
+
+```bash
+--output <path>
+-o <path>
+```
+
+**Default:** `./livedoc-report.html`
+
+```bash
+livedoc-viewer export -i results.json -o ./reports/build-42.html
+```
+
+### `--title <title>` / `-t` {#export-title}
+
+Custom title for the HTML report. Appears in the browser tab and page header.
+
+```bash
+--title <title>
+-t <title>
+```
+
+**Default:** The `project` field from the JSON file, or `"LiveDoc"` if not set.
+
+```bash
+livedoc-viewer export -i results.json -t "Sprint 42 — Regression Suite"
+```
+
+### Export Output {#export-output-details}
+
+On success, the command prints:
+
+```
+✅ LiveDoc report exported successfully!
+   Input:  ./test-results/livedoc-report.json
+   Output: /absolute/path/to/livedoc-report.html
+   Size:   847.3 KB
+
+   Open in any browser to view your test results.
+```
+
+The generated HTML file contains:
+- The full LiveDoc Viewer React application (JS + CSS inlined)
+- All test data from the input JSON (embedded in a `<script>` tag)
+- Base64-encoded screenshots and attachments (if present in the test data)
+- Dark theme by default
+
+:::tip File size expectations
+- **Without screenshots:** typically 700 KB–1 MB (mostly the bundled viewer JS/CSS)
+- **With screenshots:** 5 MB+ depending on the number and resolution of images
+:::
+
+### Export Quick Reference {#export-quick-reference}
+
+| Option             | Short | Required | Default                   | Description                              |
+| ------------------ | ----- | -------- | ------------------------- | ---------------------------------------- |
+| `--input <path>`   | `-i`  | Yes      | —                         | Path to TestRunV1 JSON file              |
+| `--output <path>`  | `-o`  | No       | `./livedoc-report.html`   | Output HTML file path                    |
+| `--title <title>`  | `-t`  | No       | Project name or "LiveDoc" | Custom report title                      |
+
+---
+
+## Usage Examples {#examples}
+
+### Default startup
+
+```bash
+livedoc-viewer
+```
+
+Starts the viewer on `localhost:3100` and opens the browser.
+
+### Custom port, no browser
+
+```bash
+livedoc-viewer --port 3200 --no-open
+```
+
+Useful for scripted environments where the port is pre-determined.
+
+### Network-accessible for CI
+
+```bash
+livedoc-viewer -p 3100 --host 0.0.0.0 --no-open
+```
+
+Binds to all interfaces so other machines on the network (or CI jobs) can
+send results to this viewer instance.
+
+### Full combination
+
+```bash
+livedoc-viewer --port 9000 --host 0.0.0.0 --no-open
+```
+
+Runs the viewer on port 9000 bound to all interfaces with no browser auto-open
+— a typical CI/CD configuration.
+
+---
+
+## Server Quick Reference {#quick-reference}
+
+| Option           | Short | Default     | Description                          |
+| ---------------- | ----- | ----------- | ------------------------------------ |
+| `--port <port>`  | `-p`  | `3100`      | Port to run the server on            |
+| `--host <host>`  | `-H`  | `localhost` | Host interface to bind to            |
+| `--no-open`      | —     | (opens)     | Don't open browser automatically     |
+| `--version`      | `-V`  | —           | Show version number and exit         |
+| `--help`         | `-h`  | —           | Display help text and exit           |
+
+---
+
+## See Also {#see-also}
+
+- [Getting Started](../learn/getting-started.mdx) — install and launch the viewer
+- [Static HTML Export Guide](../guides/static-export.mdx) — complete pipeline walkthrough
+- [CI/CD Dashboards](../guides/ci-cd-dashboards.mdx) — recommended flags for CI
+- [REST API](./rest-api.mdx) — programmatic access to the viewer
+- [Vitest Reporter Export](../../vitest/reference/reporters.mdx#export-options) — configure JSON export in TypeScript
+- [xUnit Export Configuration](../../xunit/reference/configuration.mdx#export-configuration) — configure JSON export in .NET

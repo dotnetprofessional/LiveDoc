@@ -1,0 +1,230 @@
+---
+sidebar_position: 1
+description: "Set up LiveDoc Vitest with explicit imports for full IDE support and self-contained spec files."
+---
+
+# How to Set Up Explicit Imports
+
+<p className="intro">
+This guide shows you how to configure `@swedevtools/livedoc-vitest` with explicit
+imports — the recommended approach for most projects. By the end, you'll have a
+working setup with full IntelliSense and self-contained spec files.
+</p>
+
+:::info Prerequisites
+- Node.js 18+
+- A Vitest project (`vitest` installed)
+- `@swedevtools/livedoc-vitest` installed: `npm install -D @swedevtools/livedoc-vitest`
+:::
+
+## Overview
+
+Explicit imports give you self-contained spec files, maximum IDE autocomplete,
+and clear dependency visibility in code reviews. This is the recommended setup
+for teams and production projects.
+
+## Step 1: Configure Vitest
+
+Create or update your `vitest.config.ts` to include LiveDoc's test file pattern
+and reporter:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['**/*.Spec.ts'],
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+    ],
+  },
+});
+```
+
+## Step 2: Understand the `Then as then` Pattern
+
+In ES modules, if a module's namespace has a property named `then`, some tools
+treat the entire module as a "thenable" (Promise-like object). This causes
+subtle, hard-to-debug failures.
+
+LiveDoc exports `Then` (uppercase) to avoid this. You alias it on import:
+
+```typescript
+import { Then as then } from '@swedevtools/livedoc-vitest';
+```
+
+Now you write specs with lowercase `then` — clean and consistent with Gherkin
+conventions.
+
+:::caution
+Do **not** try to import lowercase `then` directly — it does not exist as an
+export. Always use `Then as then`.
+:::
+
+## Step 3: Write Your First Spec File
+
+Create a file ending in `.Spec.ts` with the full import block:
+
+```typescript
+// tests/UserLogin.Spec.ts
+import {
+  feature,
+  scenario,
+  scenarioOutline,
+  background,
+  given,
+  when,
+  Then as then,
+  and,
+  but,
+} from '@swedevtools/livedoc-vitest';
+
+feature("User Authentication", () => {
+  scenario("Successful login with valid credentials", () => {
+    given("a registered user with email 'alice@example.com'", (ctx) => {
+      const email = ctx.step.values[0]; // "alice@example.com"
+      // setup user
+    });
+
+    when("they enter the correct password", () => {
+      // perform login
+    });
+
+    then("they should see the dashboard", () => {
+      // assert redirect
+    });
+  });
+});
+```
+
+## Step 4: Run Your Tests
+
+```bash
+npx vitest run
+```
+
+You should see formatted Gherkin output:
+
+```
+Feature: User Authentication
+
+  Scenario: Successful login with valid credentials
+    ✓ given a registered user with email 'alice@example.com'
+    ✓ when they enter the correct password
+    ✓ then they should see the dashboard
+
+──────────────────────────────────────────────────────
+LiveDoc Test Summary
+  ✓ 3 steps passed
+  1 feature, 1 scenario, 3 steps
+```
+
+## Complete Example
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['**/*.Spec.ts'],
+    reporters: [
+      new LiveDocSpecReporter({ detailLevel: 'spec+summary+headers' }),
+    ],
+  },
+});
+```
+
+```typescript
+// tests/ShoppingCart.Spec.ts
+import {
+  feature,
+  scenario,
+  given,
+  when,
+  Then as then,
+  and,
+} from '@swedevtools/livedoc-vitest';
+
+feature(`Shopping Cart
+    @checkout @critical
+    Core shopping cart operations for the e-commerce platform.
+    `, () => {
+
+  scenario("Adding an item increases the cart count", () => {
+    given("an empty cart", (ctx) => {
+      const cart = { items: [] as string[] };
+      ctx.scenario.given = cart;
+    });
+
+    when("the user adds 'Wireless Mouse' to the cart", (ctx) => {
+      const product = ctx.step.values[0]; // "Wireless Mouse"
+      ctx.scenario.given.items.push(product);
+    });
+
+    then("the cart contains '1' item", (ctx) => {
+      const expectedCount = ctx.step.values[0]; // 1
+      expect(ctx.scenario.given.items.length).toBe(expectedCount);
+    });
+
+    and("the item is 'Wireless Mouse'", (ctx) => {
+      const expectedItem = ctx.step.values[0]; // "Wireless Mouse"
+      expect(ctx.scenario.given.items[0]).toBe(expectedItem);
+    });
+  });
+});
+```
+
+## Common Variations
+
+### Specification Pattern (No Gherkin)
+
+For technical/unit tests, use the specification pattern:
+
+```typescript
+import { specification, rule, ruleOutline } from '@swedevtools/livedoc-vitest';
+
+specification("Email Validation Rules", () => {
+  rule("Standard email addresses are accepted", () => {
+    expect(isValidEmail("user@example.com")).toBe(true);
+  });
+
+  rule("Missing @ symbol is rejected", () => {
+    expect(isValidEmail("userexample.com")).toBe(false);
+  });
+});
+```
+
+### Mixed BDD and Specification Imports
+
+```typescript
+import {
+  feature, scenario, given, when, Then as then,
+  specification, rule, ruleOutline,
+} from '@swedevtools/livedoc-vitest';
+```
+
+## Troubleshooting
+
+| Problem | Cause | Solution |
+| ------- | ----- | -------- |
+| `Then` is not exported | Wrong package name | Verify import path is `@swedevtools/livedoc-vitest` |
+| ESM thenable errors | Importing lowercase `then` | Use `Then as then` alias |
+| No test output | Missing reporter | Add `LiveDocSpecReporter` to `reporters` in config |
+| Tests not found | Wrong file extension | Ensure files end in `.Spec.ts` and `include` pattern matches |
+| TypeScript errors on `expect` | Missing globals | Set `globals: true` in vitest config |
+
+## Related
+
+- [Setup: Globals Mode](./setup-globals.mdx) — alternative zero-import approach
+- [Best Practices](./best-practices.mdx) — patterns for maintainable specs
+- [Getting Started](../learn/getting-started.mdx) — introductory tutorial
+- [`feature()`](../reference/feature.mdx) — full API reference
+- [`scenario()`](../reference/scenario.mdx) — scenario API reference

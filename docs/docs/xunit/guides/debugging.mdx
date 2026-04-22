@@ -1,0 +1,278 @@
+---
+sidebar_position: 3
+title: "Debugging"
+description: "Debug LiveDoc xUnit tests effectively — step into lambdas with F11, inspect ScenarioOutline examples, and diagnose CI failures."
+---
+
+# Debugging
+
+<p className="intro">
+This guide covers how to debug LiveDoc xUnit tests in Visual Studio and
+other environments. LiveDoc is designed for a seamless debugging
+experience — F11 steps directly into your step lambdas with no framework
+code in the way.
+</p>
+
+:::info Prerequisites
+- Visual Studio 2022+ or JetBrains Rider (any recent version)
+- A test project using `SweDevTools.LiveDoc.xUnit` — see [Getting Started](../learn/getting-started.mdx)
+:::
+
+---
+
+## F11 Debugging: Step Directly Into Steps
+
+LiveDoc's architecture ensures that pressing **F11 (Step Into)** on a
+`Given`, `When`, or `Then` call takes you directly into the lambda body —
+no intermediate framework methods to step through.
+
+```csharp
+[Scenario]
+public void Customer_gets_discount()
+{
+    // Set a breakpoint here, then press F11 to step into the lambda
+    Given("the customer has been active for '5' years", ctx =>
+    {
+        // ← F11 lands here immediately
+        var years = ctx.Step!.Values[0].AsInt();
+        _customer.ActiveYears = years;
+    });
+
+    When("they apply for a loyalty discount", () =>
+    {
+        // ← F11 from the When() call lands here
+        _discount = _discountService.Calculate(_customer);
+    });
+
+    Then("the discount is '15' percent", ctx =>
+    {
+        // ← F11 from the Then() call lands here
+        Assert.Equal(ctx.Step!.Values[0].AsInt(), _discount.Percent);
+    });
+}
+```
+
+:::tip
+Unlike some BDD frameworks that route through regex matchers or
+reflection, LiveDoc executes your lambdas inline. The call stack stays
+clean and predictable.
+:::
+
+---
+
+## Visual Studio Test Explorer
+
+### Running Individual Tests
+
+In Test Explorer, LiveDoc tests appear by their method name:
+
+```
+📁 ShippingCostsTests
+  ✅ Free_shipping_in_Australia
+  ✅ Calculate_shipping_rates(country: "Australia", total: 99.99, ...)
+  ✅ Calculate_shipping_rates(country: "Australia", total: 100.00, ...)
+```
+
+- **Right-click → Debug** to run a single test under the debugger
+- **Double-click** a test to jump to its source code
+- Click a completed test to see the **Gherkin-formatted output** in the
+  Test Detail Summary pane
+
+### Filtering by Trait
+
+LiveDoc attributes map to xUnit traits. Use Test Explorer's search/filter
+to narrow results:
+
+- Filter by class name to see all scenarios in a feature
+- Use the **Group By** dropdown to organize by project, namespace, or class
+
+---
+
+## Debugging ScenarioOutline Examples
+
+`[ScenarioOutline]` tests run once per `[Example]` row. Each example
+appears as a separate entry in Test Explorer, so you can debug a single
+data row:
+
+```csharp
+[ScenarioOutline]
+[Example("Australia", 100.00, "Free")]
+[Example("Australia", 99.99, "Standard")]    // ← Debug just this row
+[Example("New Zealand", 100.00, "International")]
+public void Shipping_rates(string country, decimal total, string expected)
+{
+    Given("the customer is from <country>", () =>
+    {
+        _cart.Country = country;
+    });
+
+    When("the order totals <total>", () =>
+    {
+        _cart.Total = total;
+        _cart.Calculate();
+    });
+
+    Then("shipping type is <expected>", () =>
+    {
+        // Set a breakpoint here to inspect specific example data
+        Assert.Equal(expected, _cart.ShippingType);
+    });
+}
+```
+
+**To debug a single example:**
+
+1. Open Test Explorer
+2. Expand the `ScenarioOutline` method to see individual examples
+3. Right-click the failing example → **Debug**
+4. The debugger stops at your breakpoint with that row's parameter values
+
+:::caution
+If you see fewer examples in Test Explorer than `[Example]` attributes in
+code, you likely have a parameter count mismatch. See
+[Troubleshooting](./troubleshooting.mdx#example-count-mismatch).
+:::
+
+---
+
+## Using Test Output
+
+LiveDoc writes Gherkin-formatted output via `ITestOutputHelper`. You can
+write additional diagnostics in your steps:
+
+```csharp
+public class OrderTests : FeatureTest
+{
+    private readonly ITestOutputHelper _output;
+
+    public OrderTests(ITestOutputHelper output) : base(output)
+    {
+        _output = output;
+    }
+
+    [Scenario]
+    public void Complex_order_calculation()
+    {
+        When("the order is processed", () =>
+        {
+            _order.Process();
+
+            // Add diagnostic output alongside LiveDoc's formatted output
+            _output.WriteLine($"DEBUG: Order state = {_order.State}");
+            _output.WriteLine($"DEBUG: Line items = {_order.Items.Count}");
+        });
+
+        Then("the total is '250.00'", ctx =>
+        {
+            _output.WriteLine($"DEBUG: Calculated total = {_order.Total}");
+            Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _order.Total);
+        });
+    }
+}
+```
+
+View the output in Test Explorer by clicking the test and reading the
+**Output** section in the detail pane.
+
+---
+
+## Setting Breakpoints in Steps
+
+### Conditional Breakpoints
+
+For `ScenarioOutline` tests, use conditional breakpoints to stop only on
+specific example data:
+
+1. Set a breakpoint inside a step lambda
+2. Right-click the breakpoint → **Conditions**
+3. Enter a condition like `country == "New Zealand"`
+
+This lets the test run through other examples without stopping.
+
+### Data Tips
+
+When stopped at a breakpoint inside a step with a `ctx` parameter, you
+can inspect:
+
+- `ctx.Step.Values` — the extracted quoted values from the step title
+- `ctx.Step.Params` — the named parameters from `<name:value>` syntax
+- `ctx.Step.Title` — the full step title string
+- `ctx.Feature` or `ctx.Specification` — container-level metadata
+
+---
+
+## Debugging Failures in CI
+
+When tests pass locally but fail in CI, use these strategies:
+
+### 1. Check the Test Output
+
+Most CI systems capture xUnit's test output. Look for LiveDoc's
+Gherkin-formatted output — it shows exactly which step failed:
+
+```
+Feature: Order Processing
+
+  Scenario: Apply bulk discount
+    Given the customer orders '50' units         ✓
+    When the discount is calculated               ✓
+    Then the discount is '15' percent              ✗ FAILED
+
+    Expected: 15
+    Actual:   10
+```
+
+### 2. Add Diagnostic Output
+
+Temporarily add `_output.WriteLine(...)` calls in your steps to capture
+state that may differ between local and CI environments.
+
+### 3. Set Environment Variables for CI
+
+Use environment variables to label the test run and enable reporting in CI:
+
+```powershell
+# PowerShell
+$env:LIVEDOC_ENVIRONMENT = "ci"
+$env:LIVEDOC_EXPORT_PATH = "./test-results/livedoc-report.json"
+dotnet test --logger LiveDoc --logger "trx;LogFileName=results.trx"
+```
+
+```yaml
+# GitHub Actions
+- name: Run tests
+  run: dotnet test --logger LiveDoc --logger "trx;LogFileName=results.trx"
+  env:
+    LIVEDOC_ENVIRONMENT: ci
+    LIVEDOC_EXPORT_PATH: ./test-results/livedoc-report.json
+```
+
+### 4. Reproduce Locally
+
+Run with the same environment label and verbosity as CI:
+
+```powershell
+$env:LIVEDOC_ENVIRONMENT = "ci"
+dotnet test --logger LiveDoc --verbosity normal
+```
+
+---
+
+## Quick Reference
+
+| Task                          | Action                                                        |
+| ----------------------------- | ------------------------------------------------------------- |
+| Step into a step lambda       | F11 on the `Given`/`When`/`Then` call                         |
+| Debug one ScenarioOutline row | Right-click the example in Test Explorer → Debug              |
+| See formatted output          | Click the test in Test Explorer → Output pane                 |
+| Break on specific data        | Conditional breakpoint: `country == "AU"`                     |
+| Inspect extracted values      | Hover over `ctx.Step.Values` or `ctx.Step.Params` at a break  |
+| Add diagnostic output         | `_output.WriteLine(...)` inside a step                        |
+
+---
+
+## Related
+
+- [Getting Started](../learn/getting-started.mdx) — write your first test
+- [ScenarioOutline](../learn/scenario-outlines.mdx) — data-driven tests with examples
+- [Troubleshooting](./troubleshooting.mdx) — common issues and fixes

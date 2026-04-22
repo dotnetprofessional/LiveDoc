@@ -1,0 +1,39 @@
+# Feature: Items CRUD
+# Description: Create, read, and delete items via the API
+
+# Scenario: Full item lifecycle
+
+# Given a new item is created
+# @name createItem
+POST {{baseUrl}}/api/items
+Content-Type: application/json
+
+{
+  "name": "test-widget"
+}
+
+?? status == 201
+
+###
+
+# When retrieving the created item
+# @name getItem
+GET {{baseUrl}}/api/items/{{createItem.id}}
+
+?? status == 200
+
+###
+
+# And deleting the item
+# @name deleteItem
+DELETE {{baseUrl}}/api/items/{{createItem.id}}
+
+?? status == 204
+
+###
+
+# Then the item is no longer found
+# @name verifyDeleted
+GET {{baseUrl}}/api/items/{{createItem.id}}
+
+?? status == 404

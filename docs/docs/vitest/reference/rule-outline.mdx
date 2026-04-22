@@ -1,0 +1,243 @@
+---
+sidebar_position: 8
+title: "ruleOutline()"
+description: "Data-driven rules with an Examples table. Runs the same rule once per row, accessing data through ctx.example."
+---
+
+# `ruleOutline()`
+
+<p className="intro">
+`ruleOutline` runs the same rule multiple times with different data sets — the
+Specification pattern equivalent of `scenarioOutline`. The Examples table is
+embedded in the title, and each row produces a separate test.
+</p>
+
+```typescript
+import { specification, ruleOutline } from "@swedevtools/livedoc-vitest";
+
+specification("Tax Calculation", () => {
+  ruleOutline(`Tax rate by income bracket
+    Examples:
+    | income | rate |
+    |  10000 | 0.10 |
+    |  50000 | 0.22 |
+    | 100000 | 0.32 |
+  `, (ctx) => {
+    const result = calculateTaxRate(ctx.example.income);
+    expect(result).toBe(ctx.example.rate);
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `ruleOutline(title, fn)` {#ruleoutline}
+
+Registers a data-driven rule. The title must contain an `Examples:` table. The callback runs once per table row.
+
+```typescript
+function ruleOutline(title: string, fn: (ctx: RuleOutlineCtx) => void): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — The rule outline title followed by an `Examples:` table. Parsed as:
+  - **First line** → rule title
+  - **`@`-prefixed lines** → tags
+  - **Other lines before `Examples:`** → description
+  - **`Examples:` block** → pipe-delimited table (first row = headers, subsequent rows = data)
+
+- **`fn`**: `(ctx: RuleOutlineCtx) => void` — Callback containing assertions. Runs once per example row. **Should not be `async`**.
+
+#### The `ctx` Parameter {#ctx}
+
+| Property            | Type                      | Description                                        |
+| ------------------- | ------------------------- | -------------------------------------------------- |
+| `ctx.specification` | `SpecificationContext`    | `{ filename, title, description, tags }`           |
+| `ctx.rule`          | `RuleContext`             | `{ title, description, tags, specification }`      |
+| `ctx.example`       | `Record<string, any>`     | Current row data keyed by column header name       |
+
+#### The Examples Table {#examples-table}
+
+Values are auto-coerced:
+
+| Input in Table | Coerced Type |
+| -------------- | ------------ |
+| `42`           | `number`     |
+| `3.14`         | `number`     |
+| `true`         | `boolean`    |
+| `false`        | `boolean`    |
+| `hello`        | `string`     |
+
+#### Returns {#returns}
+
+`void` — Rule outlines are registered as side effects.
+
+#### Caveats {#caveats}
+
+- The `Examples:` keyword is required. Without it, no rows are parsed.
+- Column names become properties on `ctx.example`. Use valid JavaScript identifiers.
+- Each row runs as a separate Vitest `it()` call, independently reportable.
+- `ctx.rule.values` and `ctx.rule.params` are **not** populated in `ruleOutline` — use `ctx.example` instead.
+
+---
+
+## Modifiers {#modifiers}
+
+### `ruleOutline.skip(title, fn)` {#skip}
+
+Skip this rule outline entirely.
+
+```typescript
+ruleOutline.skip(`Pending feature
+  Examples:
+  | input | expected |
+  | a     | b        |
+`, () => { /* skipped */ });
+```
+
+### `ruleOutline.only(title, fn)` {#only}
+
+Run only this rule outline.
+
+```typescript
+ruleOutline.only(`Focus on this
+  Examples:
+  | input | expected |
+  | a     | b        |
+`, () => { /* only this runs */ });
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Data-driven rule {#basic-usage}
+
+```typescript
+import { specification, ruleOutline } from "@swedevtools/livedoc-vitest";
+
+specification("Math Operations", () => {
+  ruleOutline(`Addition
+    Examples:
+    | a  | b  | sum |
+    |  1 |  2 |   3 |
+    | 10 | 20 |  30 |
+    | -5 |  5 |   0 |
+  `, (ctx) => {
+    expect(ctx.example.a + ctx.example.b).toBe(ctx.example.sum);
+  });
+});
+```
+
+### Multiple example tables {#multiple-tables}
+
+All rows from all tables are merged and executed. Labels are for documentation only.
+
+```typescript
+import { specification, ruleOutline } from "@swedevtools/livedoc-vitest";
+
+specification("Feeding Requirements", () => {
+  ruleOutline(`Daily energy needs by region
+
+    Examples: Australian Cows
+    | weight | energy | protein |
+    |    450 |  26500 |     215 |
+    |    500 |  29500 |     245 |
+
+    Examples: New Zealand Cows
+    | weight | energy | protein |
+    |   1450 |  46500 |    1215 |
+    |   1500 |  49500 |    1245 |
+  `, (ctx) => {
+    const result = calculateFeedRequirements(ctx.example.weight);
+    expect(result.energy).toBe(ctx.example.energy);
+    expect(result.protein).toBe(ctx.example.protein);
+  });
+});
+```
+
+### Boundary value testing {#boundary-testing}
+
+```typescript
+import { specification, ruleOutline } from "@swedevtools/livedoc-vitest";
+
+specification("Age Verification", () => {
+  ruleOutline(`Age verification boundaries
+    Examples:
+    | age | allowed |
+    |  16 | false   |
+    |  17 | false   |
+    |  18 | true    |
+    |  19 | true    |
+    |  21 | true    |
+  `, (ctx) => {
+    expect(isAllowed(ctx.example.age)).toBe(ctx.example.allowed);
+  });
+});
+```
+
+### With tags and description {#with-tags}
+
+```typescript
+import { specification, ruleOutline } from "@swedevtools/livedoc-vitest";
+
+specification("Email Validation", () => {
+  ruleOutline(`Valid emails are accepted
+    @validation @email
+    Ensures the email regex handles all standard formats
+
+    Examples:
+    | email              | valid |
+    | test@test.com      | true  |
+    | user+tag@gmail.com | true  |
+    | invalid            | false |
+    | @nodomain.com      | false |
+    | user@.com          | false |
+  `, (ctx) => {
+    const result = isValidEmail(ctx.example.email);
+    expect(result).toBe(ctx.example.valid);
+  });
+});
+```
+
+### Combining rule and ruleOutline {#combined}
+
+```typescript
+import { specification, rule, ruleOutline } from "@swedevtools/livedoc-vitest";
+
+specification("Discount Engine", () => {
+  rule("No discount for new customers on first order", () => {
+    const customer = createCustomer({ isNew: true });
+    expect(getDiscount(customer, 100)).toBe(0);
+  });
+
+  ruleOutline(`Loyalty discount tiers
+    Examples:
+    | orders | spend | discount |
+    |     10 |   500 |        5 |
+    |     25 |  2000 |       10 |
+    |     50 |  5000 |       15 |
+  `, (ctx) => {
+    const customer = createCustomer({
+      totalOrders: ctx.example.orders,
+      totalSpend: ctx.example.spend,
+    });
+    expect(getDiscount(customer, 100)).toBe(ctx.example.discount);
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`rule()`](./rule.mdx) — single-data-set variant
+- [`specification()`](./specification.mdx) — parent container for rule outlines
+- [`scenarioOutline()`](./scenario-outline.mdx) — BDD equivalent with Given/When/Then steps
+- [Data Extraction APIs](./data-apis.mdx) — details on type coercion and table parsing
+- [Context Object](./context.mdx) — full reference for `ctx.example`

@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <!-- LiveDoc Journey Generation (dog-fooding our own feature) -->
+  <PropertyGroup>
+    <LiveDocJourneysEnabled>true</LiveDocJourneysEnabled>
+    <LiveDocJourneysDir>$(MSBuildProjectDirectory)\Journeys\sample-journeys</LiveDocJourneysDir>
+    <LiveDocJourneyOutputDir>$(MSBuildProjectDirectory)\Journeys\Generated</LiveDocJourneyOutputDir>
+    <LiveDocJourneyBaseNamespace>SweDevTools.LiveDoc.xUnit.Tests.Journeys.Generated</LiveDocJourneyBaseNamespace>
+    <LiveDocJourneyInfrastructureNamespace>SweDevTools.LiveDoc.xUnit.Tests.Journeys</LiveDocJourneyInfrastructureNamespace>
+    <LiveDocJourneyFixtureType>SampleApiFixture</LiveDocJourneyFixtureType>
+    <LiveDocHttpYacEnsure>off</LiveDocHttpYacEnsure>
+  </PropertyGroup>
+
+  <!-- Import LiveDoc targets (normally comes via NuGet; in dev we import directly) -->
+  <Import Project="..\build\SweDevTools.LiveDoc.xUnit.targets" />
+
+  <!-- Override tool path to use dev build output (NuGet package uses a different layout) -->
+  <PropertyGroup>
+    <_LiveDocJourneyTool>$(MSBuildProjectDirectory)\..\tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.dll</_LiveDocJourneyTool>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!-- Reference the main library and logger (logger enables: dotnet test /logger LiveDoc) -->
+  <ItemGroup>
+    <ProjectReference Include="..\livedoc-xunit.csproj" />
+    <ProjectReference Include="..\logger\LiveDoc.TestLogger.csproj" />
+    <ProjectReference Include="..\tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj" />
+  </ItemGroup>
+
+  <!-- Exclude SampleApi (separate project, compiled independently) -->
+  <ItemGroup>
+    <Compile Remove="SampleApi\**" />
+    <Content Remove="SampleApi\**" />
+    <None Remove="SampleApi\**" />
+  </ItemGroup>
+
+  <!-- Copy journey test data to output -->
+  <ItemGroup>
+    <None Include="Journeys\sample-journeys\**" CopyToOutputDirectory="PreserveNewest" LinkBase="sample-journeys" />
+  </ItemGroup>
+
+</Project>

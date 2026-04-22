@@ -1,0 +1,59 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "vscode: compile",
+            "type": "shell",
+            "command": "pnpm",
+            "args": ["run", "compile"],
+            "options": {
+                "cwd": "${workspaceFolder}/packages/vscode"
+            },
+            "problemMatcher": "$tsc",
+            "group": "build",
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "vscode: watch",
+            "type": "shell",
+            "command": "pnpm",
+            "args": ["run", "watch"],
+            "options": {
+                "cwd": "${workspaceFolder}/packages/vscode"
+            },
+            "problemMatcher": "$tsc-watch",
+            "isBackground": true,
+            "group": "build",
+            "presentation": {
+                "reveal": "never",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "vitest: test",
+            "type": "shell",
+            "command": "pnpm",
+            "args": ["test"],
+            "options": {
+                "cwd": "${workspaceFolder}/packages/vitest"
+            },
+            "problemMatcher": [],
+            "group": "test"
+        },
+        {
+            "label": "viewer: dev",
+            "type": "shell",
+            "command": "pnpm",
+            "args": ["run", "dev"],
+            "options": {
+                "cwd": "${workspaceFolder}/packages/viewer"
+            },
+            "problemMatcher": [],
+            "isBackground": true,
+            "group": "none"
+        }
+    ]
+}

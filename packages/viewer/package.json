@@ -1,0 +1,123 @@
+{
+  "name": "@swedevtools/livedoc-viewer",
+  "version": "0.2.0",
+  "description": "LiveDoc BDD Test Results Viewer - Real-time test visualization",
+  "author": "Garry McGlennon",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git",
+    "directory": "packages/viewer"
+  },
+  "homepage": "https://livedoc.swedevtools.com/viewer/learn/getting-started",
+  "bugs": {
+    "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "dist/server/index.js",
+  "bin": {
+    "livedoc-viewer": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server/index.ts",
+    "dev:client": "vite",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:client\"",
+    "build": "npm run build:client && npm run build:server && npm run build:webview",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:client": "vite build",
+    "build:webview": "vite build --config vite.config.webview.ts",
+    "start": "node dist/server/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json",
+    "clean": "rimraf dist",
+    "pack:local": "pnpm pack --config.node-linker=hoisted"
+  },
+  "dependencies": {
+    "@swedevtools/livedoc-schema": "workspace:*",
+    "@swedevtools/livedoc-server": "workspace:*",
+    "@hono/node-server": "^1.19.7",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-progress": "^1.1.8",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "commander": "^12.1.0",
+    "framer-motion": "^12.23.26",
+    "hono": "^4.11.1",
+    "lucide-react": "^0.330.0",
+    "open": "^10.2.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7",
+    "ws": "^8.18.3",
+    "zod": "^3.24.3",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^22.19.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.1.2",
+    "rimraf": "^6.1.2",
+    "tailwindcss": "^4.1.18",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  },
+  "files": [
+    "dist"
+  ],
+  "bundleDependencies": [
+    "@swedevtools/livedoc-schema",
+    "@swedevtools/livedoc-server",
+    "@hono/node-server",
+    "@radix-ui/react-collapsible",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-progress",
+    "@radix-ui/react-scroll-area",
+    "@radix-ui/react-separator",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-tooltip",
+    "class-variance-authority",
+    "clsx",
+    "commander",
+    "framer-motion",
+    "hono",
+    "lucide-react",
+    "open",
+    "react",
+    "react-dom",
+    "react-markdown",
+    "remark-gfm",
+    "tailwind-merge",
+    "tailwindcss-animate",
+    "ws",
+    "zod",
+    "zustand"
+  ],
+  "keywords": [
+    "livedoc",
+    "bdd",
+    "testing",
+    "vitest",
+    "xunit",
+    "reporter",
+    "viewer"
+  ]
+}

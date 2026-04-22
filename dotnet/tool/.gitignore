@@ -1,0 +1,4 @@
+# Skill files are copied from canonical source (.github/skills/) at build time
+Skills/
+bin/
+obj/

@@ -1,0 +1,391 @@
+:root {
+  --ifm-color-primary: #2563eb;
+  --ifm-color-primary-dark: #1d4ed8;
+  --ifm-color-primary-darker: #1e40af;
+  --ifm-color-primary-darkest: #1e3a8a;
+  --ifm-color-primary-light: #3b82f6;
+  --ifm-color-primary-lighter: #60a5fa;
+  --ifm-color-primary-lightest: #93c5fd;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #3b82f6;
+  --ifm-color-primary-dark: #2563eb;
+  --ifm-color-primary-darker: #1d4ed8;
+  --ifm-color-primary-darkest: #1e40af;
+  --ifm-color-primary-light: #60a5fa;
+  --ifm-color-primary-lighter: #93c5fd;
+  --ifm-color-primary-lightest: #bfdbfe;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Landing Page: Hero ───────────────────────────── */
+
+.hero-section {
+  padding: 3.5rem 0 2rem;
+}
+
+.hero-inner {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.hero-logo {
+  width: 160px;
+  height: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+}
+
+[data-theme='dark'] .hero-logo {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+}
+
+.hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .hero-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .hero-logo {
+    width: 120px;
+  }
+}
+
+.hero-title {
+  font-size: 3.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.hero-tagline {
+  font-size: 1.35rem;
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.hero-subtitle {
+  font-size: 1.1rem;
+  max-width: 640px;
+  margin: 0 0 2rem;
+  color: var(--ifm-font-color-secondary);
+  line-height: 1.6;
+}
+
+/* ─── Landing Page: AI Demo ────────────────────────── */
+
+.ai-demo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  align-items: start;
+}
+
+.ai-demo-prompt,
+.ai-demo-output {
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.ai-demo-prompt {
+  border-left: 3px solid var(--ifm-color-primary);
+  background: var(--ifm-color-emphasis-100);
+}
+
+.ai-demo-output {
+  border-left: 3px solid #22c55e;
+}
+
+.ai-demo-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+@media (max-width: 768px) {
+  .ai-demo {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Landing Page: Before / After Comparison ──────── */
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.comparison-card {
+  border-radius: 8px;
+  padding: 1.25rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.comparison-before {
+  border-left: 3px solid #ef4444;
+}
+
+.comparison-after {
+  border-left: 3px solid #22c55e;
+}
+
+.comparison-label {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+  color: var(--ifm-font-color-secondary);
+  font-style: italic;
+}
+
+/* ─── Landing Page: Feature Cards ──────────────────── */
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.feature-card h3 {
+  margin-top: 0.25rem;
+}
+
+.feature-icon {
+  font-size: 1.75rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ─── Landing Page: Workflow Steps ─────────────────── */
+
+.workflow-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.workflow-step {
+  flex: 1;
+  min-width: 180px;
+  max-width: 260px;
+  text-align: center;
+  padding: 1rem;
+}
+
+.workflow-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--ifm-color-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.workflow-step h3 {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.workflow-step p {
+  font-size: 0.9rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+.workflow-connector {
+  display: flex;
+  align-items: center;
+  font-size: 1.5rem;
+  color: var(--ifm-color-emphasis-400);
+  padding-top: 2.5rem;
+  font-weight: 300;
+}
+
+@media (max-width: 768px) {
+  .workflow-connector {
+    display: none;
+  }
+}
+
+/* ─── Landing Page: SDK Cards ──────────────────────── */
+
+.sdk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.sdk-card {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.5rem;
+  border-top: 3px solid transparent;
+}
+
+.sdk-card--ts {
+  border-top-color: #3178c6;
+}
+
+.sdk-card--dotnet {
+  border-top-color: #512bd4;
+}
+
+/* ─── Landing Page: Navigation Grid ────────────────── */
+
+.nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.nav-card {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.nav-card:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav-card span {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+/* ─── Concepts Intro Paragraphs ────────────────────── */
+
+.intro {
+  font-size: 1.1rem;
+  color: var(--ifm-font-color-secondary);
+  line-height: 1.6;
+  border-left: 3px solid var(--ifm-color-primary);
+  padding-left: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ─── Featured Callout (Homepage) ─────────────────── */
+
+.featured-callout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+
+.featured-callout-text {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.featured-callout-code {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .featured-callout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Badge ───────────────────────────────────────── */
+
+.badge--dotnet {
+  display: inline-block;
+  font-size: 0.65em;
+  font-weight: 600;
+  background: #512bd4;
+  color: #fff;
+  padding: 0.15em 0.5em;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+/* ── Screenshot images ─────────────────────────────────── */
+/* Constrain all doc-page screenshots so they don't blow out */
+/* medium-zoom: indicate images are clickable */
+article img,
+.hero-screenshots img {
+  cursor: zoom-in;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+article img:hover,
+.hero-screenshots img:hover {
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.hero-screenshots {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.hero-screenshots img {
+  max-width: 720px;
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+}
+
+.hero-screenshots em {
+  display: block;
+  text-align: center;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.875rem;
+  margin-top: -0.75rem;
+}
+
+/* Screenshots inside doc articles (not the landing page) */
+article img[alt*="Viewer"],
+article img[alt*="Feature Tree"],
+article img[alt*="Scenario"] {
+  max-width: 720px;
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  margin: 1rem 0;
+}

@@ -1,0 +1,137 @@
+{
+  "name": "@swedevtools/livedoc-vitest",
+  "version": "0.2.0",
+  "author": "Garry McGlennon",
+  "license": "MIT",
+  "description": "BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax and MSpec-style specifications.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotnetprofessional/LiveDoc.git",
+    "directory": "packages/vitest"
+  },
+  "homepage": "https://github.com/dotnetprofessional/LiveDoc/tree/master/packages/vitest#readme",
+  "bugs": {
+    "url": "https://github.com/dotnetprofessional/LiveDoc/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "bin": {
+    "livedoc-vitest-setup": "./tools/livedoc-setup.mjs"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./reporter": {
+      "types": "./dist/reporter/index.d.ts",
+      "import": "./dist/reporter/index.js",
+      "require": "./dist/reporter/index.cjs"
+    },
+    "./setup": {
+      "types": "./dist/setup.d.ts",
+      "import": "./dist/setup.js",
+      "require": "./dist/setup.cjs"
+    },
+    "./globals": {
+      "types": "./dist/globals.d.ts",
+      "import": "./dist/globals.js",
+      "require": "./dist/globals.cjs"
+    },
+    "./playwright": {
+      "types": "./dist/playwright/index.d.ts",
+      "import": "./dist/playwright/index.js",
+      "require": "./dist/playwright/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "tools",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "livedoc",
+    "vitest",
+    "bdd",
+    "gherkin",
+    "cucumber",
+    "mspec",
+    "specification",
+    "javascript",
+    "typescript",
+    "testing",
+    "tests"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "vitest run --config livedoc.vitest.ts",
+    "test:watch": "vitest --config livedoc.vitest.ts",
+    "test:ui": "vitest --ui --config livedoc.vitest.ts",
+    "test:summary": "vitest run --config vitest.config.summary.ts",
+    "test:list": "vitest run --config vitest.config.list.ts",
+    "test:spec": "vitest run --config livedoc.vitest.ts",
+    "test:silent": "vitest run --config vitest.config.silent.ts",
+    "test:file": "vitest run --config vitest.config.file.ts",
+    "test:json": "vitest run --config vitest.config.json.ts",
+    "test:viewer": "vitest run --config vitest.config.viewer.ts",
+    "test:publish": "vitest run --config vitest.config.publish.ts",
+    "test:coverage": "vitest run --coverage --config livedoc.vitest.ts",
+    "clean": "rimraf dist \"*.tgz\" -g",
+    "compile": "tsup",
+    "build": "npm run compile",
+    "watch": "tsup --watch",
+    "prepack": "npm run build",
+    "pack:local": "pnpm pack",
+    "prepublishOnly": "npm run build && npm test",
+    "publish:dry": "npm publish --dry-run",
+    "publish:beta": "npm publish --tag beta",
+    "publish:release": "npm publish"
+  },
+  "devDependencies": {
+    "@swedevtools/livedoc-schema": "workspace:*",
+    "@swedevtools/livedoc-server": "workspace:^",
+    "@types/chai": "^5.2.3",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.19.27",
+    "@types/wordwrap": "^1.0.3",
+    "@vitest/runner": "^4.0.16",
+    "@vitest/ui": "^4.0.16",
+    "chai": "^6.2.1",
+    "playwright": "^1.59.1",
+    "rimraf": "^5.0.10",
+    "strip-ansi": "^7.1.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "@swedevtools/livedoc-server": ">=1.0.0",
+    "playwright": ">=1.50.0",
+    "vitest": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@swedevtools/livedoc-server": {
+      "optional": true
+    },
+    "playwright": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@types/diff": "^7.0.2",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "diff": "^5.2.0",
+    "fs-extra": "^11.3.3",
+    "wordwrap": "^1.0.0"
+  }
+}

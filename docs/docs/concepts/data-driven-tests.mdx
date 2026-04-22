@@ -1,0 +1,247 @@
+---
+sidebar_position: 4
+description: "Learn how data-driven testing with Examples tables, quoted values, and named parameters makes your specifications comprehensive and self-documenting."
+---
+
+# Data-Driven Tests
+
+<p className="intro">
+Data-driven testing lets you write one test template and run it against many sets of data.
+In LiveDoc, this means every variation appears in your documentation — making the full
+scope of your specification visible at a glance.
+</p>
+
+## The Concept
+
+Most behaviors follow a pattern: the *structure* of the test stays the same, but the *data* changes. A discount calculator applies different percentages. A validator accepts some inputs and rejects others. A parser handles various edge cases.
+
+Without data-driven testing, you'd write a separate test for each variation:
+
+```
+Scenario: 10% discount
+  Given the price is $100
+  When the discount is 10%
+  Then the final price is $90
+
+Scenario: 20% discount
+  Given the price is $100
+  When the discount is 20%
+  Then the final price is $80
+
+Scenario: 50% discount
+  Given the price is $100
+  When the discount is 50%
+  Then the final price is $50
+```
+
+This is repetitive, hard to maintain, and buries the pattern. Data-driven testing extracts the pattern into a template and the data into a table.
+
+## Examples Tables
+
+Both the [BDD pattern](./bdd-pattern.mdx) and the [Specification pattern](./specification-pattern.mdx) support data-driven testing through **Examples tables** — a structured way to define multiple data sets for a single test template. This concept originates from the [Gherkin specification](https://cucumber.io/docs/gherkin/reference/#scenario-outline), where `Scenario Outline` + `Examples` defines parameterized scenarios. LiveDoc extends this to the Specification pattern as well via `RuleOutline`.
+
+:::note Conceptual Syntax
+The examples below use [Gherkin](https://cucumber.io/docs/gherkin/reference/) and LiveDoc vocabulary to illustrate the concepts. Each SDK implements this using its own syntax — see the SDK links at the bottom for actual code.
+:::
+
+### ScenarioOutline (BDD)
+
+In the BDD pattern, **ScenarioOutline** defines a scenario template with placeholder values and an Examples table:
+
+```
+Scenario Outline: Applying discount percentages
+  Given the original price is $<price>
+  When a <discount>% discount is applied
+  Then the final price should be $<expected>
+
+  Examples:
+  | price  | discount | expected |
+  | 100.00 | 10       | 90.00    |
+  | 100.00 | 20       | 80.00    |
+  | 100.00 | 50       | 50.00    |
+  | 250.00 | 10       | 225.00   |
+```
+
+Each row in the Examples table produces a separate scenario in the test output. The `<placeholder>` markers in step titles are replaced with actual values, so the documentation reads:
+
+```
+✓ Applying discount percentages
+  ✓ Given the original price is $100.00
+    When a 10% discount is applied
+    Then the final price should be $90.00
+  ✓ Given the original price is $100.00
+    When a 20% discount is applied
+    Then the final price should be $80.00
+  ...
+```
+
+### RuleOutline (Specification)
+
+In the Specification pattern, **RuleOutline** serves the same purpose — a rule template with an Examples table:
+
+```
+Specification: Discount Calculator
+
+  RuleOutline: Calculates discounted prices correctly
+    Examples:
+    | price  | discount | expected |
+    | 100.00 | 10       | 90.00    |
+    | 100.00 | 20       | 80.00    |
+    | 100.00 | 50       | 50.00    |
+    | 250.00 | 10       | 225.00   |
+```
+
+The concept is identical — one template, many data sets. The difference is structural: ScenarioOutline lives inside a Feature with Given/When/Then steps; RuleOutline lives inside a Specification with direct assertions.
+
+## How Examples Tables Work
+
+### Column Headers
+
+The first row of the table defines the **column headers** — these become the keys you use to access data in your test code:
+
+```
+| email            | valid | reason            |
+| user@example.com | true  | standard format   |
+| invalid          | false | missing @ symbol  |
+| @domain.com      | false | missing local part|
+```
+
+Headers should be concise, descriptive names that read naturally in context.
+
+### Automatic Type Coercion
+
+LiveDoc automatically converts table values from strings to their appropriate types:
+
+| Table Value       | Coerced Type | Result                          |
+| ----------------- | ------------ | ------------------------------- |
+| `100`             | number       | `100`                           |
+| `3.14`            | number       | `3.14`                          |
+| `true` / `false`  | boolean      | `true` / `false`                |
+| `hello`           | string       | `"hello"`                       |
+
+Both SDKs support automatic coercion for numbers, booleans, and strings. The TypeScript/Vitest SDK additionally coerces dates (`'2024-01-15'` → Date) and JSON arrays (`'[1,2,3]'` → array). In C#/xUnit, method parameter types drive conversion via xUnit's built-in data coercion. See the SDK-specific guides for full details.
+
+### Placeholders in Titles
+
+In step titles (BDD) or rule titles, `<columnName>` placeholders are replaced with the actual value from the current row. This is purely for documentation output — the placeholders make the rendered documentation show the specific values being tested.
+
+## Value Extraction Beyond Tables
+
+Data-driven testing in LiveDoc goes beyond Examples tables. You can embed data directly in step titles and extract it programmatically.
+
+### Quoted Values
+
+Wrap values in single quotes within step titles, and LiveDoc extracts them automatically:
+
+```
+Given the user has '5' items in their cart
+When the user removes '2' items
+Then the cart should contain '3' items
+```
+
+The values `5`, `2`, and `3` are extracted and available in your test code as properly typed values (numbers in this case, not strings). This is critical for [living documentation](./living-documentation.mdx) — the documentation shows the exact values being tested, and the code uses those same values. There's no risk of the title saying one thing and the code doing another.
+
+### Named Parameters
+
+For even more clarity, LiveDoc supports named parameters with default values using angle-bracket syntax:
+
+```
+Given a user with <balance:500> dollars
+When they withdraw <amount:200> dollars
+Then the remaining balance is <remaining:300> dollars
+```
+
+Named parameters are self-documenting — the name explains the role of the value, and the value itself is visible in the specification output.
+
+### Data Tables in Steps
+
+Individual steps can include inline data tables for structured input:
+
+```
+Given the following users exist:
+  | name    | role    | active |
+  | Alice   | admin   | true   |
+  | Bob     | editor  | true   |
+  | Charlie | viewer  | false  |
+```
+
+These are different from Examples tables — they provide structured data to a *single* step, rather than parameterizing an entire scenario.
+
+### Doc Strings
+
+For larger blocks of structured data (JSON, XML, configuration), steps support doc strings:
+
+```
+Given the API request body:
+  """
+  {
+    "name": "Alice",
+    "email": "alice@example.com",
+    "role": "admin"
+  }
+  """
+```
+
+Doc strings preserve formatting and can be parsed as JSON automatically.
+
+## Why Data-Driven Tests Matter for Documentation
+
+Data-driven tests are especially valuable in a [living documentation](./living-documentation.mdx) context because they make the **full scope of behavior visible**:
+
+### 1. Comprehensive at a Glance
+
+A single Examples table shows every variation that was tested. Stakeholders can scan the table and ask "what about this case?" — and either find it already covered or identify a gap.
+
+### 2. Boundary Conditions Are Explicit
+
+Edge cases that would be buried in separate test functions are surfaced as rows in a table:
+
+```
+Examples:
+| input | expected | note            |
+| 0     | 0        | zero            |
+| -1    | error    | negative        |
+| 999   | 999      | upper boundary  |
+| 1000  | error    | exceeds maximum |
+```
+
+### 3. The Documentation Matches the Execution
+
+Because values are extracted from the specification (not hardcoded in test code), there's a direct link between what the documentation says was tested and what the code actually verifies. This is a core principle of LiveDoc — the documentation *is* the test.
+
+### 4. Adding a Test Case Is Adding a Row
+
+Need to test a new edge case? Add a row to the table. The test template handles the execution. This low friction means specifications grow organically as new cases are discovered.
+
+## How Both SDKs Handle Data-Driven Tests
+
+The concepts are identical in TypeScript/Vitest and C#/xUnit, but each SDK implements them using its platform's native idioms:
+
+| Capability              | TypeScript/Vitest                    | C#/xUnit                                |
+| ----------------------- | ------------------------------------ | --------------------------------------- |
+| **Outline variant**     | `scenarioOutline()` / `ruleOutline()`| `[ScenarioOutline]` / `[RuleOutline]`   |
+| **Accessing example data** | `ctx.example.columnName`          | `ctx.Example.columnName`                |
+| **Quoted values**       | `ctx.step.values[]`                  | `Step.Values.As<T>()` / `Rule.Values.As<T>()` |
+| **Named parameters**    | `ctx.step.params.name`               | `Step.Params["name"].As<T>()` / `Rule.Params["name"]` |
+| **Data tables**         | `ctx.step.table[]`                   | `Step.Table<T>()` / `Step.DataTable`    |
+| **Doc strings**         | `ctx.step.docString`                 | `Step.DocString` / `Step.DocStringAs<T>()` |
+| **Type coercion**       | Automatic (numbers, booleans, dates, arrays) | Automatic (numbers, booleans, strings) + `.As<T>()` |
+
+For SDK-specific details:
+- **TypeScript/Vitest**: [Data Extraction](/vitest/learn/data-extraction) and [Scenario Outlines](/vitest/learn/scenario-outlines)
+- **C#/xUnit**: [Value Extraction](/xunit/learn/value-extraction) and [Scenario Outlines](/xunit/learn/scenario-outlines)
+
+## Recap
+
+- **Data-driven testing** runs one test template against many data sets via **Examples tables**.
+- **ScenarioOutline** (BDD) and **RuleOutline** (Specification) both use Examples tables — same concept, different patterns.
+- **Quoted values** and **named parameters** embed test data directly in step titles, keeping documentation honest.
+- **Data tables** and **doc strings** provide structured data to individual steps.
+- All values are **automatically type-coerced** — no manual parsing needed.
+- Data-driven tests make specifications **comprehensive, scannable, and easy to extend**.
+
+## Next Steps
+
+- **Next in this series**: [Self-Documenting Tests](./self-documenting-tests.mdx) — why embedding values in titles matters
+- **Hands-on**: [Vitest: Data Extraction](/vitest/learn/data-extraction) or [xUnit: Value Extraction](/xunit/learn/value-extraction)
+- **Pattern context**: [BDD Pattern](./bdd-pattern.mdx) · [Specification Pattern](./specification-pattern.mdx)

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "livedoc-xunit": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "VSTestLogger": "trx"
+      }
+    }
+  }
+}

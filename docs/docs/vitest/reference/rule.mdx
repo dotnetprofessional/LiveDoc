@@ -1,0 +1,218 @@
+---
+sidebar_position: 7
+title: "rule()"
+description: "A single testable requirement inside a specification. Supports async, quoted values via ctx.rule.values, and named params via ctx.rule.params."
+---
+
+# `rule()`
+
+<p className="intro">
+`rule` defines a single testable requirement inside a `specification()`. Unlike BDD
+steps, rules contain direct assertions — no Given/When/Then ceremony. Rules also
+support async callbacks, quoted value extraction, and named parameters.
+</p>
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("Math Operations", () => {
+  rule("Adding '5' and '3' returns '8'", (ctx) => {
+    const [a, b, expected] = ctx.rule.values;
+    expect(a + b).toBe(expected);
+  });
+});
+```
+
+---
+
+## Reference {#reference}
+
+### `rule(title, fn)` {#rule}
+
+Registers a rule that maps to a Vitest `it()` call.
+
+```typescript
+function rule(title: string, fn: (ctx: RuleCtx) => void | Promise<void>): void
+```
+
+[See more examples below.](#usage)
+
+#### Parameters {#parameters}
+
+- **`title`**: `string` — The rule description. Can contain:
+  - **Quoted values**: `'value'` → extracted to `ctx.rule.values[]` (and also `ctx.step.values[]`)
+  - **Named parameters**: `<name:value>` → extracted to `ctx.rule.params` (and also `ctx.step.params`)
+  - Tags and descriptions (same multi-line parsing as `feature()`/`scenario()`)
+
+- **`fn`**: `(ctx: RuleCtx) => void | Promise<void>` — The rule implementation. **Supports `async`**.
+
+#### The `ctx` Parameter {#ctx}
+
+| Property            | Type                   | Description                                        |
+| ------------------- | ---------------------- | -------------------------------------------------- |
+| `ctx.specification` | `SpecificationContext` | `{ filename, title, description, tags }`           |
+| `ctx.rule`          | `RuleContext`          | `{ title, description, tags, specification, values, valuesRaw, params, paramsRaw }` |
+| `ctx.step`          | `StepContext`          | Step-level data (same values/params as `ctx.rule`, plus table, docString) |
+
+#### `RuleContext` Properties {#rule-context}
+
+| Property     | Type                      | Description                                          |
+| ------------ | ------------------------- | ---------------------------------------------------- |
+| `title`      | `string`                  | The rule title                                       |
+| `description`| `string`                  | Description text (from multi-line title)             |
+| `tags`       | `string[]`                | Tags extracted from the title                        |
+| `specification` | `SpecificationContext` | Reference to the parent specification context        |
+| `values`     | `any[]`                   | Type-coerced quoted values from the title            |
+| `valuesRaw`  | `string[]`                | Raw string values before coercion                    |
+| `params`     | `Record<string, any>`     | Type-coerced named parameters from `<name:value>`    |
+| `paramsRaw`  | `Record<string, string>`  | Raw string named parameters                          |
+
+#### Returns {#returns}
+
+`void` — Rules are registered as Vitest `it()` calls.
+
+#### Caveats {#caveats}
+
+- Rules **support `async`** — unlike `feature`, `scenario`, and `specification` callbacks.
+- Rules must be nested inside a `specification()` call.
+- Both `ctx.rule` and `ctx.step` provide extracted values/params. Use `ctx.rule` for rule-level data access (clearer intent).
+- Do not use Given/When/Then steps inside a rule — use direct assertions.
+
+---
+
+## Modifiers {#modifiers}
+
+### `rule.skip(title, fn)` {#skip}
+
+Skip this rule. It appears as pending in test output.
+
+```typescript
+rule.skip("Feature not yet implemented", () => {
+  // This test body is not executed
+});
+```
+
+### `rule.only(title, fn)` {#only}
+
+Run only this rule.
+
+```typescript
+rule.only("Debugging this specific rule", () => {
+  expect(calculate()).toBe(42);
+});
+```
+
+---
+
+## Usage {#usage}
+
+### Basic: Direct assertion {#basic-usage}
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("Email Validation", () => {
+  rule("Email addresses must contain @", () => {
+    expect(validateEmail("invalid")).toBe(false);
+    expect(validateEmail("user@example.com")).toBe(true);
+  });
+
+  rule("Empty strings are rejected", () => {
+    expect(validateEmail("")).toBe(false);
+  });
+});
+```
+
+### Quoted values with `ctx.rule.values` {#quoted-values}
+
+Values in single quotes are auto-extracted and type-coerced.
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("Calculator", () => {
+  rule("Adding '5' and '3' returns '8'", (ctx) => {
+    const [a, b, expected] = ctx.rule.values;
+    // a = 5 (number), b = 3 (number), expected = 8 (number)
+    expect(a + b).toBe(expected);
+  });
+
+  rule("Concatenating 'hello' and 'world' returns 'helloworld'", (ctx) => {
+    const [a, b, expected] = ctx.rule.values;
+    // a = "hello" (string), b = "world" (string)
+    expect(a + b).toBe(expected);
+  });
+
+  rule("Boolean 'true' is truthy", (ctx) => {
+    const [value] = ctx.rule.values;
+    // value = true (boolean)
+    expect(value).toBe(true);
+  });
+});
+```
+
+### Named parameters with `ctx.rule.params` {#named-params}
+
+Named parameters use `<name:value>` syntax for self-documenting rule titles.
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("String Operations", () => {
+  rule("Reversing <input:hello> returns <expected:olleh>", (ctx) => {
+    const { input, expected } = ctx.rule.params;
+    expect(reverse(input)).toBe(expected);
+  });
+
+  rule("Uppercasing <input:hello> returns <expected:HELLO>", (ctx) => {
+    expect(ctx.rule.params.input.toUpperCase()).toBe(ctx.rule.params.expected);
+  });
+});
+```
+
+### Async rules {#async-rules}
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("API Endpoints", () => {
+  rule("GET /api/users returns a list of users", async () => {
+    const response = await fetch("/api/users");
+    const data = await response.json();
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBeGreaterThan(0);
+  });
+
+  rule("POST /api/users creates a new user", async () => {
+    const response = await fetch("/api/users", {
+      method: "POST",
+      body: JSON.stringify({ name: "Alice", email: "alice@example.com" }),
+    });
+    expect(response.status).toBe(201);
+  });
+});
+```
+
+### Combining values and params {#combined}
+
+```typescript
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification("Price Calculation", () => {
+  rule("Item priced at '$100' with <tax:10>% tax costs '$110'", (ctx) => {
+    const [price, , total] = ctx.rule.values;  // 100, 110
+    const taxRate = ctx.rule.params.tax;        // 10
+    expect(price + (price * taxRate / 100)).toBe(total);
+  });
+});
+```
+
+---
+
+## See Also {#see-also}
+
+- [`specification()`](./specification.mdx) — parent container for rules
+- [`ruleOutline()`](./rule-outline.mdx) — data-driven variant with Examples table
+- [Data Extraction APIs](./data-apis.mdx) — full reference for value extraction and type coercion
+- [Context Object](./context.mdx) — full reference for `ctx.rule` and `ctx.specification`
+- [Steps: `given` / `when` / `then`](./steps.mdx) — BDD alternative for structured step sequences

@@ -1,0 +1,431 @@
+---
+sidebar_position: 2
+title: "Your First Feature"
+description: "Build a complete BDD feature with scenarios, Given/When/Then/And/But steps, descriptions, and step value extraction."
+---
+
+# Your First Feature
+
+<p className="intro">
+Now that you have LiveDoc installed, let's build a real feature test from
+scratch. You'll learn every BDD keyword, how to add descriptions for
+context, and how to extract values from step titles to keep tests
+self-documenting.
+</p>
+
+## What You'll Learn
+
+- The full `[Feature]` → `[Scenario]` → Steps structure
+- Using `Given`, `When`, `Then`, `And`, and `But` steps
+- Adding `Description` to attributes for richer documentation
+- Extracting embedded values from step titles with `ctx.Step.Values`
+- How the constructor and background setup works
+
+---
+
+## The Feature Under Test
+
+Imagine you're building an online tea shop. The shipping rules are:
+
+- **Australian customers** pay 10% GST
+- **Overseas customers** pay no GST
+- **Free shipping** for Australian orders of \$100 or more
+- **Standard Domestic** shipping otherwise (\$9.95)
+- **International** shipping for everyone else (\$25.00)
+
+Let's express these rules as living documentation.
+
+---
+
+## Step 1: Create the Feature Class
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace TeaShop.Tests.Shipping;
+
+[Feature("Tea Shop Shipping Costs", Description = @"
+    Business rules for shipping and GST calculation.
+    Australian orders over $100 get free shipping.
+    Overseas orders always pay international rates.
+")]
+public class ShippingCostsTests : FeatureTest
+{
+    private ShoppingCart _cart = null!;
+
+    public ShippingCostsTests(ITestOutputHelper output) : base(output)
+    {
+    }
+}
+```
+
+### Key Points
+
+| Element | Purpose |
+| --- | --- |
+| `[Feature("...")]` | Names the feature — appears as the top-level heading in output. |
+| `Description = "..."` | Adds context that appears in reports. Use it to capture *why* the feature exists. |
+| `FeatureTest` | Base class providing all step methods. |
+| `ITestOutputHelper` | xUnit's output capture — always required in the constructor. |
+
+---
+
+## Step 2: Add Your First Scenario
+
+```csharp
+[Scenario("Free shipping for Australian orders over $100")]
+public void Free_shipping_in_Australia()
+{
+    Given("the customer is from Australia", () =>
+    {
+        _cart = new ShoppingCart { Country = "Australia" };
+    });
+
+    When("the customer's order totals $100", () =>
+    {
+        _cart.AddItem(new CartItem { Name = "Byron Breakfast Tea", Price = 100.00m });
+        _cart.Calculate();
+    });
+
+    Then("the customer pays GST", () =>
+    {
+        Assert.Equal(10.00m, _cart.GST);
+    });
+
+    And("they are charged Free shipping", () =>
+    {
+        Assert.Equal(0m, _cart.Shipping);
+        Assert.Equal("Free", _cart.ShippingType);
+    });
+}
+```
+
+The output reads like a specification:
+
+```
+Feature: Tea Shop Shipping Costs
+
+  Scenario: Free shipping for Australian orders over $100
+    Given the customer is from Australia
+    When the customer's order totals $100
+    Then the customer pays GST
+      And they are charged Free shipping
+
+    ✓ 4 passing (15ms)
+```
+
+---
+
+## Step 3: Use All Five Step Keywords
+
+LiveDoc supports five step keywords: **Given**, **When**, **Then**, **And**, and **But**. They all work the same way — the keyword is semantic, helping readers understand the role of each step.
+
+```csharp
+[Scenario("Standard shipping with discount code")]
+public void Standard_shipping_with_discount()
+{
+    Given("the customer is from Australia", () =>
+    {
+        _cart = new ShoppingCart { Country = "Australia" };
+    });
+
+    And("the customer has a valid discount code", () =>
+    {
+        _cart.DiscountCode = "SAVE10";
+    });
+
+    But("the order total is under $100", () =>
+    {
+        _cart.AddItem(new CartItem { Name = "Earl Grey", Price = 45.00m });
+    });
+
+    When("the order is calculated", () =>
+    {
+        _cart.Calculate();
+    });
+
+    Then("Standard Domestic shipping is applied", () =>
+    {
+        Assert.Equal("Standard Domestic", _cart.ShippingType);
+        Assert.Equal(9.95m, _cart.Shipping);
+    });
+
+    And("the discount is applied to the subtotal", () =>
+    {
+        Assert.True(_cart.DiscountApplied);
+    });
+}
+```
+
+:::tip When to use And vs But
+Use **And** to add another condition of the same type. Use **But** to express
+a contrasting condition — it reads more naturally: *"Given X, And Y, But Z."*
+:::
+
+---
+
+## Step 4: Extract Values from Step Titles
+
+The core principle of living documentation is that **all inputs and expected
+outputs are visible in the step title**. To avoid value drift (title says one
+thing, code does another), extract values using `ctx.Step.Values`.
+
+Accept the `ctx` parameter (type `LiveDocContext`) in your step lambda:
+
+```csharp
+using SweDevTools.LiveDoc.xUnit.Core;
+
+[Scenario("Value extraction keeps tests honest")]
+public void Value_extraction_demo()
+{
+    decimal orderTotal = 0;
+    string? shippingType = null;
+
+    Given("a customer from 'Australia'", ctx =>
+    {
+        var country = ctx.Step!.Values[0].AsString();
+        _cart = new ShoppingCart { Country = country };
+    });
+
+    When("the order totals '100.00' dollars", ctx =>
+    {
+        orderTotal = ctx.Step!.Values[0].AsDecimal();
+        _cart.AddItem(new CartItem { Price = orderTotal });
+        _cart.Calculate();
+    });
+
+    Then("shipping type is 'Free'", ctx =>
+    {
+        shippingType = ctx.Step!.Values[0].AsString();
+        Assert.Equal(shippingType, _cart.ShippingType);
+    });
+
+    And("GST is '10.00' dollars", ctx =>
+    {
+        var expectedGst = ctx.Step!.Values[0].AsDecimal();
+        Assert.Equal(expectedGst, _cart.GST);
+    });
+}
+```
+
+Values in single quotes (`'...'`) are automatically extracted. The index
+matches the order they appear in the title:
+
+| Step title | `Values[0]` | `Values[1]` |
+| --- | --- | --- |
+| `"a customer from 'Australia'"` | `"Australia"` | — |
+| `"I add '5' items at '9.99' each"` | `5` | `9.99` |
+
+:::caution Avoid value drift
+Never hardcode values in your step body that differ from the title. If the
+title says `'300'`, the assertion must use `ctx.Step!.Values[0]`, not a
+literal `200`. See [Value Extraction](./value-extraction.mdx) for the full API.
+:::
+
+---
+
+## Step 5: Add a Description to Scenarios
+
+Descriptions provide additional context without cluttering the scenario title:
+
+```csharp
+[Scenario("International shipping for overseas customers",
+    Description = @"
+    Overseas customers are charged a flat $25 international
+    shipping rate regardless of order size. No GST applies.
+")]
+public void International_shipping()
+{
+    Given("the customer is from 'New Zealand'", ctx =>
+    {
+        _cart = new ShoppingCart { Country = ctx.Step!.Values[0].AsString() };
+    });
+
+    When("the customer's order totals '100.00'", ctx =>
+    {
+        _cart.AddItem(new CartItem { Price = ctx.Step!.Values[0].AsDecimal() });
+        _cart.Calculate();
+    });
+
+    Then("the customer pays no GST", () =>
+    {
+        Assert.Equal(0m, _cart.GST);
+    });
+
+    And("they are charged '25.00' for Standard International shipping", ctx =>
+    {
+        Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _cart.Shipping);
+    });
+}
+```
+
+---
+
+## Step 6: Async Steps
+
+Steps support `async` when your code under test is asynchronous:
+
+```csharp
+[Scenario("Async shipping calculation")]
+public async Task Async_shipping_test()
+{
+    await Given("a customer from Australia with a $150 order", async () =>
+    {
+        _cart = new ShoppingCart { Country = "Australia" };
+        _cart.AddItem(new CartItem { Price = 150.00m });
+        await Task.CompletedTask;
+    });
+
+    await When("we calculate shipping asynchronously", async () =>
+    {
+        await _cart.CalculateAsync();
+    });
+
+    Then("the shipping should be Free", () =>
+    {
+        Assert.Equal("Free", _cart.ShippingType);
+    });
+}
+```
+
+You can mix sync and async steps freely within the same scenario. Just `await`
+the async ones and call the sync ones normally.
+
+---
+
+## Background Setup
+
+xUnit doesn't have a built-in `Background` keyword like Gherkin. Instead, use
+the **class constructor** or **`IClassFixture<T>`** for shared setup:
+
+```csharp
+[Feature("Cart Operations")]
+public class CartTests : FeatureTest
+{
+    private readonly ShoppingCart _cart;
+
+    public CartTests(ITestOutputHelper output) : base(output)
+    {
+        // This runs before every scenario — equivalent to Background
+        _cart = new ShoppingCart { Country = "Australia" };
+    }
+
+    [Scenario("Adding an item")]
+    public void Adding_an_item()
+    {
+        // _cart is already initialized
+        When("adding a $50 item", () =>
+        {
+            _cart.AddItem(new CartItem { Price = 50.00m });
+        });
+
+        Then("the cart has 1 item", () =>
+        {
+            Assert.Equal(1, _cart.Items.Count);
+        });
+    }
+}
+```
+
+---
+
+## The Complete Test Class
+
+Here's everything assembled into a single file:
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace TeaShop.Tests.Shipping;
+
+[Feature("Tea Shop Shipping Costs", Description = @"
+    Business rules for shipping and GST calculation.
+    Australian orders over $100 get free shipping.
+    Overseas orders always pay international rates.
+")]
+public class ShippingCostsTests : FeatureTest
+{
+    private ShoppingCart _cart = null!;
+
+    public ShippingCostsTests(ITestOutputHelper output) : base(output)
+    {
+    }
+
+    [Scenario("Free shipping for Australian orders over $100")]
+    public void Free_shipping_in_Australia()
+    {
+        Given("the customer is from 'Australia'", ctx =>
+        {
+            _cart = new ShoppingCart { Country = ctx.Step!.Values[0].AsString() };
+        });
+
+        When("the customer's order totals '100.00'", ctx =>
+        {
+            _cart.AddItem(new CartItem { Price = ctx.Step!.Values[0].AsDecimal() });
+            _cart.Calculate();
+        });
+
+        Then("the customer pays '10.00' GST", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _cart.GST);
+        });
+
+        And("they are charged 'Free' shipping", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsString(), _cart.ShippingType);
+        });
+    }
+
+    [Scenario("International shipping for overseas customers",
+        Description = "Overseas customers pay flat $25 international shipping.")]
+    public void International_shipping()
+    {
+        Given("the customer is from 'New Zealand'", ctx =>
+        {
+            _cart = new ShoppingCart { Country = ctx.Step!.Values[0].AsString() };
+        });
+
+        When("the customer's order totals '100.00'", ctx =>
+        {
+            _cart.AddItem(new CartItem { Price = ctx.Step!.Values[0].AsDecimal() });
+            _cart.Calculate();
+        });
+
+        Then("the customer pays '0' GST", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _cart.GST);
+        });
+
+        And("they are charged '25.00' for international shipping", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsDecimal(), _cart.Shipping);
+        });
+    }
+}
+```
+
+---
+
+## Recap
+
+- **`[Feature]`** — class-level attribute, names and describes the feature
+- **`[Scenario]`** — method-level attribute, inherits `[Fact]`
+- **`Given` / `When` / `Then` / `And` / `But`** — five step methods, all semantic
+- **`Description`** — optional context on any attribute
+- **`ctx.Step.Values`** — extract quoted values to avoid value drift
+- **Constructor** — use for background setup (runs before each scenario)
+- **Async** — steps support `async` / `await`
+
+---
+
+## Next Steps
+
+- **Next in this series**: [Your First Specification](./your-first-spec.mdx) — learn the simpler `[Specification]` / `[Rule]` pattern for unit tests
+- **Deep dive**: [FeatureTest Reference](../reference/feature-test.mdx) — full API for the BDD base class
+- **Deep dive**: [Step Methods](../reference/step-methods.mdx) — all step method overloads
+- **Practical use**: [Best Practices](../guides/best-practices.mdx) — patterns for writing great living documentation

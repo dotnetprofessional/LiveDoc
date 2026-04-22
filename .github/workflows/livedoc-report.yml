@@ -1,0 +1,185 @@
+name: LiveDoc Report
+
+on:
+  push:
+    branches: [master, vitest-upgrade]  # TODO: remove vitest-upgrade before merging PR
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  generate-reports:
+    name: Generate LiveDoc Reports
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # --- Build everything first ---
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build JS packages
+        run: pnpm build
+
+      - name: Create local NuGet source directory
+        run: mkdir -p releases/SweDevTools.LiveDoc.xUnit
+
+      - name: Pack library for sample project
+        run: dotnet pack livedoc-xunit.csproj -o ../../releases/SweDevTools.LiveDoc.xUnit
+        working-directory: dotnet/xunit
+
+      - name: Build .NET
+        run: dotnet build
+        working-directory: dotnet/xunit
+
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      # --- Run tests with JSON export ---
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+        working-directory: packages/vitest
+
+      - name: Start viewer for Playwright tests
+        run: |
+          PORT=3100 node dist/server/index.js &
+          timeout 30 bash -c 'until curl -sf http://localhost:3100 > /dev/null 2>&1; do sleep 1; done'
+        working-directory: packages/viewer
+
+      - name: Run Vitest tests with JSON export
+        run: npx vitest run --config vitest.config.ci.ts
+        working-directory: packages/vitest
+
+      - name: Run .NET tests with JSON export
+        if: always()
+        run: |
+          dotnet test --no-build \
+            --logger "LiveDoc;ExportPath=${{ github.workspace }}/reports/dotnet-report.json;Project=LiveDoc.xUnit;Environment=ci"
+        working-directory: dotnet/xunit/tests
+
+      # --- Generate static HTML reports ---
+      - name: Generate Vitest HTML report
+        run: node packages/viewer/dist/cli.js export -i reports/vitest-report.json -o reports/vitest/index.html -t "LiveDoc Vitest"
+        if: always()
+        continue-on-error: true
+
+      - name: Generate .NET HTML report
+        run: node packages/viewer/dist/cli.js export -i reports/dotnet-report.json -o reports/dotnet/index.html -t "LiveDoc xUnit"
+        if: always()
+        continue-on-error: true
+
+      # --- Create index page ---
+      - name: Create index page
+        if: always()
+        run: |
+          cat > reports/index.html << 'HEREDOC'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>LiveDoc — Test Reports</title>
+            <style>
+              :root { color-scheme: dark; }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a; color: #e5e5e5;
+                display: flex; align-items: center; justify-content: center;
+                min-height: 100vh; padding: 2rem;
+              }
+              .container { max-width: 640px; width: 100%; }
+              h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+              .subtitle { color: #a3a3a3; margin-bottom: 2rem; }
+              .cards { display: flex; flex-direction: column; gap: 1rem; }
+              a.card {
+                display: block; padding: 1.5rem; border-radius: 0.75rem;
+                border: 1px solid #262626; background: #141414;
+                text-decoration: none; color: inherit;
+                transition: border-color 0.15s, background 0.15s;
+              }
+              a.card:hover { border-color: #525252; background: #1a1a1a; }
+              .card h2 { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.25rem; }
+              .card p { color: #a3a3a3; font-size: 0.875rem; }
+              .badge {
+                display: inline-block; font-size: 0.75rem; padding: 0.125rem 0.5rem;
+                border-radius: 9999px; font-weight: 500; margin-left: 0.5rem;
+              }
+              .badge-ts { background: #1e3a5f; color: #60a5fa; }
+              .badge-cs { background: #3b1f5e; color: #c084fc; }
+              footer { margin-top: 2rem; text-align: center; color: #525252; font-size: 0.75rem; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>LiveDoc</h1>
+              <p class="subtitle">Living documentation from executable specifications</p>
+              <div class="cards">
+                <a class="card" href="./vitest/">
+                  <h2>Vitest Test Report <span class="badge badge-ts">TypeScript</span></h2>
+                  <p>BDD features and specifications from the @swedevtools/livedoc-vitest package</p>
+                </a>
+                <a class="card" href="./dotnet/">
+                  <h2>xUnit Test Report <span class="badge badge-cs">C#</span></h2>
+                  <p>BDD features and specifications from the SweDevTools.LiveDoc.xUnit package</p>
+                </a>
+              </div>
+              <footer>Generated by LiveDoc Viewer — updated on each push to master</footer>
+            </div>
+          </body>
+          </html>
+          HEREDOC
+
+      - name: Add .nojekyll
+        if: always()
+        run: touch reports/.nojekyll
+
+      # --- Deploy to GitHub Pages ---
+      - name: Setup Pages
+        if: always()
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: reports
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: generate-reports
+    if: always()
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

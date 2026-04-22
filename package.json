@@ -1,5 +1,19 @@
 {
+  "name": "livedoc-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.14.2",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:vitest": "pnpm --filter @swedevtools/livedoc-vitest test",
+    "test:publish": "pnpm --filter @swedevtools/livedoc-vitest test:publish",
+    "clean": "pnpm -r clean"
+  },
   "devDependencies": {
-    "lerna": "2.0.0-beta.38"
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
   }
 }

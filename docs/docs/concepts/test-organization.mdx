@@ -1,0 +1,360 @@
+---
+sidebar_position: 6
+description: "How you organize your test files and namespaces directly shapes the documentation LiveDoc generates. Learn the conventions that produce clear, navigable specifications."
+---
+
+# Test Organization
+
+<p className="intro">
+In LiveDoc, your test structure IS your documentation structure. How you organize files
+(TypeScript) or namespaces (C#) directly determines the hierarchy in the Viewer and generated
+reports. Thoughtful organization produces clear, navigable specifications; careless organization
+produces chaos.
+</p>
+
+## Why Organization Matters
+
+Traditional test frameworks don't care much about how you organize tests — they find files matching a pattern, run everything, and report pass/fail. But LiveDoc is different. Because your tests are [living documentation](./living-documentation.mdx), the organizational structure becomes the **table of contents** for your system's specification.
+
+Consider two ways to organize the same tests:
+
+```
+Organization A (by domain):                Organization B (by type):
+tests/                                      tests/
+├── Auth/                                   ├── unit/
+│   ├── Login.Spec.ts                       │   ├── loginValidator.test.ts
+│   ├── Registration.Spec.ts                │   ├── cartCalc.test.ts
+│   └── PasswordReset.Spec.ts               │   └── emailFormat.test.ts
+├── Cart/                                   ├── integration/
+│   ├── AddToCart.Spec.ts                    │   ├── loginFlow.test.ts
+│   └── Checkout.Spec.ts                    │   ├── cartCheckout.test.ts
+└── Notifications/                          │   └── emailSend.test.ts
+    ├── EmailAlerts.Spec.ts                 └── e2e/
+    └── PushNotifications.Spec.ts               ├── fullLogin.test.ts
+                                                └── fullCheckout.test.ts
+```
+
+Organization A produces documentation grouped by **what the system does** — Authentication, Cart, Notifications. A product owner can navigate to "Cart" and see all cart-related specifications. Organization B produces documentation grouped by **how the tests run** — unit, integration, e2e. That's useful for developers but meaningless for specification readers.
+
+LiveDoc is opinionated: **organize by domain, not by technical layer**.
+
+## How Structure Maps to Reports
+
+### TypeScript/Vitest: File Path → Hierarchy
+
+In the Vitest SDK, the **file path** determines the report hierarchy. Each directory level becomes a navigation group, and each file becomes a document:
+
+```
+File system:                              Viewer navigation:
+tests/                                    ├── Auth
+├── Auth/                                 │   ├── Login (Feature)
+│   ├── Login.Spec.ts                     │   ├── Registration (Feature)
+│   └── Registration.Spec.ts              │   └── Password Reset (Feature)
+├── Cart/                                 ├── Cart
+│   ├── AddToCart.Spec.ts                 │   ├── Add to Cart (Feature)
+│   └── Checkout.Spec.ts                  │   └── Checkout (Feature)
+└── Billing/                              └── Billing
+    └── InvoiceGeneration.Spec.ts             └── Invoice Generation (Specification)
+```
+
+The path is captured in the [reporting model](./reporting-model.mdx) as the `path` field on each TestCase. The Viewer uses this field to build the navigation sidebar, grouping documents by their directory structure.
+
+### C#/xUnit: Namespace → Hierarchy
+
+In the xUnit SDK, the **namespace** serves the same purpose as the file path:
+
+```csharp
+// Namespace determines the hierarchy
+namespace MyApp.Tests.Auth
+{
+    public class LoginFeature : FeatureTest { ... }
+    public class RegistrationFeature : FeatureTest { ... }
+}
+
+namespace MyApp.Tests.Cart
+{
+    public class AddToCartFeature : FeatureTest { ... }
+    public class CheckoutFeature : FeatureTest { ... }
+}
+```
+
+```
+Viewer navigation:
+├── Auth
+│   ├── Login (Feature)
+│   └── Registration (Feature)
+└── Cart
+    ├── Add to Cart (Feature)
+    └── Checkout (Feature)
+```
+
+The namespace prefix (e.g., `MyApp.Tests`) is typically stripped to produce clean navigation. What remains is the domain structure — `Auth`, `Cart`, `Billing`.
+
+### The Principle
+
+Both SDKs follow the same principle: **your organizational structure becomes the reader's navigation structure**. When you create a folder or namespace, you're creating a section in the documentation. When you name a file or class, you're naming a document.
+
+## The `.Spec.ts` Convention (TypeScript/Vitest)
+
+The LiveDoc SDK itself is **file-name agnostic** — it doesn't enforce any naming convention. What controls which files are discovered is your **vitest config's `include` pattern**. The recommended convention is `.Spec.ts`:
+
+```ts
+// vitest.config.ts
+export default defineConfig({
+    test: {
+        include: ['**/*.Spec.ts'],  // ← This controls discovery, not the SDK
+    },
+});
+```
+
+This convention serves several purposes:
+
+1. **Intent** — The `.Spec.ts` suffix signals that the file contains a specification, not just tests. It's a reminder to write [self-documenting tests](./self-documenting-tests.mdx) with values in titles.
+
+2. **Coexistence** — You can have both `.Spec.ts` files (living documentation) and `.test.ts` files (standard tests) in the same project. Vitest discovers them separately based on config patterns.
+
+3. **Team clarity** — A distinct suffix makes it easy to distinguish specification files from regular test files in your project tree.
+
+```
+tests/
+├── Auth/
+│   ├── Login.Spec.ts           ← LiveDoc specification (Feature/Scenario)
+│   ├── Login.test.ts           ← Standard Vitest tests (unit tests, helpers)
+│   └── authHelpers.ts          ← Test utilities (not executed directly)
+```
+
+:::tip Customizable
+You can use any naming convention you prefer — `.spec.ts`, `.feature.ts`, or even `.test.ts` — by changing the `include` pattern in your vitest config. The `.Spec.ts` convention (capital S) is recommended because it visually distinguishes LiveDoc specifications from standard test files, but it's not a technical requirement.
+:::
+
+## Naming Conventions
+
+### File Names (TypeScript)
+
+Use PascalCase file names that describe the feature or specification:
+
+| ✅ Good                           | ❌ Avoid                          | Why                                     |
+| --------------------------------- | --------------------------------- | --------------------------------------- |
+| `Login.Spec.ts`                   | `login.spec.ts`                   | Different convention — only matches if your vitest `include` pattern allows it |
+| `ShoppingCartCheckout.Spec.ts`    | `test-checkout.Spec.ts`           | "test" prefix adds no value             |
+| `PasswordStrengthValidator.Spec.ts`| `PSV.Spec.ts`                    | Abbreviations are unclear in reports    |
+| `EmailNotifications.Spec.ts`      | `email_notifications.Spec.ts`     | Underscores don't match convention      |
+
+The file name (minus `.Spec.ts`) becomes the default document title in the report if no `feature()` or `specification()` title overrides it.
+
+### Class Names (C#)
+
+Use PascalCase class names with a `Feature` or `Specification` suffix:
+
+| ✅ Good                            | ❌ Avoid                        |
+| ---------------------------------- | ------------------------------- |
+| `LoginFeature`                     | `LoginTests`                    |
+| `ShoppingCartCheckoutFeature`      | `CheckoutTest`                  |
+| `PasswordStrengthSpecification`    | `PasswordSpecs`                 |
+| `EmailNotificationFeature`         | `TestEmail`                     |
+
+### Directory/Namespace Names
+
+Use domain terms, not technical terms:
+
+| ✅ Good (Domain)    | ❌ Avoid (Technical)     |
+| ------------------- | ----------------------- |
+| `Auth`              | `Controllers`           |
+| `Cart`              | `Services`              |
+| `Billing`           | `Repositories`          |
+| `Notifications`     | `Handlers`              |
+| `UserManagement`    | `Models`                |
+
+Your test structure should mirror how a *user* thinks about the system, not how the code is architectured. A user thinks about "Authentication" and "Shopping Cart" — they don't think about "Controllers" and "Services."
+
+## Descriptions Enhance Context
+
+Both Features and Specifications support descriptions — multi-line text that provides additional context. In the [reporting model](./reporting-model.mdx), this text is carried as the `description` field and displayed in the Viewer alongside the title:
+
+### TypeScript/Vitest
+
+```typescript
+feature(`User Login
+    @auth @critical
+    Handles authentication via email/password and OAuth providers.
+    Users must be verified before accessing protected resources.
+    `, (ctx) => {
+    // scenarios...
+});
+```
+
+### C#/xUnit
+
+```csharp
+[Feature("User Login")]
+[Description("Handles authentication via email/password and OAuth providers.")]
+[Tag("auth"), Tag("critical")]
+public class LoginFeature : FeatureTest
+{
+    // scenarios...
+}
+```
+
+### How Descriptions Appear in Reports
+
+```
+Auth
+└── User Login                              @auth @critical
+    Handles authentication via email/password and OAuth providers.
+    Users must be verified before accessing protected resources.
+
+    ✓ Scenario: Successful login with email and password
+    ✓ Scenario: Login with Google OAuth
+    ✗ Scenario: Login with expired session token
+```
+
+The description adds context that the title alone can't convey. Use it for:
+- **Business context** — Why this feature exists, who uses it
+- **Scope boundaries** — What this specification covers and what it doesn't
+- **Dependencies** — What other features or systems are involved
+
+## Tags for Cross-Cutting Organization
+
+Tags provide a secondary organization axis that cuts across the directory/namespace hierarchy:
+
+```
+@critical     — Business-critical features (must not regress)
+@smoke        — Quick sanity checks for CI
+@slow         — Tests that take longer to run
+@wip          — Work in progress (incomplete specifications)
+@sprint-12    — Traceability to project management
+@pci          — Compliance-related specifications
+```
+
+Tags appear in the Viewer's filter controls, allowing readers to view specifications by concern rather than by domain. A compliance officer might filter by `@pci` to see all PCI-related specifications regardless of which feature area they belong to.
+
+Both SDKs support tags in the same way — as strings attached to Features, Specifications, Scenarios, and Rules.
+
+## Best Practices
+
+### 1. Group by Domain, Not Technical Layer
+
+```
+✅ tests/Auth/Login.Spec.ts
+✅ tests/Cart/Checkout.Spec.ts
+
+❌ tests/unit/loginValidation.Spec.ts
+❌ tests/integration/checkoutFlow.Spec.ts
+```
+
+The report should read like a product specification, not a deployment diagram.
+
+### 2. Mirror the Product, Not the Code
+
+If your application has modules called "Authentication", "Inventory", and "Payments", your test folders should use the same names. Don't use the code's internal naming (e.g., `AuthService`, `InventoryRepository`) — use the product's vocabulary.
+
+### 3. Keep the Hierarchy Shallow
+
+Two to three levels of nesting is usually sufficient. Deep hierarchies create navigation that's hard to browse:
+
+```
+✅ tests/Auth/Login.Spec.ts              (2 levels: Auth > Login)
+✅ tests/Cart/Discounts/Coupons.Spec.ts  (3 levels: Cart > Discounts > Coupons)
+
+❌ tests/Features/Core/Auth/Login/Happy/BasicLogin.Spec.ts  (6 levels — too deep)
+```
+
+### 4. One Feature or Specification per File
+
+Each `.Spec.ts` file should contain exactly one `feature()` or `specification()` call. This keeps the mapping between files and documents clean and predictable:
+
+```typescript
+// Login.Spec.ts — one feature
+feature("User Login", (ctx) => {
+    scenario("Successful login", (ctx) => { ... });
+    scenario("Failed login", (ctx) => { ... });
+});
+```
+
+Having multiple features in a single file creates confusion about where a specification lives and makes the file-to-document mapping ambiguous.
+
+### 5. Consider the Report When Choosing Structure
+
+Before creating a new file or folder, visualize how it will appear in the Viewer. Ask:
+- Will readers find this where they expect it?
+- Does the navigation path make sense? (e.g., "Cart > Checkout > Payment Methods")
+- Is the grouping meaningful to someone who hasn't read the code?
+
+### 6. Use Consistent Naming Across the Team
+
+Agree on naming conventions early and document them. Inconsistency (some files use singular `Auth`, others use plural `Users`) creates a messy navigation tree.
+
+## Visual Example: From Files to Report
+
+Here's a complete example showing how file organization translates to the Viewer's documentation output. This example uses the **TypeScript/Vitest** SDK; the C#/xUnit SDK produces the same Viewer output but uses **namespaces** instead of file paths (see [C#/xUnit: Namespace → Hierarchy](#cxunit-namespace--hierarchy) above).
+
+```
+Project structure:
+tests/
+├── Auth/
+│   ├── Login.Spec.ts
+│   │   └── feature("User Login", ...)
+│   │       ├── scenario("Login with valid credentials")
+│   │       └── scenario("Login with invalid password")
+│   └── Registration.Spec.ts
+│       └── feature("User Registration", ...)
+│           ├── scenario("Register with email")
+│           └── scenario("Duplicate email rejected")
+├── Cart/
+│   ├── AddToCart.Spec.ts
+│   │   └── feature("Add to Cart", ...)
+│   │       └── scenarioOutline("Adding products", ...)
+│   └── Checkout.Spec.ts
+│       └── feature("Checkout", ...)
+│           ├── scenario("Checkout with credit card")
+│           └── scenario("Checkout with PayPal")
+└── Validation/
+    └── EmailValidator.Spec.ts
+        └── specification("Email Validator", ...)
+            ├── rule("Accepts standard format")
+            ├── rule("Rejects missing @ symbol")
+            └── ruleOutline("Validates edge cases", ...)
+```
+
+```
+Viewer output:
+📁 Auth
+  📄 User Login                                    ✓ 2/2 passed
+     ✓ Login with valid credentials
+     ✓ Login with invalid password
+  📄 User Registration                             ✓ 2/2 passed
+     ✓ Register with email
+     ✓ Duplicate email rejected
+
+📁 Cart
+  📄 Add to Cart                                   ✓ 4/4 passed
+     ✓ Adding products (4 examples)
+  📄 Checkout                                      ✓ 2/2 passed
+     ✓ Checkout with credit card
+     ✓ Checkout with PayPal
+
+📁 Validation
+  📄 Email Validator                               ✓ 5/5 passed
+     ✓ Accepts standard format
+     ✓ Rejects missing @ symbol
+     ✓ Validates edge cases (3 examples)
+```
+
+The Viewer navigation mirrors the file structure, and each document shows its scenarios/rules with [self-documenting](./self-documenting-tests.mdx) titles. The organization choices made in the file system flow directly into the documentation experience.
+
+## Recap
+
+- **File path** (TypeScript) and **namespace** (C#) determine the documentation hierarchy in the Viewer.
+- Organize by **domain** (Auth, Cart, Billing), not by **technical layer** (unit, integration, e2e).
+- The **`.Spec.ts`** convention is recommended in TypeScript to distinguish specifications from regular tests — but it's configurable via your vitest config.
+- Use **PascalCase** names that describe features, not test infrastructure.
+- **Descriptions** and **tags** add context and enable cross-cutting organization.
+- Keep hierarchies **shallow** (2–3 levels) for easy navigation.
+- Put **one feature/specification per file** for clean file-to-document mapping.
+- Always **consider the report** when choosing structure — your readers navigate what you create.
+
+## Next Steps
+
+- **Next in this series**: [Reporting Model](./reporting-model.mdx) — the data structure that connects SDKs to the Viewer
+- **Hands-on**: [Tutorial: Beautiful Tea](./tutorial-beautiful-tea.mdx) — build a complete living specification from scratch
+- **SDK specifics**: [Vitest Getting Started](/vitest/learn/getting-started) or [xUnit Getting Started](/xunit/learn/getting-started)

@@ -1,0 +1,331 @@
+---
+sidebar_position: 1
+description: "FeatureTest is the base class for BDD/Gherkin-style tests, providing Given/When/Then step methods, formatted output, and context management."
+---
+
+# `FeatureTest`
+
+<p className="intro">
+`FeatureTest` is the base class for all BDD/Gherkin-style tests. It provides
+the `Given()`, `When()`, `Then()`, `And()`, and `But()` step methods, manages
+the test execution context, and produces beautifully formatted Gherkin output.
+</p>
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+[Feature("Shopping Cart")]
+public class ShoppingCartTests : FeatureTest
+{
+    public ShoppingCartTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario]
+    public void Free_shipping_for_large_orders()
+    {
+        Given("an order totalling '150.00' dollars", ctx =>
+        {
+            _total = ctx.Step!.Values[0].AsDecimal();
+        });
+
+        Then("shipping is 'Free'", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsString(), CalculateShipping(_total));
+        });
+    }
+}
+```
+
+---
+
+## Reference {#reference}
+
+### Constructor {#constructor}
+
+```csharp
+protected FeatureTest(ITestOutputHelper output)
+```
+
+Every class inheriting `FeatureTest` must accept an `ITestOutputHelper` and pass it to `base(output)`. This is xUnit's standard mechanism for capturing test output — the formatted Gherkin results appear in Test Explorer's detail pane.
+
+#### Parameters {#constructor-parameters}
+
+- **`output`**: `ITestOutputHelper` — The xUnit output helper injected by the test runner. Required for formatted step output.
+
+```csharp
+[Feature("User Authentication")]
+public class AuthTests : FeatureTest
+{
+    public AuthTests(ITestOutputHelper output) : base(output) { }
+}
+```
+
+### Properties {#properties}
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Feature` | `FeatureContext` | Metadata about the current feature (title, description, tags). |
+| `Scenario` | `ScenarioContext` | Metadata about the currently executing scenario. |
+| `Example` | `dynamic` | Dynamic access to the current `[Example]` row in a `[ScenarioOutline]`. |
+
+### Step Methods {#step-methods}
+
+`FeatureTest` provides five step methods: `Given()`, `When()`, `Then()`, `And()`, and `But()`. Each has four overloads:
+
+```csharp
+// Sync without context
+void Given(string title, Action action);
+
+// Sync with context (for value extraction)
+void Given(string title, Action<LiveDocContext> action);
+
+// Async without context
+Task Given(string title, Func<Task> action);
+
+// Async with context
+Task Given(string title, Func<LiveDocContext, Task> action);
+```
+
+All five keywords (`Given`, `When`, `Then`, `And`, `But`) share these same overloads. See the [Step Methods](./step-methods.mdx) reference for full details.
+
+### `EnsureContext()` {#ensurecontext}
+
+```csharp
+protected LiveDocContext EnsureContext()
+```
+
+Returns the current `LiveDocContext`, initializing it if needed. This is primarily used internally by the step methods but can be called directly if you need context access outside of a step.
+
+```csharp
+[Scenario]
+public void Access_feature_metadata()
+{
+    var ctx = EnsureContext();
+    var featureTitle = ctx.Feature?.Title; // "User Authentication"
+}
+```
+
+### `IDisposable` {#idisposable}
+
+`FeatureTest` implements `IDisposable`. When the test completes, `Dispose()` flushes the formatted output summary to `ITestOutputHelper`. The summary includes:
+
+- Feature title and description
+- Scenario name
+- All steps with pass/fail status
+- Step count and elapsed time
+
+```
+Feature: Shopping Cart
+
+  Scenario: Free shipping for large orders
+    Given an order totalling 150.00 dollars
+    Then shipping is Free
+
+    ✓ 2 passing (5ms)
+```
+
+:::caution
+Do not override `Dispose()` without calling `base.Dispose()` — this will suppress the formatted output.
+:::
+
+---
+
+## Usage {#usage}
+
+### Basic: Simple scenario {#basic-usage}
+
+```csharp
+using SweDevTools.LiveDoc.xUnit;
+using Xunit;
+using Xunit.Abstractions;
+
+[Feature("Calculator")]
+public class CalculatorTests : FeatureTest
+{
+    private int _result;
+
+    public CalculatorTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario]
+    public void Adding_two_numbers()
+    {
+        Given("the number '5'", ctx =>
+        {
+            _result = ctx.Step!.Values[0].AsInt();
+        });
+
+        When("I add '3'", ctx =>
+        {
+            _result += ctx.Step!.Values[0].AsInt();
+        });
+
+        Then("the result is '8'", ctx =>
+        {
+            Assert.Equal(ctx.Step!.Values[0].AsInt(), _result);
+        });
+    }
+}
+```
+
+### Scenario with named display title {#named-scenario}
+
+Use the `nameof` pattern or string titles to control Test Explorer display names:
+
+```csharp
+[Scenario(nameof(User_logs_in_with_valid_credentials))]
+public void User_logs_in_with_valid_credentials()
+{
+    Given("a registered user with email 'alice@example.com'", ctx =>
+    {
+        _user = CreateUser(ctx.Step!.Values[0].AsString());
+    });
+
+    When("they submit valid credentials", () =>
+    {
+        _loginResult = _authService.Login(_user.Email, "password123");
+    });
+
+    Then("login succeeds", () =>
+    {
+        Assert.True(_loginResult.Success);
+    });
+}
+```
+
+### ScenarioOutline with Example data {#scenario-outline}
+
+```csharp
+[ScenarioOutline]
+[Example("Australia", 100.00, "Free")]
+[Example("Australia", 49.99, "Standard")]
+[Example("New Zealand", 200.00, "International")]
+public void Shipping_for_COUNTRY_costing_TOTAL_is_TYPE(
+    string country, decimal total, string type)
+{
+    Given("a customer from <country>", () =>
+    {
+        _cart = new ShoppingCart { Country = country };
+    });
+
+    When("their order totals <total>", () =>
+    {
+        _cart.AddItem(new CartItem { Price = total });
+        _cart.Calculate();
+    });
+
+    Then("shipping type is <type>", () =>
+    {
+        Assert.Equal(type, _cart.ShippingType);
+    });
+}
+```
+
+### Async steps {#async-usage}
+
+```csharp
+[Scenario]
+public async Task Fetch_user_profile()
+{
+    await Given("an authenticated user 'alice'", async ctx =>
+    {
+        var username = ctx.Step!.Values[0].AsString();
+        _token = await _authService.AuthenticateAsync(username);
+    });
+
+    await When("requesting the profile", async () =>
+    {
+        _profile = await _api.GetProfileAsync(_token);
+    });
+
+    Then("the profile is returned", () =>
+    {
+        Assert.NotNull(_profile);
+    });
+}
+```
+
+### Using `Example` dynamic property {#example-dynamic}
+
+In `[ScenarioOutline]` methods, access the current row's data via the `Example` dynamic property:
+
+```csharp
+[ScenarioOutline]
+[Example("Premium", 0.10)]
+[Example("Standard", 0.00)]
+public void Discount_for_membership(string tier, double discount)
+{
+    Given("a <tier> member", () =>
+    {
+        _membership = new Membership((string)Example.tier);
+    });
+
+    Then("discount is <discount>", () =>
+    {
+        Assert.Equal((double)Example.discount, _membership.DiscountRate);
+    });
+}
+```
+
+### Feature with description {#feature-description}
+
+```csharp
+[Feature("Order Processing", Description = @"
+    End-to-end order processing workflow including
+    validation, payment, and fulfillment steps.")]
+public class OrderTests : FeatureTest
+{
+    public OrderTests(ITestOutputHelper output) : base(output) { }
+
+    [Scenario(Description = "Validates the happy path for standard orders")]
+    public void Standard_order_flow()
+    {
+        Given("a valid order", () => { /* ... */ });
+        When("the order is submitted", () => { /* ... */ });
+        Then("the order is confirmed", () => { /* ... */ });
+    }
+}
+```
+
+---
+
+## Formatted Output {#formatted-output}
+
+Every test produces structured, readable output in the Test Explorer detail pane:
+
+```
+Feature: Order Processing
+  End-to-end order processing workflow including
+  validation, payment, and fulfillment steps.
+
+  Scenario: Standard order flow
+    Given a valid order
+    When the order is submitted
+    Then the order is confirmed
+
+    ✓ 3 passing (8ms)
+```
+
+For `ScenarioOutline`, each example row produces its own output block:
+
+```
+Feature: Shipping Costs
+
+  Scenario Outline: Shipping for Australia costing 100.00 is Free
+    Given a customer from Australia
+    When their order totals 100.00
+    Then shipping type is Free
+
+    ✓ 3 passing (4ms)
+```
+
+---
+
+## See Also {#see-also}
+
+- [`SpecificationTest`](./specification-test.mdx) — the MSpec-style base class alternative
+- [Step Methods](./step-methods.mdx) — full reference for `Given()`, `When()`, `Then()`, `And()`, `But()`
+- [Attributes](./attributes.mdx) — `[Feature]`, `[Scenario]`, `[ScenarioOutline]` attribute details
+- [`[Example]`](./example-attribute.mdx) — data-driven test rows for outlines
+- [Context](./context.mdx) — `LiveDocContext`, `FeatureContext`, `ScenarioContext`
+- [Your First Feature](../learn/your-first-feature.mdx) — step-by-step tutorial
