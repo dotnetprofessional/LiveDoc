@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useStore, makeSessionState, type Session } from '../store';
+import { useStore, makeSessionState } from '../store';
 import { getApiBaseUrl } from '../config';
 import { StatusBadge } from './StatusBadge';
 import type { AnyTest, TestCase, SessionV1 } from '@swedevtools/livedoc-schema';
@@ -51,7 +51,6 @@ export function Sidebar() {
     toggleExpanded,
     getCurrentRun,
     getCurrentSession,
-    getCurrentView,
     runs,
     sessions,
     projectHierarchy,
@@ -64,7 +63,6 @@ export function Sidebar() {
 
   const currentRun = getCurrentRun();
   const currentSession = getCurrentSession();
-  const currentViewData = getCurrentView();
 
   const [projectMenuOpen, setProjectMenuOpen] = React.useState(false);
   const [envMenuOpen, setEnvMenuOpen] = React.useState(false);
