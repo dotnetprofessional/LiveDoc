@@ -7,8 +7,8 @@ const config: Config = {
   tagline: 'Living Documentation from Executable Specifications',
   favicon: 'img/favicon.ico',
 
-  url: 'https://livedoc.swedevtools.com',
-  baseUrl: '/',
+  url: 'https://dotnetprofessional.github.io',
+  baseUrl: '/LiveDoc/',
 
   organizationName: 'swedevtools',
   projectName: 'livedoc',

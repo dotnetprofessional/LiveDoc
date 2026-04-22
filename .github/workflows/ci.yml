@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, garrm/docs-pipeline]  # TODO: remove garrm/docs-pipeline after testing
   pull_request:
     branches: [master]
 
@@ -157,7 +157,7 @@ jobs:
           if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────
-  # Deploy to GitHub Pages (master only)
+  # Deploy to GitHub Pages (master only — temporarily enabled for branch testing)
   #   / ............ Docusaurus documentation site
   #   /reports/ .... LiveDoc test reports (Vitest + xUnit)
   # ─────────────────────────────────────────────────────────────
@@ -165,7 +165,8 @@ jobs:
   deploy-pages:
     name: Deploy to GitHub Pages
     needs: [build-and-test-js, build-and-test-dotnet]
-    if: github.event_name == 'push'
+    # TODO: restore to github.event_name == 'push' after testing
+    if: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
