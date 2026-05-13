@@ -201,6 +201,9 @@ export class LiveDocSpec extends LiveDocReporter {
     private outputSpecificationDetails(spec: model.Specification): void {
         // Output specification header
         this.writeLine(this.formatKeywordTitle("Specification", spec.title, this.colorTheme.keyword, this.colorTheme.featureTitle, 2));
+        if (spec.tags.length > 0) {
+            this.writeLine(this.applyBlockIndent(this.formatTags(spec.tags), 4));
+        }
         if (spec.description) {
             this.writeLine(this.formatDescription(spec.description, 4, this.colorTheme.featureDescription));
         }
@@ -213,6 +216,9 @@ export class LiveDocSpec extends LiveDocReporter {
                 const status = this.getStatusIndicator(rule.status);
                 const title = this.highlight(rule.title, /<[^>]+>/g, this.colorTheme.valuePlaceholders);
                 this.writeLine(`    ${status} ${this.colorTheme.keyword("Rule Outline:")} ${this.colorTheme.scenarioTitle(title)}`);
+                if (rule.tags.length > 0) {
+                    this.writeLine(this.applyBlockIndent(this.formatTags(rule.tags), 6));
+                }
                 if (rule.description) {
                     this.writeLine(this.formatDescription(rule.description, 6, this.colorTheme.scenarioDescription));
                 }
@@ -247,6 +253,9 @@ export class LiveDocSpec extends LiveDocReporter {
                 // Output simple Rule
                 const status = this.getStatusIndicator(rule.status);
                 this.writeLine(`    ${status} ${this.colorTheme.keyword("Rule:")} ${this.colorTheme.stepTitle(rule.title)}`);
+                if (rule.tags.length > 0) {
+                    this.writeLine(this.applyBlockIndent(this.formatTags(rule.tags), 6));
+                }
             }
         }
         this.writeLine(" ");
