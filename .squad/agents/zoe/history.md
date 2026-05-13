@@ -37,4 +37,14 @@
 
 ---
 
+### Team Updates (2026-05-13 — Test Quality & Organization Assessment)
+
+**Cross-Agent Findings:**
+- **Mal** identified implementation-centric hierarchy; recommended capability-first taxonomy (GettingStarted, WritingFeatures, WritingSpecifications, ... ShowcaseExamples).
+- **Wash** found strong regression coverage but not public-facing living docs; recommended curated public model + internal quarantine.
+- **Your focus area:** Test files with critical value drift and weak living-doc structure. Coordinate with Mal on public showcase tier criteria.
+
+**Next Priority:** Convert priority test files to embedded-value format per guidelines; add descriptions/tags; prepare for reorganization sprint led by Mal.
+
+---
 

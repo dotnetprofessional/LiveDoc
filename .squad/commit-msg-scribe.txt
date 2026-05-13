@@ -1,0 +1,25 @@
+squad: session log - test quality assessment (2026-05-13)
+
+Orchestration logs for three-agent async assessment:
+- Zoe (Tester): Critical value drift; missing metadata; weak living-doc structure
+- Mal (Lead): Implementation-centric hierarchy; recommended capability-first taxonomy
+- Wash (Framework Dev): Strong regression coverage but not public-facing; recommended public tier
+
+Updated agent histories with cross-team context.
+
+Orchestration logs:
+- .squad/orchestration-log/2026-05-13T17-26-15Z-zoe.md
+- .squad/orchestration-log/2026-05-13T17-26-15Z-mal.md
+- .squad/orchestration-log/2026-05-13T17-26-15Z-wash.md
+
+Session log:
+- .squad/log/2026-05-13T17-26-15Z-test-quality-assessment.md
+
+Agent history updates:
+- .squad/agents/zoe/history.md — team context appended
+- .squad/agents/mal/history.md — team context appended
+- .squad/agents/wash/history.md — team context appended
+
+Decisions inbox: empty (no new decisions to merge).
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

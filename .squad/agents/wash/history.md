@@ -121,3 +121,12 @@
 - **sv-9 (shutdown ordering)**: `server.stop()` flushed pending saves BEFORE closing inbound traffic, so new requests could race during flush. Also didn't clear SessionManager's seal/grace timers. Fix: reordered to close HTTP → close WebSocket → clear timers → flush. Added `clearTimers()` method to SessionManager.
 - **sv-2 (dynamic specification support)**: The wrapped import for dynamic execution omitted `specification`, `rule`, and `ruleOutline` exports — specs couldn't run in dynamic mode. `reconstructSpecification()` lost outline tables and example payloads during deserialization. Fix: added all 3 exports to the import line; added `outline.tables` reconstruction (matching ScenarioOutline pattern) and `example.example`/`exampleRaw`/`sequence` fields to RuleExample reconstruction.
 - **sv-3 (livedoc.options not reset)**: `resetDynamicState()` missed `livedoc.options` and `displayedViolations`. Filters/rules could leak across dynamic runs, and violation deduplication could suppress legitimate violations in subsequent runs. Fix: reset `livedoc.options` to fresh `new LiveDocOptions()` and clear `displayedViolations` object.
+
+### Team Updates (2026-05-13 — Test Quality & Organization Assessment)
+
+**Cross-Agent Findings:**
+- **Zoe** identified critical value drift and weak living-doc structure in test files; will convert priority files to embedded-value format.
+- **Mal** analyzing implementation-centric hierarchy; recommending capability-first taxonomy (GettingStarted, WritingFeatures, WritingSpecifications, ... ShowcaseExamples).
+- **Your focus area:** Framework feature coverage clarity. Curate public test model (showcase tier with living-doc integrity) and quarantine regressions/internals under `_Internal/`.
+
+**Next Priority:** Model public test tier layer while Mal leads org sprint and Zoe converts test files.
