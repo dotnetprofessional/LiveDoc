@@ -11,6 +11,8 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+- **Specification tag rendering parity (2026-05-13)**: `LiveDocSpec` console details now render tags for `Specification`, `Rule`, and `RuleOutline` with the same `formatTags()` path used by Feature/Scenario output. Regression coverage lives in `packages/vitest/_src/test/Reporter/specification-tags-render-and-serialize.Spec.ts` and validates slash tags like `@name/name` through render and V1 serialization.
+
 - **StepContext ↔ StepDefinition shared-array pattern**: StepContext receives a reference to StepDefinition's `attachments` array via constructor. When users call `ctx.attach()` inside a step, it pushes directly to the StepDefinition's array — no post-step copy needed. This same pattern could be reused for any future step-level collection APIs.
 - **Attachment type lives in `@swedevtools/livedoc-schema` (reporter-v3.ts)**: The canonical `Attachment` interface is in the schema package, re-exported via index. Both `ExecutionResult.attachments` and the Zod wire schema (`V3AttachmentSchema`) already exist — the plumbing from server to viewer was already done before the SDK-side API existed.
 - **Pre-existing test failure**: `beautiful-tea-shipping-costs.Spec.ts` fails independently — not related to framework changes. 1 failed / 629 passed baseline as of this change.

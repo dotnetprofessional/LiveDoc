@@ -2,6 +2,22 @@
 
 ## Active Decisions
 
+### Specification Tag Rendering Parity
+
+**Author:** Wash  
+**Date:** 2026-05-13  
+**Status:** Implemented
+
+**Decision:** Render `@tags` for `Specification`, `Rule`, and `RuleOutline` in the LiveDoc spec console reporter using the same `formatTags()` presentation path already used by Feature/Scenario output.
+
+**Rationale:** The parser and viewer serialization already carried specification tags, including slash tags like `@name/name`; the missing leg was console/detail rendering in `LiveDocSpec.outputSpecificationDetails()`. Keeping one rendering path preserves parity and avoids a separate tag format for the specification DSL.
+
+**Impact:**
+- `packages/vitest/_src/app/reporter/LiveDocSpec.ts` — emits tags for specifications, rules, and rule outlines.
+- `packages/vitest/_src/test/Reporter/specification-tags-render-and-serialize.Spec.ts` — regression coverage for rendering, V1 serialization, and slash tags.
+
+---
+
 ### Screenshot/Attachment API Design
 
 **Author:** Wash  
