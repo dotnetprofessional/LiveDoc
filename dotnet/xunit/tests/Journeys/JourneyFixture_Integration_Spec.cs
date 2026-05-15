@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = "Validates JourneyFixtureBase infrastructure: port assignment, URL construction, and response file loading.")]
+[Specification("JourneyFixture Integration", Description = "Validates JourneyFixtureBase infrastructure: port assignment, URL construction, and response file loading.")]
 [Trait("Category", "Integration")]
 public class JourneyFixture_Integration_Spec : SpecificationTest, IClassFixture<SampleApiFixture>
 {

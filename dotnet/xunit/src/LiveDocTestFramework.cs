@@ -32,12 +32,15 @@ public class LiveDocTestFramework : XunitTestFramework
 /// </summary>
 public class LiveDocTestFrameworkExecutor : XunitTestFrameworkExecutor
 {
+    private readonly AssemblyName _assemblyName;
+
     public LiveDocTestFrameworkExecutor(
         AssemblyName assemblyName,
         ISourceInformationProvider sourceInformationProvider,
         IMessageSink diagnosticMessageSink)
         : base(assemblyName, sourceInformationProvider, diagnosticMessageSink)
     {
+        _assemblyName = assemblyName;
     }
 
     protected override async void RunTestCases(
@@ -45,9 +48,11 @@ public class LiveDocTestFrameworkExecutor : XunitTestFrameworkExecutor
         IMessageSink executionMessageSink,
         ITestFrameworkExecutionOptions executionOptions)
     {
+        Reporter.LiveDocTestRunReporter.Instance.SetDefaultProject(_assemblyName);
+
         // Wrap the message sink to intercept test results for LiveDoc reporting
         var liveDocSink = new LiveDocMessageSink(executionMessageSink);
-        
+
         using var assemblyRunner = new XunitTestAssemblyRunner(
             TestAssembly,
             testCases,
@@ -81,6 +86,10 @@ public class LiveDocMessageSink : IMessageSink
     private readonly Reporter.LiveDocTestRunReporter _reporter;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _outlineRowCounters = new();
 
+    private sealed record ClassMetadata(string Title, string? Description, string[]? Tags);
+
+    private sealed record MethodMetadata(string Title, string? Description, string[]? Tags);
+
     public LiveDocMessageSink(IMessageSink innerSink)
     {
         _innerSink = innerSink;
@@ -89,17 +98,15 @@ public class LiveDocMessageSink : IMessageSink
 
     public bool OnMessage(IMessageSinkMessage message)
     {
-        // Intercept test results if reporter is enabled
-        if (_reporter.IsEnabled)
+        // Intercept test results even when server discovery has not completed yet.
+        // The reporter decides whether to publish or discard buffered results at flush time.
+        try
         {
-            try
-            {
-                HandleMessage(message);
-            }
-            catch
-            {
-                // Don't let reporting errors affect test execution
-            }
+            HandleMessage(message);
+        }
+        catch
+        {
+            // Don't let reporting errors affect test execution
         }
 
         // Flush all buffered results BEFORE the assembly-finished message reaches
@@ -107,7 +114,7 @@ public class LiveDocMessageSink : IMessageSink
         // the VSTest adapter considers the run complete and the process may exit.
         // For partial/subset runs this race is almost always lost, so we must
         // ensure the HTTP flush completes within the normal execution flow.
-        if (message is Xunit.Sdk.TestAssemblyFinished && _reporter.IsEnabled)
+        if (message is Xunit.Sdk.TestAssemblyFinished)
         {
             try
             {
@@ -155,7 +162,7 @@ public class LiveDocMessageSink : IMessageSink
         // Determine test style based on attributes
         var isFeature = testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any();
         var isSpec = testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any();
-        
+
         var className = testClass.Name;
         var methodName = testMethod.Name;
         var durationMs = (long)(executionTime * 1000);
@@ -189,6 +196,16 @@ public class LiveDocMessageSink : IMessageSink
             var kind = DeriveTestKind(testMethod, isSpec);
             var isOutline = kind == "RuleOutline" || kind == "ScenarioOutline";
             var testId = DeriveTestId(className, methodName, testMethod);
+            var classType = ResolveType(className);
+            var methodInfo = ResolveMethod(classType, methodName, testMethod);
+            var classMetadata = ExtractClassMetadata(testClass, isSpec, classType, className);
+            var methodMetadata = ExtractMethodMetadata(
+                testMethod,
+                kind,
+                isSpec,
+                methodInfo,
+                test.DisplayName,
+                classMetadata.Tags);
 
             // For outline tests, the same test ID is shared across all example rows.
             // The fallback path must allow the 2nd+ rows through; HasTest alone would
@@ -208,37 +225,44 @@ public class LiveDocMessageSink : IMessageSink
             }
 
             var style = isSpec ? Reporter.Models.TestKinds.Specification : Reporter.Models.TestKinds.Feature;
-            var title = FormatTestCaseTitle(className);
-            var (description, tags) = ExtractClassMetadata(testClass, isSpec);
-            _reporter.BufferTestCase(testCaseId, kind: style, title, description, tags, path);
+            _reporter.BufferTestCase(
+                testCaseId,
+                kind: style,
+                classMetadata.Title,
+                classMetadata.Description,
+                classMetadata.Tags,
+                path);
 
             if (isOutline)
             {
                 // Outline tests need template titles and example rows
-                var templateTitle = GetOutlineTemplateTitle(testMethod, isSpec);
+                var templateTitle = methodMetadata.Title;
                 var rowId = _outlineRowCounters.AddOrUpdate(testId, 1, (_, v) => v + 1);
-                
-                // Resolve actual MethodInfo for parameters
-                var classType = Type.GetType(className) 
-                    ?? AppDomain.CurrentDomain.GetAssemblies()
-                        .Select(a => { try { return a.GetType(className); } catch { return null; } })
-                        .FirstOrDefault(t => t != null);
-                var methodInfo = classType?.GetMethod(methodName);
                 var args = testCase.TestMethodArguments ?? Array.Empty<object>();
                 var parameters = methodInfo?.GetParameters() ?? Array.Empty<ParameterInfo>();
 
-                _reporter.BufferOutlineExample(testCaseId, testId, kind, templateTitle, rowId, parameters, args);
+                _reporter.BufferOutlineExample(
+                    testCaseId,
+                    testId,
+                    kind,
+                    templateTitle,
+                    rowId,
+                    parameters,
+                    args,
+                    methodMetadata.Description,
+                    methodMetadata.Tags);
                 _reporter.AddOutlineExampleResult(testId, rowId, testId, status, durationMs, error);
                 _reporter.RecordResult(status, testCaseId);
             }
             else
             {
-                var testTitle = test.DisplayName;
-                // Strip common prefixes
-                if (testTitle.StartsWith("Rule: ")) testTitle = testTitle.Substring("Rule: ".Length);
-                else if (testTitle.StartsWith("Scenario: ")) testTitle = testTitle.Substring("Scenario: ".Length);
-
-                _reporter.BufferTest(testCaseId, testId, kind, testTitle);
+                _reporter.BufferTest(
+                    testCaseId,
+                    testId,
+                    kind,
+                    methodMetadata.Title,
+                    methodMetadata.Description,
+                    methodMetadata.Tags);
                 _reporter.UpdateTestExecution(testId, status, durationMs, error);
                 _reporter.RecordResult(status, testCaseId);
             }
@@ -256,6 +280,34 @@ public class LiveDocMessageSink : IMessageSink
             _reporter.UpdateTestExecution(testId, status, durationMs, error);
             _reporter.RecordResult(status, testCaseId);
         }
+    }
+
+    private static Type? ResolveType(string className)
+    {
+        return Type.GetType(className)
+            ?? AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly =>
+                {
+                    try { return assembly.GetType(className); }
+                    catch { return null; }
+                })
+                .FirstOrDefault(type => type != null);
+    }
+
+    private static MethodInfo? ResolveMethod(
+        Type? classType,
+        string methodName,
+        Xunit.Abstractions.IMethodInfo testMethod)
+    {
+        if (classType == null)
+            return null;
+
+        var parameterCount = testMethod.GetParameters().Count();
+        return classType
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .FirstOrDefault(method =>
+                method.Name == methodName &&
+                method.GetParameters().Length == parameterCount);
     }
 
     /// <summary>
@@ -297,47 +349,215 @@ public class LiveDocMessageSink : IMessageSink
     }
 
     /// <summary>
-    /// Extracts Description and Tags from the class-level [Feature] or [Specification] attribute.
+    /// Extracts title, Description, and Tags from the class-level [Feature] or [Specification] attribute.
     /// </summary>
-    private static (string? description, string[]? tags) ExtractClassMetadata(
-        Xunit.Abstractions.ITypeInfo testClass, bool isSpec)
+    private static ClassMetadata ExtractClassMetadata(
+        Xunit.Abstractions.ITypeInfo testClass,
+        bool isSpec,
+        Type? classType,
+        string className)
     {
+        var title = FormatTestCaseTitle(className);
         string? description = null;
         string[]? tags = null;
 
         try
         {
+            if (classType != null)
+            {
+                if (isSpec)
+                {
+                    var specAttr = classType.GetCustomAttribute<SpecificationAttribute>();
+                    if (specAttr != null)
+                    {
+                        title = specAttr.GetDisplayName(classType);
+                        description = specAttr.Description;
+                    }
+                }
+                else
+                {
+                    var featureAttr = classType.GetCustomAttribute<FeatureAttribute>();
+                    if (featureAttr != null)
+                    {
+                        title = featureAttr.GetDisplayName(classType);
+                        description = featureAttr.Description;
+                    }
+                }
+
+                tags = TagAttribute.GetTags(classType).NullIfEmpty();
+                return new ClassMetadata(title, description?.Trim(), tags);
+            }
+
             var attrType = isSpec ? typeof(SpecificationAttribute) : typeof(FeatureAttribute);
             var attrs = testClass.GetCustomAttributes(attrType);
             var attr = attrs.FirstOrDefault();
             if (attr != null)
-                description = attr.GetNamedArgument<string>("Description");
-
-            // Also extract [Tag] attributes
-            var tagAttrs = testClass.GetCustomAttributes(typeof(TagAttribute));
-            if (tagAttrs.Any())
             {
-                var allTags = new List<string>();
-                foreach (var tagAttr in tagAttrs)
-                {
-                    // TagAttribute constructor takes a string that gets split by comma
-                    var ctorArgs = tagAttr.GetConstructorArguments().ToList();
-                    if (ctorArgs.Count > 0 && ctorArgs[0] is string tagsStr)
-                    {
-                        allTags.AddRange(tagsStr.Split(',').Select(t => t.Trim())
-                            .Where(t => !string.IsNullOrEmpty(t)));
-                    }
-                }
-                if (allTags.Count > 0)
-                    tags = allTags.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                var configuredTitle = GetAttributeString(attr, isSpec ? "Title" : "Name", 0);
+                if (!string.IsNullOrWhiteSpace(configuredTitle))
+                    title = configuredTitle;
+
+                description = attr.GetNamedArgument<string>("Description");
             }
+
+            tags = ExtractTags(testClass.GetCustomAttributes(typeof(TagAttribute)));
         }
         catch
         {
             // Don't let metadata extraction errors affect test execution
         }
 
-        return (description?.Trim(), tags);
+        return new ClassMetadata(title, description?.Trim(), tags);
+    }
+
+    private static MethodMetadata ExtractMethodMetadata(
+        Xunit.Abstractions.IMethodInfo testMethod,
+        string kind,
+        bool isSpec,
+        MethodInfo? methodInfo,
+        string displayName,
+        string[]? classTags)
+    {
+        var title = StripKnownPrefix(displayName);
+        string? description = null;
+        string[]? methodTags = null;
+
+        try
+        {
+            if (methodInfo != null)
+            {
+                title = kind switch
+                {
+                    "RuleOutline" => GetOutlineTemplateTitle(methodInfo, isSpecification: true),
+                    "ScenarioOutline" => GetOutlineTemplateTitle(methodInfo, isSpecification: false),
+                    "Rule" => StripKnownPrefix(methodInfo.GetCustomAttribute<RuleAttribute>()?.DisplayName ?? displayName),
+                    "Scenario" => StripKnownPrefix(methodInfo.GetCustomAttribute<ScenarioAttribute>()?.DisplayName ?? displayName),
+                    _ => title
+                };
+
+                description = kind switch
+                {
+                    "RuleOutline" => methodInfo.GetCustomAttribute<RuleOutlineAttribute>()?.Description,
+                    "ScenarioOutline" => methodInfo.GetCustomAttribute<ScenarioOutlineAttribute>()?.Description,
+                    "Rule" => methodInfo.GetCustomAttribute<RuleAttribute>()?.Description,
+                    "Scenario" => methodInfo.GetCustomAttribute<ScenarioAttribute>()?.Description,
+                    _ => null
+                };
+
+                methodTags = TagAttribute.GetTags(methodInfo.DeclaringType!, methodInfo).NullIfEmpty();
+                return new MethodMetadata(title, description?.Trim(), methodTags);
+            }
+
+            if (kind == "RuleOutline" || kind == "ScenarioOutline")
+                title = GetOutlineTemplateTitle(testMethod, isSpec);
+
+            var attrType = kind switch
+            {
+                "RuleOutline" => typeof(RuleOutlineAttribute),
+                "ScenarioOutline" => typeof(ScenarioOutlineAttribute),
+                "Rule" => typeof(RuleAttribute),
+                "Scenario" => typeof(ScenarioAttribute),
+                _ => null
+            };
+
+            if (attrType != null)
+            {
+                var attr = testMethod.GetCustomAttributes(attrType).FirstOrDefault();
+                description = attr?.GetNamedArgument<string>("Description");
+
+                // Rule/RuleOutline descriptions are constructor values. Avoid treating
+                // CallerMemberName-provided method names as user-authored descriptions.
+                if (string.IsNullOrWhiteSpace(description) && attrType != typeof(ScenarioAttribute) && attrType != typeof(ScenarioOutlineAttribute))
+                {
+                    var ctorDescription = GetAttributeString(attr, "Description", 0);
+                    if (!string.IsNullOrWhiteSpace(ctorDescription) &&
+                        !string.Equals(ctorDescription, testMethod.Name, StringComparison.Ordinal))
+                    {
+                        description = ctorDescription;
+                    }
+                }
+            }
+
+            methodTags = MergeTags(classTags, ExtractTags(testMethod.GetCustomAttributes(typeof(TagAttribute))));
+        }
+        catch
+        {
+            // Don't let metadata extraction errors affect test execution
+        }
+
+        return new MethodMetadata(title, description?.Trim(), methodTags);
+    }
+
+    private static string StripKnownPrefix(string title)
+    {
+        return title
+            .StripPrefix("Rule Outline: ")
+            .StripPrefix("Scenario Outline: ")
+            .StripPrefix("Rule: ")
+            .StripPrefix("Scenario: ");
+    }
+
+    private static string? GetAttributeString(
+        Xunit.Abstractions.IAttributeInfo? attr,
+        string namedArgument,
+        int constructorArgumentIndex)
+    {
+        if (attr == null)
+            return null;
+
+        try
+        {
+            var named = attr.GetNamedArgument<string>(namedArgument);
+            if (!string.IsNullOrWhiteSpace(named))
+                return named;
+        }
+        catch
+        {
+            // Fall back to constructor arguments below.
+        }
+
+        try
+        {
+            var ctorArgs = attr.GetConstructorArguments().ToList();
+            if (ctorArgs.Count > constructorArgumentIndex &&
+                ctorArgs[constructorArgumentIndex] is string ctorValue &&
+                !string.IsNullOrWhiteSpace(ctorValue))
+            {
+                return ctorValue;
+            }
+        }
+        catch
+        {
+            // Metadata extraction is best-effort.
+        }
+
+        return null;
+    }
+
+    private static string[]? ExtractTags(IEnumerable<Xunit.Abstractions.IAttributeInfo> tagAttrs)
+    {
+        var tags = new List<string>();
+        foreach (var tagAttr in tagAttrs)
+        {
+            var tagsStr = GetAttributeString(tagAttr, "Tags", 0);
+            if (!string.IsNullOrWhiteSpace(tagsStr))
+            {
+                tags.AddRange(tagsStr.Split(',').Select(t => t.Trim())
+                    .Where(t => !string.IsNullOrEmpty(t)));
+            }
+        }
+
+        return tags.Distinct(StringComparer.OrdinalIgnoreCase).ToArray().NullIfEmpty();
+    }
+
+    private static string[]? MergeTags(params string[]?[] tagSets)
+    {
+        return tagSets
+            .Where(tags => tags != null)
+            .SelectMany(tags => tags!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray()
+            .NullIfEmpty();
     }
 
     /// <summary>
@@ -347,60 +567,70 @@ public class LiveDocMessageSink : IMessageSink
     private static string GetOutlineTemplateTitle(Xunit.Abstractions.IMethodInfo testMethod, bool isSpec)
     {
         // Try to resolve actual MethodInfo via Type.GetMethod
-        var classType = Type.GetType(testMethod.Type.Name) 
-            ?? AppDomain.CurrentDomain.GetAssemblies()
-                .Select(a => { try { return a.GetType(testMethod.Type.Name); } catch { return null; } })
-                .FirstOrDefault(t => t != null);
-        
-        var methodInfo = classType?.GetMethod(testMethod.Name);
-        
+        var classType = ResolveType(testMethod.Type.Name);
+        var methodInfo = ResolveMethod(classType, testMethod.Name, testMethod);
+
         if (methodInfo != null)
+            return GetOutlineTemplateTitle(methodInfo, isSpec);
+
+        var attrType = isSpec ? typeof(RuleOutlineAttribute) : typeof(ScenarioOutlineAttribute);
+        var attr = testMethod.GetCustomAttributes(attrType).FirstOrDefault();
+        var configuredTitle = GetAttributeString(attr, isSpec ? "Description" : "DisplayName", 0);
+        if (!string.IsNullOrWhiteSpace(configuredTitle) &&
+            !string.Equals(configuredTitle, testMethod.Name, StringComparison.Ordinal))
         {
-            var paramNames = methodInfo.GetParameters().Select(p => p.Name!).ToArray();
-
-            if (isSpec)
-            {
-                var ruleOutlineAttr = methodInfo.GetCustomAttribute<RuleOutlineAttribute>();
-                if (!string.IsNullOrEmpty(ruleOutlineAttr?.Description))
-                    return ruleOutlineAttr.Description;
-            }
-            else
-            {
-                var scenarioOutlineAttr = methodInfo.GetCustomAttribute<ScenarioOutlineAttribute>();
-                if (scenarioOutlineAttr != null)
-                {
-                    var methodAsTitle = "Scenario Outline: " + methodInfo.Name.Replace("_", " ");
-                    if (scenarioOutlineAttr.DisplayName != null && scenarioOutlineAttr.DisplayName != methodAsTitle)
-                    {
-                        var title = scenarioOutlineAttr.DisplayName;
-                        if (title.StartsWith("Scenario Outline: ", StringComparison.OrdinalIgnoreCase))
-                            title = title.Substring("Scenario Outline: ".Length);
-                        return title;
-                    }
-                }
-            }
-
-            return Core.ValueParser.FormatMethodNameAsTemplate(methodInfo.Name, paramNames);
+            return StripKnownPrefix(configuredTitle);
         }
 
-        // Fallback: use xUnit's IAttributeInfo for description, or format method name
-        if (isSpec)
-        {
-            var attrs = testMethod.GetCustomAttributes(typeof(RuleOutlineAttribute));
-            var attr = attrs.FirstOrDefault();
-            var desc = attr?.GetNamedArgument<string>("Description");
-            if (!string.IsNullOrEmpty(desc)) return desc;
-        }
-        else
-        {
-            var attrs = testMethod.GetCustomAttributes(typeof(ScenarioOutlineAttribute));
-            var attr = attrs.FirstOrDefault();
-            var desc = attr?.GetNamedArgument<string>("Description");
-            if (!string.IsNullOrEmpty(desc)) return desc;
-        }
-        
         // Last resort: format method name with param names from IMethodInfo
         var iParamNames = testMethod.GetParameters().Select(p => p.Name).ToArray();
         return Core.ValueParser.FormatMethodNameAsTemplate(testMethod.Name, iParamNames);
+    }
+
+    private static string GetOutlineTemplateTitle(MethodInfo methodInfo, bool isSpecification)
+    {
+        var paramNames = methodInfo.GetParameters().Select(p => p.Name!).ToArray();
+        var methodAsTitle = isSpecification
+            ? "Rule Outline: " + methodInfo.Name.Replace("_", " ")
+            : "Scenario Outline: " + methodInfo.Name.Replace("_", " ");
+
+        if (isSpecification)
+        {
+            var ruleOutlineAttr = methodInfo.GetCustomAttribute<RuleOutlineAttribute>();
+            if (!string.IsNullOrWhiteSpace(ruleOutlineAttr?.Description))
+                return ruleOutlineAttr.Description;
+
+            if (!string.IsNullOrWhiteSpace(ruleOutlineAttr?.DisplayName) &&
+                !string.Equals(ruleOutlineAttr.DisplayName, methodAsTitle, StringComparison.Ordinal))
+            {
+                return StripKnownPrefix(ruleOutlineAttr.DisplayName);
+            }
+        }
+        else
+        {
+            var scenarioOutlineAttr = methodInfo.GetCustomAttribute<ScenarioOutlineAttribute>();
+            if (!string.IsNullOrWhiteSpace(scenarioOutlineAttr?.DisplayName) &&
+                !string.Equals(scenarioOutlineAttr.DisplayName, methodAsTitle, StringComparison.Ordinal))
+            {
+                return StripKnownPrefix(scenarioOutlineAttr.DisplayName);
+            }
+        }
+
+        return Core.ValueParser.FormatMethodNameAsTemplate(methodInfo.Name, paramNames);
+    }
+}
+
+internal static class LiveDocReporterMetadataExtensions
+{
+    public static string StripPrefix(this string value, string prefix)
+    {
+        return value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? value.Substring(prefix.Length)
+            : value;
+    }
+
+    public static string[]? NullIfEmpty(this string[] values)
+    {
+        return values.Length == 0 ? null : values;
     }
 }

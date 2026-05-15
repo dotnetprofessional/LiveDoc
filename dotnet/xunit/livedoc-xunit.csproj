@@ -9,7 +9,7 @@
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.2.0.1</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -47,6 +47,7 @@
   <!-- Include README and readme.txt and MSBuild targets in the NuGet package -->
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="CHANGELOG.md" Pack="true" PackagePath="\" />
     <None Include="readme.txt" Pack="true" PackagePath="" />
     <None Include="build\SweDevTools.LiveDoc.xUnit.targets" Pack="true" PackagePath="build\" />
   </ItemGroup>

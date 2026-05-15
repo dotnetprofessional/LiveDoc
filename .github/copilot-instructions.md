@@ -38,6 +38,8 @@ We aim for a **professional, polished, and delightful user experience**.
 - **Component Library**: Use **shadcn/ui** for all UI components.
   - Do not reinvent common components (buttons, dialogs, inputs, etc.).
   - If a component is missing, implement it following the shadcn/ui pattern (headless primitives + Tailwind).
+  - For controls (checkboxes, switches, menus, tabs, selects, sliders, dialogs, inputs), always use an existing shadcn/Radix primitive or add the matching local wrapper before considering a custom implementation.
+  - Only hand-roll controls for bespoke interactions with no suitable primitive; preserve native semantics and document why the shared control does not fit.
 - **State Management**: Use **Zustand** for global state.
 - **Design Philosophy**:
   - **Clean & Minimal**: Avoid clutter. Use whitespace effectively.

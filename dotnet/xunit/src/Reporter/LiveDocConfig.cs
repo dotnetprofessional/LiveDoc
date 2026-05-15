@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace SweDevTools.LiveDoc.xUnit.Reporter;
 
 /// <summary>
@@ -35,32 +37,69 @@ public class LiveDocConfig
     public const string ExportPathEnvVar = "LIVEDOC_EXPORT_PATH";
 
     /// <summary>
+    /// Assembly metadata key used to configure a stable LiveDoc project name.
+    /// </summary>
+    public const string ProjectMetadataKey = "LiveDocProject";
+
+    /// <summary>
     /// Default server URL for auto-discovery.
     /// </summary>
     public const string DefaultServerUrl = "http://localhost:3100";
 
+    private static readonly TimeSpan DiscoveryTimeout = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan DiscoveryRetryInterval = TimeSpan.FromSeconds(2);
+    private static readonly string[] DiscoveryServerUrls =
+    [
+        "http://127.0.0.1:3100",
+        DefaultServerUrl,
+        "http://[::1]:3100"
+    ];
+
     /// <summary>
     /// The LiveDoc server URL. Null if reporting is disabled.
     /// </summary>
-    public string? ServerUrl { get; }
+    public string? ServerUrl => ResolveServerUrl();
+    private string? _serverUrl;
+    private readonly bool _readEnvironment;
+    private readonly object _discoveryLock = new();
+    private DateTimeOffset _nextDiscoveryAttemptUtc = DateTimeOffset.MinValue;
 
     /// <summary>
     /// The project name. Defaults to the assembly name.
     /// Resolved lazily to allow the test assembly to load first.
     /// </summary>
-    public string Project => _project ??= _defaultProject ?? ResolveProjectName();
+    public string Project
+    {
+        get
+        {
+            if (_readEnvironment)
+            {
+                var envProject = GetEnvironmentValue(ProjectEnvVar);
+                if (envProject != null)
+                    return envProject;
+            }
+
+            return _project ??= _defaultProject ?? ResolveProjectName();
+        }
+    }
     private string? _project;
-    private readonly string? _defaultProject;
+    private string? _defaultProject;
 
     /// <summary>
     /// The environment name. Defaults to "local".
     /// </summary>
-    public string Environment { get; }
+    public string Environment => _readEnvironment
+        ? GetEnvironmentValue(EnvironmentEnvVar) ?? _environment
+        : _environment;
+    private readonly string _environment;
 
     /// <summary>
     /// The file path for JSON export. Null if export is disabled.
     /// </summary>
-    public string? ExportPath { get; }
+    public string? ExportPath => _readEnvironment
+        ? GetEnvironmentValue(ExportPathEnvVar) ?? _exportPath
+        : _exportPath;
+    private readonly string? _exportPath;
 
     /// <summary>
     /// Whether reporting is enabled (ServerUrl is set).
@@ -73,15 +112,9 @@ public class LiveDocConfig
     /// <param name="defaultProject">Default project name if not set in environment.</param>
     public LiveDocConfig(string? defaultProject = null)
     {
-        var envUrl = System.Environment.GetEnvironmentVariable(ServerUrlEnvVar);
-        ServerUrl = !string.IsNullOrEmpty(envUrl) ? envUrl : TryDiscoverServer();
-        var envProject = System.Environment.GetEnvironmentVariable(ProjectEnvVar);
-        if (!string.IsNullOrEmpty(envProject))
-            _project = envProject;
-        else
-            _defaultProject = defaultProject;
-        Environment = System.Environment.GetEnvironmentVariable(EnvironmentEnvVar) ?? "local";
-        ExportPath = System.Environment.GetEnvironmentVariable(ExportPathEnvVar);
+        _readEnvironment = true;
+        _defaultProject = defaultProject;
+        _environment = "local";
     }
 
     /// <summary>
@@ -89,10 +122,56 @@ public class LiveDocConfig
     /// </summary>
     public LiveDocConfig(string serverUrl, string project, string environment, string? exportPath = null)
     {
-        ServerUrl = serverUrl;
+        _readEnvironment = false;
+        _serverUrl = serverUrl;
         _project = project;
-        Environment = environment;
-        ExportPath = exportPath;
+        _environment = environment;
+        _exportPath = exportPath;
+    }
+
+    /// <summary>
+    /// Sets the fallback project name from the current test assembly.
+    /// Environment variables still take precedence.
+    /// </summary>
+    internal void SetDefaultProject(AssemblyName assemblyName)
+    {
+        if (!_readEnvironment || GetEnvironmentValue(ProjectEnvVar) != null)
+            return;
+
+        var project = ResolveProjectNameFromMetadata(assemblyName) ?? assemblyName.Name;
+        if (string.IsNullOrWhiteSpace(project) ||
+            string.Equals(project, _defaultProject, StringComparison.Ordinal))
+            return;
+
+        _defaultProject = project;
+        ReResolveProject();
+    }
+
+    internal string? ResolveServerUrl(bool forceDiscovery = false)
+    {
+        if (!_readEnvironment)
+            return _serverUrl;
+
+        var envUrl = GetEnvironmentValue(ServerUrlEnvVar);
+        if (envUrl != null)
+        {
+            _serverUrl = envUrl;
+            return _serverUrl;
+        }
+
+        if (!string.IsNullOrEmpty(_serverUrl))
+            return _serverUrl;
+
+        var now = DateTimeOffset.UtcNow;
+        lock (_discoveryLock)
+        {
+            if (!forceDiscovery && now < _nextDiscoveryAttemptUtc)
+                return null;
+
+            _nextDiscoveryAttemptUtc = now.Add(DiscoveryRetryInterval);
+            _serverUrl = TryDiscoverServer();
+            return _serverUrl;
+        }
     }
 
     /// <summary>
@@ -101,6 +180,10 @@ public class LiveDocConfig
     /// </summary>
     private static string ResolveProjectName()
     {
+        var metadataProject = ResolveProjectNameFromLoadedAssemblyMetadata();
+        if (metadataProject != null)
+            return metadataProject;
+
         // Entry assembly is often "testhost" when running via xUnit/dotnet test
         var entryName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name;
         if (!string.IsNullOrEmpty(entryName) && !entryName.Equals("testhost", StringComparison.OrdinalIgnoreCase))
@@ -127,17 +210,29 @@ public class LiveDocConfig
     /// </summary>
     private static string? TryDiscoverServer()
     {
-        try
+        foreach (var serverUrl in DiscoveryServerUrls)
         {
-            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
-            var response = client.GetAsync($"{DefaultServerUrl}/api/health").GetAwaiter().GetResult();
-            if (response.IsSuccessStatusCode)
-                return DefaultServerUrl;
+            try
+            {
+                using var handler = new SocketsHttpHandler
+                {
+                    ConnectTimeout = DiscoveryTimeout
+                };
+                using var client = new HttpClient(handler)
+                {
+                    Timeout = DiscoveryTimeout
+                };
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{serverUrl}/api/health");
+                using var response = client.Send(request);
+                if (response.IsSuccessStatusCode)
+                    return serverUrl;
+            }
+            catch
+            {
+                // Server not running on this endpoint; try the next candidate.
+            }
         }
-        catch
-        {
-            // Server not running — auto-discovery failed silently
-        }
+
         return null;
     }
 
@@ -148,6 +243,56 @@ public class LiveDocConfig
     internal void ReResolveProject()
     {
         _project = null;
+    }
+
+    private static string? GetEnvironmentValue(string name)
+    {
+        var value = System.Environment.GetEnvironmentVariable(name);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static string? ResolveProjectNameFromMetadata(AssemblyName assemblyName)
+    {
+        var assembly = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a =>
+                !a.IsDynamic &&
+                AssemblyName.ReferenceMatchesDefinition(a.GetName(), assemblyName));
+
+        if (assembly == null)
+        {
+            try
+            {
+                assembly = Assembly.Load(assemblyName);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        return ResolveProjectNameFromMetadata(assembly);
+    }
+
+    private static string? ResolveProjectNameFromLoadedAssemblyMetadata()
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic))
+        {
+            var project = ResolveProjectNameFromMetadata(assembly);
+            if (project != null)
+                return project;
+        }
+
+        return null;
+    }
+
+    private static string? ResolveProjectNameFromMetadata(Assembly assembly)
+    {
+        var value = assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => string.Equals(a.Key, ProjectMetadataKey, StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     /// <summary>

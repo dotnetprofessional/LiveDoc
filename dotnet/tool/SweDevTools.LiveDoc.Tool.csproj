@@ -22,6 +22,10 @@
     <PackageReference Include="Spectre.Console" Version="0.49.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="CHANGELOG.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <!-- Copy canonical skill files and embed them -->
   <Target Name="CopyCanonicalSkillFiles" BeforeTargets="BeforeBuild;BeforeResolveReferences">
     <ItemGroup>

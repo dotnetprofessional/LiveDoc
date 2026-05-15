@@ -157,15 +157,23 @@ export async function startViewerServer(options: ViewerServerOptions = {}) {
   }
   
   // Graceful shutdown handler
+  let shuttingDown = false;
   const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log(`\n${signal} received, shutting down gracefully...`);
-    await server.stop();
-    console.log('Data saved. Goodbye! 👋');
-    process.exit(0);
+    try {
+      await server.stop();
+      console.log('Data saved. Goodbye! 👋');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during shutdown:', error);
+      process.exit(1);
+    }
   };
   
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => void shutdown('SIGINT'));
+  process.once('SIGTERM', () => void shutdown('SIGTERM'));
   
   return server;
 }

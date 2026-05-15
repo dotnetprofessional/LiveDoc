@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = "StepResult.ResponseBody extracts the HTTP response body from httpYac output, skipping status lines, headers, and assertion markers.")]
+[Specification("StepResult ResponseBody", Description = "StepResult.ResponseBody extracts the HTTP response body from httpYac output, skipping status lines, headers, and assertion markers.")]
 public class StepResult_ResponseBody_Spec : SpecificationTest
 {
     public StepResult_ResponseBody_Spec(ITestOutputHelper output) : base(output)

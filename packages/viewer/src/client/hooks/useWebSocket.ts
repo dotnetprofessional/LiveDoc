@@ -1,22 +1,36 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { makeRunState, makeSessionState, useStore, Run, Session } from '../store';
+import { makeRunState, useStore, type DataDiagnostic, type Run } from '../store';
 import { getApiBaseUrl, getWsBaseUrl } from '../config';
-import type { V1WebSocketEvent, TestRunV1, SessionV1 } from '@swedevtools/livedoc-schema';
+import type { V1WebSocketEvent, TestRunV1 } from '@swedevtools/livedoc-schema';
+
+function hasRunDocuments(run: Run | undefined): boolean {
+  return (run?.run.documents?.length ?? 0) > 0;
+}
+
+function timestampMs(value: string | undefined): number {
+  const ms = Date.parse(value ?? '');
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function latestRun(runs: Run[]): Run | undefined {
+  return runs
+    .slice()
+    .sort((a, b) => timestampMs(b.run.timestamp) - timestampMs(a.run.timestamp))[0];
+}
 
 export function useWebSocket(skip = false) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasConnectedRef = useRef(false);
-  
-  const { 
-    setConnectionStatus, 
-    addRun, 
-    updateRun, 
+
+  const {
+    setConnectionStatus,
+    addRun,
+    updateRun,
     selectRun,
-    addSession,
-    updateSession,
-    selectSession,
+    selectRunGroup,
     setProjectHierarchy,
+    setDiagnostics,
     upsertTestCase,
     upsertTest,
     patchTestExecution,
@@ -37,25 +51,22 @@ export function useWebSocket(skip = false) {
     }
   }, []);
 
-  const fetchSessionById = useCallback(async (sessionId: string): Promise<Session | null> => {
+  const fetchDiagnostics = useCallback(async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/sessions/${sessionId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/diagnostics`, {
         cache: 'no-store'
       });
-      if (!response.ok) {
-        // Session endpoint might not exist on old servers - graceful degradation
-        if (response.status === 404) {
-          console.debug(`Session endpoint not available (404) - server may not support sessions yet`);
-        }
-        return null;
-      }
-      const fullSession = (await response.json()) as SessionV1;
-      return makeSessionState(fullSession);
-    } catch (e) {
-      console.debug(`Failed to fetch session ${sessionId}:`, e);
-      return null;
+      if (!response.ok) return;
+
+      const payload = await response.json();
+      const diagnostics = Array.isArray(payload?.diagnostics)
+        ? (payload.diagnostics as DataDiagnostic[])
+        : [];
+      setDiagnostics(diagnostics);
+    } catch {
+      // Older servers do not expose diagnostics; absence of the endpoint is not itself a viewer error.
     }
-  }, []);
+  }, [setDiagnostics]);
 
   // Fetch project hierarchy for navigation
   const fetchProjectHierarchy = useCallback(async () => {
@@ -63,8 +74,8 @@ export function useWebSocket(skip = false) {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/hierarchy`, {
         cache: 'no-store'
       });
-      if (!response.ok) return;
-      
+      if (!response.ok) return [] as ReturnType<typeof useStore.getState>['projectHierarchy'];
+
       const data = await response.json();
       if (data.projects) {
         const hierarchy = data.projects.map((project: any) => ({
@@ -74,98 +85,69 @@ export function useWebSocket(skip = false) {
             latestRun: (env.latestRun && String(env.latestRun.protocolVersion ?? '') === '1.0')
               ? makeRunState(env.latestRun as TestRunV1)
               : undefined,
-            latestSession: (env.latestSession && env.latestSession.sessionId)
-              ? makeSessionState(env.latestSession as SessionV1)
-              : undefined,
             historyCount: env.historyCount,
             history: env.history || [],
           })),
         }));
         setProjectHierarchy(hierarchy);
+        return hierarchy;
       }
+      return [] as ReturnType<typeof useStore.getState>['projectHierarchy'];
     } catch (error) {
       console.error('Failed to fetch project hierarchy:', error);
+      return [] as ReturnType<typeof useStore.getState>['projectHierarchy'];
     }
   }, [setProjectHierarchy]);
+
+  const selectBestAvailableView = useCallback(() => {
+    const state = useStore.getState();
+    const groups = state.getRunGroups();
+    if (state.projectGrouping.enabled && groups.length > 0) {
+      if (state.selectedRunGroupId && groups.some((group) => group.group.id === state.selectedRunGroupId)) {
+        return;
+      }
+
+      if (state.selectedRunId) {
+        const containingGroup = groups.find((group) =>
+          group.group.runs.some((run) => run.runId === state.selectedRunId)
+        );
+        if (containingGroup) selectRunGroup(containingGroup.group.id);
+        return;
+      }
+
+      selectRunGroup(groups[0].group.id);
+      return;
+    }
+
+    const newestRun = latestRun(state.runs.filter(hasRunDocuments));
+    if (!state.selectedRunId && newestRun) selectRun(newestRun.run.runId);
+  }, [selectRun, selectRunGroup]);
 
   // Fetch initial data via REST API
   const fetchInitialData = useCallback(async () => {
     try {
-      await fetchProjectHierarchy();
-      
-      // Try to load session data from hierarchy first (Bug 1 fix: don't call /sessions without params)
-      const state = useStore.getState();
-      const hierarchy = state.projectHierarchy;
-      
+      await fetchDiagnostics();
+      const hierarchy = await fetchProjectHierarchy();
+
       if (hierarchy.length > 0) {
-        // vx-4: Find project/environment with most recent activity instead of index[0]
-        let bestProject = hierarchy[0];
-        let bestEnv = bestProject?.environments?.[0];
-        let bestTime = '';
         for (const proj of hierarchy) {
           for (const env of proj.environments) {
-            const sessionTime = env.latestSession?.session?.timestamp || '';
-            const runTime = env.latestRun?.run?.timestamp || '';
-            const t = sessionTime > runTime ? sessionTime : runTime;
-            if (t > bestTime) {
-              bestTime = t;
-              bestProject = proj;
-              bestEnv = env;
-            }
+            if (env.latestRun && hasRunDocuments(env.latestRun)) addRun(env.latestRun);
           }
         }
 
-        // Check if hierarchy already includes a latestSession (from Wash's server-side fix)
-        const latestSession = bestEnv?.latestSession;
-        if (latestSession?.session?.sessionId) {
-          // vx-3: upsert instead of replacing entire array
-          addSession(latestSession);
-          selectSession(latestSession.session.sessionId);
-          return; // Session loaded from hierarchy - done
-        }
-
-        // Fallback: fetch sessions with required project/environment params
-        const defaultProject = bestProject?.name;
-        const defaultEnv = bestEnv?.name || 'local';
-        try {
-          const sessionsListResponse = await fetch(
-            `${getApiBaseUrl()}/api/v1/sessions?project=${encodeURIComponent(defaultProject)}&environment=${encodeURIComponent(defaultEnv)}`,
-            { cache: 'no-store' }
-          );
-
-          if (sessionsListResponse.ok) {
-            const payload = await sessionsListResponse.json();
-            // Bug 2 fix: unwrap { sessions } envelope
-            const sessionsList = payload.sessions || [];
-            const validSessions = Array.isArray(sessionsList)
-              ? sessionsList.filter((s: any) => s?.sessionId)
-              : [];
-
-            // Bug 3 fix: hydrate ALL sessions, not just the first
-            if (validSessions.length > 0) {
-              const fullSessions = await Promise.all(
-                validSessions.map((s: any) => fetchSessionById(s.sessionId))
-              );
-              const valid = fullSessions.filter((s): s is Session => s !== null);
-              if (valid.length > 0) {
-                // vx-3: upsert each session instead of replacing entire array
-                valid.forEach(s => addSession(s));
-                selectSession(valid[0].session.sessionId);
-                return; // Session mode - don't load individual runs
-              }
-            }
-          }
-        } catch (e) {
-          console.debug('Sessions endpoint not available, falling back to runs:', e);
+        if (useStore.getState().runs.length > 0) {
+          selectBestAvailableView();
+          return;
         }
       }
-      
+
       // Fallback: load runs (backward compatibility)
       const runsListResponse = await fetch(`${getApiBaseUrl()}/api/v1/runs`, {
         cache: 'no-store'
       });
       if (!runsListResponse.ok) return;
-      
+
       const runsList = await runsListResponse.json();
       const v1RunsList = Array.isArray(runsList)
         ? runsList.filter((r: any) => String(r?.protocolVersion ?? '') === '1.0')
@@ -174,48 +156,24 @@ export function useWebSocket(skip = false) {
       if (v1RunsList.length === 0) {
         return;
       }
-      
+
       const fullRuns = await Promise.all(
         v1RunsList.map(async (run: any) => {
           return fetchRunById(run.runId);
         })
       );
-      
+
       const validRuns = fullRuns.filter((r): r is Run => r !== null);
       // vx-3: upsert each run instead of replacing entire array
       validRuns.forEach(r => addRun(r));
-      
+
       if (validRuns.length > 0) {
-        selectRun(validRuns[0].run.runId);
+        selectBestAvailableView();
       }
     } catch (error) {
       console.error('Failed to fetch initial data:', error);
     }
-  }, [fetchProjectHierarchy, fetchRunById, fetchSessionById, selectRun, selectSession, addRun, addSession]);
-
-  const handleSessionUpdated = useCallback(async (sessionId: string) => {
-    const fullSession = await fetchSessionById(sessionId);
-    if (!fullSession) return;
-
-    // vx-2: Determine current project BEFORE merging
-    const state = useStore.getState();
-    const currentProject = state.sessions.find(
-      (s) => s.session.sessionId === state.selectedSessionId
-    )?.session.project;
-
-    const existing = state.sessions.some((s) => s.session.sessionId === sessionId);
-    if (existing) {
-      updateSession(sessionId, fullSession);
-    } else {
-      addSession(fullSession);
-    }
-
-    // vx-2: Only auto-select if same project or nothing selected
-    if (!state.selectedSessionId || fullSession.session.project === currentProject) {
-      selectSession(sessionId);
-    }
-    fetchProjectHierarchy();
-  }, [addSession, fetchProjectHierarchy, fetchSessionById, selectSession, updateSession]);
+  }, [fetchDiagnostics, fetchProjectHierarchy, fetchRunById, selectBestAvailableView, addRun]);
 
   const handleRunCompleted = useCallback(async (runId: string) => {
     let full = await fetchRunById(runId);
@@ -239,26 +197,14 @@ export function useWebSocket(skip = false) {
       addRun(full);
     }
 
-    // Keep the Viewer on the latest run by default (unless a session is selected)
-    const hasSession = useStore.getState().selectedSessionId !== null;
-    if (!hasSession) {
-      selectRun(runId);
-    }
+    selectBestAvailableView();
     fetchProjectHierarchy();
-  }, [addRun, fetchProjectHierarchy, fetchRunById, selectRun, updateRun]);
+  }, [addRun, fetchProjectHierarchy, fetchRunById, selectBestAvailableView, updateRun]);
 
   const handleMessage = useCallback((message: any) => {
     const type = String(message?.type ?? '');
 
     switch (type) {
-      case 'session:v1:updated': {
-        const evt = message as V1WebSocketEvent & { type: 'session:v1:updated' };
-        if (evt.sessionId) {
-          void handleSessionUpdated(evt.sessionId);
-        }
-        break;
-      }
-
       case 'run:v1:started': {
         const evt = message as V1WebSocketEvent & { type: 'run:v1:started' };
         if (!evt.runId) return;
@@ -277,11 +223,11 @@ export function useWebSocket(skip = false) {
         };
 
         addRun(makeRunState(run));
-        // Only auto-select run if no session is active
-        const hasSession = useStore.getState().selectedSessionId !== null;
-        if (!hasSession) {
+        const state = useStore.getState();
+        if (!state.selectedRunGroupId && !state.selectedRunId) {
           selectRun(evt.runId);
         }
+        selectBestAvailableView();
         fetchProjectHierarchy();
         break;
       }
@@ -329,16 +275,16 @@ export function useWebSocket(skip = false) {
         // Ignore unknown messages (future-proof)
         break;
     }
-  }, [addRun, fetchProjectHierarchy, handleRunCompleted, handleSessionUpdated, patchTestExecution, selectRun, upsertOutlineExampleResults, upsertTest, upsertTestCase]);
+  }, [addRun, fetchProjectHierarchy, handleRunCompleted, patchTestExecution, selectBestAvailableView, selectRun, upsertOutlineExampleResults, upsertTest, upsertTestCase]);
 
   const connect = useCallback(() => {
     const wsUrl = `${getWsBaseUrl()}/ws`;
-    
+
     setConnectionStatus('connecting');
-    
+
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
-    
+
     ws.onopen = () => {
       setConnectionStatus('connected');
 
@@ -350,26 +296,18 @@ export function useWebSocket(skip = false) {
         // ignore
       }
 
-      // vx-1: On reconnect, rehydrate active session to recover missed events
+      // On reconnect, refresh hierarchy so missed run completions are recovered.
       if (hasConnectedRef.current) {
-        const { selectedSessionId } = useStore.getState();
-        if (selectedSessionId) {
-          void fetchSessionById(selectedSessionId).then((freshSession) => {
-            if (freshSession) {
-              useStore.getState().addSession(freshSession);
-            }
-          });
-        }
         void fetchProjectHierarchy();
       }
       hasConnectedRef.current = true;
-      
+
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
     };
-    
+
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
@@ -378,28 +316,28 @@ export function useWebSocket(skip = false) {
         console.error('Failed to parse WebSocket message:', error);
       }
     };
-    
+
     ws.onclose = () => {
       setConnectionStatus('disconnected');
       wsRef.current = null;
-      
+
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
       }, 3000);
     };
-    
+
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
       setConnectionStatus('error');
     };
-  }, [setConnectionStatus, handleMessage, fetchSessionById, fetchProjectHierarchy]);
+  }, [setConnectionStatus, handleMessage, fetchProjectHierarchy]);
 
   useEffect(() => {
     if (skip) return;
 
     fetchInitialData();
     connect();
-    
+
     return () => {
       if (wsRef.current) {
         wsRef.current.close();

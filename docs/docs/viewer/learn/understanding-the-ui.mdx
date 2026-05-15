@@ -57,6 +57,39 @@ See [Multi-Project Setup](../guides/multi-project-setup.mdx) for how to
 configure multiple projects posting to the same viewer.
 :::
 
+### Logical Project Grouping
+
+Some solutions split one product into several test projects: for example,
+`Billing.UnitTests`, `Billing.IntegrationTests`, and `Billing.E2ETests`. When
+those projects run together, the viewer can present them as one logical project
+so the project selector stays focused on the product instead of every physical
+test assembly.
+
+```mermaid
+graph LR
+    U[Billing.UnitTests] --> D{Same root prefix?}
+    I[Billing.IntegrationTests] --> D
+    E[Billing.E2ETests] --> D
+    D -->|Same environment and close run timing| G[Billing logical project]
+    D -->|Different prefix or run window| S[Separate project entry]
+```
+
+The first time the viewer detects a group, it asks whether you want to use the
+grouped view or keep each test project separate. Grouping uses three signals:
+
+| Signal | What the viewer checks | Why it matters |
+| ------ | ---------------------- | -------------- |
+| Root project prefix | Shared name before test-type suffixes such as `Unit`, `Integration`, `Tests`, or `E2E` | Keeps related test projects together without merging unrelated products |
+| Environment | Matching labels such as `local`, `ci`, or `staging` | Prevents local and CI runs from being mixed |
+| Run timing | Runs overlap, or one starts within 60 seconds of another in the set completing | Treats sequential and parallel test-project runs as one logical execution |
+
+Use **Viewer settings > Group related test projects** to turn grouping on or off
+later. When grouping is enabled, **Hide grouped source projects** keeps physical
+test projects out of the project selector once they are represented by a logical
+group. The source projects still appear as folders inside the grouped run, so
+you can tell where each feature or specification came from without cluttering
+the top-level project list.
+
 ---
 
 ## Feature & Specification Tree

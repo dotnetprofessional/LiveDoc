@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = "JourneyResult.Parse() reads httpYac CLI output into per-step results, detecting step boundaries, HTTP status codes, failed assertions, ANSI codes, and step name normalization.")]
+[Specification("JourneyResult Parse", Description = "JourneyResult.Parse() reads httpYac CLI output into per-step results, detecting step boundaries, HTTP status codes, failed assertions, ANSI codes, and step name normalization.")]
 public class JourneyResult_Parse_Spec : SpecificationTest
 {
     public JourneyResult_Parse_Spec(ITestOutputHelper output) : base(output)

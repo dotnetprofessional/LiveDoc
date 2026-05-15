@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = "PropertyRules.Find() resolves rules by direct name, wildcard (*.name), full path, and parent.name — all case-insensitive.")]
+[Specification("PropertyRules Find", Description = "PropertyRules.Find() resolves rules by direct name, wildcard (*.name), full path, and parent.name — all case-insensitive.")]
 public class PropertyRules_Find_Spec : SpecificationTest
 {
     public PropertyRules_Find_Spec(ITestOutputHelper output) : base(output)

@@ -159,6 +159,40 @@ In the viewer dashboard:
 
 ---
 
+## Logical Grouping for Split Test Projects
+
+Sometimes multiple test projects belong to the same product. For example,
+`checkout.unit.tests`, `checkout.integration.tests`, and `checkout.e2e.tests`
+may all describe one `checkout` application. When those projects run together,
+the viewer can group them into a single logical project.
+
+```mermaid
+graph TD
+    A[checkout.unit.tests] --> G[checkout]
+    B[checkout.integration.tests] --> G
+    C[checkout.e2e.tests] --> G
+    G --> V[One project entry in the Viewer]
+```
+
+The viewer only creates a group when projects share a root prefix, use the same
+environment, and run as one logical execution. Runs can overlap, or one run can
+start within 60 seconds of another grouped run completing.
+
+The first time a group is detected, the viewer asks whether to use the grouped
+view or keep individual projects. You can change this later from **Viewer
+settings**:
+
+| Setting | What it does |
+| ------- | ------------ |
+| **Group related test projects** | Enables or disables logical project grouping |
+| **Hide grouped source projects** | Hides physical test projects from the project selector once they are represented by a group |
+
+Even when source projects are hidden from the selector, they remain visible as
+folders inside the grouped run. This keeps the project list clean while still
+showing which test project produced each feature or specification.
+
+---
+
 ## Environment Naming Conventions
 
 Choose environment names that reflect your deployment contexts:

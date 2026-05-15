@@ -46,11 +46,6 @@ public class LiveDocReporter : IDisposable
             ConnectTimeout = TimeSpan.FromSeconds(5)
         });
         _client.Timeout = TimeSpan.FromMinutes(5);
-        
-        if (_config.IsEnabled)
-        {
-            _client.BaseAddress = new Uri(_config.ServerUrl!);
-        }
 
         _jsonOptions = new JsonSerializerOptions
         {
@@ -81,7 +76,8 @@ public class LiveDocReporter : IDisposable
     /// <returns>The run ID, or null if reporting is disabled or failed.</returns>
     public async Task<string?> StartRunAsync(CancellationToken cancellationToken = default)
     {
-        if (!_config.IsEnabled)
+        var endpoint = ResolveEndpoint("/api/v1/runs/start", forceDiscovery: true);
+        if (endpoint == null)
             return null;
 
         if (_runId != null)
@@ -98,7 +94,7 @@ public class LiveDocReporter : IDisposable
             };
 
             var response = await _client.PostAsJsonAsync(
-                "/api/v1/runs/start",
+                endpoint,
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -125,14 +121,18 @@ public class LiveDocReporter : IDisposable
     /// </summary>
     public async Task<bool> UpsertTestCaseAsync(TestCase testCase, CancellationToken cancellationToken = default)
     {
-        if (!_config.IsEnabled || _runId == null)
+        if (_runId == null)
+            return false;
+
+        var endpoint = ResolveEndpoint($"/api/v1/runs/{_runId}/testcases");
+        if (endpoint == null)
             return false;
 
         try
         {
             var request = new UpsertTestCaseRequest { TestCase = testCase };
             var response = await _client.PostAsJsonAsync(
-                $"/api/v1/runs/{_runId}/testcases",
+                endpoint,
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -155,7 +155,11 @@ public class LiveDocReporter : IDisposable
         CompleteRunRequest? complete = null,
         CancellationToken cancellationToken = default)
     {
-        if (!_config.IsEnabled || _runId == null)
+        if (_runId == null)
+            return false;
+
+        var endpoint = ResolveEndpoint($"/api/v1/runs/{_runId}/testcases/batch");
+        if (endpoint == null)
             return false;
 
         try
@@ -167,7 +171,7 @@ public class LiveDocReporter : IDisposable
             var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
             var content = new ByteArrayContent(json);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/runs/{_runId}/testcases/batch") { Content = content };
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content };
             var response = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -190,14 +194,18 @@ public class LiveDocReporter : IDisposable
     /// </summary>
     public async Task<bool> UpsertTestAsync(string testCaseId, BaseTest test, CancellationToken cancellationToken = default)
     {
-        if (!_config.IsEnabled || _runId == null)
+        if (_runId == null)
+            return false;
+
+        var endpoint = ResolveEndpoint($"/api/v1/runs/{_runId}/tests");
+        if (endpoint == null)
             return false;
 
         try
         {
             var request = new UpsertTestRequest { TestCaseId = testCaseId, Test = test };
             var response = await _client.PostAsJsonAsync(
-                $"/api/v1/runs/{_runId}/tests",
+                endpoint,
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -216,7 +224,11 @@ public class LiveDocReporter : IDisposable
     /// </summary>
     public async Task<bool> PatchExecutionAsync(string testId, ExecutionResult execution, CancellationToken cancellationToken = default)
     {
-        if (!_config.IsEnabled || _runId == null)
+        if (_runId == null)
+            return false;
+
+        var endpoint = ResolveEndpoint($"/api/v1/runs/{_runId}/tests/{testId}/execution");
+        if (endpoint == null)
             return false;
 
         try
@@ -229,7 +241,7 @@ public class LiveDocReporter : IDisposable
             };
 
             var response = await _client.PatchAsJsonAsync(
-                $"/api/v1/runs/{_runId}/tests/{testId}/execution",
+                endpoint,
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -251,14 +263,18 @@ public class LiveDocReporter : IDisposable
         IEnumerable<ExampleResult> results, 
         CancellationToken cancellationToken = default)
     {
-        if (!_config.IsEnabled || _runId == null)
+        if (_runId == null)
+            return false;
+
+        var endpoint = ResolveEndpoint($"/api/v1/runs/{_runId}/outlines/{outlineId}/example-results");
+        if (endpoint == null)
             return false;
 
         try
         {
             var request = new UpsertExampleResultsRequest { Results = results.ToList() };
             var response = await _client.PostAsJsonAsync(
-                $"/api/v1/runs/{_runId}/outlines/{outlineId}/example-results",
+                endpoint,
                 request,
                 _jsonOptions,
                 cancellationToken);
@@ -281,7 +297,11 @@ public class LiveDocReporter : IDisposable
         Statistics summary, 
         CancellationToken cancellationToken = default)
     {
-        if (!_config.IsEnabled || _runId == null)
+        if (_runId == null)
+            return false;
+
+        var endpoint = ResolveEndpoint($"/api/v1/runs/{_runId}/complete");
+        if (endpoint == null)
             return false;
 
         try
@@ -296,7 +316,7 @@ public class LiveDocReporter : IDisposable
             var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
             var content = new ByteArrayContent(json);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-            var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/runs/{_runId}/complete") { Content = content };
+            var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint) { Content = content };
             var response = await _client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             return response.IsSuccessStatusCode;
@@ -325,6 +345,18 @@ public class LiveDocReporter : IDisposable
         }
     }
 
+    private Uri? ResolveEndpoint(string path, bool forceDiscovery = false)
+    {
+        var serverUrl = _config.ResolveServerUrl(forceDiscovery);
+        if (string.IsNullOrWhiteSpace(serverUrl))
+            return null;
+
+        var normalizedServerUrl = serverUrl.EndsWith("/", StringComparison.Ordinal)
+            ? serverUrl
+            : serverUrl + "/";
+        return new Uri(new Uri(normalizedServerUrl), path.TrimStart('/'));
+    }
+
     /// <summary>
     /// Resets the run state so a new run can be started.
     /// Call after CompleteRunAsync() when reusing the reporter instance.
@@ -351,7 +383,7 @@ internal static class HttpClientExtensions
 {
     public static async Task<HttpResponseMessage> PatchAsJsonAsync<T>(
         this HttpClient client,
-        string requestUri,
+        Uri requestUri,
         T value,
         JsonSerializerOptions options,
         CancellationToken cancellationToken = default)

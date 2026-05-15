@@ -52,3 +52,72 @@
 **Next Priority:** Convert priority test files to embedded-value format per guidelines; add descriptions/tags; prepare for reorganization sprint led by Mal.
 
 ---
+
+### Regression Test Design: lastrun.json Hydration Bug (2026-05-14)
+
+**Context:** Valid xUnit RuleOutline lastrun files with sessionId not hydrating correctly on viewer startup. Corrupt/old-schema lastruns fail silently. Stale empty sessions mask valid runs.
+
+**Bug Analysis:**
+- Server reads `lastrun.json` during initialization (store-v1.ts:287-295)
+- Silently catches parse/schema errors without diagnostics (line 293: `catch { // no lastrun }`)
+- Hierarchy endpoint includes `latestSession` which can be empty/stale (store-v1.ts:526)
+- Client viewer prioritizes session over run when both exist (useWebSocket.ts:118-125)
+
+**Proposed Regression Tests:**
+
+**File:** `packages/server/test/ServerV1API.Spec.ts` (append to existing test file)
+
+**Test 1: Valid xUnit RuleOutline lastrun hydrates on server startup**
+- **Pattern:** BDD `scenario`
+- **Setup:** Write valid xUnit RuleOutline payload (like lastrun.json artifact) to `{dataDir}/testhost/local/lastrun.json` before server.initialize()
+- **Given:** "a valid xUnit RuleOutline lastrun.json with sessionId exists on disk"
+- **When:** "the server initializes and loads persisted runs"
+- **Then:** "the hierarchy should include the run with runId '<runId>' and sessionId '<sessionId>'" — extract runId/sessionId from artifact payload via `ctx.step.values`
+- **Then:** "the run should have '1' document of kind 'Specification'" — verify RuleOutline structure intact
+- **Then:** "the outline should have '4' example results" — verify exampleResults array length from artifact
+- **Asserts:** `server.getRunStore().getRun(runId)` is defined, sessionId matches, documents[0].kind === "Specification", exampleResults.length === 4
+
+**Test 2: Corrupted lastrun.json produces diagnostic on server startup**
+- **Pattern:** BDD `scenario`
+- **Setup:** Write malformed JSON (`{"protocolVersion": "1.0", "runId": "abc", `) to `{dataDir}/corrupt-project/local/lastrun.json` before server.initialize()
+- **Given:** "a corrupted lastrun.json with invalid JSON syntax exists on disk"
+- **When:** "the server initializes with a custom logger capturing warnings"
+- **Then:** "the logger should receive a warning containing 'lastrun' and 'corrupt-project'" — verify diagnostic was emitted
+- **Then:** "the hierarchy for project 'corrupt-project' should have '0' runs" — graceful degradation
+- **Asserts:** Custom logger receives warning, `server.getRunStore().getRunsForProject('corrupt-project', 'local').length === 0`
+
+**Test 3: Old-schema lastrun (missing required field) produces diagnostic**
+- **Pattern:** BDD `scenario`
+- **Setup:** Write old-schema payload missing `protocolVersion` to `{dataDir}/old-schema/local/lastrun.json`
+- **Given:** "an old-schema lastrun.json missing 'protocolVersion' field exists on disk"
+- **When:** "the server initializes with a custom logger"
+- **Then:** "the logger should receive a warning about schema version mismatch"
+- **Then:** "the run should not be loaded into memory" — prevent corrupt data from breaking viewer
+- **Asserts:** Logger captures diagnostic, run not in store
+
+**Test 4: Empty session does not hide valid latest run in hierarchy**
+- **Pattern:** BDD `scenario`
+- **Setup:** Create valid run via API, then create empty session with same project/env but no runs
+- **Given:** "a valid run with runId '<runId>' exists for project 'TestProj' environment 'local'"
+- **Given:** "an empty session exists for the same project and environment"
+- **When:** "fetching the project hierarchy from /api/v1/hierarchy"
+- **Then:** "the hierarchy should include both latestRun and latestSession" — both should coexist
+- **Then:** "latestRun.runId should be '<runId>'" — valid run visible
+- **Then:** "latestSession should not be 'null'" — session also visible
+- **Asserts:** Verify hierarchy endpoint returns both fields populated; client can choose which to display
+
+**Implementation Notes:**
+- Use existing `ServerV1API.Spec.ts` test patterns (background setup, baseUrl, testDataDir cleanup)
+- Extract all values from step titles via `ctx.step.values` per guidelines
+- Custom logger: `const warnings: string[] = []; server = createServer({ logger: (msg) => warnings.push(msg) })`
+- File system setup: Use `fs.writeFile` before `server.initialize()` to pre-populate lastrun files
+- Total: 4 scenarios, ~16 steps — minimal coverage, maximum signal
+
+### Team Updates (2026-05-15 — lastrun-viewer-diagnostics investigation)
+
+**Zoe's regression test proposal:** Analyzed viewer hydration issues with xUnit lastrun data. Proposed 4 minimal BDD regression test scenarios for ServerV1API.Spec.ts: (1) Valid RuleOutline hydration, (2) Corrupted JSON diagnostic, (3) Old-schema diagnostic, (4) Empty session coexistence. All tests use BDD pattern with embedded values per LiveDoc guidelines. ~16 total steps. Guards against silent failures, startup UX regressions, and session/run priority conflicts. Decision documented: "lastrun.json Hydration Regression Tests". Status: Ready for implementation.
+
+**Kaylee's diagnostics proposal:** Viewer diagnostics framework proposed for static data validation, enhanced empty state detection, dev-mode diagnostics panel, error boundaries, and protocol version checks. Awaiting architecture review.
+
+**Simon's payload compatibility inspection:** xUnit lastrun conforms to Reporter v1 schema with two identified fragilities (sessionId field mismatch, enum serialization as type=object). No render blocker — requires server/viewer guardrails. Inspection complete, no code changes needed.
+

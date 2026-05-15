@@ -54,7 +54,8 @@
     "dist",
     "tools",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "livedoc",

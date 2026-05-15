@@ -1,5 +1,6 @@
 import type { Run } from '../store';
 import type { TestCase, AnyTest } from '@swedevtools/livedoc-schema';
+import { buildGroupedNavTree, findNavItemById } from './nav-tree';
 
 /**
  * Converts a title string to a URL-friendly slug.
@@ -20,6 +21,18 @@ export interface DeepLinkView {
   id?: string;
 }
 
+export interface DeepLinkCandidate {
+  run: Run;
+  runId?: string;
+  runGroupId?: string;
+}
+
+export interface DeepLinkResolution {
+  view: ResolvedView;
+  runId?: string;
+  runGroupId?: string;
+}
+
 /**
  * Builds a URL hash string from the current navigation state.
  * Returns '' for the summary (home) view.
@@ -28,26 +41,16 @@ export function buildHash(view: DeepLinkView, run: Run | undefined): string {
   if (!run || view.type === 'summary') return '';
 
   if (view.type === 'group' && view.id) {
-    // Group ids are "group:path/segments" — extract the path
-    const path = view.id.replace(/^group:/, '');
-    return `#/group/${path}`;
+    if (view.id.startsWith('group:')) {
+      const path = view.id.replace(/^group:/, '').replace(/^\/+|\/+$/g, '');
+      return path ? `#/group/${encodePath(path)}` : '#/group';
+    }
+
+    return buildNodeHash(view.id, run);
   }
 
   if (view.type === 'node' && view.id) {
-    const item = run.itemById[view.id];
-    if (!item) return '';
-
-    // Check if this is a top-level document (TestCase/Feature/Specification)
-    const doc = findDocumentForItem(run, view.id);
-    if (!doc) return '';
-
-    if (doc.id === view.id) {
-      // Navigating to a document itself
-      return `#/${toSlug(doc.title)}`;
-    }
-
-    // Navigating to a child test within a document
-    return `#/${toSlug(doc.title)}/${toSlug(item.title)}`;
+    return buildNodeHash(view.id, run);
   }
 
   return '';
@@ -69,25 +72,26 @@ export function resolveHash(hash: string, run: Run | undefined): ResolvedView | 
     return { type: 'summary' };
   }
 
-  // Strip leading #/
-  const path = hash.replace(/^#\/?/, '');
+  const path = decodeHashPath(hash);
   if (!path) return { type: 'summary' };
-
-  // Group paths: /group/path/segments
-  if (path.startsWith('group/')) {
-    const groupPath = path.slice('group/'.length);
-    return { type: 'group', id: `group:${groupPath}` };
-  }
 
   if (!run) return null; // Data not loaded yet
 
   const segments = path.split('/').filter(Boolean);
 
+  // Group paths: /group/path/segments
+  if (segments[0] === 'group') {
+    const groupPath = segments.slice(1).join('/');
+    const groupId = groupPath ? `group:${groupPath}` : 'group:/';
+    const group = findGroupById(run, groupId);
+    return group ? { type: 'group', id: group.id } : null;
+  }
+
   if (segments.length === 1) {
     // Document-level slug
     const docSlug = segments[0];
     const doc = findDocumentBySlug(run, docSlug);
-    if (doc) return { type: 'node', id: doc.id };
+    if (doc) return { type: 'group', id: doc.id };
     return null;
   }
 
@@ -105,7 +109,79 @@ export function resolveHash(hash: string, run: Run | undefined): ResolvedView | 
   return null;
 }
 
+export function resolveHashAgainstCandidates(hash: string, candidates: DeepLinkCandidate[]): DeepLinkResolution | null {
+  if (!hash || hash === '#' || hash === '#/') {
+    return { view: { type: 'summary' } };
+  }
+
+  for (const candidate of candidates) {
+    const view = resolveHash(hash, candidate.run);
+    if (view) {
+      return {
+        view,
+        runId: candidate.runId,
+        runGroupId: candidate.runGroupId,
+      };
+    }
+  }
+
+  return null;
+}
+
 // ── Lookup helpers ──────────────────────────────────────────────
+
+function buildNodeHash(itemId: string, run: Run): string {
+  const item = run.itemById[itemId];
+  if (!item) return '';
+
+  const doc = findDocumentForItem(run, itemId);
+  if (!doc) return '';
+
+  if (doc.id === itemId) {
+    return `#/${toSlug(doc.title)}`;
+  }
+
+  return `#/${toSlug(doc.title)}/${toSlug(item.title)}`;
+}
+
+function encodePath(path: string): string {
+  return path
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+function decodeHashPath(hash: string): string {
+  const path = hash.replace(/^#\/?/, '').replace(/^\/+|\/+$/g, '');
+
+  try {
+    return path
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => decodeURIComponent(segment))
+      .join('/');
+  } catch {
+    return path;
+  }
+}
+
+function findGroupById(run: Run, groupId: string): { id: string } | undefined {
+  const navTree = buildGroupedNavTree(run.run.documents ?? []);
+  const exact = findNavItemById(navTree, groupId);
+  if (exact?.kind === 'Group') return exact;
+
+  const target = groupId.toLowerCase();
+  const stack = [...navTree];
+  while (stack.length > 0) {
+    const item = stack.pop();
+    if (!item) continue;
+    if (item.kind === 'Group' && item.id.toLowerCase() === target) return item;
+    stack.push(...item.children);
+  }
+
+  return undefined;
+}
 
 function findDocumentForItem(run: Run, itemId: string): TestCase | undefined {
   for (const doc of run.run.documents ?? []) {

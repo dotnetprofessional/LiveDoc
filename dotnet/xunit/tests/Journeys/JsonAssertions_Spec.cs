@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = @"
+[Specification("JsonAssertions", Description = @"
     Verifies the JsonAssertions.IsComparable() deep comparison engine.
     Covers value matching, structural checks, array handling, property rules,
     assertion rules, and error reporting for JSON contract validation.

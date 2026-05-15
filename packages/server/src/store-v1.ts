@@ -6,9 +6,9 @@ import type {
   TestCase,
   TestRunV1,
 } from '@swedevtools/livedoc-schema';
+import { V1TestRunSchema } from '@swedevtools/livedoc-schema';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { sessionManager } from './session-manager.js';
 
 function sanitizeName(name: string): string {
   return name.replace(/[<>:"/\\|?*]/g, '_').trim() || 'unknown';
@@ -73,7 +73,6 @@ type ProjectHierarchy = Array<{
   environments: Array<{
     name: string;
     latestRun?: TestRunV1;
-    latestSession?: import('@swedevtools/livedoc-schema').SessionV1;
     historyCount: number;
     history: Array<{ runId: string; timestamp: string; status: string; summary?: Statistics }>;
   }>;
@@ -84,6 +83,16 @@ interface RunRecord {
   testCasesById: Map<string, TestCase>;
   testsById: Map<string, AnyTest>;
   outlineResultsByKey: Map<string, ExecutionResult>;
+}
+
+export interface RunStoreDiagnostic {
+  severity: 'warning' | 'error';
+  code: 'invalid-json' | 'unsupported-model' | 'invalid-model';
+  message: string;
+  filePath: string;
+  project?: string;
+  environment?: string;
+  details?: string[];
 }
 
 function makeOutlineKey(outlineId: string, rowId: number, testId: string): string {
@@ -226,6 +235,7 @@ function buildIndexes(run: TestRunV1): Omit<RunRecord, 'run'> {
 export class RunStore {
   private runs: Map<string, RunRecord> = new Map();
   private runsByProject: Map<string, string[]> = new Map();
+  private diagnostics: RunStoreDiagnostic[] = [];
 
   private historyLimit: number;
   private dataDir: string;
@@ -240,6 +250,95 @@ export class RunStore {
 
   getDataDir(): string {
     return this.dataDir;
+  }
+
+  getDiagnostics(): RunStoreDiagnostic[] {
+    return [...this.diagnostics];
+  }
+
+  private addDiagnostic(diagnostic: RunStoreDiagnostic): void {
+    this.diagnostics.push(diagnostic);
+    const details = diagnostic.details && diagnostic.details.length > 0
+      ? ` (${diagnostic.details.join('; ')})`
+      : '';
+    console.warn(`[LiveDoc] ${diagnostic.message}${details}`);
+  }
+
+  private validateStoredRun(
+    content: string,
+    filePath: string,
+    project?: string,
+    environment?: string
+  ): TestRunV1 | undefined {
+    let data: unknown;
+    try {
+      data = JSON.parse(content);
+    } catch (error) {
+      this.addDiagnostic({
+        severity: 'error',
+        code: 'invalid-json',
+        message: `Could not load ${path.basename(filePath)} because it is not valid JSON.`,
+        filePath,
+        project,
+        environment,
+        details: [error instanceof Error ? error.message : String(error)],
+      });
+      return undefined;
+    }
+
+    if (!data || typeof data !== 'object') {
+      this.addDiagnostic({
+        severity: 'error',
+        code: 'invalid-model',
+        message: `Could not load ${path.basename(filePath)} because it is not a LiveDoc run object.`,
+        filePath,
+        project,
+        environment,
+      });
+      return undefined;
+    }
+
+    const record = data as Record<string, unknown>;
+    if (record.protocolVersion !== '1.0') {
+      const legacyHint =
+        Array.isArray(record.features) ||
+        Array.isArray(record.suites) ||
+        Array.isArray(record.children) ||
+        Array.isArray(record.nodes);
+
+      this.addDiagnostic({
+        severity: 'error',
+        code: 'unsupported-model',
+        message:
+          `Could not load ${path.basename(filePath)} because it is not a LiveDoc TestRunV1 file. ` +
+          `Expected protocolVersion '1.0' but found '${String(record.protocolVersion ?? 'missing')}'.`,
+        filePath,
+        project,
+        environment,
+        details: legacyHint
+          ? ['This looks like an older LiveDoc model. Re-run tests with the current LiveDoc reporter.']
+          : undefined,
+      });
+      return undefined;
+    }
+
+    const parsed = V1TestRunSchema.safeParse(data);
+    if (!parsed.success) {
+      this.addDiagnostic({
+        severity: 'error',
+        code: 'invalid-model',
+        message: `Could not load ${path.basename(filePath)} because it does not match the LiveDoc TestRunV1 model.`,
+        filePath,
+        project,
+        environment,
+        details: parsed.error.issues
+          .slice(0, 5)
+          .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`),
+      });
+      return undefined;
+    }
+
+    return parsed.data as TestRunV1;
   }
 
   private getProjectEnvDir(project: string, environment: string): string {
@@ -259,9 +358,6 @@ export class RunStore {
 
     try {
       await fs.mkdir(this.dataDir, { recursive: true });
-      
-      // Initialize session manager
-      await sessionManager.initialize();
 
       let projects: string[] = [];
       try {
@@ -287,11 +383,24 @@ export class RunStore {
           const lastRunPath = path.join(envDir, 'lastrun.json');
           try {
             const content = await fs.readFile(lastRunPath, 'utf-8');
-            const run = JSON.parse(content) as TestRunV1;
-            this.runs.set(run.runId, { run, ...buildIndexes(run) });
-            runIds.push(run.runId);
-          } catch {
+            const run = this.validateStoredRun(content, lastRunPath, project, environment);
+            if (run) {
+              this.runs.set(run.runId, { run, ...buildIndexes(run) });
+              runIds.push(run.runId);
+            }
+          } catch (error) {
             // no lastrun
+            if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+              this.addDiagnostic({
+                severity: 'error',
+                code: 'invalid-model',
+                message: `Could not read ${path.basename(lastRunPath)}.`,
+                filePath: lastRunPath,
+                project,
+                environment,
+                details: [error instanceof Error ? error.message : String(error)],
+              });
+            }
           }
 
           const historyDir = path.join(envDir, 'history');
@@ -302,14 +411,24 @@ export class RunStore {
             for (const file of historyFiles) {
               if (!file.endsWith('.json')) continue;
               try {
-                const content = await fs.readFile(path.join(historyDir, file), 'utf-8');
-                const run = JSON.parse(content) as TestRunV1;
+                const historyPath = path.join(historyDir, file);
+                const content = await fs.readFile(historyPath, 'utf-8');
+                const run = this.validateStoredRun(content, historyPath, project, environment);
+                if (!run) continue;
                 if (!this.runs.has(run.runId)) {
                   this.runs.set(run.runId, { run, ...buildIndexes(run) });
                   runIds.push(run.runId);
                 }
-              } catch {
-                // skip corrupted
+              } catch (error) {
+                this.addDiagnostic({
+                  severity: 'warning',
+                  code: 'invalid-model',
+                  message: `Could not read history run ${file}.`,
+                  filePath: path.join(historyDir, file),
+                  project,
+                  environment,
+                  details: [error instanceof Error ? error.message : String(error)],
+                });
               }
             }
           } catch {
@@ -394,13 +513,9 @@ export class RunStore {
   }
 
   createRun(runId: string, project: string, environment: string, framework: string, timestamp: string): TestRunV1 {
-    // Assign session
-    const sessionId = sessionManager.assignSession(project, environment, runId, timestamp);
-    
     const run: TestRunV1 = {
       protocolVersion: '1.0',
       runId,
-      sessionId,
       project,
       environment,
       framework,
@@ -442,7 +557,6 @@ export class RunStore {
     if (!record) return false;
 
     const run = record.run;
-    const sessionId = run.sessionId;
 
     this.runs.delete(runId);
 
@@ -452,15 +566,6 @@ export class RunStore {
 
     if (newProjectRuns.length === 0) this.runsByProject.delete(key);
     else this.runsByProject.set(key, newProjectRuns);
-
-    // Rebuild session after removing the run
-    if (sessionId) {
-      const remainingRuns = this.getRunsForSession(sessionId);
-      const session = sessionManager.getSession(sessionId);
-      if (session) {
-        sessionManager.rebuildSessionFromRuns(sessionId, remainingRuns);
-      }
-    }
 
     try {
       const historyDir = this.getHistoryDir(run.project, run.environment);
@@ -523,7 +628,7 @@ export class RunStore {
           };
         });
 
-        envList.push({ name: envName, latestRun, latestSession: sessionManager.getLatestSession(projectName, envName), historyCount: runIds.length, history });
+        envList.push({ name: envName, latestRun, historyCount: runIds.length, history });
       }
 
       result.push({ name: projectName, environments: envList });
@@ -734,30 +839,6 @@ export class RunStore {
     if (summary) record.run.summary = summary;
 
     void this.saveRun(record.run, true);
-    
-    // Update session
-    const sessionId = record.run.sessionId;
-    if (sessionId) {
-      const sessionRuns = this.getRunsForSession(sessionId);
-      sessionManager.onRunCompleted(sessionId, record.run, sessionRuns);
-      
-      // Rebuild session with all runs from this session
-      const session = sessionManager.getSession(sessionId);
-      if (session) {
-        sessionManager.rebuildSessionFromRuns(sessionId, sessionRuns);
-        sessionManager.mergeDocuments(session, sessionRuns);
-      }
-    }
-  }
-  
-  private getRunsForSession(sessionId: string): TestRunV1[] {
-    const runs: TestRunV1[] = [];
-    for (const record of this.runs.values()) {
-      if (record.run.sessionId === sessionId) {
-        runs.push(record.run);
-      }
-    }
-    return runs;
   }
 
   async flush(): Promise<void> {
@@ -771,4 +852,3 @@ export class RunStore {
 }
 
 export const runStore = new RunStore();
-export { sessionManager } from './session-manager.js';

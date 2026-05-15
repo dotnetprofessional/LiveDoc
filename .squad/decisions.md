@@ -2,6 +2,23 @@
 
 ## Active Decisions
 
+### shadcn/Radix Controls Before Custom Controls
+
+**Author:** Kaylee  
+**Date:** 2026-05-14  
+**Status:** Active
+
+**Decision:** Viewer and webview UI work must use existing shadcn/ui-style wrappers backed by Radix primitives for common controls before building custom controls. If a shadcn component exists but is missing locally, add the wrapper following the local `components/ui/` pattern instead of hand-rolling spans/divs with ARIA and Tailwind.
+
+**Rationale:** Common controls need consistent styling, keyboard behavior, focus states, disabled states, and accessibility semantics. Hand-rolled toggles in the viewer settings menu visually regressed into clipped dots, demonstrating why standard controls should come from the shared component layer.
+
+**Impact:**
+- Use shadcn/Radix wrappers for checkboxes, switches, dropdown items, tabs, dialogs, buttons, inputs, selects, sliders, and similar primitives.
+- Raw Radix primitives remain acceptable for specialized layouts when the shadcn wrapper is too opinionated, but the reason must be explicit.
+- Bespoke navigation rows and media controls should still prefer native semantic elements and should not imitate standard controls when a shared primitive exists.
+
+---
+
 ### Specification Tag Rendering Parity
 
 **Author:** Wash  
@@ -1163,6 +1180,85 @@ and should read the existing response envelope:
 ## Outcome
 
 This keeps the contract explicit, minimizes server ambiguity, and fixes the current broken session bootstrap path without introducing a second "global list" behavior that clients may misuse.
+
+---
+
+### Decision: Add Viewer Data Diagnostics for Silent Failures
+
+**Author:** Kaylee  
+**Date:** 2026-05-15  
+**Status:** Proposed
+
+**Context:** The viewer currently shows a generic "No test results yet" empty state for multiple failure modes: no data loaded, data loaded but invalid/corrupt, protocol version mismatch, and data deserialization errors. When users reported "results not rendering" with valid `lastrun.json` files, the viewer gave no actionable feedback.
+
+**Problem:** Users cannot distinguish between empty state, loading state, validation failure, and silent failure.
+
+**Proposed Solution:**
+1. **Static Data Validation + Logging** — Add console logging in `useStaticData` hook with run metadata
+2. **Enhanced Empty State Detection** — Display distinct states (Connecting, No results, Data loaded but failed to render)
+3. **Diagnostics Panel** — Dev-mode panel accessible via `?debug=1` showing current runId/sessionId, protocol version, document count, etc.
+4. **Error Boundary** — Wrap viewer root to catch React render exceptions
+5. **Protocol Version Compatibility Check** — Explicit version check to prevent silent breakage
+
+**Benefits:** Improved DX, faster debugging, future-proofing, clear user feedback
+
+**Tradeoffs:** ~100 lines of diagnostic code, new UI components, minor bundle overhead (can be code-split)
+
+**Effort:** 4-6 hours (Kaylee + Coordinator for server-side diagnostics endpoints)
+
+**Decision Status:** Proposed — awaiting architecture review and priority confirmation
+
+---
+
+### Decision: xUnit Reporter v1 Payload Shape Compatibility
+
+**Author:** Simon  
+**Date:** 2026-05-15  
+**Status:** Inspection Complete
+
+**Finding:** Inspected xUnit lastrun.json payload against Reporter v1 schema. Payload **conforms to v1 spec** with minor xUnit-specific fragilities.
+
+**Critical Findings:**
+
+1. **sessionId Field Mismatch** — lastrun.json includes `sessionId`, but xUnit's C# `TestRunV1` class does not define it. Schema allows optional, but presence without C# serialization is a source/sink mismatch.
+
+2. **Enum Serialization as `type=object`** — xUnit's `TypedValue.From()` catches non-primitive CLR types with `_ => "object"`. Enums serialize as opaque numeric values instead of strings.
+
+3. **Duration=0 Edge Case** — Some tests show `duration: 0`, valid per schema but may trigger false-positive diagnostics.
+
+**Recommended Guardrails:**
+
+- Server must accept both sessionId shapes gracefully
+- Viewer must render `type=object` safely (show `[object]` if uninterpretable)
+- xUnit should detect enums and serialize as lowercase strings
+- Recommend protocol layer always check `protocolVersion` before deserializing
+
+**No Code Changes Required:** Payload is structurally valid; will render correctly with recommended guardrails.
+
+---
+
+### Decision: lastrun.json Hydration Regression Tests
+
+**Author:** Zoe  
+**Date:** 2026-05-15  
+**Status:** Proposed
+
+**Context:** Valid xUnit RuleOutline lastrun files with sessionId are not hydrating correctly. Additionally, corrupt/old-schema lastruns fail silently without diagnostics, and stale empty sessions can mask valid latest runs.
+
+**Decision:** Add 4 minimal regression tests to `packages/server/test/ServerV1API.Spec.ts`:
+
+1. **Valid xUnit RuleOutline hydration** — Verify RuleOutline structure (4 exampleResults) loads on server startup
+2. **Corrupted JSON diagnostic** — Malformed lastrun emits warning, graceful degradation
+3. **Old-schema diagnostic** — Missing `protocolVersion` emits schema mismatch warning, run not loaded
+4. **Empty session coexistence** — Both `latestRun` and `latestSession` appear in hierarchy; empty session doesn't hide valid run
+
+**Rationale:** Guards against silent failures during lastrun parsing, prevents viewer startup UX regressions, prevents session/run priority conflicts.
+
+**Coverage:** 4 scenarios, ~16 steps, all BDD with embedded values per LiveDoc guidelines
+
+**Files Affected:** `packages/server/test/ServerV1API.Spec.ts`
+
+**Status:** Ready for implementation
 
 ---
 

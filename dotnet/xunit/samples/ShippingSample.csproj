@@ -22,4 +22,11 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>LiveDocProject</_Parameter1>
+      <_Parameter2>livedoc.xunit.samples</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

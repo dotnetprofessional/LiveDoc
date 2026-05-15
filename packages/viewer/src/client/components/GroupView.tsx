@@ -69,10 +69,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
     if (!viewData) return [];
     
     if (viewData.kind === 'folder') {
-      // Filter out sub-groups (folders) as they are redundant with the sidebar nav
-      return viewData.item.children
-        .filter(child => child.kind !== 'Group')
-        .map(child => ({ type: 'navItem', item: child }));
+      return viewData.item.children.map(child => ({ type: 'navItem', item: child }));
     } else {
       // Container (TestCase)
       const testCase = viewData.node as TestCase;
@@ -118,7 +115,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
   }, [filteredChildren]);
 
   const sortedGroupKeys = useMemo(() => {
-    const order = ['Feature', 'Specification', 'Container', 'Scenario', 'Rule', 'Test'] as string[];
+    const order = ['Group', 'Feature', 'Specification', 'Container', 'Scenario', 'Rule', 'Test'] as string[];
     return Object.keys(groupedChildren).sort((a, b) => {
         const idxA = order.indexOf(a);
         const idxB = order.indexOf(b);
@@ -283,7 +280,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
                         <div className="flex items-center gap-2 px-1">
                             <Icon className="w-4 h-4 text-muted-foreground" />
                             <h3 className="text-sm font-semibold text-foreground tracking-tight flex-1">
-                                {kind}s
+                                {kind === 'Group' ? 'Folders' : `${kind}s`}
                             </h3>
                             <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                                 {groupedChildren[kind].length}
@@ -344,7 +341,7 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
     const onClick = canDrillDown ? () => navigate(navType, nodeId) : undefined;
 
     const Icon = getIconForKind(kind);
-    const durationText = formatDuration(duration);
+    const durationText = duration === undefined ? undefined : formatDuration(duration);
 
     return (
         <div

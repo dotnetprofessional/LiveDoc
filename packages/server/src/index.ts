@@ -40,9 +40,6 @@ export * from './schema.js';
 // Re-export store
 export { RunStore, runStore } from './store.js';
 
-// Re-export SessionManager
-export { SessionManager, sessionManager } from './session-manager.js';
-
 // Re-export WebSocketManager
 export { WebSocketManager } from './websocket.js';
 
@@ -93,7 +90,7 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
   if (!fs.existsSync(portFile)) {
     return null;
   }
-  
+
   try {
     const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
     const port = Number(info?.port);
@@ -115,7 +112,7 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
     if (!Number.isFinite(port) || port <= 0) {
       return null;
     }
-    
+
     // Verify server is actually running
     try {
       const response = await fetch(`http://localhost:${port}/api/health`, {
@@ -133,7 +130,7 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
   } catch (e: any) {
     // Ignore errors during discovery
   }
-  
+
   return null;
 }
 
@@ -145,21 +142,21 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // Use port 0 for ephemeral port assignment, otherwise default to 3100
   const port = options.port !== undefined ? options.port : 3100;
   const host = options.host || '0.0.0.0';
-  
+
   // Use the singleton store or create a new one with custom options
   const store = options.dataDir || options.historyLimit
     ? new RunStore(options.historyLimit || 50, options.dataDir)
     : runStore;
-  
+
   // Create HTTP server first
   const httpServer = createHttpServer();
-  
+
   // Initialize WebSocket manager
   let wsManager: WebSocketManager | null = null;
-  
+
   // Create Hono app
   const app = new Hono();
-  
+
   // Logging middleware
   if (options.logger) {
     app.use('*', async (c, next) => {
@@ -176,21 +173,21 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'X-LiveDoc-Token']
   }));
-  
+
   // =========================================================================
   // API Routes
   // =========================================================================
-  
+
   // Health check
   app.get('/api/health', (c) => {
-    return c.json({ 
-      status: 'ok', 
+    return c.json({
+      status: 'ok',
       port: actualPort,
       version: '1.0',
       clients: wsManager?.getClientCount() || 0
     });
   });
-  
+
   // List projects
   app.get('/api/projects', (c) => {
     // Derive this from the same hierarchy used by the UI navigation endpoint,
@@ -214,13 +211,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
     return c.json({ projects });
   });
-  
+
   // Get project hierarchy for navigation
   app.get('/api/hierarchy', (c) => {
     const hierarchy = store.getProjectHierarchy();
     return c.json({ projects: hierarchy });
   });
-  
+
   // List all runs
   app.get('/api/runs', (c) => {
     const runs = store.getAllRuns();
@@ -244,25 +241,25 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     }
     return c.json(run);
   });
-  
+
   // Delete a run
   app.delete('/api/runs/:runId', async (c) => {
     const runId = c.req.param('runId');
     const run = store.getRun(runId);
-    
+
     if (!run) {
       return c.json({ error: 'Run not found' }, 404);
     }
-    
+
     const deleted = await store.deleteRun(runId);
-    
+
     if (deleted) {
       return c.json({ success: true });
     }
-    
+
     return c.json({ error: 'Failed to delete run' }, 500);
   });
-  
+
   // Get runs for project
   app.get('/api/projects/:project/:environment/runs', (c) => {
     const project = c.req.param('project');
@@ -278,7 +275,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       }))
     });
   });
-  
+
   // Get latest run for project
   app.get('/api/projects/:project/:environment/latest', (c) => {
     const project = c.req.param('project');
@@ -324,6 +321,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     return c.json(run);
   });
 
+  app.get('/api/v1/diagnostics', (c) => {
+    return c.json({ diagnostics: store.getDiagnostics() });
+  });
+
   app.get('/api/v1/projects/:project/:environment/latest', (c) => {
     const project = c.req.param('project');
     const environment = c.req.param('environment');
@@ -359,24 +360,6 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         timestamp: run.timestamp,
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
-
-      // Broadcast session update so the viewer knows about the session immediately
-      const sessionId = run.sessionId;
-      if (sessionId) {
-        const { sessionManager } = await import('./session-manager.js');
-        const session = sessionManager.getSession(sessionId);
-        if (session) {
-          const sessionEvent: V1WebSocketEvent = {
-            type: 'session:v1:updated',
-            sessionId,
-            project: session.project,
-            environment: session.environment,
-            status: session.status,
-            summary: session.summary,
-          };
-          wsManager.broadcast(sessionEvent, runId, session.project, session.environment);
-        }
-      }
     }
 
     const response: V1StartRunResponse = {
@@ -581,67 +564,21 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         summary: body.summary ?? run.summary,
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
-      
-      // Broadcast session update
-      const sessionId = run.sessionId;
-      if (sessionId) {
-        const { sessionManager } = await import('./session-manager.js');
-        const session = sessionManager.getSession(sessionId);
-        if (session) {
-          const sessionEvent: V1WebSocketEvent = {
-            type: 'session:v1:updated',
-            sessionId,
-            project: session.project,
-            environment: session.environment,
-            status: session.status,
-            summary: session.summary,
-          };
-          wsManager.broadcast(sessionEvent, runId, session.project, session.environment);
-        }
-      }
     }
 
     return c.json({ success: true });
   });
-  
-  // Session endpoints
-  app.get('/api/v1/sessions', async (c) => {
-    const project = c.req.query('project');
-    const environment = c.req.query('environment');
-    
-    if (!project || !environment) {
-      return c.json({ error: 'Missing required query parameters: project, environment' }, 400);
-    }
-    
-    const { sessionManager } = await import('./session-manager.js');
-    const sessions = sessionManager.listSessions(project, environment);
-    
-    return c.json({ sessions });
-  });
-  
-  app.get('/api/v1/sessions/:sessionId', async (c) => {
-    const sessionId = c.req.param('sessionId');
-    
-    const { sessionManager } = await import('./session-manager.js');
-    const session = sessionManager.getSession(sessionId);
-    
-    if (!session) {
-      return c.json({ error: 'Session not found' }, 404);
-    }
-    
-    return c.json(session);
-  });
-  
+
   httpServer.on('request', async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-    
+
     const headers = new Headers();
     for (const [key, value] of Object.entries(req.headers)) {
       if (value) {
         headers.set(key, Array.isArray(value) ? value.join(', ') : value);
       }
     }
-    
+
     let body: string | undefined;
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
       const chunks: Buffer[] = [];
@@ -650,13 +587,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       }
       body = Buffer.concat(chunks).toString();
     }
-    
+
     const request = new Request(url.toString(), {
       method: req.method,
       headers,
       body,
     });
-    
+
     try {
       const response = await app.fetch(request);
       res.statusCode = response.status;
@@ -671,11 +608,12 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       res.end('Internal Server Error');
     }
   });
-  
+
   let actualPort = port;
   let running = false;
+  let stopPromise: Promise<void> | null = null;
   const eventEmitter = new EventEmitter();
-  
+
   const server: LiveDocServer = {
     on(event: string, listener: (...args: any[]) => void): void {
       eventEmitter.on(event, listener);
@@ -683,13 +621,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     async listen(listenPort?: number): Promise<number> {
       // Use listenPort if explicitly provided (including 0 for ephemeral port), otherwise use default port
       const targetPort = listenPort !== undefined ? listenPort : port;
-      
+
       // Initialize store
       await store.initialize();
-      
+
       // Initialize WebSocket manager
       wsManager = new WebSocketManager(httpServer);
-      
+
       return new Promise((resolve, reject) => {
         httpServer.listen(targetPort, host, () => {
           // Get the actual assigned port (important when using port 0 for ephemeral port)
@@ -717,76 +655,89 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
           console.log(`🍵 LiveDoc Server running on http://${host}:${actualPort}`);
           resolve(actualPort);
         });
-        
+
         httpServer.on('error', (err) => {
           reject(err);
         });
       });
     },
-    
+
     async stop(): Promise<void> {
-      running = false;
-      
-      // Delete port file
-      try {
-        const portFile = getPortFilePath();
-        if (fs.existsSync(portFile)) {
-          // Only delete if it's our file (check PID)
-          const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
-          if (info.pid === process.pid) {
-            fs.unlinkSync(portFile);
+      if (stopPromise) {
+        return stopPromise;
+      }
+
+      if (!running) {
+        return;
+      }
+
+      stopPromise = (async () => {
+        running = false;
+
+        // Delete port file
+        try {
+          const portFile = getPortFilePath();
+          if (fs.existsSync(portFile)) {
+            // Only delete if it's our file (check PID)
+            const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
+            if (info.pid === process.pid) {
+              fs.unlinkSync(portFile);
+            }
           }
+        } catch (err) {
+          // Ignore errors during cleanup
         }
-      } catch (err) {
-        // Ignore errors during cleanup
-      }
-      
-      // 1. Close inbound traffic first (HTTP stops accepting new connections)
-      await new Promise<void>((resolve, reject) => {
-        httpServer.close((err) => {
-          if (err) reject(err);
-          else resolve();
+
+        // 1. Close WebSocket connections before HTTP shutdown so upgraded
+        // connections do not keep httpServer.close() waiting forever.
+        if (wsManager) {
+          await wsManager.close();
+          wsManager = null;
+        }
+
+        // 2. Close inbound traffic (HTTP stops accepting new connections)
+        await new Promise<void>((resolve, reject) => {
+          httpServer.close((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
         });
-      });
-      
-      // 2. Close WebSocket connections
-      if (wsManager) {
-        wsManager.close();
-        wsManager = null;
+
+        // 3. Flush pending saves (no new traffic can arrive now)
+        await store.flush();
+      })();
+
+      try {
+        await stopPromise;
+      } finally {
+        stopPromise = null;
       }
-      
-      // 3. Clear pending seal/grace timers in SessionManager
-      const { sessionManager: sm } = await import('./session-manager.js');
-      sm.clearTimers();
-      
-      // 4. Flush pending saves (no new traffic can arrive now)
-      await store.flush();
     },
-    
+
     getPort(): number {
       return actualPort;
     },
-    
+
     getApp(): Hono {
       return app;
     },
-    
+
     getWebSocketManager(): WebSocketManager {
       if (!wsManager) {
         throw new Error('WebSocket manager not initialized. Call listen() first.');
       }
       return wsManager;
     },
-    
+
     getRunStore(): RunStore {
       return store;
     },
-    
+
     isRunning(): boolean {
       return running;
     }
   };
-  
+
   return server;
 }
 
@@ -797,22 +748,30 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 export async function startServer(options: ServerOptions = {}): Promise<LiveDocServer> {
   const server = createServer(options);
   await server.listen(options.port);
-  
+
   if (options.open) {
     const open = await import('open');
     await open.default(`http://${options.host || 'localhost'}:${server.getPort()}`);
   }
-  
+
   // Graceful shutdown handler
+  let shuttingDown = false;
   const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log(`\n${signal} received, shutting down gracefully...`);
-    await server.stop();
-    console.log('Data saved. Goodbye! 👋');
-    process.exit(0);
+    try {
+      await server.stop();
+      console.log('Data saved. Goodbye! 👋');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during shutdown:', error);
+      process.exit(1);
+    }
   };
-  
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  
+
+  process.once('SIGINT', () => void shutdown('SIGINT'));
+  process.once('SIGTERM', () => void shutdown('SIGTERM'));
+
   return server;
 }

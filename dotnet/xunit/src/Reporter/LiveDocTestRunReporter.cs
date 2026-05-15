@@ -70,10 +70,7 @@ public class LiveDocTestRunReporter : IDisposable
         _runStopwatch = Stopwatch.StartNew();
         _startedAt = DateTime.UtcNow;
 
-        if (_reporter.IsEnabled || !string.IsNullOrEmpty(_config.ExportPath))
-        {
-            AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
-        }
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
     }
 
     private void OnProcessExit(object? sender, EventArgs e)
@@ -105,9 +102,6 @@ public class LiveDocTestRunReporter : IDisposable
     /// </summary>
     public async Task FlushAndCompleteAsync()
     {
-        if (!_reporter.IsEnabled && string.IsNullOrEmpty(_config.ExportPath))
-            return;
-
         Task task;
         lock (_flushLock)
         {
@@ -137,9 +131,6 @@ public class LiveDocTestRunReporter : IDisposable
 
     private async Task<string?> EnsureRunStartedAsync()
     {
-        if (!_reporter.IsEnabled)
-            return null;
-
         if (_reporter.RunId != null)
             return _reporter.RunId;
 
@@ -341,11 +332,7 @@ public class LiveDocTestRunReporter : IDisposable
             // Export to JSON file if configured (runs alongside server publishing)
             var exportTask = ExportTestRunJsonAsync(upsertPayloads, status, duration, summary);
 
-            // Publish to server if enabled
-            if (_reporter.IsEnabled)
-            {
-                await PublishToServerAsync(upsertPayloads, status, duration, summary);
-            }
+            await PublishToServerAsync(upsertPayloads, status, duration, summary);
 
             // Ensure export completes
             await exportTask;
@@ -542,6 +529,14 @@ public class LiveDocTestRunReporter : IDisposable
         var test = kind switch
         {
             "Scenario" => new ScenarioTest
+            {
+                Id = testId,
+                Title = title,
+                Description = description,
+                Tags = tags?.ToList(),
+                Execution = new ExecutionResult { Status = Models.Status.Running }
+            },
+            "Rule" => new RuleTest
             {
                 Id = testId,
                 Title = title,
@@ -796,8 +791,14 @@ public class LiveDocTestRunReporter : IDisposable
 
         if (!string.IsNullOrWhiteSpace(testCaseId))
         {
-            PublishTestCaseRealtime(testCaseId);
+            if (_reporter.IsEnabled)
+                PublishTestCaseRealtime(testCaseId);
         }
+    }
+
+    internal void SetDefaultProject(AssemblyName assemblyName)
+    {
+        _config.SetDefaultProject(assemblyName);
     }
 
     /// <summary>
@@ -845,7 +846,7 @@ public class LiveDocTestRunReporter : IDisposable
     /// <summary>
     /// Derives a navigation path from a test class type.
     /// Strips the assembly name prefix and converts namespace separators to slashes.
-    /// E.g., SweDevTools.LiveDoc.xUnit.Tests.Gherkin.Examples.MySpec → Gherkin/Examples/MySpec.cs
+    /// E.g., SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Scenario.MySpec → WritingFeatures/Scenario/MySpec.cs
     /// </summary>
     public static string DerivePath(Type testClass)
     {

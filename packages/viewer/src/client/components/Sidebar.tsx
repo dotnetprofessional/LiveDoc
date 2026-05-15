@@ -1,17 +1,15 @@
 import * as React from "react"
-import { useStore, makeSessionState } from '../store';
-import { getApiBaseUrl } from '../config';
+import { useStore, type Run, type RunGroup } from '../store';
 import { StatusBadge } from './StatusBadge';
-import type { AnyTest, TestCase, SessionV1 } from '@swedevtools/livedoc-schema';
-import { 
-  ChevronRight, 
-  ChevronDown, 
+import type { AnyTest, TestCase } from '@swedevtools/livedoc-schema';
+import {
+  ChevronRight,
+  ChevronDown,
   Folder,
   FileText,
   Loader2,
 } from "lucide-react"
 import { cn } from "../lib/utils"
-import { getSessionLatestActivity } from "../lib/session-utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { buildGroupedNavTree, ContainerKind, NavItem } from '../lib/nav-tree';
 import { subtreeHasMatch } from '../lib/filter-utils';
@@ -23,6 +21,26 @@ import {
 } from "./ui/dropdown-menu";
 
 type NavKind = 'Group' | ContainerKind;
+
+type ProjectEntry =
+  | {
+      kind: 'group';
+      key: string;
+      label: string;
+      environment: string;
+      group: RunGroup;
+      timestamp: string;
+    }
+  | {
+      kind: 'project';
+      key: string;
+      label: string;
+      project: string;
+      environment: string;
+      run: Run;
+      timestamp: string;
+      grouped: boolean;
+    };
 
 function getContainerIcon(kind: ContainerKind) {
   switch (kind) {
@@ -42,222 +60,245 @@ function getNavIcon(kind: NavKind) {
   return getContainerIcon(kind);
 }
 
+function timestampMs(value: string | undefined): number {
+  const ms = Date.parse(value ?? '');
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function latestRun(runs: Run[]): Run | undefined {
+  return runs
+    .slice()
+    .sort((a, b) => timestampMs(b.run.timestamp) - timestampMs(a.run.timestamp))[0];
+}
+
+function latestGroup(groups: RunGroup[]): RunGroup | undefined {
+  return groups
+    .slice()
+    .sort((a, b) => timestampMs(b.run.timestamp) - timestampMs(a.run.timestamp))[0];
+}
+
+function latestProjectEntries(
+  runs: Run[],
+  groupedRunIds: Set<string>,
+  groupedProjectEnvKeys: Set<string>,
+  hideGroupedSourceProjects: boolean
+): ProjectEntry[] {
+  const latestByProjectEnv = new Map<string, ProjectEntry & { kind: 'project' }>();
+
+  for (const run of runs) {
+    const key = `${run.run.project}/${run.run.environment}`;
+    const grouped = groupedRunIds.has(run.run.runId) || groupedProjectEnvKeys.has(key);
+    if (hideGroupedSourceProjects && groupedProjectEnvKeys.has(key)) continue;
+
+    const existing = latestByProjectEnv.get(key);
+    if (existing && timestampMs(existing.timestamp) >= timestampMs(run.run.timestamp)) continue;
+
+    latestByProjectEnv.set(key, {
+      kind: 'project',
+      key,
+      label: run.run.project,
+      project: run.run.project,
+      environment: run.run.environment,
+      run,
+      timestamp: run.run.timestamp,
+      grouped,
+    });
+  }
+
+  return Array.from(latestByProjectEnv.values());
+}
+
 export function Sidebar() {
-  const { 
+  const {
     currentView,
     sidebarWidth,
     expandedItems,
     navigate,
     toggleExpanded,
     getCurrentRun,
-    getCurrentSession,
+    getCurrentRunGroup,
+    getRunGroups,
     runs,
-    sessions,
     projectHierarchy,
+    projectGrouping,
     selectRun,
-    selectSession,
-    addSession,
+    selectRunGroup,
     filterText,
     filterTags,
   } = useStore();
 
   const currentRun = getCurrentRun();
-  const currentSession = getCurrentSession();
+  const currentGroup = getCurrentRunGroup();
+  const groups = getRunGroups();
 
   const [projectMenuOpen, setProjectMenuOpen] = React.useState(false);
   const [envMenuOpen, setEnvMenuOpen] = React.useState(false);
   const [runMenuOpen, setRunMenuOpen] = React.useState(false);
 
-  const projectNames = React.useMemo(() => {
-    const fromHierarchy = (projectHierarchy ?? [])
-      .map((p) => p?.name)
-      .filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
-    if (fromHierarchy.length > 0) return fromHierarchy;
+  const projectEntries = React.useMemo<ProjectEntry[]>(() => {
+    if (projectGrouping.enabled && groups.length > 0) {
+      const groupedRunIds = new Set(groups.flatMap((group) => group.group.runs.map((run) => run.runId)));
+      const groupedProjectEnvKeys = new Set(groups.flatMap((group) =>
+        group.group.runs.map((run) => `${run.project}/${run.environment}`)
+      ));
+      const groupEntries: ProjectEntry[] = groups.map((group) => ({
+        kind: 'group',
+        key: group.group.id,
+        label: group.group.name,
+        environment: group.group.environment,
+        group,
+        timestamp: group.run.timestamp,
+      }));
 
-    // Fallback: extract from sessions and runs
-    const fromSessions = (sessions ?? []).map((s) => s?.session?.project);
-    const fromRuns = (runs ?? []).map((r) => r?.run?.project);
-    const uniq = new Set([...fromSessions, ...fromRuns].filter((n): n is string => typeof n === 'string' && n.trim().length > 0));
-    return Array.from(uniq);
-  }, [projectHierarchy, runs, sessions]);
+      const rawEntries = latestProjectEntries(runs, groupedRunIds, groupedProjectEnvKeys, projectGrouping.hideSourceProjects);
 
-  const currentProject = currentSession?.session.project ?? currentRun?.run.project ?? projectNames[0] ?? '';
-
-  const environmentNames = React.useMemo(() => {
-    const projectFromHierarchy = (projectHierarchy ?? []).find((p) => p.name === currentProject);
-    const fromHierarchy = (projectFromHierarchy?.environments ?? [])
-      .map((e) => e?.name)
-      .filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
-
-    if (fromHierarchy.length > 0) return fromHierarchy;
-
-    // Fallback: extract from sessions and runs
-    const fromSessions = (sessions ?? []).filter((s) => s?.session?.project === currentProject).map((s) => s?.session?.environment);
-    const fromRuns = (runs ?? []).filter((r) => r?.run?.project === currentProject).map((r) => r?.run?.environment);
-    const uniq = new Set([...fromSessions, ...fromRuns].filter((n): n is string => typeof n === 'string' && n.trim().length > 0));
-    return Array.from(uniq);
-  }, [currentProject, projectHierarchy, runs, sessions]);
-
-  const currentEnvironment = currentSession?.session.environment ?? currentRun?.run.environment ?? environmentNames[0] ?? 'default';
-
-  const selectProject = React.useCallback(async (project: string) => {
-    if (!project) return;
-
-    // Prefer: latest session for this project
-    const sessionCandidates = (sessions ?? []).filter((s) => s.session.project === project);
-    if (sessionCandidates.length > 0) {
-      const latestSession = sessionCandidates
-        .slice()
-        .sort((a, b) => (Date.parse(getSessionLatestActivity(b.session)) || 0) - (Date.parse(getSessionLatestActivity(a.session)) || 0))[0];
-      selectSession(latestSession.session.sessionId);
-      return;
+      return [...groupEntries, ...rawEntries]
+        .sort((a, b) => timestampMs(b.timestamp) - timestampMs(a.timestamp));
     }
 
-    // Fallback: latest run in the currently-selected environment (if present)
-    const currentEnv = currentSession?.session.environment ?? currentRun?.run.environment;
-    const runCandidates = (runs ?? []).filter((r) => r.run.project === project);
-
-    const candidateInSameEnv = currentEnv
-      ? runCandidates.filter((r) => r.run.environment === currentEnv)
-      : [];
-
-    const pickLatest = (arr: typeof runCandidates) => {
-      return arr
-        .slice()
-        .sort((a, b) => (Date.parse(b.run.timestamp) || 0) - (Date.parse(a.run.timestamp) || 0))[0];
-    };
-
-    const chosen = pickLatest(candidateInSameEnv.length > 0 ? candidateInSameEnv : runCandidates);
-    if (chosen) {
-      selectRun(chosen.run.runId);
-      return;
+    const latestByProjectEnv = new Map<string, Run>();
+    for (const run of runs) {
+      const key = `${run.run.project}/${run.run.environment}`;
+      const existing = latestByProjectEnv.get(key);
+      if (!existing || timestampMs(run.run.timestamp) > timestampMs(existing.run.timestamp)) {
+        latestByProjectEnv.set(key, run);
+      }
     }
 
-    // Fallback: if we have hierarchy but no loaded data, try latestSession/latestRun
-    const proj = (projectHierarchy ?? []).find((p) => p.name === project);
-    const latestSession = proj?.environments
-      ?.map((e) => e.latestSession)
-      .filter(Boolean)[0];
-    if (latestSession && (sessions ?? []).some((s) => s.session.sessionId === latestSession.session.sessionId)) {
-      selectSession(latestSession.session.sessionId);
-      return;
-    }
-
-    const latestFromHierarchy = proj?.environments
-      ?.map((e) => e.latestRun)
-      .filter(Boolean)
-      .sort((a, b) => (Date.parse(b!.run.timestamp) || 0) - (Date.parse(a!.run.timestamp) || 0))[0];
-
-    const runId = latestFromHierarchy?.run.runId;
-    if (runId && (runs ?? []).some((r) => r.run.runId === runId)) {
-      selectRun(runId);
-      return;
-    }
-
-    // Bug 4 fix: No local data found — fetch from server
-    const env = proj?.environments?.[0]?.name || 'local';
-    try {
-      const response = await fetch(
-        `${getApiBaseUrl()}/api/v1/sessions?project=${encodeURIComponent(project)}&environment=${encodeURIComponent(env)}`,
-        { cache: 'no-store' }
-      );
-      if (response.ok) {
-        const payload = await response.json();
-        const sessionsList = payload.sessions || [];
-        if (sessionsList.length > 0) {
-          const sessionId = sessionsList[0].sessionId;
-          if (sessionId) {
-            const sessionResponse = await fetch(
-              `${getApiBaseUrl()}/api/v1/sessions/${sessionId}`,
-              { cache: 'no-store' }
-            );
-            if (sessionResponse.ok) {
-              const fullSessionData = (await sessionResponse.json()) as SessionV1;
-              const fullSession = makeSessionState(fullSessionData);
-              addSession(fullSession);
-              selectSession(fullSession.session.sessionId);
-              return;
-            }
-          }
+    if (latestByProjectEnv.size === 0) {
+      for (const project of projectHierarchy ?? []) {
+        for (const env of project.environments ?? []) {
+          if (!env.latestRun) continue;
+          latestByProjectEnv.set(`${project.name}/${env.name}`, env.latestRun);
         }
       }
-    } catch (e) {
-      console.debug('Failed to fetch session for project:', e);
     }
-  }, [addSession, currentRun?.run.environment, currentSession?.session.environment, projectHierarchy, runs, sessions, selectRun, selectSession]);
 
-  const selectEnvironment = React.useCallback((environment: string) => {
-    if (!environment || !currentProject) return;
+    return Array.from(latestByProjectEnv.values())
+      .map<ProjectEntry>((run) => ({
+        kind: 'project',
+        key: `${run.run.project}/${run.run.environment}`,
+        label: run.run.project,
+        project: run.run.project,
+        environment: run.run.environment,
+        run,
+        timestamp: run.run.timestamp,
+        grouped: false,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [groups, projectGrouping.enabled, projectGrouping.hideSourceProjects, projectHierarchy, runs]);
 
-    // Prefer: latest session for this project+environment
-    const sessionCandidates = (sessions ?? []).filter(
-      (s) => s.session.project === currentProject && s.session.environment === environment
-    );
+  const selectedProjectEntry = React.useMemo(() => {
+    if (currentGroup) {
+      return projectEntries.find((entry) => entry.kind === 'group' && entry.group.group.id === currentGroup.group.id);
+    }
 
-    if (sessionCandidates.length > 0) {
-      const chosen = sessionCandidates
-        .slice()
-        .sort((a, b) => (Date.parse(getSessionLatestActivity(b.session)) || 0) - (Date.parse(getSessionLatestActivity(a.session)) || 0))[0];
-      selectSession(chosen.session.sessionId);
+    if (currentRun) {
+      return projectEntries.find((entry) =>
+        entry.kind === 'project' &&
+        entry.project === currentRun.run.project &&
+        entry.environment === currentRun.run.environment
+      );
+    }
+
+    return projectEntries[0];
+  }, [currentGroup, currentRun, projectEntries]);
+
+  const currentProject = selectedProjectEntry?.label ?? currentRun?.run.project ?? '';
+  const currentEnvironment = selectedProjectEntry?.environment ?? currentRun?.run.environment ?? 'default';
+
+  const environmentNames = React.useMemo(() => {
+    if (selectedProjectEntry?.kind === 'group') return [selectedProjectEntry.environment];
+
+    const selectedProject = selectedProjectEntry?.kind === 'project'
+      ? selectedProjectEntry.project
+      : currentRun?.run.project;
+    if (!selectedProject) return [];
+
+    const fromRuns = runs
+      .filter((run) => run.run.project === selectedProject)
+      .map((run) => run.run.environment);
+    const fromHierarchy = (projectHierarchy ?? [])
+      .find((project) => project.name === selectedProject)
+      ?.environments
+      ?.map((env) => env.name) ?? [];
+    return Array.from(new Set([...fromRuns, ...fromHierarchy])).filter(Boolean);
+  }, [currentRun?.run.project, projectHierarchy, runs, selectedProjectEntry]);
+
+  const selectProjectEntry = React.useCallback((entry: ProjectEntry) => {
+    if (entry.kind === 'group') {
+      selectRunGroup(entry.group.group.id);
       return;
     }
 
-    // Fallback: latest run for this project+environment
-    const runCandidates = (runs ?? []).filter(
-      (r) => r.run.project === currentProject && r.run.environment === environment
-    );
+    selectRun(entry.run.run.runId);
+  }, [selectRun, selectRunGroup]);
 
-    const chosen = runCandidates
-      .slice()
-      .sort((a, b) => (Date.parse(b.run.timestamp) || 0) - (Date.parse(a.run.timestamp) || 0))[0];
+  const selectEnvironment = React.useCallback((environment: string) => {
+    if (!environment || !selectedProjectEntry) return;
 
-    if (chosen) {
-      selectRun(chosen.run.runId);
+    if (selectedProjectEntry.kind === 'group') {
+      const candidates = groups.filter(
+        (group) => group.group.name === selectedProjectEntry.label && group.group.environment === environment
+      );
+      const chosen = latestGroup(candidates);
+      if (chosen) selectRunGroup(chosen.group.id);
+      return;
     }
-  }, [currentProject, runs, sessions, selectRun, selectSession]);
 
-  const runsForDropdown = React.useMemo(() => {
-    // Phase 1: Keep it simple - just show "Latest" which represents the session aggregate
-    // Individual run history will come in Phase 2
-    return (runs ?? [])
-      .filter((r) => r.run.project === currentProject && r.run.environment === currentEnvironment)
-      .slice()
-      .sort((a, b) => (Date.parse(b.run.timestamp) || 0) - (Date.parse(a.run.timestamp) || 0));
-  }, [currentEnvironment, currentProject, runs]);
-
-  // In Phase 1: "Latest" is either the latest session or the latest run
-  const latestSessionId = React.useMemo(() => {
-    const sessionCandidates = (sessions ?? []).filter(
-      (s) => s.session.project === currentProject && s.session.environment === currentEnvironment
+    const candidates = runs.filter(
+      (run) => run.run.project === selectedProjectEntry.project && run.run.environment === environment
     );
-    if (sessionCandidates.length === 0) return null;
-    return sessionCandidates
-      .slice()
-      .sort((a, b) => (Date.parse(getSessionLatestActivity(b.session)) || 0) - (Date.parse(getSessionLatestActivity(a.session)) || 0))[0]
-      ?.session.sessionId;
-  }, [currentEnvironment, currentProject, sessions]);
+    const chosen = latestRun(candidates);
+    if (chosen) selectRun(chosen.run.runId);
+  }, [groups, runs, selectRun, selectRunGroup, selectedProjectEntry]);
 
-  const latestRunId = runsForDropdown[0]?.run.runId;
+  const runMenuEntries = React.useMemo(() => {
+    if (selectedProjectEntry?.kind === 'group') {
+      return groups
+        .filter((group) => group.group.name === selectedProjectEntry.label && group.group.environment === selectedProjectEntry.environment)
+        .sort((a, b) => timestampMs(b.run.timestamp) - timestampMs(a.run.timestamp))
+        .map((group, index) => ({
+          kind: 'group' as const,
+          id: group.group.id,
+          label: index === 0 ? 'Latest set' : group.run.timestamp,
+          timestamp: group.run.timestamp,
+        }));
+    }
+
+    if (selectedProjectEntry?.kind === 'project') {
+      return runs
+        .filter((run) => run.run.project === selectedProjectEntry.project && run.run.environment === selectedProjectEntry.environment)
+        .sort((a, b) => timestampMs(b.run.timestamp) - timestampMs(a.run.timestamp))
+        .map((run, index) => ({
+          kind: 'run' as const,
+          id: run.run.runId,
+          label: index === 0 ? 'Latest' : run.run.timestamp,
+          timestamp: run.run.timestamp,
+        }));
+    }
+
+    return [];
+  }, [groups, runs, selectedProjectEntry]);
 
   const currentRunLabel = React.useMemo(() => {
-    // If we're viewing a session and it's the latest, show "Latest"
-    if (latestSessionId && currentSession?.session.sessionId === latestSessionId) return 'Latest';
-    // If we're viewing a run and it's the latest (and no session), show "Latest"
-    if (!latestSessionId && latestRunId && currentRun?.run.runId === latestRunId) return 'Latest';
-    // Otherwise show timestamp
-    return currentSession?.session.timestamp ?? currentRun?.run.timestamp ?? '—';
-  }, [currentRun?.run.runId, currentRun?.run.timestamp, currentSession?.session.sessionId, currentSession?.session.timestamp, latestRunId, latestSessionId]);
+    if (currentGroup) {
+      const match = runMenuEntries.find((entry) => entry.kind === 'group' && entry.id === currentGroup.group.id);
+      return match?.label ?? 'Latest set';
+    }
 
-  const documents = currentSession?.session.documents ?? currentRun?.run.documents ?? [];
+    if (currentRun) {
+      const match = runMenuEntries.find((entry) => entry.kind === 'run' && entry.id === currentRun.run.runId);
+      return match?.label ?? currentRun.run.timestamp;
+    }
+
+    return '—';
+  }, [currentGroup, currentRun, runMenuEntries]);
+
+  const documents = currentRun?.run.documents ?? [];
   const navTree = React.useMemo(() => buildGroupedNavTree(documents), [documents]);
 
   const navTreeForSidebar = React.useMemo(() => {
-    // The nav-tree builder always returns a synthetic Root group (group:/) so
-    // root-level documents (no path segments) still have a place to live.
-    // For the Explorer-like sidebar UX:
-    // - hide Root when it has no direct containers
-    // - otherwise keep Root visible while also showing descendants at the same level
-    //   (no mandatory expand).
     const maybeRoot = navTree.length === 1 && navTree[0]?.kind === 'Group' && navTree[0]?.id === 'group:/'
       ? navTree[0]
       : undefined;
@@ -309,11 +350,7 @@ export function Sidebar() {
     return items.map((item) => {
       if (item.kind !== 'Group') return null;
 
-      // Root is shown as a top-level entry, but its child folders are already
-      // rendered at the same level. Suppress Root's nested rendering to avoid
-      // duplicates while still allowing filter visibility to consider descendants.
       const suppressChildren = level === 0 && item.id === 'group:/';
-
       const isExpanded = expandedItems.has(item.id);
       const isSelected = currentView.type === 'group' && currentView.id === item.id;
 
@@ -322,97 +359,94 @@ export function Sidebar() {
 
       if (!itemVisible(item) && !hasRenderedChild) return null;
 
-      const hasChildren = !suppressChildren && item.children.some((c) => c.kind === 'Group');
+      const hasChildren = !suppressChildren && item.children.some((child) => child.kind === 'Group');
       const Icon = getNavIcon(item.kind);
 
-        return (
-          <div key={item.id} className="select-none">
-            <div
+      return (
+        <div key={item.id} className="select-none">
+          <div
+            className={cn(
+              "flex items-center gap-2 py-1.5 px-2 transition-all rounded-md mx-2 mb-0.5 group",
+              isSelected
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+            style={{ paddingLeft: `${(level * 12) + 8}px` }}
+          >
+            <button
+              type="button"
               className={cn(
-                "flex items-center gap-2 py-1.5 px-2 transition-all rounded-md mx-2 mb-0.5 group",
-                isSelected
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                "w-4 h-4 flex items-center justify-center shrink-0 rounded-sm",
+                hasChildren ? "hover:bg-muted-foreground/10" : "pointer-events-none"
               )}
-              style={{ paddingLeft: `${(level * 12) + 8}px` }}
+              aria-label={hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : undefined}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (hasChildren) toggleExpanded(item.id);
+              }}
             >
-              <button
-                type="button"
-                className={cn(
-                  "w-4 h-4 flex items-center justify-center shrink-0 rounded-sm",
-                  hasChildren ? "hover:bg-muted-foreground/10" : "pointer-events-none"
-                )}
-                aria-label={hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : undefined}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (hasChildren) toggleExpanded(item.id);
-                }}
-              >
-                {hasChildren ? (
-                  isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
-                ) : (
-                  <div className="w-1 h-1 rounded-full bg-current opacity-20" />
-                )}
-              </button>
-
-              <Icon
-                className={cn(
-                  "w-4 h-4 shrink-0",
-                  isSelected ? "text-primary-foreground" : "text-muted-foreground/60"
-                )}
-              />
-
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center gap-2 min-w-0 flex-1 text-left",
-                  isSelected ? "text-primary-foreground" : "text-foreground"
-                )}
-                onClick={() => {
-                  navigate('group', item.id);
-                }}
-              >
-                <span className="text-sm truncate flex-1">{item.title}</span>
-              </button>
-
-              {item.status && (
-                <StatusBadge status={item.status as any} size="xs" />
+              {hasChildren ? (
+                isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
+              ) : (
+                <div className="w-1 h-1 rounded-full bg-current opacity-20" />
               )}
-            </div>
+            </button>
 
-            <AnimatePresence initial={false}>
-              {hasChildren && isExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: "easeInOut" }}
-                  className="overflow-hidden"
-                >
-                  {renderedChildren}
-                </motion.div>
+            <Icon
+              className={cn(
+                "w-4 h-4 shrink-0",
+                isSelected ? "text-primary-foreground" : "text-muted-foreground/60"
               )}
-            </AnimatePresence>
+            />
+
+            <button
+              type="button"
+              className={cn(
+                "flex items-center gap-2 min-w-0 flex-1 text-left",
+                isSelected ? "text-primary-foreground" : "text-foreground"
+              )}
+              onClick={() => navigate('group', item.id)}
+            >
+              <span className="text-sm truncate flex-1">{item.title}</span>
+            </button>
+
+            {item.status && (
+              <StatusBadge status={item.status as any} size="xs" />
+            )}
           </div>
-        );
-      });
+
+          <AnimatePresence initial={false}>
+            {hasChildren && isExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                {renderedChildren}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    });
   }, [currentView.id, currentView.type, expandedItems, filterTags, filterText, navigate, toggleExpanded]);
 
   return (
-    <aside 
+    <aside
       className="flex flex-col bg-card border-r shrink-0 overflow-hidden transition-all duration-300 ease-in-out"
       style={{ width: sidebarWidth }}
     >
-      {/* Left Nav Header (BRD) */}
       <div className="border-b shrink-0 bg-muted/30">
         <div
           role="button"
           tabIndex={0}
           className="w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors cursor-pointer"
           onClick={() => navigate('summary')}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
               navigate('summary');
             }
           }}
@@ -421,13 +455,11 @@ export function Sidebar() {
           <div className="mt-1 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Project</span>
-              {projectNames.length > 0 ? (
+              {projectEntries.length > 0 ? (
                 <DropdownMenu open={projectMenuOpen} onOpenChange={setProjectMenuOpen}>
                   <DropdownMenuTrigger
                     asChild
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+                    onClick={(event) => event.stopPropagation()}
                   >
                     <button
                       type="button"
@@ -437,20 +469,30 @@ export function Sidebar() {
                       {currentProject}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    {projectNames.map((name) => (
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    {projectEntries.map((entry) => (
                       <DropdownMenuItem
-                        key={name}
+                        key={entry.key}
                         onSelect={() => {
-                          selectProject(name);
+                          selectProjectEntry(entry);
                           setProjectMenuOpen(false);
                         }}
                         className={cn(
                           "text-xs",
-                          name === currentProject && "bg-muted"
+                          entry.key === selectedProjectEntry?.key && "bg-muted"
                         )}
                       >
-                        {name}
+                        <span className="truncate">{entry.label}</span>
+                        {entry.kind === 'group' && (
+                          <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
+                            Group
+                          </span>
+                        )}
+                        {entry.kind === 'project' && entry.grouped && (
+                          <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">
+                            Source
+                          </span>
+                        )}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -459,15 +501,14 @@ export function Sidebar() {
                 <span className="text-xs font-medium">—</span>
               )}
             </div>
+
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Environment</span>
               {environmentNames.length > 0 ? (
                 <DropdownMenu open={envMenuOpen} onOpenChange={setEnvMenuOpen}>
                   <DropdownMenuTrigger
                     asChild
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+                    onClick={(event) => event.stopPropagation()}
                   >
                     <button
                       type="button"
@@ -477,7 +518,7 @@ export function Sidebar() {
                       {currentEnvironment}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
                     {environmentNames.map((name) => (
                       <DropdownMenuItem
                         key={name}
@@ -499,15 +540,14 @@ export function Sidebar() {
                 <span className="text-xs font-medium">—</span>
               )}
             </div>
+
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Run</span>
-              {(runsForDropdown.length > 0 || latestSessionId) ? (
+              {runMenuEntries.length > 0 ? (
                 <DropdownMenu open={runMenuOpen} onOpenChange={setRunMenuOpen}>
                   <DropdownMenuTrigger
                     asChild
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
+                    onClick={(event) => event.stopPropagation()}
                   >
                     <button
                       type="button"
@@ -517,48 +557,22 @@ export function Sidebar() {
                       {currentRunLabel}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    {latestSessionId && (
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    {runMenuEntries.map((entry) => (
                       <DropdownMenuItem
+                        key={entry.id}
                         onSelect={() => {
-                          selectSession(latestSessionId);
+                          if (entry.kind === 'group') selectRunGroup(entry.id);
+                          else selectRun(entry.id);
                           setRunMenuOpen(false);
                         }}
                         className={cn(
                           "text-xs",
-                          latestSessionId === currentSession?.session.sessionId && "bg-muted"
+                          entry.id === currentGroup?.group.id && "bg-muted",
+                          entry.id === currentRun?.run.runId && "bg-muted"
                         )}
                       >
-                        Latest
-                      </DropdownMenuItem>
-                    )}
-                    {!latestSessionId && latestRunId && (
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          selectRun(latestRunId);
-                          setRunMenuOpen(false);
-                        }}
-                        className={cn(
-                          "text-xs",
-                          latestRunId === currentRun?.run.runId && "bg-muted"
-                        )}
-                      >
-                        Latest
-                      </DropdownMenuItem>
-                    )}
-                    {runsForDropdown.map((r) => (
-                      <DropdownMenuItem
-                        key={r.run.runId}
-                        onSelect={() => {
-                          selectRun(r.run.runId);
-                          setRunMenuOpen(false);
-                        }}
-                        className={cn(
-                          "text-xs",
-                          r.run.runId === currentRun?.run.runId && "bg-muted"
-                        )}
-                      >
-                        {r.run.timestamp}
+                        {entry.label}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -567,14 +581,15 @@ export function Sidebar() {
                 <span className="text-xs font-medium">—</span>
               )}
             </div>
+
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</span>
               <div className="flex items-center gap-2">
-                {(currentSession?.session.status === 'running' || currentRun?.run.status === 'running') && (
+                {currentRun?.run.status === 'running' && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-hidden="true" />
                 )}
-                {(currentSession?.session.status || currentRun?.run.status) ? (
-                  <StatusBadge status={(currentSession?.session.status ?? currentRun?.run.status) as any} size="xs" />
+                {currentRun?.run.status ? (
+                  <StatusBadge status={currentRun.run.status as any} size="xs" />
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
@@ -584,7 +599,6 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Containers */}
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
         <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-between">
           <span>Containers</span>

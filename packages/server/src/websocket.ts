@@ -114,13 +114,50 @@ export class WebSocketManager {
   }
   
   /**
-   * Close all connections
+   * Close all connections.
    */
-  close(): void {
-    for (const ws of this.clients.keys()) {
-      ws.close();
-    }
+  async close(): Promise<void> {
+    const clients = Array.from(this.clients.keys());
+    await Promise.all(clients.map((ws) => this.closeClient(ws)));
     this.clients.clear();
-    this.wss.close();
+
+    await new Promise<void>((resolve, reject) => {
+      this.wss.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+  }
+
+  private closeClient(ws: WebSocket): Promise<void> {
+    if (ws.readyState === WebSocket.CLOSED) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve();
+      };
+
+      const timeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.CLOSED) {
+          ws.terminate();
+        }
+        finish();
+      }, 1000);
+      timeout.unref();
+
+      ws.once('close', finish);
+
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close(1001, 'Server shutting down');
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        ws.terminate();
+      }
+    });
   }
 }

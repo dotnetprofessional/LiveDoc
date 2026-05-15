@@ -62,7 +62,8 @@
     "vitest": "^4.1.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "livedoc",

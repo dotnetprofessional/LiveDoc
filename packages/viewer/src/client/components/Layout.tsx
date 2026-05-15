@@ -3,22 +3,43 @@ import { Sidebar } from "./Sidebar"
 import { useStore } from "../store"
 import { isEmbedded, isStaticMode } from "../config"
 import { Button } from "./ui/button"
-import { Moon, Sun, Bell } from "lucide-react"
+import { Moon, Sun, Settings2 } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
+import { Switch } from "./ui/switch"
 import { GlobalFilter } from "./GlobalFilter"
 import { Badge } from "./ui/badge"
 import { RunProgressBanner } from "./RunProgressBanner"
+import { ProjectGroupingOnboarding } from "./ProjectGroupingOnboarding"
 import { VIEWER_VERSION } from "../lib/version"
+import { cn } from "../lib/utils"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true)
   const embedded = isEmbedded()
   const staticMode = isStaticMode()
-  const { audienceMode, setAudienceMode, connectionStatus, runs, selectedRunId, selectRun } = useStore()
+  const {
+    audienceMode,
+    setAudienceMode,
+    connectionStatus,
+    runs,
+    selectedRunId,
+    selectedRunGroupId,
+    selectRun,
+    projectGrouping,
+    setProjectGroupingEnabled,
+    setProjectGroupingHideSourceProjects,
+  } = useStore()
 
   const latestRun = runs[0]
   const latestIsRunning = latestRun?.run.status === "running"
-  const hasNewLiveRun = latestIsRunning && latestRun.run.runId !== selectedRunId
+  const hasNewLiveRun = latestIsRunning && !selectedRunGroupId && latestRun.run.runId !== selectedRunId
 
   const connectionLabel =
     connectionStatus === 'connected'
@@ -98,9 +119,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <TabsTrigger value="developer" className="rounded-full text-xs">Developer</TabsTrigger>
               </TabsList>
             </Tabs>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Bell className="w-4 h-4" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full" aria-label="Viewer settings">
+                  <Settings2 className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel>Viewer settings</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <SettingsSwitchRow
+                  title="Group related test projects"
+                  description="Combine projects by prefix, environment, and run timing."
+                  checked={projectGrouping.enabled}
+                  onCheckedChange={setProjectGroupingEnabled}
+                />
+                <SettingsSwitchRow
+                  title="Hide grouped source projects"
+                  description="Keep individual test projects out of the project selector once grouped."
+                  checked={projectGrouping.hideSourceProjects}
+                  disabled={!projectGrouping.enabled}
+                  onCheckedChange={setProjectGroupingHideSourceProjects}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="icon"
@@ -122,6 +164,59 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+
+      <ProjectGroupingOnboarding disabled={embedded} />
+    </div>
+  )
+}
+
+interface SettingsSwitchRowProps {
+  title: string
+  description: string
+  checked: boolean
+  disabled?: boolean
+  onCheckedChange: (checked: boolean) => void
+}
+
+function SettingsSwitchRow({
+  title,
+  description,
+  checked,
+  disabled,
+  onCheckedChange,
+}: SettingsSwitchRowProps) {
+  const id = React.useId()
+  const descriptionId = `${id}-description`
+
+  return (
+    <div
+      className={cn(
+        "flex items-start justify-between gap-4 rounded-sm px-2 py-3 transition-colors hover:bg-muted/60",
+        disabled && "opacity-50"
+      )}
+    >
+      <div className="min-w-0 space-y-1">
+        <label
+          htmlFor={id}
+          className={cn(
+            "block text-sm font-medium leading-none text-foreground",
+            disabled ? "cursor-not-allowed" : "cursor-pointer"
+          )}
+        >
+          {title}
+        </label>
+        <p id={descriptionId} className="text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        disabled={disabled}
+        aria-describedby={descriptionId}
+        onCheckedChange={onCheckedChange}
+        className="mt-0.5"
+      />
     </div>
   )
 }

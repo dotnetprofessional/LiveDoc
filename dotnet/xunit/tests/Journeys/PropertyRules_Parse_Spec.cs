@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = "PropertyRules parsing: Load() reads rule files, classifies bare names as ignores vs assertion rules, and supports exists/type/comparisons/length/matches assertions.")]
+[Specification("PropertyRules Parse", Description = "PropertyRules parsing: Load() reads rule files, classifies bare names as ignores vs assertion rules, and supports exists/type/comparisons/length/matches assertions.")]
 public class PropertyRules_Parse_Spec : SpecificationTest
 {
     public PropertyRules_Parse_Spec(ITestOutputHelper output) : base(output)

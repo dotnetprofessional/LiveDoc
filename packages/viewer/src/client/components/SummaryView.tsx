@@ -21,15 +21,13 @@ export function SummaryView({ run }: SummaryViewProps) {
 
   const runModel = run.run;
   const documents = runModel.documents ?? [];
-  
-  // vx-9: For sessions, use the latest run's summary (not cumulative session summary)
-  // because documents are last-writer-wins — the cumulative totals can exceed visible tests.
-  const latestRunInfo = (runModel.runs && runModel.runs.length > 0)
-    ? runModel.runs
+
+  const latestRunInfo = (runModel.sourceRuns && runModel.sourceRuns.length > 0)
+    ? runModel.sourceRuns
         .slice()
         .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))[0]
     : undefined;
-  const summary = latestRunInfo?.summary ?? runModel.summary;
+  const summary = runModel.summary;
   const duration = runModel.duration;
   const status = runModel.status;
 
@@ -192,7 +190,9 @@ export function SummaryView({ run }: SummaryViewProps) {
                 Run in progress — results are updating live
               </span>
             ) : (
-              'Latest execution health and organization overview.'
+              latestRunInfo
+                ? `Grouped health across ${runModel.sourceRuns?.length ?? 0} related test projects.`
+                : 'Latest execution health and organization overview.'
             )}
           </p>
         </div>

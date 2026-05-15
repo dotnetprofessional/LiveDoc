@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react';
 import { isStaticMode, getStaticData } from '../config';
 import { makeRunState, useStore, type ProjectNode } from '../store';
-import type { TestRunV1 } from '@swedevtools/livedoc-schema';
+import { validateTestRunData } from '../lib/run-validation';
 
 export function useStaticData(): boolean {
   const [isStatic] = useState(() => isStaticMode());
 
-  const { setRuns, selectRun, setConnectionStatus, setProjectHierarchy } = useStore();
+  const { setRuns, selectRun, setConnectionStatus, setProjectHierarchy, setDiagnostics } = useStore();
 
   useEffect(() => {
     if (!isStatic) return;
 
-    const data = getStaticData() as TestRunV1 | undefined;
-    if (!data) return;
+    const { run: validatedRun, diagnostic } = validateTestRunData(getStaticData(), 'Embedded static report data');
+    if (diagnostic) {
+      setDiagnostics([diagnostic]);
+      setConnectionStatus('error');
+      return;
+    }
+
+    if (!validatedRun) return;
+
+    const data = { ...validatedRun };
+    setDiagnostics([]);
 
     // Static data always represents a completed run — force terminal status
     if (data.status === 'running' || data.status === 'pending') {
@@ -43,7 +52,7 @@ export function useStaticData(): boolean {
       }],
     }];
     setProjectHierarchy(hierarchy);
-  }, [isStatic, selectRun, setConnectionStatus, setProjectHierarchy, setRuns]);
+  }, [isStatic, selectRun, setConnectionStatus, setDiagnostics, setProjectHierarchy, setRuns]);
 
   return isStatic;
 }

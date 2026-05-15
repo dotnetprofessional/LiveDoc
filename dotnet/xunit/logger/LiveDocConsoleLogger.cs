@@ -85,9 +85,10 @@ public class LiveDocConsoleLogger : ITestLoggerWithParameters
             }
             else
             {
-                // Fallback: derive from class name
-                var name = FormatClassName(group.Key);
-                sb.AppendLine(Color($"  {name}", AnsiColor.Yellow));
+                // Fallback: derive from LiveDoc attributes when the test did not emit
+                // a LiveDocContext header, otherwise fall back to the class name.
+                var name = ResolveLiveDocHeading(group.Key) ?? $"  {FormatClassName(group.Key)}";
+                sb.AppendLine(Color(name, AnsiColor.Yellow));
             }
 
             // Output each test result
@@ -197,6 +198,48 @@ public class LiveDocConsoleLogger : ITestLoggerWithParameters
     {
         var lastDot = fullyQualifiedName.LastIndexOf('.');
         return lastDot >= 0 ? fullyQualifiedName[..lastDot] : fullyQualifiedName;
+    }
+
+    private static string? ResolveLiveDocHeading(string className)
+    {
+        var type = ResolveType(className);
+        if (type == null)
+            return null;
+
+        foreach (var attribute in type.GetCustomAttributes(inherit: true))
+        {
+            var attributeName = attribute.GetType().FullName;
+            if (attributeName == "SweDevTools.LiveDoc.xUnit.SpecificationAttribute")
+            {
+                var title = GetStringProperty(attribute, "Title") ?? FormatClassName(className);
+                return $"  Specification: {title}";
+            }
+
+            if (attributeName == "SweDevTools.LiveDoc.xUnit.FeatureAttribute")
+            {
+                var title = GetStringProperty(attribute, "Name") ?? FormatClassName(className);
+                return $"  Feature: {title}";
+            }
+        }
+
+        return null;
+    }
+
+    private static Type? ResolveType(string className)
+    {
+        return Type.GetType(className)
+            ?? AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly =>
+                {
+                    try { return assembly.GetType(className); }
+                    catch { return null; }
+                })
+                .FirstOrDefault(type => type != null);
+    }
+
+    private static string? GetStringProperty(object instance, string propertyName)
+    {
+        return instance.GetType().GetProperty(propertyName)?.GetValue(instance) as string;
     }
 
     /// <summary>

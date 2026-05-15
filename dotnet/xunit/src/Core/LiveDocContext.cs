@@ -95,10 +95,7 @@ public class LiveDocContext : IDisposable
         _formatter = new LiveDocFormatter();
         _scenarioStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        // Initialize reporter if enabled
-        _runReporter = LiveDocTestRunReporter.Instance.IsEnabled 
-            ? LiveDocTestRunReporter.Instance 
-            : null;
+        _runReporter = LiveDocTestRunReporter.Instance;
 
         // Determine test case type
         var specAttr = _testClassType.GetCustomAttribute<SpecificationAttribute>();
@@ -241,10 +238,21 @@ public class LiveDocContext : IDisposable
 
         return new ScenarioContext
         {
-            Name = name,
+            Name = StripScenarioPrefix(name),
             Description = scenarioAttr?.Description ?? outlineAttr?.Description,
             Tags = TagAttribute.GetTags(_testClassType, _testMethod)
         };
+    }
+
+    private static string StripScenarioPrefix(string name)
+    {
+        if (name.StartsWith("Scenario Outline: ", StringComparison.OrdinalIgnoreCase))
+            return name.Substring("Scenario Outline: ".Length);
+
+        if (name.StartsWith("Scenario: ", StringComparison.OrdinalIgnoreCase))
+            return name.Substring("Scenario: ".Length);
+
+        return name;
     }
 
     private RuleContext InitializeRuleContext()
@@ -464,9 +472,19 @@ public class LiveDocContext : IDisposable
         if (isSpecification)
         {
             var ruleOutlineAttr = testMethod.GetCustomAttribute<RuleOutlineAttribute>();
-            // RuleOutline Description is the explicit title template (already has <placeholders>)
+            // RuleOutline Description or non-default DisplayName is the explicit title template.
             if (!string.IsNullOrEmpty(ruleOutlineAttr?.Description))
                 return ruleOutlineAttr.Description;
+
+            var methodAsTitle = "Rule Outline: " + testMethod.Name.Replace("_", " ");
+            if (!string.IsNullOrEmpty(ruleOutlineAttr?.DisplayName) &&
+                !string.Equals(ruleOutlineAttr.DisplayName, methodAsTitle, StringComparison.Ordinal))
+            {
+                var title = ruleOutlineAttr.DisplayName;
+                if (title.StartsWith("Rule Outline: ", StringComparison.OrdinalIgnoreCase))
+                    title = title.Substring("Rule Outline: ".Length);
+                return title;
+            }
         }
         else
         {

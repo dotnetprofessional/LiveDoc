@@ -46,16 +46,26 @@
     <ProjectReference Include="..\tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj" />
   </ItemGroup>
 
-  <!-- Exclude SampleApi (separate project, compiled independently) -->
+  <!-- Exclude nested fixture projects (compiled independently) -->
   <ItemGroup>
     <Compile Remove="SampleApi\**" />
+    <Compile Remove="ReportingOutput\Fixtures\**" />
     <Content Remove="SampleApi\**" />
+    <Content Remove="ReportingOutput\Fixtures\**" />
     <None Remove="SampleApi\**" />
+    <None Remove="ReportingOutput\Fixtures\**" />
   </ItemGroup>
 
   <!-- Copy journey test data to output -->
   <ItemGroup>
     <None Include="Journeys\sample-journeys\**" CopyToOutputDirectory="PreserveNewest" LinkBase="sample-journeys" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>LiveDocProject</_Parameter1>
+      <_Parameter2>livedoc.xunit.unittests</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>

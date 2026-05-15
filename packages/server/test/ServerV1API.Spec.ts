@@ -63,6 +63,57 @@ function makeTestCase(id: string, title: string, tests: any[], kind = "Feature")
     };
 }
 
+function makeStoredRuleOutlineRun(project: string, environment: string) {
+    return {
+        protocolVersion: "1.0",
+        runId: "xunit-ruleoutline-run",
+        project,
+        environment,
+        framework: "xunit",
+        timestamp: "2026-05-14T00:00:00.000Z",
+        status: "passed",
+        duration: 131,
+        summary: { total: 4, passed: 4, failed: 0, pending: 0, skipped: 0 },
+        documents: [{
+            id: "Spec:USMBCustomerlessQuoteClassification_Spec",
+            kind: "Specification",
+            title: "USMBCustomerlessQuoteClassification_Spec",
+            path: "DomainModel/V12/Scenario/USMBCustomerlessQuoteClassification_Spec.cs",
+            tags: [],
+            statistics: { total: 4, passed: 4, failed: 0, pending: 0, skipped: 0 },
+            tests: [{
+                id: "Outline:USMBCustomerlessQuoteClassification_Spec:Only_USMB_quotes_without_sold_to_are_customerless_when_the_feature_is_enabled",
+                kind: "RuleOutline",
+                title: "A quote with the IsUSMBCustomerlessQuoteEnabled flag set to <isFeatureFlagEnabled>, channel <channelType>, and sold-to customer present <hasSoldToCustomer> is USMB customerless <expectedResult>",
+                tags: [],
+                execution: { status: "passed", duration: 131 },
+                examples: [{
+                    headers: ["isFeatureFlagEnabled", "channelType", "hasSoldToCustomer", "expectedResult"],
+                    rows: [
+                        { rowId: 0, values: [{ value: true, type: "boolean" }, { value: 6, type: "object" }, { value: false, type: "boolean" }, { value: true, type: "boolean" }] },
+                        { rowId: 1, values: [{ value: false, type: "boolean" }, { value: 6, type: "object" }, { value: false, type: "boolean" }, { value: false, type: "boolean" }] },
+                        { rowId: 2, values: [{ value: true, type: "boolean" }, { value: 1, type: "object" }, { value: false, type: "boolean" }, { value: false, type: "boolean" }] },
+                        { rowId: 3, values: [{ value: true, type: "boolean" }, { value: 6, type: "object" }, { value: true, type: "boolean" }, { value: false, type: "boolean" }] },
+                    ],
+                }],
+                exampleResults: [
+                    { testId: "Outline:USMBCustomerlessQuoteClassification_Spec:Only_USMB_quotes_without_sold_to_are_customerless_when_the_feature_is_enabled", result: { rowId: 0, status: "passed", duration: 130 } },
+                    { testId: "Outline:USMBCustomerlessQuoteClassification_Spec:Only_USMB_quotes_without_sold_to_are_customerless_when_the_feature_is_enabled", result: { rowId: 1, status: "passed", duration: 1 } },
+                    { testId: "Outline:USMBCustomerlessQuoteClassification_Spec:Only_USMB_quotes_without_sold_to_are_customerless_when_the_feature_is_enabled", result: { rowId: 2, status: "passed", duration: 0 } },
+                    { testId: "Outline:USMBCustomerlessQuoteClassification_Spec:Only_USMB_quotes_without_sold_to_are_customerless_when_the_feature_is_enabled", result: { rowId: 3, status: "passed", duration: 0 } },
+                ],
+                statistics: { total: 4, passed: 4, failed: 0, pending: 0, skipped: 0 },
+            }],
+        }],
+    };
+}
+
+async function writeLastRun(dataDir: string, project: string, environment: string, content: string) {
+    const envDir = path.join(dataDir, project, environment);
+    await fs.mkdir(envDir, { recursive: true });
+    await fs.writeFile(path.join(envDir, "lastrun.json"), content, "utf-8");
+}
+
 // ---------------------------------------------------------------------------
 // Feature: V1 Run Lifecycle
 // ---------------------------------------------------------------------------
@@ -402,6 +453,130 @@ feature(`V1 API — Batch Upsert with Completion
 
         and("the run duration should be '12000'", (ctx) => {
             expect(run.duration).toBe(ctx.step.values[0]);
+        });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Feature: V1 Stored Run Diagnostics
+// ---------------------------------------------------------------------------
+
+feature(`V1 API — Stored Run Diagnostics
+    @integration @api @v1 @diagnostics
+    Stored lastrun.json files must either hydrate as TestRunV1 data or explain why the viewer cannot render them.
+    `, () => {
+    let server: LiveDocServer;
+    let testDataDir: string;
+    let baseUrl: string;
+
+    background("Temporary storage directory", (ctx) => {
+        given("a temporary data directory", () => {
+            testDataDir = path.join(os.tmpdir(), `livedoc-v1-diagnostics-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        });
+
+        ctx.afterBackground(async () => {
+            if (server) await server.stop();
+            try { await fs.rm(testDataDir, { recursive: true, force: true }); } catch { /* ignore */ }
+        });
+    });
+
+    // ------------------------------------------------------------------
+    scenario("A valid xUnit RuleOutline lastrun hydrates on server startup", () => {
+        let runResponse: Response;
+        let run: any;
+        let diagnostics: any;
+
+        given("a valid xUnit lastrun for project 'StoredProject' environment 'local' with '1' Specification and '4' RuleOutline results exists on disk", async (ctx) => {
+            const project = String(ctx.step.values[0]);
+            const environment = String(ctx.step.values[1]);
+            const storedRun = makeStoredRuleOutlineRun(project, environment);
+            await writeLastRun(testDataDir, project, environment, JSON.stringify(storedRun, null, 2));
+        });
+
+        when("the LiveDoc server starts from that data directory", async () => {
+            server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
+            const port = await server.listen();
+            baseUrl = `http://localhost:${port}`;
+            runResponse = await fetch(`${baseUrl}/api/v1/runs/xunit-ruleoutline-run`);
+            run = await runResponse.json();
+            const diagnosticsResponse = await fetch(`${baseUrl}/api/v1/diagnostics`);
+            diagnostics = await diagnosticsResponse.json();
+        });
+
+        Then("the stored run response status should be '200'", (ctx) => {
+            expect(runResponse.status).toBe(ctx.step.values[0]);
+        });
+
+        and("the stored run should render '1' Specification document with '4' RuleOutline results", (ctx) => {
+            expect(run.documents).toHaveLength(ctx.step.values[0]);
+            expect(run.documents[0].kind).toBe("Specification");
+            expect(run.documents[0].tests[0].kind).toBe("RuleOutline");
+            expect(run.documents[0].tests[0].exampleResults).toHaveLength(ctx.step.values[1]);
+        });
+
+        and("the diagnostics list should contain '0' entries", (ctx) => {
+            expect(diagnostics.diagnostics).toHaveLength(ctx.step.values[0]);
+        });
+    });
+
+    // ------------------------------------------------------------------
+    scenario("A corrupt lastrun reports an invalid-json diagnostic", () => {
+        let runs: any;
+        let diagnostics: any;
+
+        given("a malformed lastrun exists for project 'BrokenJson' environment 'local'", async (ctx) => {
+            await writeLastRun(testDataDir, String(ctx.step.values[0]), String(ctx.step.values[1]), "{ this is not json");
+        });
+
+        when("the LiveDoc server starts from that data directory", async () => {
+            server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
+            const port = await server.listen();
+            baseUrl = `http://localhost:${port}`;
+            runs = await (await fetch(`${baseUrl}/api/v1/runs`)).json();
+            diagnostics = await (await fetch(`${baseUrl}/api/v1/diagnostics`)).json();
+        });
+
+        Then("the run list should contain '0' runs", (ctx) => {
+            expect(runs).toHaveLength(ctx.step.values[0]);
+        });
+
+        and("diagnostics should include code 'invalid-json' for project 'BrokenJson'", (ctx) => {
+            expect(diagnostics.diagnostics).toEqual(expect.arrayContaining([
+                expect.objectContaining({ code: ctx.step.values[0], project: ctx.step.values[1] }),
+            ]));
+        });
+    });
+
+    // ------------------------------------------------------------------
+    scenario("An old-model lastrun reports an unsupported-model diagnostic", () => {
+        let runs: any;
+        let diagnostics: any;
+
+        given("an old-model lastrun without protocolVersion exists for project 'OldModel' environment 'local'", async (ctx) => {
+            await writeLastRun(testDataDir, String(ctx.step.values[0]), String(ctx.step.values[1]), JSON.stringify({
+                runId: "old-run",
+                project: ctx.step.values[0],
+                environment: ctx.step.values[1],
+                features: [],
+            }));
+        });
+
+        when("the LiveDoc server starts from that data directory", async () => {
+            server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
+            const port = await server.listen();
+            baseUrl = `http://localhost:${port}`;
+            runs = await (await fetch(`${baseUrl}/api/v1/runs`)).json();
+            diagnostics = await (await fetch(`${baseUrl}/api/v1/diagnostics`)).json();
+        });
+
+        Then("the run list should contain '0' runs", (ctx) => {
+            expect(runs).toHaveLength(ctx.step.values[0]);
+        });
+
+        and("diagnostics should include code 'unsupported-model' for project 'OldModel'", (ctx) => {
+            expect(diagnostics.diagnostics).toEqual(expect.arrayContaining([
+                expect.objectContaining({ code: ctx.step.values[0], project: ctx.step.values[1] }),
+            ]));
         });
     });
 });
