@@ -23,19 +23,37 @@ export function findMatchingValue(placeholder: string, values: Record<string, st
   return undefined;
 }
 
-export function bindPlaceholdersInText(text: string, values: Record<string, string>): string {
-  if (!values || Object.keys(values).length === 0) return text;
+function parseNamedPlaceholder(placeholder: string): { name: string; value: string } | undefined {
+  const match = placeholder.match(/^([^:>]+):([^>]+)$/);
+  if (!match) return undefined;
+
+  return {
+    name: match[1].trim(),
+    value: match[2].trim(),
+  };
+}
+
+function resolvePlaceholderValue(placeholder: string, values?: Record<string, string>): string | undefined {
+  const rawKey = placeholder.trim();
+  if (!rawKey) return undefined;
+
+  const namedPlaceholder = parseNamedPlaceholder(rawKey);
+  const key = namedPlaceholder?.name ?? rawKey;
+  const matchingValue =
+    values && Object.keys(values).length > 0
+      ? findMatchingValue(key, values) ??
+        (key !== rawKey ? findMatchingValue(rawKey, values) : undefined)
+      : undefined;
+
+  return matchingValue ?? namedPlaceholder?.value;
+}
+
+export function bindPlaceholdersInText(text: string, values?: Record<string, string>): string {
+  const hasValues = !!values && Object.keys(values).length > 0;
 
   return text.replace(/<([^>\n]+)>/g, (match, inner: string) => {
     const rawKey = String(inner ?? '').trim();
-    if (!rawKey) return match;
-
-    // Support <name:value> by first matching on the "name" portion.
-    const key = rawKey.split(':')[0].trim();
-
-    const value =
-      findMatchingValue(key, values) ??
-      (key !== rawKey ? findMatchingValue(rawKey, values) : undefined);
+    const value = resolvePlaceholderValue(rawKey, hasValues ? values : undefined);
 
     return value !== undefined ? String(value) : match;
   });
@@ -55,7 +73,7 @@ export function highlightPlaceholders(text: string, values?: Record<string, stri
   return parts.map((part, index) => {
     if (part.startsWith('<') && part.endsWith('>')) {
       const placeholder = part.slice(1, -1);
-      const value = values ? findMatchingValue(placeholder, values) : undefined;
+      const value = resolvePlaceholderValue(placeholder, values);
       
       return (
         <HighlightSpan key={index}>

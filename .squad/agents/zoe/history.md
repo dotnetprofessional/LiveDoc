@@ -12,6 +12,8 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+- **2026-05-13 — Test-to-Viewer Flow Validation.** Menu test command (`pnpm run test`) uses `livedoc.vitest.ts` config with `LiveDocSpecReporter` that auto-discovers LiveDoc server via `@swedevtools/livedoc-server#discoverServer()`. Discovery reads `%TEMP%\livedoc-server.json` (port file) created by `server.listen()`. If viewer was started before port-file logic was added, or if started manually without calling `.listen()`, the port file won't exist and tests won't publish to viewer. Solution: Ensure viewer is started via `./scripts/start-viewer.ps1` which properly initializes the embedded server. Alternative: Set `LIVEDOC_SERVER_URL=http://localhost:3100` env var to bypass discovery.
+
 - **2026-03-22T05:06 — BDD Feature Conversion Complete.** Converted TypeScript attachment tests from specification/rule to feature/scenario/given/when/then BDD pattern. 73 tests pass. All values embedded in step titles with `ctx.step.values` extraction. File: `packages/vitest/_src/test/Attachments/step-attachments.Spec.ts`. Orchestration log: `.squad/orchestration-log/2026-03-22T0506-zoe.md`
 - **2026-03-22T04:20 — Step Attachment API specs written.** Created `packages/vitest/_src/test/Attachments/step-attachments.Spec.ts` with 18 rules across 6 specifications covering `attach()`, `attachScreenshot()`, `attachJSON()`, StepDefinition↔StepContext shared reference, multi-attachment accumulation, and edge cases. All passing. Full orchestration log: `.squad/orchestration-log/2026-03-22T0420-zoe.md`
 - StepDefinition's `getStepContext()` passes `this.attachments` by reference — key design pattern to test (shared-array wiring).
@@ -26,6 +28,9 @@
 - `onScenarioStart`/`onScenarioEnd` hooks are module-level arrays (`scenarioStartHooks`, `scenarioEndHooks` in livedoc.ts). They accumulate globally — no clear/reset API exists. Tests must track their own counters via closures.
 - Hooks fire in `beforeAll` of each scenario's `describe` block — by the time a `given` step runs, the start hook has already executed. Test assertions should account for this timing.
 - **2026-07-27 — Module Identity Regression Tests (v0.1.9 bundling bug).** Created `packages/vitest/_src/test/Playwright/module-identity.Spec.ts` with 6 scenarios (16 steps) covering: function reference equality across import paths, hook-fires-during-scenario integration, multi-hook registration, end-hook parity, and payload accumulation. Guards against tsup `splitting: false` duplicating the `scenarioStartHooks` array across entry points. All 16 tests pass; 717 existing tests unaffected.
+- **2026-05-13 — GettingStarted public-doc rewrite slice.** Migrated the weak Basic Calculator tutorial into `packages/vitest/_src/test/GettingStarted/FirstFeature.Spec.ts` and moved calculator arithmetic rule coverage from `Specification/specification-rules.Spec.ts` into `GettingStarted/FirstSpecification.Spec.ts`. The public starter examples now carry `@getting-started` and `@public-doc` tags, keep values in titles/tables, and pass targeted runs.
+
+- **2026-05-13 — Public-doc test taxonomy migration.** Moved Zoe-owned public Vitest specs into capability-first folders: `ShowcaseExamples`, `AttachingEvidence`, `FilteringAndTags`, `WritingFeatures`, and `WritingSpecifications`. Targeted migrated-spec run passes with `pnpm --filter @swedevtools/livedoc-vitest test:silent -- ...`.
 
 ### Multi-Model Review Panel: Module Identity Test Findings (2026-04-12)
 
@@ -47,4 +52,3 @@
 **Next Priority:** Convert priority test files to embedded-value format per guidelines; add descriptions/tags; prepare for reorganization sprint led by Mal.
 
 ---
-

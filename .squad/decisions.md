@@ -14,7 +14,7 @@
 
 **Impact:**
 - `packages/vitest/_src/app/reporter/LiveDocSpec.ts` — emits tags for specifications, rules, and rule outlines.
-- `packages/vitest/_src/test/Reporter/specification-tags-render-and-serialize.Spec.ts` — regression coverage for rendering, V1 serialization, and slash tags.
+- `packages/vitest/_src/test/ReportingOutput/SpecificationTags.Spec.ts` — regression coverage for rendering, V1 serialization, and slash tags.
 
 ---
 

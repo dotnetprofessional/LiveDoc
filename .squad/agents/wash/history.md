@@ -11,7 +11,9 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
-- **Specification tag rendering parity (2026-05-13)**: `LiveDocSpec` console details now render tags for `Specification`, `Rule`, and `RuleOutline` with the same `formatTags()` path used by Feature/Scenario output. Regression coverage lives in `packages/vitest/_src/test/Reporter/specification-tags-render-and-serialize.Spec.ts` and validates slash tags like `@name/name` through render and V1 serialization.
+- **Capability-first reporting output taxonomy (2026-05-13)**: Public reporter behavior specs should live under `packages/vitest/_src/test/ReportingOutput/`. The specification tag regression now lives at `ReportingOutput/SpecificationTags.Spec.ts` and uses `specification`/`rule` style because it asserts technical reporter transformations.
+
+- **Specification tag rendering parity (2026-05-13)**: `LiveDocSpec` console details now render tags for `Specification`, `Rule`, and `RuleOutline` with the same `formatTags()` path used by Feature/Scenario output. Regression coverage lives in `packages/vitest/_src/test/ReportingOutput/SpecificationTags.Spec.ts` and validates slash tags like `@name/name` through render and V1 serialization.
 
 - **StepContext ↔ StepDefinition shared-array pattern**: StepContext receives a reference to StepDefinition's `attachments` array via constructor. When users call `ctx.attach()` inside a step, it pushes directly to the StepDefinition's array — no post-step copy needed. This same pattern could be reused for any future step-level collection APIs.
 - **Attachment type lives in `@swedevtools/livedoc-schema` (reporter-v3.ts)**: The canonical `Attachment` interface is in the schema package, re-exported via index. Both `ExecutionResult.attachments` and the Zod wire schema (`V3AttachmentSchema`) already exist — the plumbing from server to viewer was already done before the SDK-side API existed.
@@ -130,3 +132,12 @@
 - **Your focus area:** Framework feature coverage clarity. Curate public test model (showcase tier with living-doc integrity) and quarantine regressions/internals under `_Internal/`.
 
 **Next Priority:** Model public test tier layer while Mal leads org sprint and Zoe converts test files.
+
+- **Internal/regression taxonomy migration (2026-05-13)**: Regression/internal Vitest specs are grouped under `FrameworkInternals`; public reporter contracts under `ReportingOutput`; public Playwright behavior under `BrowserTesting`; plain Vitest interop under `VitestCompatibility`. BrowserTesting specs should use the public package entrypoints so the self-referencing Playwright entrypoint shares scenario hook state with the same LiveDoc module instance.
+
+### Viewer Integration Wiring (2026-05-13)
+
+- **Port file discovery issue**: The `discoverServer()` function in `@swedevtools/livedoc-server` expects a port file at `$TEMP/livedoc-server.json` written by `server.listen()`. When the viewer is started via `dev:all` (the menu's "Dev All" option), the server runs on port 3100 but the port file was missing, causing auto-discovery to fail silently.
+- **Menu command fix**: Updated `livedoc.ps1` test menu items to explicitly set `$env:LIVEDOC_SERVER_URL = 'http://localhost:3100'` so the reporter bypasses auto-discovery and connects directly. This ensures test results flow to the viewer regardless of how the server was started.
+- **Reporter behavior**: `LiveDocSpecReporter.onInit()` checks `LIVEDOC_SERVER_URL` env var first (line 96), then falls back to `discoverServer()`. When env var is set, publishing is enabled immediately and the "LiveDoc Viewer: Connecting to..." message appears at test start.
+- **Key insight**: For local dev workflows where the viewer is started via npm scripts (not the standalone server CLI), explicit env var configuration is more reliable than port file auto-discovery.

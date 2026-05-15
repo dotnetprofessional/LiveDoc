@@ -91,24 +91,13 @@ export default class LiveDocSpecReporter implements Reporter {
         this.liveDocSpec.executionStart();
 
         // Auto-discover a LiveDoc server when publish is not explicitly configured.
-        // Priority: env vars → dynamic discovery via @swedevtools/livedoc-server.
-        if (!livedoc.options.publish.enabled) {
-            const envServerUrl = process.env.LIVEDOC_SERVER_URL || process.env.LIVEDOC_PUBLISH_SERVER;
-            if (envServerUrl) {
+        // Priority: env vars -> explicit publish config -> dynamic discovery -> default local viewer.
+        const envServerUrl = this.applyPublishEnvironmentOverrides();
+        if (!envServerUrl && !livedoc.options.publish.enabled) {
+            const serverInfo = await this.discoverLiveDocServer();
+            if (serverInfo) {
                 livedoc.options.publish.enabled = true;
-                livedoc.options.publish.server = envServerUrl;
-            } else {
-                try {
-                    // @ts-ignore — optional peer dependency
-                    const { discoverServer } = await import('@swedevtools/livedoc-server');
-                    const serverInfo = await discoverServer();
-                    if (serverInfo) {
-                        livedoc.options.publish.enabled = true;
-                        livedoc.options.publish.server = serverInfo.url;
-                    }
-                } catch {
-                    // Server package not available — no auto-discovery
-                }
+                livedoc.options.publish.server = serverInfo.url;
             }
         }
 
@@ -118,6 +107,87 @@ export default class LiveDocSpecReporter implements Reporter {
             console.log(`\nLiveDoc Viewer: Connecting to ${publishOptions.server}...`);
             console.log(`  Project:     ${publishOptions.project}`);
             console.log(`  Environment: ${publishOptions.environment}\n`);
+        }
+    }
+
+    private applyPublishEnvironmentOverrides(): string | undefined {
+        const envServerUrl = this.firstEnvironmentValue(
+            'LIVEDOC_SERVER_URL',
+            'LIVEDOC_PUBLISH_SERVER',
+            'LIVEDOC_VIEWER_SERVER'
+        );
+        const envProject = this.firstEnvironmentValue(
+            'LIVEDOC_PROJECT',
+            'LIVEDOC_PUBLISH_PROJECT',
+            'LIVEDOC_VIEWER_PROJECT'
+        );
+        const envEnvironment = this.firstEnvironmentValue(
+            'LIVEDOC_ENVIRONMENT',
+            'LIVEDOC_PUBLISH_ENV',
+            'LIVEDOC_VIEWER_ENV'
+        );
+
+        if (envProject) {
+            livedoc.options.publish.project = envProject;
+        }
+        if (envEnvironment) {
+            livedoc.options.publish.environment = envEnvironment;
+        }
+        if (envServerUrl) {
+            livedoc.options.publish.enabled = true;
+            livedoc.options.publish.server = envServerUrl;
+        }
+
+        return envServerUrl;
+    }
+
+    private firstEnvironmentValue(...names: string[]): string | undefined {
+        for (const name of names) {
+            const value = process.env[name]?.trim();
+            if (value) return value;
+        }
+
+        return undefined;
+    }
+
+    private async discoverLiveDocServer(): Promise<{ url: string; port: number } | null> {
+        try {
+            // @ts-ignore — optional peer dependency
+            const { discoverServer } = await import('@swedevtools/livedoc-server');
+            const serverInfo = await discoverServer();
+            if (serverInfo) return serverInfo;
+        } catch {
+            // Server package not available — continue to default-port probe.
+        }
+
+        return await this.discoverDefaultLocalServer();
+    }
+
+    private async discoverDefaultLocalServer(): Promise<{ url: string; port: number } | null> {
+        const defaultPort = 3100;
+        const defaultUrl = `http://localhost:${defaultPort}`;
+
+        if (await this.isLiveDocServerHealthy(defaultUrl)) {
+            return { url: defaultUrl, port: defaultPort };
+        }
+
+        return null;
+    }
+
+    private async isLiveDocServerHealthy(serverUrl: string): Promise<boolean> {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 500);
+
+        try {
+            const response = await fetch(`${serverUrl}/api/health`, {
+                headers: { 'Connection': 'close' },
+                signal: controller.signal,
+            });
+            return response.ok;
+        } catch {
+            return false;
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
@@ -232,7 +302,7 @@ export default class LiveDocSpecReporter implements Reporter {
         // Derive project and environment from export config, publish config, or sensible defaults
         const project = exportConfig.project
             || livedoc.options.publish.project
-            || 'default';
+            || 'livedoc';
         const environment = exportConfig.environment
             || livedoc.options.publish.environment
             || (process.env.CI ? 'ci' : 'local');
@@ -273,9 +343,15 @@ export default class LiveDocSpecReporter implements Reporter {
             for (const suite of (file.tasks || [])) {
                 if (suite.type === 'suite') {
                     if (suite.name.startsWith('Specification:')) {
-                        specifications.push(this.buildSpecificationFromSuite(suite, file.filepath));
+                        const specification = this.buildSpecificationFromSuite(suite, file.filepath);
+                        if (specification.rules.length > 0) {
+                            specifications.push(specification);
+                        }
                     } else if (suite.name.startsWith('Feature:')) {
-                        features.push(this.buildFeatureFromSuite(suite, file.filepath));
+                        const feature = this.buildFeatureFromSuite(suite, file.filepath);
+                        if (feature.scenarios.length > 0) {
+                            features.push(feature);
+                        }
                     } else {
                         suites.push(this.buildVitestSuiteFromTask(suite, file.filepath));
                     }
@@ -337,6 +413,7 @@ export default class LiveDocSpecReporter implements Reporter {
         for (const task of tasks) {
             // Skip background suite (already processed)
             if (task === backgroundSuite) continue;
+            if (!this.hasUnfilteredLiveDocLeaf(task)) continue;
 
             // Check if this is a scenario (starts with "Scenario:")
             if (typeof task.name === 'string' && task.name.startsWith('Scenario:')) {
@@ -371,8 +448,8 @@ export default class LiveDocSpecReporter implements Reporter {
         scenarioOutline.tags = parsed.tags;
         
         // Get example suites
-        const exampleSuites = (suite.tasks || []).filter((t: any) => 
-            t.type === 'suite' && t.name.startsWith('Example ')
+        const exampleSuites = (suite.tasks || []).filter((t: any) =>
+            t.type === 'suite' && t.name.startsWith('Example ') && this.hasUnfilteredLiveDocLeaf(t)
         );
 
         // Single source of truth: use task.meta.livedoc payload emitted by livedoc.ts.
@@ -440,7 +517,7 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Build steps
         for (const task of (suite.tasks || [])) {
-            if (task.type === 'test') {
+            if (task.type === 'test' && !this.isFilteredOutTask(task)) {
                 const step = this.buildStepFromTest(task, background, forcePending);
                 background.addStep(step);
             }
@@ -460,7 +537,7 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Build steps
         for (const task of (suite.tasks || [])) {
-            if (task.type === 'test') {
+            if (task.type === 'test' && !this.isFilteredOutTask(task)) {
                 const step = this.buildStepFromTest(task, scenario, forcePending);
                 scenario.addStep(step);
             }
@@ -491,7 +568,7 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Build steps
         for (const task of (suite.tasks || [])) {
-            if (task.type === 'test') {
+            if (task.type === 'test' && !this.isFilteredOutTask(task)) {
                 const step = this.buildStepFromTest(task, example, forcePending);
                 example.addStep(step);
             }
@@ -508,9 +585,24 @@ export default class LiveDocSpecReporter implements Reporter {
         return livedoc;
     }
 
+    private isFilteredOutTask(task: any): boolean {
+        return this.getLiveDocMetaFromTask(task)?.filter?.filteredOut === true;
+    }
+
+    private hasUnfilteredLiveDocLeaf(task: any): boolean {
+        if (task?.type === 'test') {
+            const kind = this.getLiveDocMetaFromTask(task)?.kind;
+            return (kind === 'step' || kind === 'rule' || kind === 'ruleExample') && !this.isFilteredOutTask(task);
+        }
+
+        return Array.isArray(task?.tasks) && task.tasks.some((child: any) => this.hasUnfilteredLiveDocLeaf(child));
+    }
+
+
     private findFirstLiveDocStepMetaInSuite(suite: any): any | undefined {
         const tasks = suite?.tasks || [];
         for (const task of tasks) {
+            if (this.isFilteredOutTask(task)) continue;
             if (task?.type !== 'test') continue;
             const livedoc = this.getLiveDocMetaFromTask(task);
             if (livedoc?.kind === 'step') return livedoc;
@@ -772,9 +864,12 @@ export default class LiveDocSpecReporter implements Reporter {
         
         // Process tasks - detect rules and rule outlines
         for (const task of (suite.tasks || [])) {
+            if (!this.hasUnfilteredLiveDocLeaf(task)) continue;
+
             if (task.type === 'suite') {
                 // RuleOutline suites contain child tests with livedoc.kind === 'ruleExample'
                 const exampleTests = (task.tasks || []).filter((t: any) => {
+                    if (this.isFilteredOutTask(t)) return false;
                     if (t.type !== 'test') return false;
                     const meta = this.getLiveDocMetaFromTask(t);
                     return meta?.kind === 'ruleExample';
@@ -783,6 +878,7 @@ export default class LiveDocSpecReporter implements Reporter {
                     const ruleOutline = this.buildRuleOutlineFromSuite(task, specification);
                     specification.rules.push(ruleOutline);
                 }
+                if (this.isFilteredOutTask(task)) continue;
             } else if (task.type === 'test') {
                 // Check if this is a simple Rule (test starting with "Rule:")
                 if (task.name.startsWith('Rule:')) {
@@ -843,6 +939,7 @@ export default class LiveDocSpecReporter implements Reporter {
         const ruleOutline = new model.RuleOutline(specification);
 
         const exampleTests = (suite.tasks || []).filter((t: any) => {
+            if (this.isFilteredOutTask(t)) return false;
             if (t.type !== 'test') return false;
             const meta = this.getLiveDocMetaFromTask(t);
             return meta?.kind === 'ruleExample';
@@ -1012,6 +1109,4 @@ export default class LiveDocSpecReporter implements Reporter {
         
         return test;
     }
-    
 }
-

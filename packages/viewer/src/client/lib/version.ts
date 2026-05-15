@@ -1,0 +1,1 @@
+export const VIEWER_VERSION = __LIVEDOC_VIEWER_VERSION__;

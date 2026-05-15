@@ -53,7 +53,7 @@ export class LiveDocViewerReporter implements IPostReporter {
   constructor(options?: LiveDocViewerOptions) {
     this.options = {
       server: options?.server || 'http://localhost:3100',
-      project: options?.project || 'default',
+      project: options?.project || 'livedoc',
       environment: options?.environment || 'local',
       timeout: options?.timeout || 10000,
       silent: options?.silent ?? true,

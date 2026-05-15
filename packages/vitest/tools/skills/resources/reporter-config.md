@@ -72,6 +72,9 @@ The reporter automatically finds the viewer server:
 1. **Environment variables**: `LIVEDOC_SERVER_URL` or `LIVEDOC_PUBLISH_SERVER`
 2. **Explicit config**: `publish.server` in reporter options
 3. **Discovery**: `discoverServer()` fallback from `@swedevtools/livedoc-server`
+4. **Default local viewer**: health check on `http://localhost:3100`
+
+Project and environment can also be set with `LIVEDOC_PROJECT` and `LIVEDOC_ENVIRONMENT`.
 
 ### Additional Options
 

@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
 import { GlobalFilter } from "./GlobalFilter"
 import { Badge } from "./ui/badge"
 import { RunProgressBanner } from "./RunProgressBanner"
+import { VIEWER_VERSION } from "../lib/version"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true)
@@ -39,7 +40,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {!embedded && <Sidebar />}
-      
+
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
         <header className="h-16 border-b flex items-center justify-between px-6 shrink-0 bg-card/50 backdrop-blur-md z-10">
@@ -84,6 +85,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="hidden sm:inline-flex rounded-full border-muted-foreground/20 bg-background/60 px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+              title={`LiveDoc Viewer version ${VIEWER_VERSION}`}
+            >
+              Viewer v{VIEWER_VERSION}
+            </Badge>
             <Tabs value={audienceMode} onValueChange={(v) => setAudienceMode(v as any)}>
               <TabsList className="h-9 rounded-full bg-muted/40">
                 <TabsTrigger value="business" className="rounded-full text-xs">Business</TabsTrigger>
@@ -93,9 +101,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Button variant="ghost" size="icon" className="rounded-full">
               <Bell className="w-4 h-4" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="rounded-full"
               onClick={() => setIsDark(!isDark)}
             >

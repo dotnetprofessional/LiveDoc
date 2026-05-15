@@ -20,16 +20,17 @@ export default defineConfig({
     include: ['_src/test/**/*.Spec.ts'],
     exclude: [
       ...configDefaults.exclude,
-      // Playwright browser tests require a running web server (port 3100)
-      // Run with: npx vitest run _src/test/Playwright/playwright-integration.Spec.ts
-      '_src/test/Playwright/playwright-integration.Spec.ts',
-      '_src/test/Playwright/fresh-context-per-scenario.Spec.ts',
+      // Browser tests require a running viewer web server on port 3100.
+      // Run explicitly after starting the viewer:
+      // npx vitest run _src/test/BrowserTesting/playwright-integration.Spec.ts
+      '_src/test/BrowserTesting/playwright-integration.Spec.ts',
+      '_src/test/BrowserTesting/fresh-context-per-scenario.Spec.ts',
     ],
     testTimeout: 30_000, // Dynamic tests spawn child vitest processes which need extra time
     setupFiles: ['./_src/app/setup.ts'],
     // Use default reporter when running under VS Code extension to avoid conflicts
     // The custom reporter can cause "no test suite found" errors in debug mode
-    reporters: isVSCodeVitest 
+    reporters: isVSCodeVitest
       ? undefined  // Let Vitest use its default
       : [
           ['./_src/app/reporter/LiveDocSpecReporter.ts', { detailLevel: 'spec+summary+headers' }],
