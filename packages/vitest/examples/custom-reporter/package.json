@@ -11,6 +11,6 @@
     "@swedevtools/livedoc-vitest": "workspace:*",
     "@types/node": "^22.19.3",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.0"
   }
 }
