@@ -356,6 +356,14 @@ public class EmailValidationSpec : SpecificationTest
 
 ---
 
+## Attachments and Evidence
+
+Specifications can call `Attach`, `AttachScreenshot`, `AttachFile`, or
+`AttachJson` after asserting the contract. Read `resources/evidence.md` for the
+supported APIs and redaction rules.
+
+---
+
 ## Validation Checklist
 
 - [ ] Class inherits `SpecificationTest` and has `[Specification]` attribute
@@ -367,4 +375,5 @@ public class EmailValidationSpec : SpecificationTest
 - [ ] `[Example]` parameter count matches method parameter count
 - [ ] `<Placeholder>` names in descriptions match method parameter names
 - [ ] Method name placeholders use `_ALLCAPS_` segments matching parameter names
+- [ ] Attachments are redacted and support an explicit assertion
 - [ ] Tests pass: `dotnet test`

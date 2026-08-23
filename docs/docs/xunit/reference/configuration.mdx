@@ -63,6 +63,8 @@ A minimal `.csproj` for a LiveDoc xUnit test project:
 </Project>
 ```
 
+LiveDoc supports both `net8.0` and `net10.0` test projects.
+
 ---
 
 ### Configuration {#configuration}
@@ -108,6 +110,12 @@ The same settings are available as environment variables. These are useful in CI
 | `LIVEDOC_PROJECT` | Assembly name | Project name displayed in the Viewer. Auto-detected from assemblies ending in `.Tests`, `.Test`, or `.Specs`. |
 | `LIVEDOC_ENVIRONMENT` | `"local"` | Environment label. |
 | `LIVEDOC_EXPORT_PATH` | *(disabled)* | JSON export file path. |
+| `LIVEDOC_RUN_TYPE` | `"full"` | Use `"partial"` for a focused run layered over the latest full baseline. |
+| `LIVEDOC_COVERAGE` | *(disabled)* | Explicitly request LiveDoc coverage processing. |
+| `LIVEDOC_COVERAGE_PATH` | *(auto-detect)* | Custom Cobertura artifact path. |
+| `LIVEDOC_DOTNET_COVERAGE_TOOL` | `dotnet-coverage` from `PATH` | Converter path for binary Visual Studio `.coverage` files. |
+| `LIVEDOC_COVERAGE_THRESHOLD_LINES` | *(none)* | Non-fatal minimum line percentage. |
+| `LIVEDOC_COVERAGE_THRESHOLD_BRANCHES` | *(none)* | Non-fatal minimum branch percentage. |
 
 ```yaml
 # GitHub Actions — env block
@@ -126,6 +134,24 @@ Configuration is resolved in this order (first match wins):
 1. **Logger parameter** — `--logger "LiveDoc;Project=my-app"`
 2. **Environment variable** — `LIVEDOC_PROJECT=my-app`
 3. **Auto-discovery / default** — auto-detect assembly name, discover Viewer on `localhost:3100`
+
+#### Coverage Collection {#coverage-collection}
+
+The package includes the LiveDoc VSTest collector. The recommended solution-wide
+command requests Microsoft Code Coverage as Cobertura and includes branch data:
+
+```powershell
+dotnet test .\MySolution.sln --collect:"Code Coverage;Format=Cobertura"
+```
+
+Visual Studio binary `.coverage` output additionally requires:
+
+```powershell
+dotnet tool install --global dotnet-coverage
+```
+
+See [Code Coverage](../../viewer/guides/code-coverage.mdx) for the dependency
+matrix, XPlat/Coverlet alternative, custom runsettings, and diagnostics.
 
 #### Project Name Resolution {#project-name-resolution}
 

@@ -121,3 +121,33 @@
 
 **Simon's payload compatibility inspection:** xUnit lastrun conforms to Reporter v1 schema with two identified fragilities (sessionId field mismatch, enum serialization as type=object). No render blocker — requires server/viewer guardrails. Inspection complete, no code changes needed.
 
+### 2026-07-18 — Reviewer gate REJECT: VSTest coverage collector (Simon). Owner → Wash.
+
+Independent gate on the packaged `*collector.dll` + attachment processor + auto-activation. **REJECT** — two reproduced blockers. Decision: `.squad/decisions/inbox/zoe-coverage-review-rejection.md`.
+
+- **BLOCKER 1 — auto-activation aborts every `dotnet test`.** `build/SweDevTools.LiveDoc.xUnit.targets` sets `VSTestLogger=LiveDocCoverage;RunMetadataDir=<dir>` (new lines). MSBuild treats `;` as its list separator → two loggers, the bogus `RunMetadataDir=...` throws a fatal `CommandLineException` (`ArgumentProcessorFactory... The Test Logger URI '...' is not valid`) → run aborts, **zero test results, exit 1**, no `Passed!` summary. Reproduced: default=abort; `-p:LiveDocPostRunCoverageEnabled=false`=11 pass; `-p:VSTestLogger=console` (collector still active)=7 pass → proves the logger value, not the collector, is the abort. Fix: escape `;` as `%3B` in the MSBuild property.
+- **BLOCKER 2 — incremental processing permanently skips upload.** Processor sets `SupportsIncrementalProcessing => true` (multi-round, returned attachments fed back) but (a) reads the marker only from the current call's attachments and (b) returns only `coverageAttachments`, **dropping the marker set**. Marker in round A + coverage in round B → `marker==null` → `LD-COV-043 secondary-processing-skipped` → coverage never uploaded — and `LD-COV-043`'s "safe skip" wording masks a silent failure. Also `FirstOrDefault()` marker + `includeFallbackMetadataRoot:false` → multi-project "Analyze Code Coverage for All Tests" covers only one project. Fix: return attachments unchanged, resolve marker from disk under metadata root, make upload idempotent, iterate all markers.
+- **Secondary:** `GetTestExecutionEnvironmentVariables` creates a *divergent* metadata dir when called before `Initialize` (unit test exercises this reversed path) — compute the invocation dir once and share.
+- **Passed:** URI casing is fine (`Uri.Equals` host is case-insensitive; lowercase `microsoft` == `Microsoft`, path casing exact — verified with `[Uri].Equals`). Packaging is complete (fresh `dotnet pack` 0.2.0.1 has collector+logger DLLs for net8/net10, runsettings, targets; ObjectModel correctly not packed). Default runsettings selection/preservation logic (`LD-COV-000/001`) is correct.
+
+**Lasting lessons:**
+- MSBuild `VSTestLogger` (and any `;`-delimited property) splits on `;`; to pass vstest logger parameters (`Logger;Key=Value`) you MUST escape `;` as `%3B` or MSBuild creates a second bogus logger that aborts the run.
+- Any coverage feature made on-by-default (`RunSettingsFilePath` auto-set) must be validated by a plain `dotnet test` with NO `/collect` — the failure mode is a full-run abort, not a coverage-only warning.
+- A processor with `SupportsIncrementalProcessing=true` must pass its input attachments through and be idempotent; dropping a marker attachment breaks the fed-back multi-round contract used by VS "Analyze Code Coverage for All Tests".
+
+### 2026-07-18 — Reviewer gate APPROVE: VSTest coverage incremental-processor correction (Wash). Verdict → `.squad/decisions/inbox/zoe-incremental-processor-verdict.md`.
+
+Re-review after my earlier REJECT of Simon's version. Mal's binding correction flipped the mandate from `SupportsIncrementalProcessing => false` back to `=> true`. **APPROVE** — the automatic *collector* path (not the logger fallback) is proved end-to-end for one fresh run, headlessly.
+
+- **`false` is inert, not conservative.** VSTest 18.6 logs `Non incremental attachment processors are not supported` and `continue`s past a `false` processor — it never runs. My original `true` rejection was right about the *implementation faults* (marker read only from the current call; marker set dropped from the return), not the flag. The prior "proven CLI fallback" validated the *logger*, never the processor.
+- **Decisive proofs I ran myself (don't trust the summary):**
+  - `/Diag` (`automatic-vstest.diag.log`): `DataCollectorAttachmentsProcessorsFactory … HasAttachmentProcessor: True` → `added to the 'run list'` → `TestRunAttachmentsProcessingManager: Invocation … LiveDocCoverageAttachmentProcessor FriendlyName: 'LiveDocCoverage'`; `Non incremental…` count **0**; `<LoggerRunSettings>` had **only** the Console logger (no `LiveDocCoverage` logger element, no `InvalidLogger`).
+  - Durable processor log: `LD-COV-040` (incremental=True) → `.coverage` → `LD-COV-060` conversion → `LD-COV-064` (43 files, 21.3%) → `LD-COV-070 200 OK` → `LD-COV-080`; the re-feed round hit the disk sentinel → `LD-COV-081` (idempotent, no double-post).
+  - Independent REST: started `scripts\start-livedoc-server.ps1 -KillStale` and `GET /api/v1/runs/mrr2a03n-pap1opnmz` returned coverage available / 21.3% / 43 files — the **same** freshly generated run.
+  - `dotnet test … Coverage_Collector_Spec|Coverage_Output_Spec -f net8.0` → **21 passed**. Plain filtered `dotnet test` (no `/collect`) → `Passed!`, exit 0, no invalid-logger noise.
+- **Reviewer techniques worth reusing:**
+  - To disprove "masquerade" evidence, cross-check timestamps: the `.coverage` mtime, the `<runId>.json` `startedAt`, and the `.coverage-accepted` sentinel `acceptedAtUtc` must all fall inside the reviewed smoke window, and round 1 must show a live `LD-COV-080` (not only an `LD-COV-081` sentinel skip).
+  - The LiveDoc server binds `localhost` (IPv6 `::1`); `127.0.0.1` is refused — use the `localhost` hostname for health/REST probes.
+  - There is **no** `GET …/runs/:runId/coverage` route; coverage is embedded in the run object at `GET /api/v1/runs/:runId` (`.coverage`). A GET to the POST path 404s (route-not-found), not a missing run.
+  - Disk-marker freshness is judged by **file mtime** within `[processorStart − 10s, …]`, never `InitializedAtUtc`; authoritative attachment markers are trusted at any age. The per-round `_processingWindowStartedUtc` is only an mtime reference, not a correlation key — all correlation/idempotency is disk-only because VSTest re-creates the processor instance every round.
+

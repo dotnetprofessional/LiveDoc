@@ -47,6 +47,13 @@ from unit-level specifications to full end-to-end API journeys.
 dotnet add package SweDevTools.LiveDoc.xUnit
 ```
 
+:::tip Let AI perform the entire setup
+Tell your assistant: **"Read https://livedoc.swedevtools.com/ai/setup.md and
+configure this xUnit project for LiveDoc, the Viewer, and full code coverage."**
+No LiveDoc package or skill needs to be installed first.
+[AI project setup →](/guides/ai-project-setup)
+:::
+
 ```csharp
 [Feature("Shopping Cart")]
 public class CartTests : FeatureTest
@@ -96,6 +103,11 @@ dotnet test --logger LiveDoc
 <a className="nav-card" href="./guides/best-practices">
 <strong>💡 Guides</strong>
 <span>Best practices, viewer integration, debugging, troubleshooting, and more.</span>
+</a>
+
+<a className="nav-card" href="/guides/ai-project-setup">
+<strong>🤖 Set Up with AI</strong>
+<span>Give your assistant one URL and let it install and configure LiveDoc, the Viewer, and coverage.</span>
 </a>
 
 </div>

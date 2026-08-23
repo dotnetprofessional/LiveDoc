@@ -26,6 +26,7 @@ public class LiveDocTestRunReporter : IDisposable
     private readonly ConcurrentDictionary<string, TestCase> _testCases = new();
     private readonly ConcurrentDictionary<string, BaseTest> _tests = new();
     private readonly ConcurrentDictionary<string, string> _testToTestCase = new();
+    private readonly ConcurrentDictionary<string, Models.Status> _recordedResults = new();
     private Stopwatch _runStopwatch;
     private bool _disposed;
     private Task? _flushTask;
@@ -39,6 +40,7 @@ public class LiveDocTestRunReporter : IDisposable
     private readonly LiveDocConfig _config;
     private DateTime _startedAt;
     private ConcurrentBag<Task> _realtimeTasks = new();
+    private int _realtimeStartFailed;
 
     /// <summary>
     /// Gets the singleton instance.
@@ -140,7 +142,11 @@ public class LiveDocTestRunReporter : IDisposable
             if (_reporter.RunId != null)
                 return _reporter.RunId;
 
-            return await _reporter.StartRunAsync();
+            var runId = await _reporter.StartRunAsync();
+            if (runId != null)
+                WriteRunMetadata(completed: false);
+
+            return runId;
         }
         finally
         {
@@ -270,7 +276,7 @@ public class LiveDocTestRunReporter : IDisposable
         {
             try
             {
-                var runId = await EnsureRunStartedAsync();
+                var runId = await EnsureRealtimeRunStartedAsync();
                 if (runId == null) return;
 
                 if (!_testCases.TryGetValue(testCaseId, out var testCase))
@@ -292,6 +298,104 @@ public class LiveDocTestRunReporter : IDisposable
             }
         });
         _realtimeTasks.Add(task);
+    }
+
+    private async Task<string?> EnsureRealtimeRunStartedAsync()
+    {
+        if (Volatile.Read(ref _realtimeStartFailed) != 0)
+            return null;
+
+        if (_reporter.RunId != null)
+            return _reporter.RunId;
+
+        await _runStartLock.WaitAsync();
+        try
+        {
+            if (Volatile.Read(ref _realtimeStartFailed) != 0)
+                return null;
+
+            if (_reporter.RunId != null)
+                return _reporter.RunId;
+
+            var runId = await _reporter.StartRunAsync();
+            if (runId == null)
+            {
+                Interlocked.Exchange(ref _realtimeStartFailed, 1);
+            }
+            else
+            {
+                WriteRunMetadata(completed: false);
+            }
+
+            return runId;
+        }
+        finally
+        {
+            _runStartLock.Release();
+        }
+    }
+
+    private void WriteRunMetadata(bool completed)
+    {
+        var metadataDir = _config.RunMetadataDir;
+        var runId = _reporter.RunId;
+        var serverUrl = _reporter.ServerUrl;
+        if (string.IsNullOrWhiteSpace(metadataDir) ||
+            string.IsNullOrWhiteSpace(runId) ||
+            string.IsNullOrWhiteSpace(serverUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(metadataDir);
+            var path = Path.Combine(metadataDir, $"{SanitizeFileName(runId)}.json");
+            var payload = new
+            {
+                ProtocolVersion = "1.0",
+                RunId = runId,
+                Project = _config.Project,
+                Environment = _config.Environment,
+                Framework = "xunit",
+                RunType = _config.RunType.ToString().ToLowerInvariant(),
+                ServerUrl = serverUrl,
+                StartedAt = _startedAt.ToString("O"),
+                CompletedAt = completed ? DateTime.UtcNow.ToString("O") : null
+            };
+
+            File.WriteAllText(path, JsonSerializer.Serialize(payload, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                WriteIndented = true
+            }));
+            Console.Error.WriteLine(
+                $"[LiveDoc] LD-COV-030 testhost-metadata-written: runId={runId}; path={path}; " +
+                $"completed={completed}; metadataDir={metadataDir}; pid={Environment.ProcessId}; " +
+                $"assembly={typeof(LiveDocTestRunReporter).Assembly.Location}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            try
+            {
+                Console.Error.WriteLine(
+                    $"[LiveDoc] LD-COV-031 testhost-metadata-write-failed: runId={runId}; " +
+                    $"metadataDir={metadataDir}; exception={ex.GetType().Name}; message={ex.Message}; " +
+                    $"pid={Environment.ProcessId}; assembly={typeof(LiveDocTestRunReporter).Assembly.Location}");
+            }
+            catch
+            {
+                // Ignore console logging failures.
+            }
+        }
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = value.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray();
+        return new string(chars);
     }
 
     private async Task FlushCoreAsync()
@@ -329,10 +433,13 @@ public class LiveDocTestRunReporter : IDisposable
                 Pending = 0
             };
 
-            // Export to JSON file if configured (runs alongside server publishing)
-            var exportTask = ExportTestRunJsonAsync(upsertPayloads, status, duration, summary);
+            var coverage = CoverageCollector.Collect(_config, _startedAt);
+            WriteCoverageDiagnostics(coverage);
 
-            await PublishToServerAsync(upsertPayloads, status, duration, summary);
+            // Export to JSON file if configured (runs alongside server publishing)
+            var exportTask = ExportTestRunJsonAsync(upsertPayloads, status, duration, summary, coverage);
+
+            await PublishToServerAsync(upsertPayloads, status, duration, summary, coverage);
 
             // Ensure export completes
             await exportTask;
@@ -358,6 +465,35 @@ public class LiveDocTestRunReporter : IDisposable
         }
     }
 
+    private static void WriteCoverageDiagnostics(CoverageReport? coverage)
+    {
+        if (coverage?.Diagnostics == null || coverage.Diagnostics.Count == 0)
+            return;
+
+        if (string.Equals(coverage.Status, "available", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            foreach (var diagnostic in coverage.Diagnostics)
+            {
+                Console.Error.WriteLine($"[LiveDoc] Coverage diagnostic {diagnostic.Code}: {diagnostic.Message}");
+                if (!string.IsNullOrWhiteSpace(diagnostic.Path))
+                    Console.Error.WriteLine($"[LiveDoc] Coverage artifact: {diagnostic.Path}");
+
+                if (diagnostic.Details != null)
+                {
+                    foreach (var detail in diagnostic.Details.Where(detail => !string.IsNullOrWhiteSpace(detail)))
+                        Console.Error.WriteLine($"[LiveDoc] Coverage detail: {detail}");
+                }
+            }
+        }
+        catch
+        {
+            // Reporting diagnostics must never affect test execution.
+        }
+    }
+
     /// <summary>
     /// Publishes test results to the LiveDoc server via HTTP.
     /// </summary>
@@ -365,7 +501,8 @@ public class LiveDocTestRunReporter : IDisposable
         List<TestCase> upsertPayloads,
         Models.Status status,
         long duration,
-        Statistics summary)
+        Statistics summary,
+        CoverageReport? coverage)
     {
         var runId = await EnsureRunStartedAsync();
         if (runId == null)
@@ -375,16 +512,18 @@ public class LiveDocTestRunReporter : IDisposable
         {
             Status = status,
             Duration = duration,
-            Summary = summary
+            Summary = summary,
+            Coverage = coverage
         };
 
         if (upsertPayloads.Count == 0)
         {
-            var completed = await _reporter.CompleteRunAsync(status, duration, summary);
+            var completed = await _reporter.CompleteRunAsync(status, duration, summary, coverage);
             if (!completed)
             {
-                await _reporter.CompleteRunAsync(status, duration, summary);
+                await _reporter.CompleteRunAsync(status, duration, summary, coverage);
             }
+            WriteRunMetadata(completed: true);
             return;
         }
 
@@ -411,11 +550,12 @@ public class LiveDocTestRunReporter : IDisposable
                 await _reporter.UpsertTestCaseAsync(testCase);
             }
 
-            var completed = await _reporter.CompleteRunAsync(status, duration, summary);
+            var completed = await _reporter.CompleteRunAsync(status, duration, summary, coverage);
             if (!completed)
             {
-                await _reporter.CompleteRunAsync(status, duration, summary);
+                await _reporter.CompleteRunAsync(status, duration, summary, coverage);
             }
+            WriteRunMetadata(completed: true);
         }
     }
 
@@ -426,11 +566,26 @@ public class LiveDocTestRunReporter : IDisposable
         List<TestCase> documents,
         Models.Status status,
         long duration,
-        Statistics summary)
+        Statistics summary,
+        CoverageReport? coverage)
     {
         var exportPath = _config.ExportPath;
         if (string.IsNullOrEmpty(exportPath))
             return;
+
+        if (_config.RunType == Models.RunType.Partial)
+        {
+            try
+            {
+                Console.Error.WriteLine(
+                    "[LiveDoc] partial-export-unsupported: Partial runs require server history and cannot be exported directly.");
+            }
+            catch
+            {
+                // Ignore console output failures.
+            }
+            return;
+        }
 
         try
         {
@@ -445,7 +600,8 @@ public class LiveDocTestRunReporter : IDisposable
                 Duration = duration,
                 Status = status,
                 Summary = summary,
-                Documents = documents
+                Documents = documents,
+                Coverage = coverage
             };
 
             var jsonOptions = new JsonSerializerOptions
@@ -565,6 +721,94 @@ public class LiveDocTestRunReporter : IDisposable
     public bool HasTest(string testId) => _tests.ContainsKey(testId);
 
     /// <summary>
+    /// Returns outline row IDs whose values match the supplied test arguments.
+    /// </summary>
+    public IReadOnlyList<int> FindOutlineRowIds(string outlineId, object?[] args)
+    {
+        if (!_tests.TryGetValue(outlineId, out var test))
+            return Array.Empty<int>();
+
+        lock (test)
+        {
+            var rows = test switch
+            {
+                ScenarioOutlineTest scenarioOutline => scenarioOutline.Examples.SelectMany(table => table.Rows),
+                RuleOutlineTest ruleOutline => ruleOutline.Examples.SelectMany(table => table.Rows),
+                _ => Enumerable.Empty<Row>()
+            };
+
+            return rows
+                .Where(row => RowMatchesArguments(row, args))
+                .Select(row => row.RowId)
+                .ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Returns the next available row ID for an outline.
+    /// </summary>
+    public int GetNextOutlineRowId(string outlineId)
+    {
+        if (!_tests.TryGetValue(outlineId, out var test))
+            return 0;
+
+        lock (test)
+        {
+            var rows = test switch
+            {
+                ScenarioOutlineTest scenarioOutline => scenarioOutline.Examples.SelectMany(table => table.Rows),
+                RuleOutlineTest ruleOutline => ruleOutline.Examples.SelectMany(table => table.Rows),
+                _ => Enumerable.Empty<Row>()
+            };
+
+            return rows.Select(row => row.RowId).DefaultIfEmpty(-1).Max() + 1;
+        }
+    }
+
+    /// <summary>
+    /// Returns whether an outline already contains the specified row.
+    /// </summary>
+    public bool HasOutlineRow(string outlineId, int rowId)
+    {
+        if (!_tests.TryGetValue(outlineId, out var test))
+            return false;
+
+        lock (test)
+        {
+            return test switch
+            {
+                ScenarioOutlineTest scenarioOutline => scenarioOutline.Examples.Any(
+                    table => table.Rows.Any(row => row.RowId == rowId)),
+                RuleOutlineTest ruleOutline => ruleOutline.Examples.Any(
+                    table => table.Rows.Any(row => row.RowId == rowId)),
+                _ => false
+            };
+        }
+    }
+
+    private static bool RowMatchesArguments(Row row, object?[] args)
+    {
+        if (row.Values.Count != args.Length)
+            return false;
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            var expected = TypedValue.From(args[i]);
+            var actual = row.Values[i];
+            if (!string.Equals(expected.Type, actual.Type, StringComparison.Ordinal) ||
+                !string.Equals(
+                    JsonSerializer.Serialize(expected.Value),
+                    JsonSerializer.Serialize(actual.Value),
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Buffers an outline test (ScenarioOutline or RuleOutline).
     /// Creates the outline on first call; subsequent calls add example results.
     /// Thread-safe via ConcurrentDictionary.
@@ -576,7 +820,7 @@ public class LiveDocTestRunReporter : IDisposable
         string title,
         int rowId,
         ParameterInfo[] parameters,
-        object[] args,
+        object?[] args,
         string? description = null,
         string[]? tags = null)
     {
@@ -694,6 +938,81 @@ public class LiveDocTestRunReporter : IDisposable
     }
 
     /// <summary>
+    /// Reconciles an outline row with the authoritative xUnit result.
+    /// </summary>
+    public void ReconcileOutlineExampleExecution(
+        string outlineId,
+        int rowId,
+        Models.Status status,
+        long duration,
+        ErrorInfo? error = null)
+    {
+        if (!_tests.TryGetValue(outlineId, out var test))
+            return;
+
+        if (test is ScenarioOutlineTest scenarioOutline)
+        {
+            lock (scenarioOutline)
+            {
+                ReconcileOutlineResults(scenarioOutline.ExampleResults, outlineId, rowId, status, duration, error);
+            }
+        }
+        else if (test is RuleOutlineTest ruleOutline)
+        {
+            lock (ruleOutline)
+            {
+                ReconcileOutlineResults(ruleOutline.ExampleResults, outlineId, rowId, status, duration, error);
+            }
+        }
+    }
+
+    private static void ReconcileOutlineResults(
+        List<ExampleResult> results,
+        string outlineId,
+        int rowId,
+        Models.Status status,
+        long duration,
+        ErrorInfo? error)
+    {
+        var rowResults = results.Where(result => result.Result.RowId == rowId).ToList();
+        if (rowResults.Count == 0)
+        {
+            results.Add(new ExampleResult
+            {
+                TestId = outlineId,
+                Result = new ExecutionResult
+                {
+                    RowId = rowId,
+                    Status = status,
+                    Duration = duration,
+                    Error = error
+                }
+            });
+            return;
+        }
+
+        if (status == Models.Status.Failed)
+        {
+            var failedResult = rowResults.FirstOrDefault(result => result.Result.Status == Models.Status.Failed)
+                ?? rowResults[^1];
+            failedResult.Result.Status = status;
+            failedResult.Result.Error = error;
+            if (failedResult.Result.Duration == 0)
+                failedResult.Result.Duration = duration;
+            return;
+        }
+
+        foreach (var result in rowResults)
+        {
+            result.Result.Status = status;
+            result.Result.Error = error;
+        }
+
+        if (rowResults.Count == 1)
+            rowResults[0].Result.Duration = duration;
+    }
+
+    /// <summary>
     /// Finalizes outline stats at flush time from exampleResults.
     /// Called in FlushAndCompleteAsync to ensure all results are counted.
     /// </summary>
@@ -705,10 +1024,10 @@ public class LiveDocTestRunReporter : IDisposable
         // Count unique rows and their statuses
         var rowStatuses = results
             .GroupBy(r => r.Result.RowId)
-            .Select(g => g.Any(r => r.Result.Status == Models.Status.Failed) 
-                ? Models.Status.Failed 
-                : g.All(r => r.Result.Status == Models.Status.Passed) 
-                    ? Models.Status.Passed 
+            .Select(g => g.Any(r => r.Result.Status == Models.Status.Failed)
+                ? Models.Status.Failed
+                : g.All(r => r.Result.Status == Models.Status.Passed)
+                    ? Models.Status.Passed
                     : g.All(r => r.Result.Status == Models.Status.Skipped)
                         ? Models.Status.Skipped
                         : Models.Status.Pending)
@@ -720,8 +1039,8 @@ public class LiveDocTestRunReporter : IDisposable
         stats.Skipped = rowStatuses.Count(s => s == Models.Status.Skipped);
         stats.Pending = rowStatuses.Count(s => s == Models.Status.Pending);
 
-        execution.Status = stats.Failed > 0 ? Models.Status.Failed 
-            : stats.Passed > 0 ? Models.Status.Passed 
+        execution.Status = stats.Failed > 0 ? Models.Status.Failed
+            : stats.Passed > 0 ? Models.Status.Passed
             : stats.Skipped > 0 ? Models.Status.Skipped
             : Models.Status.Pending;
         execution.Duration = results.Sum(r => r.Result.Duration);
@@ -773,9 +1092,57 @@ public class LiveDocTestRunReporter : IDisposable
     /// <summary>
     /// Records a test result for run summary statistics.
     /// </summary>
-    public void RecordResult(Models.Status status, string? testCaseId = null)
+    public void RecordResult(
+        Models.Status status,
+        string? testCaseId = null,
+        string? resultId = null)
     {
-        Interlocked.Increment(ref _totalCount);
+        var changed = true;
+        if (!string.IsNullOrWhiteSpace(resultId))
+        {
+            changed = RecordResultById(resultId, status);
+        }
+        else
+        {
+            Interlocked.Increment(ref _totalCount);
+            IncrementStatus(status);
+        }
+
+        if (changed && !string.IsNullOrWhiteSpace(testCaseId))
+        {
+            if (_reporter.IsEnabled && Volatile.Read(ref _realtimeStartFailed) == 0)
+                PublishTestCaseRealtime(testCaseId);
+        }
+    }
+
+    private bool RecordResultById(string resultId, Models.Status status)
+    {
+        while (true)
+        {
+            if (_recordedResults.TryGetValue(resultId, out var previous))
+            {
+                if (previous == status)
+                    return false;
+
+                if (!_recordedResults.TryUpdate(resultId, status, previous))
+                    continue;
+
+                DecrementStatus(previous);
+                IncrementStatus(status);
+                return true;
+            }
+
+            if (!_recordedResults.TryAdd(resultId, status))
+                continue;
+
+            Interlocked.Increment(ref _totalCount);
+            IncrementStatus(status);
+            return true;
+        }
+    }
+
+    private void IncrementStatus(Models.Status status)
+    {
         switch (status)
         {
             case Models.Status.Passed:
@@ -788,11 +1155,21 @@ public class LiveDocTestRunReporter : IDisposable
                 Interlocked.Increment(ref _skippedCount);
                 break;
         }
+    }
 
-        if (!string.IsNullOrWhiteSpace(testCaseId))
+    private void DecrementStatus(Models.Status status)
+    {
+        switch (status)
         {
-            if (_reporter.IsEnabled)
-                PublishTestCaseRealtime(testCaseId);
+            case Models.Status.Passed:
+                Interlocked.Decrement(ref _passedCount);
+                break;
+            case Models.Status.Failed:
+                Interlocked.Decrement(ref _failedCount);
+                break;
+            case Models.Status.Skipped:
+                Interlocked.Decrement(ref _skippedCount);
+                break;
         }
     }
 
@@ -813,17 +1190,33 @@ public class LiveDocTestRunReporter : IDisposable
     /// Generates a stable ID for a scenario/rule (non-outline).
     /// Includes args hash for unique per-invocation identification.
     /// </summary>
-    public static string GenerateScenarioId(Type testClass, string methodName, object[]? args = null)
+    public static string GenerateScenarioId(Type testClass, string methodName, object?[]? args = null)
     {
-        var baseId = $"Scenario:{testClass.FullName ?? testClass.Name}:{methodName}";
-        
+        return GenerateScenarioId(testClass.FullName ?? testClass.Name, methodName, args);
+    }
+
+    /// <summary>
+    /// Generates a stable ID for a scenario/rule using an xUnit class name.
+    /// </summary>
+    public static string GenerateScenarioId(string className, string methodName, object?[]? args = null)
+    {
+        var baseId = $"Scenario:{className}:{methodName}";
+
         if (args != null && args.Length > 0)
         {
             var argsStr = string.Join(",", args.Select(a => a?.ToString() ?? "null"));
             baseId += $":{ComputeHash(argsStr)}";
         }
-        
+
         return baseId;
+    }
+
+    /// <summary>
+    /// Generates a stable result ID for one outline row.
+    /// </summary>
+    public static string GenerateOutlineResultId(string outlineId, int rowId)
+    {
+        return $"{outlineId}:row:{rowId}";
     }
 
     /// <summary>
@@ -901,6 +1294,7 @@ public class LiveDocTestRunReporter : IDisposable
         _testCases.Clear();
         _tests.Clear();
         _testToTestCase.Clear();
+        _recordedResults.Clear();
         _totalCount = 0;
         _passedCount = 0;
         _failedCount = 0;
@@ -908,6 +1302,7 @@ public class LiveDocTestRunReporter : IDisposable
         _startedAt = DateTime.UtcNow;
         _runStopwatch = Stopwatch.StartNew();
         _realtimeTasks = new ConcurrentBag<Task>();
+        Interlocked.Exchange(ref _realtimeStartFailed, 0);
 
         lock (_flushLock)
         {

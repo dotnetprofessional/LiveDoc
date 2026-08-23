@@ -124,3 +124,11 @@
 
 **Zoe's regression test proposal**: Four BDD scenarios proposed for server API compliance testing (valid hydration, corrupt JSON, old schema, empty session coexistence).
 
+### VSTest Coverage Attachment Processor (2026-07-18)
+
+- **Discovery contract**: VSTest only scans `*collector.dll` assemblies for data collectors. `IDataCollectorAttachmentProcessor` is loaded from an invoked collector carrying `[DataCollectorAttachmentProcessor]`; standalone processors are not discovered.
+- **Environment injection**: `Microsoft.TestPlatform.ObjectModel` 17.11.0 includes `ITestExecutionEnvironmentSpecifier`. VSTest initializes collectors before querying their testhost environment variables, so the collector can create and inject an invocation-scoped `LIVEDOC_RUN_METADATA_DIR`.
+- **Cross-process metadata matching**: The collector sends a small invocation marker attachment containing the exact metadata directory and collector initialization time. The attachment processor claims the LiveDoc marker URI plus Microsoft and Coverlet coverage URIs, preventing stale metadata matches across concurrent or repeated runs.
+- **Two processing phases**: .NET SDK 10.0.301 can invoke attachment processing twice for one CLI run. The first invocation includes the LiveDoc marker and performs the upload; a later artifact-processing pass can omit the marker. Markerless passes must emit `LD-COV-043` and skip upload to avoid duplicate or stale attachment.
+- **Diagnostics channel**: Collector warnings appear in Visual Studio **Output → Tests**. Attachment-processor informational messages may be suppressed, so the processor also appends coded lifecycle evidence to `livedoc-coverage-processor.log` under the invocation metadata directory.
+- **Validated local path**: A .NET 8 test run under SDK 10.0.301 discovered the net10 VSTest collector host, injected metadata, received `datacollector://microsoft/CodeCoverage/2.0`, converted with `dotnet-coverage` 18.6.2, parsed Cobertura, and received HTTP 200 from `POST /api/v1/runs/{runId}/coverage`.

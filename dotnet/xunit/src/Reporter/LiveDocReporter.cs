@@ -11,16 +11,27 @@ namespace SweDevTools.LiveDoc.xUnit.Reporter;
 /// </summary>
 public class LiveDocReporter : IDisposable
 {
+    public const string ReportingSuppressedEnvVar = "LIVEDOC_REPORTING_SUPPRESSED";
+    private static readonly TimeSpan StartFailureRetryInterval = TimeSpan.FromSeconds(2);
     private readonly HttpClient _client;
     private readonly LiveDocConfig _config;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly object _startFailureLock = new();
     private string? _runId;
+    private string? _serverUrl;
+    private string? _lastFailedStartEndpoint;
+    private DateTimeOffset _nextStartRetryUtc = DateTimeOffset.MinValue;
     private bool _disposed;
 
     /// <summary>
     /// Gets the current run ID, or null if no run has been started.
     /// </summary>
     public string? RunId => _runId;
+
+    /// <summary>
+    /// Gets the server URL used by the most recent request endpoint resolution.
+    /// </summary>
+    public string? ServerUrl => _serverUrl;
 
     /// <summary>
     /// Gets whether the reporter is enabled (server URL is configured).
@@ -83,6 +94,9 @@ public class LiveDocReporter : IDisposable
         if (_runId != null)
             return _runId;
 
+        if (ShouldSkipStartRun(endpoint))
+            return null;
+
         try
         {
             var request = new StartRunRequest
@@ -90,6 +104,7 @@ public class LiveDocReporter : IDisposable
                 Project = _config.Project,
                 Environment = _config.Environment,
                 Framework = "xunit",
+                RunType = _config.RunType,
                 Timestamp = DateTime.UtcNow.ToString("O")
             };
 
@@ -101,17 +116,18 @@ public class LiveDocReporter : IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                LogWarning($"Failed to start run: {response.StatusCode}");
+                RecordStartFailure(endpoint, $"Failed to start run: {response.StatusCode}");
                 return null;
             }
 
             var result = await response.Content.ReadFromJsonAsync<StartRunResponse>(_jsonOptions, cancellationToken);
             _runId = result?.RunId;
+            ClearStartFailure();
             return _runId;
         }
         catch (Exception ex)
         {
-            LogWarning($"Failed to start run: {ex.Message}");
+            RecordStartFailure(endpoint, $"Failed to start run: {ex.Message}");
             return null;
         }
     }
@@ -151,7 +167,7 @@ public class LiveDocReporter : IDisposable
     /// Combines batch + complete into one HTTP call to fit within ProcessExit timeout.
     /// </summary>
     public async Task<bool> UpsertTestCasesBatchAsync(
-        IEnumerable<TestCase> testCases, 
+        IEnumerable<TestCase> testCases,
         CompleteRunRequest? complete = null,
         CancellationToken cancellationToken = default)
     {
@@ -259,8 +275,8 @@ public class LiveDocReporter : IDisposable
     /// Upserts example results for an outline.
     /// </summary>
     public async Task<bool> UpsertExampleResultsAsync(
-        string outlineId, 
-        IEnumerable<ExampleResult> results, 
+        string outlineId,
+        IEnumerable<ExampleResult> results,
         CancellationToken cancellationToken = default)
     {
         if (_runId == null)
@@ -292,9 +308,10 @@ public class LiveDocReporter : IDisposable
     /// Completes the current test run.
     /// </summary>
     public async Task<bool> CompleteRunAsync(
-        Status status, 
-        long duration, 
-        Statistics summary, 
+        Status status,
+        long duration,
+        Statistics summary,
+        CoverageReport? coverage = null,
         CancellationToken cancellationToken = default)
     {
         if (_runId == null)
@@ -310,7 +327,8 @@ public class LiveDocReporter : IDisposable
             {
                 Status = status,
                 Duration = duration,
-                Summary = summary
+                Summary = summary,
+                Coverage = coverage
             };
 
             var json = JsonSerializer.SerializeToUtf8Bytes(request, _jsonOptions);
@@ -345,8 +363,40 @@ public class LiveDocReporter : IDisposable
         }
     }
 
+    private bool ShouldSkipStartRun(Uri endpoint)
+    {
+        lock (_startFailureLock)
+        {
+            return string.Equals(_lastFailedStartEndpoint, endpoint.AbsoluteUri, StringComparison.OrdinalIgnoreCase) &&
+                   DateTimeOffset.UtcNow < _nextStartRetryUtc;
+        }
+    }
+
+    private void RecordStartFailure(Uri endpoint, string message)
+    {
+        lock (_startFailureLock)
+        {
+            _lastFailedStartEndpoint = endpoint.AbsoluteUri;
+            _nextStartRetryUtc = DateTimeOffset.UtcNow.Add(StartFailureRetryInterval);
+        }
+
+        LogWarning(message);
+    }
+
+    private void ClearStartFailure()
+    {
+        lock (_startFailureLock)
+        {
+            _lastFailedStartEndpoint = null;
+            _nextStartRetryUtc = DateTimeOffset.MinValue;
+        }
+    }
+
     private Uri? ResolveEndpoint(string path, bool forceDiscovery = false)
     {
+        if (IsReportingSuppressed())
+            return null;
+
         var serverUrl = _config.ResolveServerUrl(forceDiscovery);
         if (string.IsNullOrWhiteSpace(serverUrl))
             return null;
@@ -354,7 +404,17 @@ public class LiveDocReporter : IDisposable
         var normalizedServerUrl = serverUrl.EndsWith("/", StringComparison.Ordinal)
             ? serverUrl
             : serverUrl + "/";
+        _serverUrl = normalizedServerUrl.TrimEnd('/');
         return new Uri(new Uri(normalizedServerUrl), path.TrimStart('/'));
+    }
+
+    private static bool IsReportingSuppressed()
+    {
+        var value = Environment.GetEnvironmentVariable(ReportingSuppressedEnvVar);
+        return string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(value, "on", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -364,6 +424,7 @@ public class LiveDocReporter : IDisposable
     public void ResetRun()
     {
         _runId = null;
+        ClearStartFailure();
     }
 
     public void Dispose()

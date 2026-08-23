@@ -19,6 +19,10 @@ LiveDoc Viewer is a web-based dashboard that visualizes BDD test results as they
 
 - **Live updates** — results appear via WebSocket as each scenario completes
 - **Failure details** — click any failed step to see the error and stack trace
+- **Quality dashboard** — tests, failures, rule violations, coverage, and duration at a glance
+- **Code coverage** — weighted module totals with line and branch drill-down
+- **Run history** — Full and Partial views with optional automatic latest-run following
+- **Deep links** — share the exact project, run, projection, folder, or test
 - **Multi-framework** — works with [@swedevtools/livedoc-vitest](https://www.npmjs.com/package/@swedevtools/livedoc-vitest) (TypeScript) and [SweDevTools.LiveDoc.xUnit](https://www.nuget.org/packages/SweDevTools.LiveDoc.xUnit) (.NET)
 - **Static export** — generate a self-contained HTML report you can share or archive
 
@@ -80,6 +84,24 @@ Switch to the browser and watch results appear in real time.
 
 ---
 
+## Focused Partial Runs
+
+Developers and AI agents can validate one file, scenario, or rule without replacing the complete latest-known documentation. Publish one full baseline, then configure the reporter with `runType: 'partial'` or `LIVEDOC_RUN_TYPE=partial` for focused runs.
+
+The Run menu keeps one chronological history with **Full** and **Partial n** badges. Selecting a partial defaults to **Combined** (the full baseline plus completed partial updates); switch to **This partial** to inspect only what that invocation executed. Static exports remain full-run workflows.
+
+---
+
+## Coverage in the Viewer
+
+When a reporter attaches file-level coverage, the dashboard adds a **Code Coverage** section with module health, file counts, and weighted line totals. Runs without coverage show no coverage controls.
+
+The coverage explorer leads with the project/module hierarchy, shows line and branch percentages, removes redundant path prefixes, and keeps modules collapsed until you drill in. Coverage is invocation evidence, not a test result, so low coverage or threshold warnings do not change pass/fail status.
+
+See the [Code Coverage guide](https://livedoc.swedevtools.com/viewer/guides/code-coverage) for complete Vitest, xUnit, and Visual Studio setup.
+
+---
+
 ## CLI Usage
 
 ### Server Mode (default)
@@ -134,6 +156,7 @@ livedoc-viewer export -i results.json -o ./reports/sprint-42.html -t "Sprint 42 
 
 - [Getting Started](https://livedoc.swedevtools.com/viewer/learn/getting-started) — install, connect, and run
 - [Understanding the UI](https://livedoc.swedevtools.com/viewer/learn/understanding-the-ui) — what each panel shows
+- [Code Coverage](https://livedoc.swedevtools.com/viewer/guides/code-coverage) — configure Vitest, xUnit, and Visual Studio coverage
 - [CLI Options Reference](https://livedoc.swedevtools.com/viewer/reference/cli-options) — all flags and subcommands
 - [REST API](https://livedoc.swedevtools.com/viewer/reference/rest-api) — programmatic access
 - [WebSocket API](https://livedoc.swedevtools.com/viewer/reference/websocket-api) — real-time protocol

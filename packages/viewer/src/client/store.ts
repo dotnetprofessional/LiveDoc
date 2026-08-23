@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnyTest, ExecutionResult, Statistics, Status, TestCase, TestRunV1 } from '@swedevtools/livedoc-schema';
+import type { AnyTest, CoverageReport, ExecutionResult, RunType, Statistics, Status, TestCase, TestRunV1 } from '@swedevtools/livedoc-schema';
 import {
   buildLogicalRunGroups,
   DEFAULT_PROJECT_GROUPING_WINDOW_MS,
@@ -11,6 +11,7 @@ import {
 export const PROJECT_GROUPING_ENABLED_KEY = 'livedoc.viewer.projectGrouping.enabled';
 export const PROJECT_GROUPING_HIDE_SOURCE_PROJECTS_KEY = 'livedoc.viewer.projectGrouping.hideSourceProjects';
 export const PROJECT_GROUPING_ONBOARDING_SEEN_KEY = 'livedoc.viewer.projectGrouping.onboarding.seen';
+export const FOLLOW_LATEST_RUN_KEY = 'livedoc.viewer.runs.followLatest';
 
 function getInitialAudienceMode(): 'business' | 'developer' {
   try {
@@ -39,6 +40,14 @@ function getInitialProjectGroupingSettings(): ProjectGroupingSettings {
   }
 
   return { enabled, hideSourceProjects, windowMs: DEFAULT_PROJECT_GROUPING_WINDOW_MS };
+}
+
+function getInitialFollowLatestRun(): boolean {
+  try {
+    return localStorage.getItem(FOLLOW_LATEST_RUN_KEY) === 'true';
+  } catch {
+    return false;
+  }
 }
 
 export function hasSeenProjectGroupingOnboarding(): boolean {
@@ -77,6 +86,9 @@ export interface RunGroup extends Run {
 
 export type RunView = Run | RunGroup;
 
+/** Which projection of a run is currently selected for display. Full runs have physical === combined. */
+export type RunProjection = 'combined' | 'physical';
+
 /** Helper to extract run-like data from ViewData for components that need it */
 export interface RunLike {
   run: {
@@ -88,7 +100,10 @@ export interface RunLike {
     project: string;
     environment: string;
     framework?: string;
-    sourceRuns?: Array<{ runId: string; project: string; timestamp: string; duration: number; summary: Statistics; status: Status; framework: string; documentCount: number }>;
+    coverage?: CoverageReport;
+    runType?: RunType;
+    baselineRunId?: string;
+    sourceRuns?: Array<{ runId: string; project: string; timestamp: string; duration: number; summary: Statistics; status: Status; framework: string; documentCount: number; coverage?: CoverageReport }>;
   };
   itemById: Record<string, TestCase | AnyTest>;
 }
@@ -99,6 +114,9 @@ export interface HistoryRun {
   timestamp: string;
   status: Status;
   summary: Statistics;
+  /** Missing/undefined means 'full' — history predates partial run support. */
+  runType?: RunType;
+  baselineRunId?: string;
 }
 
 export interface Environment {
@@ -126,6 +144,8 @@ export interface DataDiagnostic {
   project?: string;
   environment?: string;
   details?: string[];
+  /** Run this diagnostic is scoped to, so it can be cleared once that run's projection loads successfully. */
+  runId?: string;
 }
 
 export interface UnresolvedDeepLink {
@@ -134,7 +154,7 @@ export interface UnresolvedDeepLink {
 }
 
 // Navigation view types
-export type ViewType = 'summary' | 'node' | 'group';
+export type ViewType = 'summary' | 'node' | 'group' | 'coverage';
 
 export interface CurrentView {
   type: ViewType;
@@ -144,12 +164,18 @@ export interface CurrentView {
 interface AppState {
   // Data
   runs: Run[];
+  /** Physical-projection cache, keyed by runId. Never fed into grouping/logical-run inputs. */
+  physicalRuns: Record<string, Run>;
   projectHierarchy: ProjectNode[];
 
   // Selection
   selectedRunId: string | null;
   selectedRunGroupId: string | null;
   selectedNodeId: string | null;
+  /** Which projection of the selected run to display. Irrelevant for full runs (physical === combined). */
+  selectedRunView: RunProjection;
+  /** Projection key currently being lazily fetched (`runId:view`), if any. */
+  pendingRunFetch: string | null;
 
   // Navigation
   currentView: CurrentView;
@@ -162,6 +188,7 @@ interface AppState {
   theme: Theme;
   audienceMode: AudienceMode;
   projectGrouping: ProjectGroupingSettings;
+  followLatestRun: boolean;
   sidebarWidth: number;
   expandedItems: Set<string>;
 
@@ -175,11 +202,20 @@ interface AppState {
   updateRun: (runId: string, updates: Partial<Run>) => void;
   removeRun: (runId: string) => void;
 
+  /** Upsert the physical projection cache for a runId (active partial progress or lazily fetched history). */
+  upsertPhysicalRun: (runId: string, run: Run) => void;
+  removePhysicalRun: (runId: string) => void;
+
   setProjectHierarchy: (hierarchy: ProjectNode[]) => void;
   setDiagnostics: (diagnostics: DataDiagnostic[]) => void;
+  addDiagnostic: (diagnostic: DataDiagnostic) => void;
+  clearRunDiagnostics: (runId: string) => void;
 
-  selectRun: (runId: string | null) => void;
+  selectRun: (runId: string | null, view?: RunProjection) => void;
   selectRunGroup: (groupId: string | null) => void;
+  /** Toggle projection (Combined | This partial) for the currently selected run without resetting navigation. */
+  setRunView: (view: RunProjection) => void;
+  setPendingRunFetch: (runId: string | null) => void;
 
   // Navigation actions
   navigate: (type: ViewType, id?: string) => void;
@@ -192,6 +228,8 @@ interface AppState {
   toggleAudienceMode: () => void;
   setProjectGroupingEnabled: (enabled: boolean) => void;
   setProjectGroupingHideSourceProjects: (hidden: boolean) => void;
+  setFollowLatestRun: (enabled: boolean) => void;
+  followRunIfEnabled: (runId: string, view?: RunProjection) => void;
   setSidebarWidth: (width: number) => void;
   toggleExpanded: (itemId: string) => void;
 
@@ -203,6 +241,7 @@ interface AppState {
   upsertTest: (runId: string, testCaseId: string, test: AnyTest) => void;
   patchTestExecution: (runId: string, testId: string, patch: { execution: Partial<ExecutionResult> }) => void;
   upsertOutlineExampleResults: (runId: string, outlineId: string, results: Array<{ testId: string; result: ExecutionResult }>) => void;
+  attachCoverage: (runId: string, coverage: CoverageReport) => void;
 
   // Computed selectors
   getRunGroups: () => RunGroup[];
@@ -398,13 +437,79 @@ function latestRunFromGroup(group: RunGroup): TestRunV1 | undefined {
     .sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0))[0];
 }
 
+/**
+ * Applies a real-time TestRunV1 mutation to whichever collection currently holds `runId`:
+ * the combined `runs` cache (full runs, and previously-combined partials) or the `physicalRuns`
+ * cache (active partials still in progress). Never creates a new entry — the run must already
+ * be tracked via addRun/upsertPhysicalRun (e.g. from run:v1:started).
+ */
+function applyRunMutation(
+  state: Pick<AppState, 'runs' | 'physicalRuns'>,
+  runId: string,
+  updater: (run: TestRunV1) => TestRunV1
+): Partial<AppState> | null {
+  const physical = state.physicalRuns[runId];
+  if (physical?.run.runType === 'partial') {
+    const nextRun = withDerivedRunState(updater(physical.run));
+    return { physicalRuns: { ...state.physicalRuns, [runId]: makeRunState(nextRun) } };
+  }
+
+  const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
+  if (runIndex !== -1) {
+    const nextRun = withDerivedRunState(updater(state.runs[runIndex]!.run));
+    const newRuns = [...state.runs];
+    newRuns[runIndex] = makeRunState(nextRun);
+    const cachedPhysical = state.physicalRuns[runId];
+    if (!cachedPhysical) return { runs: newRuns };
+
+    return {
+      runs: newRuns,
+      physicalRuns: {
+        ...state.physicalRuns,
+        [runId]: makeRunState(withDerivedRunState(updater(cachedPhysical.run))),
+      },
+    };
+  }
+
+  if (physical) {
+    const nextRun = withDerivedRunState(updater(physical.run));
+    return { physicalRuns: { ...state.physicalRuns, [runId]: makeRunState(nextRun) } };
+  }
+
+  return null;
+}
+
+/**
+ * Resolves the plain (non-grouped) selected run using the requested projection.
+ * - `combined` prefers `runs`, falling back to `physicalRuns` (e.g. an active partial with no
+ *   combined snapshot yet).
+ * - `physical` prefers `physicalRuns`, falling back to `runs` (e.g. a full run, where
+ *   physical === combined and only `runs` ever holds it).
+ * Grouping never sees `physicalRuns` — this helper is only used for the ungrouped selection path.
+ */
+function resolveSelectedRun(
+  state: Pick<AppState, 'selectedRunId' | 'selectedRunView' | 'runs' | 'physicalRuns'>
+): Run | undefined {
+  if (!state.selectedRunId) return undefined;
+
+  const combined = state.runs.find((r) => r.run.runId === state.selectedRunId);
+  const physical = state.physicalRuns[state.selectedRunId];
+
+  if (state.selectedRunView === 'physical') return physical ?? combined;
+  if (combined) return combined;
+  return physical?.run.status === 'running' ? physical : undefined;
+}
+
 export const useStore = create<AppState>((set, get) => ({
   // Initial state
   runs: [],
+  physicalRuns: {},
   projectHierarchy: [],
   selectedRunId: null,
   selectedRunGroupId: null,
   selectedNodeId: null,
+  selectedRunView: 'combined',
+  pendingRunFetch: null,
   currentView: { type: 'summary' },
   unresolvedDeepLink: null,
   connectionStatus: 'connecting',
@@ -413,6 +518,7 @@ export const useStore = create<AppState>((set, get) => ({
   theme: 'dark',
   audienceMode: getInitialAudienceMode(),
   projectGrouping: getInitialProjectGroupingSettings(),
+  followLatestRun: getInitialFollowLatestRun(),
   sidebarWidth: 280,
   expandedItems: new Set<string>(),
 
@@ -465,25 +571,56 @@ export const useStore = create<AppState>((set, get) => ({
         newExpandedItems = new Set([...state.expandedItems].filter(id => !idsToRemove.has(id)));
       }
     }
+    const newPhysicalRuns = state.physicalRuns[runId]
+      ? Object.fromEntries(Object.entries(state.physicalRuns).filter(([id]) => id !== runId))
+      : state.physicalRuns;
     return {
       runs: newRuns,
+      physicalRuns: newPhysicalRuns,
       selectedRunId: newSelectedRunId,
+      selectedRunView: newSelectedRunId === state.selectedRunId ? state.selectedRunView : 'combined',
       currentView: (newSelectedRunId || state.selectedRunGroupId) ? state.currentView : { type: 'summary' },
       expandedItems: newExpandedItems,
     };
   }),
 
+  upsertPhysicalRun: (runId, run) => set((state) => ({
+    physicalRuns: { ...state.physicalRuns, [runId]: run },
+  })),
+
+  removePhysicalRun: (runId) => set((state) => {
+    if (!state.physicalRuns[runId]) return state;
+    const newPhysicalRuns = { ...state.physicalRuns };
+    delete newPhysicalRuns[runId];
+    return { physicalRuns: newPhysicalRuns };
+  }),
+
   setProjectHierarchy: (hierarchy) => set({ projectHierarchy: hierarchy }),
   setDiagnostics: (diagnostics) => set({ diagnostics }),
 
+  addDiagnostic: (diagnostic) => set((state) => ({
+    diagnostics: [
+      ...state.diagnostics.filter((d) => !(d.code === diagnostic.code && d.runId === diagnostic.runId)),
+      diagnostic,
+    ],
+  })),
+
+  clearRunDiagnostics: (runId) => set((state) => ({
+    diagnostics: state.diagnostics.filter((d) => d.runId !== runId),
+  })),
+
   // Selection actions
-  selectRun: (runId) => set({
+  selectRun: (runId, view = 'combined') => set({
     selectedRunId: runId,
     selectedRunGroupId: null,
     selectedNodeId: null,
     currentView: { type: 'summary' },
     unresolvedDeepLink: null,
+    selectedRunView: runId ? view : 'combined',
   }),
+
+  setRunView: (view) => set({ selectedRunView: view }),
+  setPendingRunFetch: (runId) => set({ pendingRunFetch: runId }),
 
   selectRunGroup: (groupId) => set({
     selectedRunGroupId: groupId,
@@ -491,6 +628,7 @@ export const useStore = create<AppState>((set, get) => ({
     selectedNodeId: null,
     currentView: { type: 'summary' },
     unresolvedDeepLink: null,
+    selectedRunView: 'combined',
   }),
 
   // Navigation actions
@@ -594,6 +732,31 @@ export const useStore = create<AppState>((set, get) => ({
       projectGrouping: { ...state.projectGrouping, hideSourceProjects: hidden },
     }));
   },
+  setFollowLatestRun: (enabled) => {
+    try {
+      localStorage.setItem(FOLLOW_LATEST_RUN_KEY, String(enabled));
+    } catch {
+      // ignore (e.g. storage unavailable)
+    }
+    set({ followLatestRun: enabled });
+  },
+  followRunIfEnabled: (runId, view = 'combined') => {
+    const state = get();
+    if (!state.followLatestRun) return;
+
+    if (state.projectGrouping.enabled) {
+      const containingGroup = findContainingGroup(
+        buildLogicalRunGroups(state.runs.map((run) => run.run), state.projectGrouping),
+        runId
+      );
+      if (containingGroup) {
+        state.selectRunGroup(containingGroup.id);
+        return;
+      }
+    }
+
+    state.selectRun(runId, view);
+  },
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
 
   toggleExpanded: (itemId) => set((state) => {
@@ -609,80 +772,94 @@ export const useStore = create<AppState>((set, get) => ({
   setFilterText: (text) => set({ filterText: text }),
   setFilterTags: (tags) => set({ filterTags: tags }),
 
-  // Real-time update handlers
+  // Real-time update handlers — route to whichever collection (runs or physicalRuns) tracks runId.
   upsertTestCase: (runId, testCase) => set((state) => {
-    const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
-    if (runIndex === -1) return state;
-
-    const existing = state.runs[runIndex];
-    const docs = existing.run.documents ?? [];
-    const nextDocs = docs.some((d) => d.id === testCase.id)
-      ? docs.map((d) => (d.id === testCase.id ? testCase : d))
-      : [...docs, testCase];
-
-    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
-    const newRuns = [...state.runs];
-    newRuns[runIndex] = makeRunState(nextRun);
-    return { runs: newRuns };
+    const patch = applyRunMutation(state, runId, (run) => {
+      const docs = run.documents ?? [];
+      const nextDocs = docs.some((d) => d.id === testCase.id)
+        ? docs.map((d) => (d.id === testCase.id ? testCase : d))
+        : [...docs, testCase];
+      return { ...run, documents: nextDocs };
+    });
+    return patch ?? state;
   }),
 
   upsertTest: (runId, testCaseId, test) => set((state) => {
-    const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
-    if (runIndex === -1) return state;
-
-    const existing = state.runs[runIndex];
-    const nextDocs = (existing.run.documents ?? []).map((d) => (d.id === testCaseId ? replaceTestInTestCase(d, test) : d));
-    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
-
-    const newRuns = [...state.runs];
-    newRuns[runIndex] = makeRunState(nextRun);
-    return { runs: newRuns };
+    const patch = applyRunMutation(state, runId, (run) => {
+      const nextDocs = (run.documents ?? []).map((d) => (d.id === testCaseId ? replaceTestInTestCase(d, test) : d));
+      return { ...run, documents: nextDocs };
+    });
+    return patch ?? state;
   }),
 
   patchTestExecution: (runId, testId, patch) => set((state) => {
-    const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
-    if (runIndex === -1) return state;
+    const result = applyRunMutation(state, runId, (run) => {
+      const ownerId = findTestCaseOwnerId(run, testId);
+      if (!ownerId) return run;
 
-    const existing = state.runs[runIndex];
-    const ownerId = findTestCaseOwnerId(existing.run, testId);
-    if (!ownerId) return state;
+      const nextDocs = (run.documents ?? []).map((doc) => {
+        if (doc.id !== ownerId) return doc;
+        return {
+          ...doc,
+          background: doc.background ? patchAnyTestExecution(doc.background, testId, patch.execution) : undefined,
+          tests: (doc.tests ?? []).map((t) => patchAnyTestExecution(t, testId, patch.execution)),
+        };
+      });
 
-    const nextDocs = (existing.run.documents ?? []).map((doc) => {
-      if (doc.id !== ownerId) return doc;
-      return {
-        ...doc,
-        background: doc.background ? patchAnyTestExecution(doc.background, testId, patch.execution) : undefined,
-        tests: (doc.tests ?? []).map((t) => patchAnyTestExecution(t, testId, patch.execution)),
-      };
+      return { ...run, documents: nextDocs };
     });
-
-    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
-    const newRuns = [...state.runs];
-    newRuns[runIndex] = makeRunState(nextRun);
-    return { runs: newRuns };
+    return result ?? state;
   }),
 
   upsertOutlineExampleResults: (runId, outlineId, results) => set((state) => {
+    const patch = applyRunMutation(state, runId, (run) => {
+      const ownerId = findTestCaseOwnerId(run, outlineId);
+      if (!ownerId) return run;
+
+      const nextDocs = (run.documents ?? []).map((doc) => {
+        if (doc.id !== ownerId) return doc;
+        return {
+          ...doc,
+          background: doc.background ? patchOutlineExampleResults(doc.background, outlineId, results) : undefined,
+          tests: (doc.tests ?? []).map((t) => patchOutlineExampleResults(t, outlineId, results)),
+        };
+      });
+
+      return { ...run, documents: nextDocs };
+    });
+    return patch ?? state;
+  }),
+
+  attachCoverage: (runId, coverage) => set((state) => {
+    const physical = state.physicalRuns[runId];
+    if (physical?.run.runType === 'partial') {
+      const nextRun = { ...physical.run, coverage };
+      return {
+        physicalRuns: {
+          ...state.physicalRuns,
+          [runId]: makeRunState(nextRun),
+        },
+      };
+    }
+
     const runIndex = state.runs.findIndex((r) => r.run.runId === runId);
     if (runIndex === -1) return state;
+    if (state.runs[runIndex]?.run.runType === 'partial') return state;
 
     const existing = state.runs[runIndex];
-    const ownerId = findTestCaseOwnerId(existing.run, outlineId);
-    if (!ownerId) return state;
-
-    const nextDocs = (existing.run.documents ?? []).map((doc) => {
-      if (doc.id !== ownerId) return doc;
-      return {
-        ...doc,
-        background: doc.background ? patchOutlineExampleResults(doc.background, outlineId, results) : undefined,
-        tests: (doc.tests ?? []).map((t) => patchOutlineExampleResults(t, outlineId, results)),
-      };
-    });
-
-    const nextRun = withDerivedRunState({ ...existing.run, documents: nextDocs });
+    const nextRun = { ...existing.run, coverage };
     const newRuns = [...state.runs];
     newRuns[runIndex] = makeRunState(nextRun);
-    return { runs: newRuns };
+    const cachedPhysical = state.physicalRuns[runId];
+    if (!cachedPhysical) return { runs: newRuns };
+
+    return {
+      runs: newRuns,
+      physicalRuns: {
+        ...state.physicalRuns,
+        [runId]: makeRunState({ ...cachedPhysical.run, coverage }),
+      },
+    };
   }),
 
   // Computed selectors
@@ -709,12 +886,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (group) return group;
     }
 
-    if (state.selectedRunId) {
-      const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
-      if (run) return run;
-    }
-
-    return undefined;
+    return resolveSelectedRun(state);
   },
 
   getCurrentRunGroup: () => {
@@ -730,10 +902,8 @@ export const useStore = create<AppState>((set, get) => ({
       if (group) return { type: 'grouped-run' as const, data: group };
     }
 
-    if (state.selectedRunId) {
-      const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
-      if (run) return { type: 'run' as const, data: run };
-    }
+    const run = resolveSelectedRun(state);
+    if (run) return { type: 'run' as const, data: run };
     return undefined;
   },
 
@@ -760,29 +930,31 @@ export const useStore = create<AppState>((set, get) => ({
             status: run.status,
             framework: run.framework,
             documentCount: run.documents.length,
+            coverage: run.coverage,
           })),
         },
         itemById: group.itemById,
       };
     }
 
-    if (state.selectedRunId) {
-      const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
-      if (run) {
-        return {
-          run: {
-            documents: run.run.documents,
-            summary: run.run.summary,
-            status: run.run.status,
-            timestamp: run.run.timestamp,
-            duration: run.run.duration,
-            project: run.run.project,
-            environment: run.run.environment,
-            framework: run.run.framework,
-          },
-          itemById: run.itemById,
-        };
-      }
+    const run = resolveSelectedRun(state);
+    if (run) {
+      return {
+        run: {
+          documents: run.run.documents,
+          summary: run.run.summary,
+          status: run.run.status,
+          timestamp: run.run.timestamp,
+          duration: run.run.duration,
+          project: run.run.project,
+          environment: run.run.environment,
+          framework: run.run.framework,
+          coverage: run.run.coverage,
+          runType: run.run.runType,
+          baselineRunId: run.run.baselineRunId,
+        },
+        itemById: run.itemById,
+      };
     }
     return undefined;
   },
@@ -794,7 +966,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (group && state.selectedNodeId) return group.itemById[state.selectedNodeId];
     }
 
-    const run = state.runs.find((r) => r.run.runId === state.selectedRunId);
+    const run = resolveSelectedRun(state);
     if (!run || !state.selectedNodeId) return undefined;
     return run.itemById[state.selectedNodeId];
   },

@@ -2,6 +2,105 @@
 
 ## Active Decisions
 
+### VSTest Coverage: Incremental Processor Correction & Approval (2026-07-18)
+
+**Author:** Mal (Architect), Wash (Implementation), Zoe (QA/Reviewer)  
+**Date:** 2026-07-18  
+**Status:** Approved headlessly; Visual Studio design-mode confirmation remains  
+**Area:** `dotnet/xunit` — coverage data collector, attachment processor, MSBuild activation
+
+#### Summary of Session
+
+Three independent blockers in Simon's initial implementation were identified by Zoe's review, analyzed by Mal, and corrected/implemented by Wash:
+
+1. **Auto-set `VSTestLogger` with `;` separator poisoned every `dotnet test`** — MSBuild treats `;` as item-list separator, split the single logger into two loggers, causing fatal `CommandLineException` (exit 1, zero test results).
+2. **Marked `SupportsIncrementalProcessing => true` but dropped marker sets from return value** — In multi-round "Analyze Code Coverage for **All** Tests", marker and `.coverage` arrive in different rounds → marked as safe skip (`LD-COV-043`) instead of uploading.
+3. **Design contracts were implicit, not explicit** — Load-bearing semantics (incremental semantics, idempotency, multi-marker correlation, invocation scope) were guessed during implementation; review caught them.
+
+#### Root Cause Analysis
+
+- **Mal's investigation:** VSTest source (`microsoft/vstest`, main @ 3026de6) reveals that **`SupportsIncrementalProcessing => false` is refused by the platform** — the processor is skipped before any code runs. The flag **must be `true`**.
+- **Corrected contract:** 8 explicit decisions + behavior matrix for 9 orderings formalized. All corrections validated headlessly.
+
+#### Key Decisions (8 explicit resolutions)
+
+1. **`SupportsIncrementalProcessing => true`** (mandatory; RFC 0031 mandates it; platform refuses `false`)
+2. **Return all input attachments unchanged each round** (every marker set, every coverage set)
+3. **Disk-only state:** markers (`*.livedoc-coverage-invocation`), run metadata (`<runId>.json`), per-run sentinel (`<runId>.coverage-posted`)
+4. **Disk-marker freshness by file last-write time** (NOT `InitializedAtUtc`; fixes long-running suites with old `InitializedAtUtc`)
+5. **Authoritative markers (attachment-delivered) trusted at any age** (disk fallback file-mtime windowed)
+6. **Per-run sentinel** (disk-resident, written only after HTTP 2xx, prevents double-posts, enables retry on failure)
+7. **Multi-marker/multi-project:** iterate all, dedupe coverage, post to every distinct run
+8. **Do not auto-set `VSTestLogger`** (collector already injects via env vars; auto-logger is redundant and caused Blocker 1)
+
+#### Headless Validation (All Green)
+
+- **Coverage_Collector_Spec:** 14 passed (split-round orders, old `InitializedAtUtc`, arbitrary-age marker, associative re-feed, success idempotency, failed upload retry, multi-marker/multi-run, return unchanged)
+- **Coverage_Output_Spec:** 7 passed (server, REST, failure)
+- **Plain `dotnet test`:** 21 passed (no `/collect` coverage flag; normal exit 0; zero invalid-logger URI noise)
+- **Package builds:** Release net8.0 + net10.0 collector/logger, zero warnings
+- **Automatic smoke (run `mrr2a03n-pap1opnmz`):**
+  - VSTest 18.6 invoked; collector processor added and invoked; zero non-incremental rejections
+  - Microsoft `.coverage` received, converted, parsed (43 files, 21.3% line)
+  - HTTP 200 POST; sentinel written (`LD-COV-080` + `LD-COV-081` on re-feed)
+  - REST `/api/v1/runs/mrr2a03n-pap1opnmz` confirms coverage available, 21.3%, 43 files
+
+#### Zoe's Independent Review (APPROVED)
+
+Reviewer did not trust the summary. Read the diff, re-ran decisive commands, independently re-hydrated coverage over REST. Verified all 15 binding points:
+
+1. Incremental flag set to `true` ✓
+2. Return unchanged (same references) ✓
+3. Split-round across fresh instances ✓
+4. Disk-backed correlation ✓
+5. Freshness by file mtime, not `InitializedAtUtc` ✓
+6. Multi-marker / dedupe ✓
+7. Per-run sentinel ✓
+8. Self-documenting + behavioral tests ✓
+9. Plain `dotnet test` clean ✓
+10. Package assets present ✓
+11. Truly collector-based, no masquerade ✓
+12. `/Diag` proves collector + processor ✓
+13. Durable processor evidence + REST retrieval ✓
+14. Honest diagnostics ✓
+15. Surgical diff ✓
+
+#### Remaining Gate
+
+**Only Visual Studio Test Explorer confirmation (Garry):**
+- Design-mode "Analyze Code Coverage for All Tests" sequence: `LD-COV-020 → 030 → 040 → 050 → 060/061 → 070 → 080`
+- Viewer-side `LD-COV-090` confirmation
+- Everything upstream proven headlessly
+
+#### Related Prior Decisions (Superseded/Referenced)
+
+- `mal-vstest-coverage-activation.md` — Original design (reference)
+- `simon-vstest-coverage-collector.md` — Implementation under review (superseded)
+- `zoe-coverage-review-rejection.md` — Blocker analysis + fix requirements
+- `mal-coverage-rejection-retrospective.md` — Root cause analysis + 7 corrected decisions
+
+#### Impact
+
+- `dotnet/xunit/src/SweDevTools.LiveDoc.xUnit.Coverage.Collector/LiveDocCoverageAttachmentProcessor.cs` — incremental flag, return unchanged, disk-backed correlation, per-run sentinel
+- `dotnet/xunit/src/SweDevTools.LiveDoc.xUnit.Coverage.Processor/LiveDocPostRunCoverage.cs` — multi-marker iteration, multi-run posting, sentinel creation logic
+- `dotnet/xunit/build/SweDevTools.LiveDoc.xUnit.targets` — removed auto-set `VSTestLogger`
+- `dotnet/xunit/build/livedoc-coverage.runsettings` — packaged runsettings
+- `dotnet/xunit/_src/test/Coverage_Collector_Spec.ts` + `Coverage_Output_Spec.ts` — comprehensive headless validation suite
+
+#### Non-Blocking Observations
+
+- Disk-fallback mtime window (`processorStart − 10s`) could miss very-long-running multi-project runs, but authoritative markers deliver unbounded-age coverage.
+- Live websocket broadcast (`broadcastMatched=0`) not exercisable headlessly; REST hydration proven.
+- `garrm/fix-tags` branch carries large uncommitted coverage feature; eventual commit scoping should be intentional.
+
+#### Process Improvements Identified
+
+1. **Design contracts must be explicit and testable before implementation** — load-bearing semantics were guessed; review caught them.
+2. **Defaults to "on" require regression testing** — "plain `dotnet test` still passes" must be a pre-review gate.
+3. **Platform contract research upfront** — VSTest source should have been grounded before design, not after rejection.
+
+---
+
 ### shadcn/Radix Controls Before Custom Controls
 
 **Author:** Kaylee  
@@ -1267,3 +1366,13 @@ This keeps the contract explicit, minimizes server ambiguity, and fixes the curr
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+
+---
+
+## User Directives
+
+### 2026-07-18T18:57:19Z: Latest Model Preference
+
+**By:** Garry Mc  
+**What:** Use the latest GPT-5.6 Sol and Claude Opus 4.8 models whenever agent work requires substantive reasoning.  
+**Rationale:** User request — captured for team memory.

@@ -4,6 +4,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { useVsCodeMessage } from './hooks/useVsCodeMessage';
 import { useStaticData } from './hooks/useStaticData';
 import { useDeepLink } from './hooks/useDeepLink';
+import { useRunProjectionLoader } from './hooks/useRunProjectionLoader';
 
 export default function App() {
   // Hydrate store from embedded data when in static mode
@@ -14,6 +15,8 @@ export default function App() {
   useVsCodeMessage();
   // Sync URL hash with navigation state (deep linking)
   useDeepLink();
+  // Lazily fetch the selected run's projection (combined/physical) when not already cached
+  useRunProjectionLoader(isStatic);
 
   return (
     <Layout>

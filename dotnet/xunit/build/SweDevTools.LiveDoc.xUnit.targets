@@ -6,11 +6,45 @@
   <PropertyGroup>
     <!-- Pick the consumer's TFM folder if it exists, otherwise fall back to net8.0 -->
     <_LiveDocLoggerDir Condition="Exists('$(MSBuildThisFileDirectory)$(TargetFramework)\')">$(MSBuildThisFileDirectory)$(TargetFramework)\</_LiveDocLoggerDir>
+    <_LiveDocLoggerDir Condition="'$(_LiveDocLoggerDir)' == '' And Exists('$(MSBuildThisFileDirectory)..\logger\LiveDoc.TestLogger.csproj')">$(MSBuildThisFileDirectory)..\logger\bin\$(Configuration)\$(TargetFramework)\</_LiveDocLoggerDir>
+    <_LiveDocLoggerDir Condition="'$(_LiveDocLoggerDir)' == '' And Exists('$(MSBuildThisFileDirectory)..\logger\LiveDoc.TestLogger.csproj')">$(MSBuildThisFileDirectory)..\logger\bin\$(Configuration)\net8.0\</_LiveDocLoggerDir>
     <_LiveDocLoggerDir Condition="'$(_LiveDocLoggerDir)' == ''">$(MSBuildThisFileDirectory)net8.0\</_LiveDocLoggerDir>
+    <_LiveDocCollectorDir Condition="Exists('$(MSBuildThisFileDirectory)$(TargetFramework)\SweDevTools.LiveDoc.xUnit.Coverage.Collector.dll')">$(MSBuildThisFileDirectory)$(TargetFramework)\</_LiveDocCollectorDir>
+    <_LiveDocCollectorDir Condition="'$(_LiveDocCollectorDir)' == '' And Exists('$(MSBuildThisFileDirectory)..\collector\LiveDoc.CoverageCollector.csproj')">$(MSBuildThisFileDirectory)..\collector\bin\$(Configuration)\$(TargetFramework)\</_LiveDocCollectorDir>
+    <_LiveDocCollectorDir Condition="'$(_LiveDocCollectorDir)' == '' And Exists('$(MSBuildThisFileDirectory)..\collector\LiveDoc.CoverageCollector.csproj')">$(MSBuildThisFileDirectory)..\collector\bin\$(Configuration)\net8.0\</_LiveDocCollectorDir>
+    <_LiveDocCollectorDir Condition="'$(_LiveDocCollectorDir)' == ''">$(MSBuildThisFileDirectory)net8.0\</_LiveDocCollectorDir>
   </PropertyGroup>
-  <ItemGroup>
-    <VSTestTestAdaptersPaths Include="$(_LiveDocLoggerDir)" />
-  </ItemGroup>
+  <PropertyGroup>
+    <VSTestTestAdapterPath Condition="'$(VSTestTestAdapterPath)' == ''">$(_LiveDocLoggerDir)</VSTestTestAdapterPath>
+    <VSTestTestAdapterPath Condition="'$(VSTestTestAdapterPath)' != '' And !$([System.String]::Copy('$(VSTestTestAdapterPath)').Contains('$(_LiveDocLoggerDir)'))">$(VSTestTestAdapterPath);$(_LiveDocLoggerDir)</VSTestTestAdapterPath>
+    <VSTestTestAdapterPath Condition="!$([System.String]::Copy('$(VSTestTestAdapterPath)').Contains('$(_LiveDocCollectorDir)'))">$(VSTestTestAdapterPath);$(_LiveDocCollectorDir)</VSTestTestAdapterPath>
+  </PropertyGroup>
+
+  <!--
+    Post-run Visual Studio coverage support.
+    The data collector and attachment processor are the automatic path.
+    The LiveDocCoverage logger remains packaged for explicit CLI use only.
+  -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <LiveDocPostRunCoverageEnabled Condition="'$(LiveDocPostRunCoverageEnabled)' == ''">true</LiveDocPostRunCoverageEnabled>
+    <_LiveDocCoverageRunSettingsPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)livedoc-coverage.runsettings'))</_LiveDocCoverageRunSettingsPath>
+    <_LiveDocCoverageEnvironmentRequested>$([System.Environment]::GetEnvironmentVariable('LIVEDOC_COVERAGE'))</_LiveDocCoverageEnvironmentRequested>
+    <_LiveDocCoverageRequested Condition="'$(BuildingInsideVisualStudio)' == 'true' Or $([System.String]::Copy('$(VSTestCollect)').Contains('Code Coverage')) Or '$(_LiveDocCoverageEnvironmentRequested)' == 'true' Or '$(_LiveDocCoverageEnvironmentRequested)' == '1'">true</_LiveDocCoverageRequested>
+    <_LiveDocDefaultRunSettingsSelected Condition="'$(LiveDocPostRunCoverageEnabled)' == 'true' And '$(_LiveDocCoverageRequested)' == 'true' And '$(RunSettingsFilePath)' == '' And '$(VSTestSetting)' == ''">true</_LiveDocDefaultRunSettingsSelected>
+    <RunSettingsFilePath Condition="'$(_LiveDocDefaultRunSettingsSelected)' == 'true'">$(_LiveDocCoverageRunSettingsPath)</RunSettingsFilePath>
+  </PropertyGroup>
+
+  <Target Name="LiveDocCoverageConfigurationDiagnostic"
+          AfterTargets="Build"
+          BeforeTargets="VSTest"
+          Condition="'$(IsTestProject)' == 'true' And '$(LiveDocPostRunCoverageEnabled)' == 'true' And '$(_LiveDocCoverageRequested)' == 'true'">
+    <Message Importance="High"
+             Condition="'$(_LiveDocDefaultRunSettingsSelected)' == 'true'"
+             Text="LD-COV-000 package-active: project=$(MSBuildProjectName); sdkVersion=$(NETCoreSdkVersion); sdkPath=$(MSBuildSDKsPath); runSettings=$(RunSettingsFilePath); collectorPath=$(_LiveDocCollectorDir); loggerPath=$(_LiveDocLoggerDir); adapterPath=$(VSTestTestAdapterPath)" />
+    <Message Importance="High"
+             Condition="'$(_LiveDocDefaultRunSettingsSelected)' != 'true'"
+             Text="LD-COV-001 custom-runsettings-preserved: project=$(MSBuildProjectName); RunSettingsFilePath=$(RunSettingsFilePath); VSTestSetting=$(VSTestSetting); LiveDoc did not replace the selected settings. To activate automatic post-run coverage, copy the LiveDocCoverage DataCollector entry from '$(_LiveDocCoverageRunSettingsPath)' into the custom runsettings." />
+  </Target>
 
   <!--
     LiveDoc AI Skill Installer.
@@ -55,7 +89,8 @@
     <LiveDocJourneyFixtureType Condition="'$(LiveDocJourneyFixtureType)' == ''">JourneyServerFixture</LiveDocJourneyFixtureType>
     <LiveDocHttpYacEnsure Condition="'$(LiveDocHttpYacEnsure)' == ''">check</LiveDocHttpYacEnsure>
 
-    <_LiveDocJourneyToolDir>$(MSBuildThisFileDirectory)..\tools\journey-generator\net8.0\</_LiveDocJourneyToolDir>
+    <_LiveDocJourneyToolDir Condition="Exists('$(MSBuildThisFileDirectory)..\tools\journey-generator\$(TargetFramework)\')">$(MSBuildThisFileDirectory)..\tools\journey-generator\$(TargetFramework)\</_LiveDocJourneyToolDir>
+    <_LiveDocJourneyToolDir Condition="'$(_LiveDocJourneyToolDir)' == ''">$(MSBuildThisFileDirectory)..\tools\journey-generator\net8.0\</_LiveDocJourneyToolDir>
     <_LiveDocJourneyTool>$(_LiveDocJourneyToolDir)SweDevTools.LiveDoc.xUnit.JourneyGenerator.dll</_LiveDocJourneyTool>
   </PropertyGroup>
 

@@ -12,6 +12,9 @@ export function FailureSummary({ node, isBusiness, isTestCaseNode, isOutline }: 
   if (isOutline) return null;
   if ((node as any).execution?.status !== 'failed') return null;
   if (!(node as any).execution?.error) return null;
+  if (Array.isArray((node as any).steps) && (node as any).steps.some(
+    (step: any) => step?.execution?.status === 'failed' && step?.execution?.error
+  )) return null;
 
   return (
     <ErrorDisplay

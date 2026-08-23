@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.TestPlatform.ObjectModel;
@@ -15,11 +16,16 @@ namespace SweDevTools.LiveDoc.xUnit.Logger;
 [ExtensionUri("logger://swedevtools/livedoc")]
 public class LiveDocConsoleLogger : ITestLoggerWithParameters
 {
+    private const string DotnetCoverageToolEnvVar = "LIVEDOC_DOTNET_COVERAGE_TOOL";
     private readonly ConcurrentBag<TestResult> _results = new();
     private bool _useColor = true;
+    private string? _metadataDir;
+    private DateTime _initializedAtUtc;
 
     public void Initialize(TestLoggerEvents events, string testRunDirectory)
     {
+        _initializedAtUtc = DateTime.UtcNow;
+        _metadataDir = LiveDocPostRunCoverage.ConfigureEnvironment();
         events.TestResult += OnTestResult;
         events.TestRunComplete += OnTestRunComplete;
     }
@@ -32,10 +38,7 @@ public class LiveDocConsoleLogger : ITestLoggerWithParameters
         // Bridge logger parameters to environment variables so LiveDocConfig picks them up.
         // The logger initializes before test execution, so env vars are set before
         // LiveDocConfig.Default is first accessed by the test framework.
-        BridgeParameter(parameters, "ServerUrl", "LIVEDOC_SERVER_URL");
-        BridgeParameter(parameters, "Project", "LIVEDOC_PROJECT");
-        BridgeParameter(parameters, "Environment", "LIVEDOC_ENVIRONMENT");
-        BridgeParameter(parameters, "ExportPath", "LIVEDOC_EXPORT_PATH");
+        _metadataDir = LiveDocPostRunCoverage.ConfigureEnvironment(parameters);
 
         Initialize(events, string.Empty);
     }
@@ -145,6 +148,15 @@ public class LiveDocConsoleLogger : ITestLoggerWithParameters
         sb.AppendLine($"  Tests: {string.Join(", ", parts)} ({durationSummary})");
         sb.AppendLine();
 
+        var coverageDiagnostics = LiveDocPostRunCoverage.Publish(e.AttachmentSets, _metadataDir, reportMissingMetadata: true, _initializedAtUtc);
+        if (coverageDiagnostics.Count > 0)
+        {
+            sb.AppendLine(Color("  Coverage", AnsiColor.Yellow));
+            foreach (var diagnostic in coverageDiagnostics)
+                sb.AppendLine(Color($"    {diagnostic}", AnsiColor.Yellow));
+            sb.AppendLine();
+        }
+
         // Detailed failures at the end
         if (failures.Count > 0)
         {
@@ -165,6 +177,107 @@ public class LiveDocConsoleLogger : ITestLoggerWithParameters
         }
 
         Console.Write(sb.ToString());
+    }
+
+    internal static IReadOnlyList<string> BuildCoverageAttachmentDiagnostics(IEnumerable<AttachmentSet>? attachmentSets)
+    {
+        var coveragePaths = FindVisualStudioCoverageAttachments(attachmentSets)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (coveragePaths.Count == 0)
+            return Array.Empty<string>();
+
+        var artifactSummary = coveragePaths.Count == 1
+            ? Quote(coveragePaths[0])
+            : $"{coveragePaths.Count} Visual Studio .coverage artifacts";
+        var firstPath = coveragePaths[0];
+        var tool = ResolveDotnetCoverageTool();
+
+        if (!IsDotnetCoverageAvailable(tool))
+        {
+            return
+            [
+                $"dotnet-coverage-missing: LiveDoc detected Visual Studio .coverage output ({artifactSummary}), but dotnet-coverage is not installed or is not on PATH. Install it with: dotnet tool install --global dotnet-coverage"
+            ];
+        }
+
+        return
+        [
+            $"visualstudio-coverage-post-run: LiveDoc detected Visual Studio .coverage output ({artifactSummary}). VSTest writes this attachment after the xUnit reporter completes; the LiveDocCoverage logger can convert and attach it after the run. If the viewer still has no coverage, ensure the LiveDocCoverage logger is active or convert it manually with: dotnet-coverage merge {Quote(firstPath)} -f cobertura -o coverage.cobertura.xml"
+        ];
+    }
+
+    private static IEnumerable<string> FindVisualStudioCoverageAttachments(IEnumerable<AttachmentSet>? attachmentSets)
+    {
+        if (attachmentSets == null)
+            yield break;
+
+        foreach (var attachmentSet in attachmentSets)
+        {
+            foreach (var attachment in attachmentSet.Attachments ?? Array.Empty<UriDataAttachment>())
+            {
+                var path = AttachmentPath(attachment.Uri);
+                if (path.EndsWith(".coverage", StringComparison.OrdinalIgnoreCase))
+                    yield return path;
+            }
+        }
+    }
+
+    private static string AttachmentPath(Uri uri)
+    {
+        return uri.IsFile ? uri.LocalPath : uri.ToString();
+    }
+
+    private static string ResolveDotnetCoverageTool()
+    {
+        var configured = Environment.GetEnvironmentVariable(DotnetCoverageToolEnvVar);
+        if (string.IsNullOrWhiteSpace(configured))
+            return "dotnet-coverage";
+
+        return configured.Contains(Path.DirectorySeparatorChar) ||
+               configured.Contains(Path.AltDirectorySeparatorChar) ||
+               Path.IsPathRooted(configured)
+            ? Path.GetFullPath(configured)
+            : configured;
+    }
+
+    private static bool IsDotnetCoverageAvailable(string tool)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = tool,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.StartInfo.ArgumentList.Add("--version");
+            if (!process.Start())
+                return false;
+
+            if (!process.WaitForExit(5_000))
+            {
+                process.Kill(entireProcessTree: true);
+                return false;
+            }
+
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string Quote(string value)
+    {
+        return value.Contains(' ') ? $"\"{value}\"" : value;
     }
 
     /// <summary>

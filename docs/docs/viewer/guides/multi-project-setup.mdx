@@ -107,20 +107,16 @@ export default defineConfig({
   </TabItem>
   <TabItem value="xunit" label="xUnit (.NET)">
 
-```csharp
-// API project
-[assembly: LiveDocViewerReporter(
-    "http://localhost:3100",
-    Project = "my-dotnet-api",
-    Environment = "local"
-)]
+```powershell
+# API project
+$env:LIVEDOC_PROJECT = "my-dotnet-api"
+$env:LIVEDOC_ENVIRONMENT = "local"
+dotnet test .\tests\MyDotNetApi.Tests.csproj
 
-// Web project
-[assembly: LiveDocViewerReporter(
-    "http://localhost:3100",
-    Project = "my-dotnet-web",
-    Environment = "local"
-)]
+# Web project
+$env:LIVEDOC_PROJECT = "my-dotnet-web"
+$env:LIVEDOC_ENVIRONMENT = "local"
+dotnet test .\tests\MyDotNetWeb.Tests.csproj
 ```
 
   </TabItem>
@@ -186,10 +182,16 @@ settings**:
 | ------- | ------------ |
 | **Group related test projects** | Enables or disables logical project grouping |
 | **Hide grouped source projects** | Hides physical test projects from the project selector once they are represented by a group |
+| **Always show latest run** | Follows the newest live execution instead of preserving the current historical selection |
 
 Even when source projects are hidden from the selector, they remain visible as
 folders inside the grouped run. This keeps the project list clean while still
 showing which test project produced each feature or specification.
+
+The project selector shows only the newest logical group for each
+project/environment. Older grouped executions remain available in the Run menu.
+
+![Multi-project selector](/img/screenshots/viewer-multi-project.png)
 
 ---
 

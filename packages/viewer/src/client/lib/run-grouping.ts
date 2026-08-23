@@ -198,6 +198,10 @@ function hasDistinctProjects(runs: TestRunV1[]): boolean {
   return new Set(runs.map((run) => run.project)).size > 1;
 }
 
+function projectIdentity(run: TestRunV1): string {
+  return run.project.trim().toLowerCase();
+}
+
 function createGroup(name: string, environment: string, runs: TestRunV1[]): LogicalRunGroup {
   const startTime = Math.min(...runs.map(runStartMs));
   const endTime = Math.max(...runs.map(runEndMs));
@@ -230,6 +234,7 @@ export function buildLogicalRunGroups(runs: TestRunV1[], settings: ProjectGroupi
   for (const bucket of buckets.values()) {
     const sorted = bucket.runs.slice().sort((a, b) => runStartMs(a) - runStartMs(b));
     let current: TestRunV1[] = [];
+    let currentProjectIds = new Set<string>();
     let currentEnd = 0;
 
     const flush = () => {
@@ -237,26 +242,31 @@ export function buildLogicalRunGroups(runs: TestRunV1[], settings: ProjectGroupi
         groups.push(createGroup(bucket.name, bucket.environment, current));
       }
       current = [];
+      currentProjectIds = new Set<string>();
       currentEnd = 0;
     };
 
     for (const run of sorted) {
       const start = runStartMs(run);
       const end = runEndMs(run);
+      const identity = projectIdentity(run);
       if (current.length === 0) {
         current = [run];
+        currentProjectIds.add(identity);
         currentEnd = end;
         continue;
       }
 
-      if (start <= currentEnd + settings.windowMs) {
+      if (start <= currentEnd + settings.windowMs && !currentProjectIds.has(identity)) {
         current.push(run);
+        currentProjectIds.add(identity);
         currentEnd = Math.max(currentEnd, end);
         continue;
       }
 
       flush();
       current = [run];
+      currentProjectIds.add(identity);
       currentEnd = end;
     }
 
@@ -264,6 +274,21 @@ export function buildLogicalRunGroups(runs: TestRunV1[], settings: ProjectGroupi
   }
 
   return groups.sort((a, b) => b.startTime - a.startTime);
+}
+
+export function latestLogicalRunGroups(groups: LogicalRunGroup[]): LogicalRunGroup[] {
+  const latestByProjectEnvironment = new Map<string, LogicalRunGroup>();
+
+  for (const group of groups) {
+    const key = `${group.name.toLocaleLowerCase()}\u0000${group.environment.toLocaleLowerCase()}`;
+    const existing = latestByProjectEnvironment.get(key);
+    if (!existing || group.startTime > existing.startTime) {
+      latestByProjectEnvironment.set(key, group);
+    }
+  }
+
+  return Array.from(latestByProjectEnvironment.values())
+    .sort((left, right) => right.startTime - left.startTime);
 }
 
 export function findContainingGroup(groups: LogicalRunGroup[], runId: string): LogicalRunGroup | undefined {

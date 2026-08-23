@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useStore } from '../store';
-import { isEmbedded } from '../config';
-import { buildHash, resolveHashAgainstCandidates, type DeepLinkCandidate, type DeepLinkResolution } from '../lib/deep-link';
+import { makeRunState, useStore } from '../store';
+import { getApiBaseUrl, isEmbedded } from '../config';
+import {
+  buildHash,
+  parseDeepLinkContext,
+  resolveHashAgainstCandidates,
+  type DeepLinkCandidate,
+  type DeepLinkResolution,
+} from '../lib/deep-link';
 
 /**
  * Syncs the browser URL hash with the viewer's navigation state.
@@ -16,15 +22,20 @@ export function useDeepLink(): void {
     getCurrentRun,
     getRunGroups,
     runs,
+    physicalRuns,
     selectedRunId,
     selectedRunGroupId,
+    selectedRunView,
     selectRun,
     selectRunGroup,
+    addRun,
+    addDiagnostic,
     projectGrouping,
     unresolvedDeepLink,
     setUnresolvedDeepLink,
   } = useStore();
   const suppressHashUpdate = useRef(false);
+  const hydratingSourceRuns = useRef(new Set<string>());
   const [embedded] = useState(() => isEmbedded());
 
   // Capture the initial hash synchronously before any effects run
@@ -39,6 +50,7 @@ export function useDeepLink(): void {
     const candidates: DeepLinkCandidate[] = [];
     const seen = new Set<string>();
     const groups = getRunGroups();
+    const physicalRequested = parseDeepLinkContext(window.location.hash).runView === 'physical';
 
     const addCandidate = (candidate: DeepLinkCandidate, key: string) => {
       if (seen.has(key)) return;
@@ -54,9 +66,11 @@ export function useDeepLink(): void {
     }
 
     if (selectedRunId) {
-      const selectedRun = runs.find((run) => run.run.runId === selectedRunId);
+      const selectedRun = physicalRequested
+        ? physicalRuns[selectedRunId] ?? runs.find((run) => run.run.runId === selectedRunId)
+        : runs.find((run) => run.run.runId === selectedRunId) ?? physicalRuns[selectedRunId];
       if (selectedRun) {
-        addCandidate({ run: selectedRun, runId: selectedRun.run.runId }, `run:${selectedRun.run.runId}`);
+        addCandidate({ run: selectedRun, runId: selectedRunId }, `run:${selectedRunId}`);
       }
     }
 
@@ -64,12 +78,81 @@ export function useDeepLink(): void {
       addCandidate({ run: group, runGroupId: group.group.id }, `group:${group.group.id}`);
     }
 
-    for (const run of runs) {
-      addCandidate({ run, runId: run.run.runId }, `run:${run.run.runId}`);
+    const addCombinedRuns = () => {
+      for (const run of runs) {
+        addCandidate({ run, runId: run.run.runId }, `run:${run.run.runId}`);
+      }
+    };
+    const addPhysicalRuns = () => {
+      for (const [runId, run] of Object.entries(physicalRuns)) {
+        addCandidate({ run, runId }, `run:${runId}`);
+      }
+    };
+    if (physicalRequested) {
+      addPhysicalRuns();
+      addCombinedRuns();
+    } else {
+      addCombinedRuns();
+      addPhysicalRuns();
     }
 
     return candidates;
-  }, [getRunGroups, projectGrouping, runs, selectedRunGroupId, selectedRunId]);
+  }, [getRunGroups, physicalRuns, projectGrouping, runs, selectedRunGroupId, selectedRunId]);
+
+  const initialContextRef = useRef<ReturnType<typeof parseDeepLinkContext> | null>(null);
+  if (initialContextRef.current === null) {
+    initialContextRef.current = parseDeepLinkContext(initialHash.current ?? '');
+  }
+  const initialContext = initialContextRef.current;
+
+  useEffect(() => {
+    if (embedded || !initialHash.current || initialResolved.current) return;
+
+    if (
+      initialContext.runId &&
+      !runs.some((run) => run.run.runId === initialContext.runId) &&
+      !physicalRuns[initialContext.runId]
+    ) {
+      selectRun(initialContext.runId, initialContext.runView ?? 'combined');
+    }
+
+    const missingSourceRunIds = (initialContext.sourceRunIds ?? []).filter(
+      (runId) =>
+        !runs.some((run) => run.run.runId === runId) &&
+        !hydratingSourceRuns.current.has(runId)
+    );
+    for (const runId of missingSourceRunIds) {
+      hydratingSourceRuns.current.add(runId);
+      void fetch(`${getApiBaseUrl()}/api/v1/runs/${runId}?view=combined`, { cache: 'no-store' })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          addRun(makeRunState(await response.json()));
+        })
+        .catch((error) => {
+          addDiagnostic({
+            severity: 'error',
+            code: 'LD-RUN-095',
+            message: `Failed to load source run '${runId}' for a grouped deep link: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            runId,
+          });
+        })
+        .finally(() => {
+          hydratingSourceRuns.current.delete(runId);
+        });
+    }
+  }, [
+    addDiagnostic,
+    addRun,
+    embedded,
+    initialContext.runId,
+    initialContext.runView,
+    initialContext.sourceRunIds,
+    physicalRuns,
+    runs,
+    selectRun,
+  ]);
 
   const applyDeepLinkResolution = useCallback((resolution: DeepLinkResolution) => {
     suppressHashUpdate.current = true;
@@ -79,13 +162,14 @@ export function useDeepLink(): void {
         selectRunGroup(resolution.runGroupId);
       }
     } else if (resolution.runId) {
-      if (selectedRunId !== resolution.runId || selectedRunGroupId) {
-        selectRun(resolution.runId);
+      const view = resolution.runView ?? 'combined';
+      if (selectedRunId !== resolution.runId || selectedRunGroupId || selectedRunView !== view) {
+        selectRun(resolution.runId, view);
       }
     }
 
     navigate(resolution.view.type, resolution.view.id);
-  }, [navigate, selectRun, selectRunGroup, selectedRunGroupId, selectedRunId]);
+  }, [navigate, selectRun, selectRunGroup, selectedRunGroupId, selectedRunId, selectedRunView]);
 
   const reportUnresolvedHash = useCallback((hash: string) => {
     initialResolved.current = true;
@@ -104,7 +188,17 @@ export function useDeepLink(): void {
     }
 
     const run = getCurrentRun();
-    const hash = buildHash(currentView, run);
+    const selectedGroup = selectedRunGroupId
+      ? getRunGroups().find((group) => group.group.id === selectedRunGroupId)
+      : undefined;
+    const hash = buildHash(currentView, run, {
+      project: run?.run.project,
+      environment: run?.run.environment,
+      runId: !selectedRunGroupId ? selectedRunId ?? undefined : undefined,
+      runGroupId: selectedRunGroupId ?? undefined,
+      sourceRunIds: selectedGroup?.group.runs.map((sourceRun) => sourceRun.runId),
+      runView: !selectedRunGroupId ? selectedRunView : undefined,
+    });
     const currentHash = window.location.hash;
 
     if (unresolvedDeepLink && currentHash === unresolvedDeepLink.hash) {
@@ -115,7 +209,16 @@ export function useDeepLink(): void {
     if (hash !== currentHash && !(hash === '' && currentHash === '')) {
       window.history.pushState(null, '', hash || window.location.pathname + window.location.search);
     }
-  }, [embedded, currentView, getCurrentRun, unresolvedDeepLink]);
+  }, [
+    embedded,
+    currentView,
+    getCurrentRun,
+    getRunGroups,
+    selectedRunGroupId,
+    selectedRunId,
+    selectedRunView,
+    unresolvedDeepLink,
+  ]);
 
   // ── Resolve initial hash when run data becomes available ──────
   useEffect(() => {
@@ -123,6 +226,16 @@ export function useDeepLink(): void {
 
     const candidates = getDeepLinkCandidates();
     if (candidates.length === 0) return; // Data not loaded yet — wait
+    if (
+      initialContext.runId &&
+      !candidates.some((candidate) => candidate.runId === initialContext.runId)
+    ) return;
+    if (
+      initialContext.runGroupId &&
+      (initialContext.sourceRunIds ?? []).some(
+        (runId) => !runs.some((run) => run.run.runId === runId)
+      )
+    ) return;
 
     const resolved = resolveHashAgainstCandidates(initialHash.current, candidates);
     if (!resolved) {
@@ -132,7 +245,16 @@ export function useDeepLink(): void {
     initialResolved.current = true;
 
     applyDeepLinkResolution(resolved);
-  }, [applyDeepLinkResolution, embedded, getDeepLinkCandidates, reportUnresolvedHash]);
+  }, [
+    applyDeepLinkResolution,
+    embedded,
+    getDeepLinkCandidates,
+    initialContext.runGroupId,
+    initialContext.runId,
+    initialContext.sourceRunIds,
+    reportUnresolvedHash,
+    runs,
+  ]);
 
   // ── Retry unresolved hashes when more run/group data becomes available ─
   useEffect(() => {

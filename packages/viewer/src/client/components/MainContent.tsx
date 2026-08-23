@@ -1,11 +1,14 @@
+import { useEffect } from 'react';
 import { useStore } from '../store';
 import { SummaryView } from './SummaryView';
 import { NodeView } from './NodeView';
 import { GroupView } from './GroupView';
+import { CoverageView } from './CoverageView';
 import { AlertTriangle, ClipboardList, FileWarning, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { getCoverageSources, hasCoverageDetails } from '../lib/coverage-utils';
 
 export function MainContent() {
   const {
@@ -15,6 +18,7 @@ export function MainContent() {
     connectionStatus,
     diagnostics,
     unresolvedDeepLink,
+    pendingRunFetch,
     navigate,
   } = useStore();
 
@@ -23,6 +27,14 @@ export function MainContent() {
   const blockingDiagnostics = diagnostics.filter((d) => d.severity === 'error');
   const hasDiagnostics = blockingDiagnostics.length > 0;
   const attemptedLink = unresolvedDeepLink?.hash ?? '';
+  const isLoadingSelectedRun = Boolean(pendingRunFetch) && !hasDiagnostics;
+  const hasCoverage = viewData ? getCoverageSources(viewData).some(hasCoverageDetails) : false;
+
+  useEffect(() => {
+    if (currentView.type === 'coverage' && viewData && !hasCoverage) {
+      navigate('summary');
+    }
+  }, [currentView.type, hasCoverage, navigate, viewData]);
 
   if (unresolvedDeepLink) {
     return (
@@ -74,7 +86,7 @@ export function MainContent() {
           <div className="w-20 h-20 bg-muted rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
             {hasDiagnostics ? (
               <FileWarning className="w-10 h-10 text-destructive" />
-            ) : connectionStatus === 'connecting' ? (
+            ) : connectionStatus === 'connecting' || isLoadingSelectedRun ? (
               <Loader2 className="w-10 h-10 text-primary animate-spin" />
             ) : (
               <ClipboardList className="w-10 h-10 text-muted-foreground/50" />
@@ -83,6 +95,8 @@ export function MainContent() {
           <h2 className="text-2xl font-bold mb-2">
             {hasDiagnostics
               ? 'Could not render this LiveDoc run'
+              : isLoadingSelectedRun
+                ? 'Loading run…'
                 : 'No test results yet'}
           </h2>
           <p className="text-muted-foreground mb-8">
@@ -90,7 +104,9 @@ export function MainContent() {
               ? 'The viewer found run data, but it could not load it safely. Check the details below and regenerate the report with the current LiveDoc reporter if needed.'
               : connectionStatus === 'connecting'
                 ? "Connecting to the LiveDoc server..."
-                : "Run your tests with the LiveDoc reporter to see real-time living documentation here."}
+                : isLoadingSelectedRun
+                  ? "Fetching the selected run's details from the server..."
+                  : "Run your tests with the LiveDoc reporter to see real-time living documentation here."}
           </p>
 
           {hasDiagnostics ? (
@@ -140,10 +156,14 @@ export function MainContent() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -10 }}
           transition={{ duration: 0.2 }}
-          className="p-6 md:p-10"
+          className="p-4 md:p-10"
         >
           {currentView.type === 'summary' && (
-            <SummaryView run={viewData as any} />
+            <SummaryView run={viewData} />
+          )}
+
+          {currentView.type === 'coverage' && hasCoverage && (
+            <CoverageView run={viewData} />
           )}
 
           {currentView.type === 'node' && node && (
@@ -151,7 +171,7 @@ export function MainContent() {
           )}
 
           {currentView.type === 'group' && currentView.id && (
-            <GroupView run={viewData as any} groupId={currentView.id} />
+            <GroupView run={viewData} groupId={currentView.id} />
           )}
         </motion.div>
       </AnimatePresence>

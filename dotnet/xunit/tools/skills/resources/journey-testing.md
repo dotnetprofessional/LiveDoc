@@ -465,9 +465,19 @@ public class JourneyServerFixture : JourneyFixtureBase
 | `HttpYacEnvironment` | `"local"` | httpYac environment name |
 | `StartupTimeout` | 30 seconds | How long to wait for server startup |
 | `ServerArguments` | `"--no-launch-profile"` | Extra args for `dotnet run` |
+| `Verbose` | `false` | When `true`, writes startup diagnostics to stderr |
 
 **Automatic behavior** (no config needed):
 - Random ephemeral port, `ASPNETCORE_URLS` auto-set, Kestrel startup detection, `baseUrl` httpYac variable, capture mode, process cleanup
+- Startup banner always logged to stderr (port, URL, environment)
+
+**⚠️ CRITICAL: UseUrls() overrides ASPNETCORE_URLS**
+
+LiveDoc sets `ASPNETCORE_URLS` to bind the server to its chosen port. If the server's `Program.cs` calls `UseUrls()`, `builder.WebHost.UseUrls()`, or has hard-coded URLs in `launchSettings.json`, those take precedence and the server will ignore the env var.
+
+**Fixes:**
+1. Remove `UseUrls()` calls, or gate them: `if (builder.Environment.EnvironmentName != "Test") builder.WebHost.UseUrls(...);`
+2. Or pass `--urls` via `ServerArguments` (higher precedence than `UseUrls()`)
 
 **Virtual method overrides** (advanced scenarios only):
 
@@ -508,5 +518,8 @@ protected override Dictionary<string, string> GetHttpYacVariables()
 - If journey tests fail with "httpYac not found", run `npm install --save-dev httpyac`
 - If `.Journey.cs` files aren't generated, verify `LiveDocJourneysEnabled=true` and the `.http` file has BDD comments
 - If response contract assertions fail, check `property-rules.txt` covers dynamic fields and `.Response.json` matches current API shape
-- If you see "Server process exited before startup completed", the server may be crashing on startup — check the server project builds and runs independently with `dotnet run --project path/to/server`
+- If you see "Server process exited before startup completed", check the diagnostic output. The **most common cause** is `UseUrls()` in `Program.cs` overriding `ASPNETCORE_URLS` — see the warning above
+- If the server starts but tests get "connection refused", same UseUrls issue — server bound to a different port than LiveDoc expects
+- If startup times out, increase `StartupTimeout` or override `IsServerReady()` for non-Kestrel servers
+- For detailed startup debugging, set `Verbose = true` in `JourneyConfig` to see all server output
 - **ASP.NET Core stderr**: Kestrel logs "Now listening on" to **stderr** by default (via the `Microsoft.Hosting.Lifetime` logger). `JourneyFixtureBase` monitors both stdout and stderr in parallel, so this is handled automatically. If you override `IsServerReady()`, your check is applied to lines from both streams.

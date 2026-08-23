@@ -60,6 +60,7 @@ As of v0.1.6, `LiveDocSpecReporter` handles both console output **and** server a
 | `json-output`      | `string`           | `undefined`                | File path for JSON output (used with `JsonReporter`).    |
 | `publish`          | `object`           | `undefined`                | Explicit server publish configuration (see below).       |
 | `export`           | `object`           | `undefined`                | Write a TestRunV1 JSON file to disk (see [Export Options](#export-options)). |
+| `coverage`         | `object`           | `undefined`                | Attach coverage evidence and optional thresholds. Requires a Vitest coverage provider. |
 
 #### Auto-Discovery {#auto-discovery}
 
@@ -95,6 +96,33 @@ new LiveDocSpecReporter({
 | `publish.server`      | `string`  | `undefined`    | Server URL                         |
 | `publish.project`     | `string`  | `"livedoc"`    | Project name for grouping results  |
 | `publish.environment` | `string`  | `"local"`      | Environment label                  |
+| `publish.runType`     | `"full" \| "partial"` | `"full"` | Publish a complete baseline or focused partial update |
+
+#### Coverage Options {#coverage-options}
+
+Install `@vitest/coverage-v8` at the same version as Vitest, enable Vitest
+coverage, and set `coverage.enabled` on the reporter:
+
+```typescript
+new LiveDocSpecReporter({
+  coverage: {
+    enabled: true,
+    thresholds: {
+      lines: 80,
+      branches: 75,
+    },
+  },
+})
+```
+
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `coverage.enabled` | `boolean` | `false` | Expect and publish coverage evidence |
+| `coverage.path` / `coverage.artifactPath` | `string` | Auto-detect | Custom JSON summary or LCOV artifact |
+| `coverage.thresholds` | `Partial<Record<"lines" \| "branches" \| "functions" \| "statements", number>>` | None | Non-fatal Viewer warnings |
+
+See [Code Coverage](../../viewer/guides/code-coverage.mdx) for the complete
+runner configuration and dependency matrix.
 
 #### Export Options {#export-options}
 

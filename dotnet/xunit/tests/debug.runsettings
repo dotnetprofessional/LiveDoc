@@ -12,8 +12,20 @@
 -->
 <RunSettings>
   <RunConfiguration>
+    <!-- Make the in-repo LiveDoc VSTest logger discoverable from Visual Studio and vstest.console. -->
+    <TestAdaptersPaths>..\logger\bin\Debug\net8.0;..\logger\bin\Debug\net10.0;..\logger\bin\Release\net8.0;..\logger\bin\Release\net10.0;..\collector\bin\Debug\net8.0;..\collector\bin\Debug\net10.0;..\collector\bin\Release\net8.0;..\collector\bin\Release\net10.0;dotnet\xunit\logger\bin\Debug\net8.0;dotnet\xunit\logger\bin\Debug\net10.0;dotnet\xunit\logger\bin\Release\net8.0;dotnet\xunit\logger\bin\Release\net10.0;dotnet\xunit\collector\bin\Debug\net8.0;dotnet\xunit\collector\bin\Debug\net10.0;dotnet\xunit\collector\bin\Release\net8.0;dotnet\xunit\collector\bin\Release\net10.0</TestAdaptersPaths>
     <EnvironmentVariables>
       <LIVEDOC_REPORT_ALL_TESTS>true</LIVEDOC_REPORT_ALL_TESTS>
+      <LIVEDOC_RUN_METADATA_DIR>%TEMP%\livedoc-xunit\run-metadata\visualstudio</LIVEDOC_RUN_METADATA_DIR>
     </EnvironmentVariables>
   </RunConfiguration>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="LiveDocCoverage" uri="datacollector://swedevtools/livedoc/coverage" enabled="True">
+        <Configuration>
+          <RunMetadataRoot>%TEMP%\livedoc-xunit\run-metadata\visualstudio</RunMetadataRoot>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
 </RunSettings>

@@ -7,6 +7,8 @@ Shared server infrastructure for the LiveDoc ecosystem. This package provides th
 - **REST API** for test run management (Hono framework)
 - **WebSocket** real-time event streaming
 - **Persistent storage** with file-based run history
+- **Full/partial composition** with physical and combined historical projections
+- **Coverage attachment** with durable persistence and live notification
 - **BDD schema** types (Feature, Scenario, Step)
 - **Non-BDD support** (TestSuite, Test)
 
@@ -80,6 +82,25 @@ import type { TestRun } from '@swedevtools/livedoc-server/schema';
 | POST | `/api/runs/:runId/complete` | Complete run |
 | POST | `/api/runs` | Post complete run (batch) |
 | GET | `/api/health` | Health check |
+
+The current v1 API also exposes `POST /api/v1/runs/:runId/coverage` for
+post-run coverage attachments and `GET /api/v1/runs/:runId?view=physical|combined`
+for exact invocation or composed history.
+
+### Full and partial v1 runs
+
+`POST /api/v1/runs/start` accepts `runType: "full" | "partial"`; omission means full. A partial requires a completed full baseline for the same project, environment, and framework. The server stores each completed invocation as raw history, then composes partial updates by stable test ID.
+
+```json
+{
+  "project": "checkout",
+  "environment": "local",
+  "framework": "vitest",
+  "runType": "partial"
+}
+```
+
+Use `GET /api/v1/runs/:runId?view=combined` for the baseline plus partial updates through that run, or `view=physical` for only that invocation. `/api/v1/projects/:project/:environment/latest` always returns the latest completed combined snapshot, so an active focused run never clears the current documentation picture.
 
 ## WebSocket Events
 

@@ -17,8 +17,20 @@ export function toSlug(title: string): string {
 // ── Build hash from current view state ──────────────────────────
 
 export interface DeepLinkView {
-  type: 'summary' | 'node' | 'group';
+  type: 'summary' | 'node' | 'group' | 'coverage';
   id?: string;
+}
+
+/** Which projection of a partial run's data the deep link points at. Missing/'combined' is the default. */
+export type DeepLinkRunView = 'combined' | 'physical';
+
+export interface DeepLinkContext {
+  project?: string;
+  environment?: string;
+  runId?: string;
+  runGroupId?: string;
+  sourceRunIds?: string[];
+  runView?: DeepLinkRunView;
 }
 
 export interface DeepLinkCandidate {
@@ -31,14 +43,47 @@ export interface DeepLinkResolution {
   view: ResolvedView;
   runId?: string;
   runGroupId?: string;
+  /** Present only when the hash explicitly requested 'physical'; otherwise callers should default to 'combined'. */
+  runView?: DeepLinkRunView;
 }
 
 /**
  * Builds a URL hash string from the current navigation state.
  * Returns '' for the summary (home) view.
+ *
+ * `runView` is UI-only selection state (not part of TestRunV1) — when 'physical', it is appended
+ * as a `?view=physical` suffix so partial-run projection selection round-trips through deep links.
+ * Omitting it (or passing 'combined') keeps the hash in its original, backward-compatible form.
  */
-export function buildHash(view: DeepLinkView, run: Run | undefined): string {
+export function buildHash(
+  view: DeepLinkView,
+  run: Run | undefined,
+  runViewOrContext?: DeepLinkRunView | DeepLinkContext
+): string {
+  const base = buildBaseHash(view, run);
+  const context = typeof runViewOrContext === 'string'
+    ? { runView: runViewOrContext }
+    : runViewOrContext;
+  const params = new URLSearchParams();
+
+  if (context?.project) params.set('project', context.project);
+  if (context?.environment) params.set('environment', context.environment);
+  if (context?.runId) params.set('run', context.runId);
+  if (context?.runGroupId) params.set('group', context.runGroupId);
+  for (const sourceRunId of context?.sourceRunIds ?? []) {
+    params.append('sourceRun', sourceRunId);
+  }
+  if (context?.runView === 'physical') params.set('view', 'physical');
+
+  if (params.size === 0) return base;
+  if (!base && !context?.runId && !context?.runGroupId) return '';
+  return `${base || '#/'}?${params.toString()}`;
+}
+
+function buildBaseHash(view: DeepLinkView, run: Run | undefined): string {
   if (!run || view.type === 'summary') return '';
+
+  if (view.type === 'coverage') return '#/coverage';
 
   if (view.type === 'group' && view.id) {
     if (view.id.startsWith('group:')) {
@@ -59,25 +104,58 @@ export function buildHash(view: DeepLinkView, run: Run | undefined): string {
 // ── Resolve hash back to a view ─────────────────────────────────
 
 export interface ResolvedView {
-  type: 'summary' | 'node' | 'group';
+  type: 'summary' | 'node' | 'group' | 'coverage';
   id?: string;
+}
+
+/**
+ * Extracts the `?view=physical` query suffix (if present) from a hash and returns it alongside
+ * the query-stripped hash. Any other query value, or no query at all, resolves to 'combined'.
+ */
+function splitHashQuery(hash: string): { hash: string; params: URLSearchParams } {
+  const queryIndex = hash.indexOf('?');
+  if (queryIndex === -1) return { hash, params: new URLSearchParams() };
+
+  const query = hash.slice(queryIndex + 1);
+  return { hash: hash.slice(0, queryIndex), params: new URLSearchParams(query) };
+}
+
+export function parseDeepLinkContext(hash: string): DeepLinkContext {
+  const { params } = splitHashQuery(hash);
+  const runView: DeepLinkRunView = params.get('view') === 'physical' ? 'physical' : 'combined';
+  return {
+    project: params.get('project') || undefined,
+    environment: params.get('environment') || undefined,
+    runId: params.get('run') || undefined,
+    runGroupId: params.get('group') || undefined,
+    sourceRunIds: params.getAll('sourceRun').filter(Boolean),
+    ...(runView === 'physical' ? { runView } : {}),
+  };
 }
 
 /**
  * Parses a URL hash and resolves it to a navigation view.
  * Returns null if the hash can't be resolved (item not found).
+ * Tolerates (and ignores) a `?view=...` projection suffix — use `resolveHashAgainstCandidates`
+ * to also recover that projection selection.
  */
 export function resolveHash(hash: string, run: Run | undefined): ResolvedView | null {
-  if (!hash || hash === '#' || hash === '#/') {
+  const { hash: cleanHash } = splitHashQuery(hash);
+
+  if (!cleanHash || cleanHash === '#' || cleanHash === '#/') {
     return { type: 'summary' };
   }
 
-  const path = decodeHashPath(hash);
+  const path = decodeHashPath(cleanHash);
   if (!path) return { type: 'summary' };
 
   if (!run) return null; // Data not loaded yet
 
   const segments = path.split('/').filter(Boolean);
+
+  if (segments[0] === 'coverage') {
+    return { type: 'coverage' };
+  }
 
   // Group paths: /group/path/segments
   if (segments[0] === 'group') {
@@ -110,23 +188,50 @@ export function resolveHash(hash: string, run: Run | undefined): ResolvedView | 
 }
 
 export function resolveHashAgainstCandidates(hash: string, candidates: DeepLinkCandidate[]): DeepLinkResolution | null {
-  if (!hash || hash === '#' || hash === '#/') {
-    return { view: { type: 'summary' } };
+  const { hash: cleanHash } = splitHashQuery(hash);
+  const context = parseDeepLinkContext(hash);
+  const hasExplicitTarget = Boolean(
+    context.runId ||
+    context.runGroupId ||
+    context.project ||
+    context.environment
+  );
+  const contextualCandidates = candidates.filter((candidate) => {
+    if (context.runGroupId && candidate.runGroupId !== context.runGroupId) return false;
+    if (context.runId && candidate.runId !== context.runId) return false;
+    if (context.project && candidate.run.run.project !== context.project) return false;
+    if (context.environment && candidate.run.run.environment !== context.environment) return false;
+    return true;
+  });
+
+  if (!cleanHash || cleanHash === '#' || cleanHash === '#/') {
+    if (hasExplicitTarget && contextualCandidates.length === 0) return null;
+    const candidate = contextualCandidates[0];
+    return {
+      view: { type: 'summary' },
+      runId: candidate?.runId,
+      runGroupId: candidate?.runGroupId,
+      ...(context.runView === 'physical' ? { runView: context.runView } : {}),
+    };
   }
 
-  for (const candidate of candidates) {
-    const view = resolveHash(hash, candidate.run);
+  if (hasExplicitTarget && contextualCandidates.length === 0) return null;
+
+  for (const candidate of contextualCandidates) {
+    const view = resolveHash(cleanHash, candidate.run);
     if (view) {
       return {
         view,
         runId: candidate.runId,
         runGroupId: candidate.runGroupId,
+        ...(context.runView === 'physical' ? { runView: context.runView } : {}),
       };
     }
   }
 
   return null;
 }
+
 
 // ── Lookup helpers ──────────────────────────────────────────────
 

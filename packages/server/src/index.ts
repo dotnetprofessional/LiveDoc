@@ -6,7 +6,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { EventEmitter } from 'events';
 import { WebSocketManager } from './websocket.js';
-import { RunStore, runStore } from './store.js';
+import { RunStore, RunStoreError, runStore } from './store.js';
 import type {
   ServerConfig,
   TestRunV1,
@@ -21,7 +21,8 @@ import type {
   V1UpsertScenarioStepsRequest,
   V1PatchExecutionRequest,
   V1UpsertOutlineExampleResultsRequest,
-  V1CompleteRunRequest
+  V1CompleteRunRequest,
+  V1AttachCoverageRequest
 } from './schema.js';
 import {
   V1StartRunRequestSchema,
@@ -32,13 +33,15 @@ import {
   V1PatchExecutionRequestSchema,
   V1UpsertOutlineExampleResultsRequestSchema,
   V1CompleteRunRequestSchema,
+  V1AttachCoverageRequestSchema,
 } from './schema.js';
 
 // Re-export all schema types
 export * from './schema.js';
 
 // Re-export store
-export { RunStore, runStore } from './store.js';
+export { RunStore, RunStoreError, runStore } from './store.js';
+export { composeTestRun } from './run-composition.js';
 
 // Re-export WebSocketManager
 export { WebSocketManager } from './websocket.js';
@@ -156,6 +159,23 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   // Create Hono app
   const app = new Hono();
+  const runStoreError = (error: unknown): { status: 404 | 409 | 410 | 500; body: { error: string; code: string } } => {
+    if (error instanceof RunStoreError) {
+      if (error.code === 'run-cancelled') return { status: 410, body: { error: error.message, code: error.code } };
+      if (error.code === 'no-baseline' || error.code === 'run-active' || error.code === 'framework-mismatch' || error.code === 'dependent-run') {
+        return { status: 409, body: { error: error.message, code: error.code } };
+      }
+      return { status: 404, body: { error: error.message, code: error.code } };
+    }
+    return {
+      status: 500,
+      body: {
+        error: error instanceof Error ? error.message : 'Run persistence failed',
+        code: 'run-persistence-failed',
+      },
+    };
+  };
+  const requireActiveRun = (runId: string): TestRunV1 => store.assertMutable(runId);
 
   // Logging middleware
   if (options.logger) {
@@ -228,7 +248,9 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       environment: r.environment,
       framework: r.framework,
       status: r.status,
-      timestamp: r.timestamp
+      timestamp: r.timestamp,
+      runType: r.runType ?? 'full',
+      ...(r.baselineRunId ? { baselineRunId: r.baselineRunId } : {}),
     })));
   });
 
@@ -251,7 +273,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       return c.json({ error: 'Run not found' }, 404);
     }
 
-    const deleted = await store.deleteRun(runId);
+    let deleted: boolean;
+    try {
+      deleted = await store.deleteRun(runId);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
 
     if (deleted) {
       return c.json({ success: true });
@@ -271,7 +299,9 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         status: r.status,
         timestamp: r.timestamp,
         duration: r.duration,
-        summary: r.summary
+        summary: r.summary,
+        runType: r.runType ?? 'full',
+        ...(r.baselineRunId ? { baselineRunId: r.baselineRunId } : {}),
       }))
     });
   });
@@ -280,7 +310,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.get('/api/projects/:project/:environment/latest', (c) => {
     const project = c.req.param('project');
     const environment = c.req.param('environment');
-    const run = store.getRunsForProject(project, environment)[0];
+    const run = store.getLatestRun(project, environment);
     if (!run) {
       return c.json({ error: 'No runs found' }, 404);
     }
@@ -308,13 +338,16 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         framework: r.framework,
         status: r.status,
         timestamp: r.timestamp,
+        runType: r.runType ?? 'full',
+        ...(r.baselineRunId ? { baselineRunId: r.baselineRunId } : {}),
       }))
     );
   });
 
   app.get('/api/v1/runs/:runId', (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
+    const view = c.req.query('view');
+    const run = view === 'combined' ? store.getCombinedRun(runId) : store.getRun(runId);
     if (!run) {
       return c.json({ error: 'Run not found' }, 404);
     }
@@ -346,7 +379,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     const runId = generateId();
     const timestamp = body.timestamp || new Date().toISOString();
 
-    const run = store.createRun(runId, body.project, body.environment, body.framework, timestamp);
+    let run: TestRunV1;
+    try {
+      run = store.createRun(runId, body.project, body.environment, body.framework, timestamp, body.runType ?? 'full');
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
 
     eventEmitter.emit('run:v1:started', runId);
 
@@ -358,6 +397,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         environment: run.environment,
         framework: run.framework,
         timestamp: run.timestamp,
+        runType: run.runType,
+        ...(run.baselineRunId ? { baselineRunId: run.baselineRunId } : {}),
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
     }
@@ -373,8 +414,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   app.post('/api/v1/runs/:runId/testcases', async (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertTestCaseRequestSchema.safeParse(json);
@@ -396,8 +439,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // Batch upsert multiple test cases in a single request
   app.post('/api/v1/runs/:runId/testcases/batch', async (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertTestCasesBatchRequestSchema.safeParse(json);
@@ -417,7 +462,19 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
     // Optionally complete the run in the same request (avoids extra HTTP call)
     if (body.complete) {
-      store.completeRun(runId, body.complete.status, body.complete.duration, body.complete.summary);
+      let completedRun: TestRunV1;
+      try {
+        completedRun = await store.completeRun(
+          runId,
+          body.complete.status,
+          body.complete.duration,
+          body.complete.summary,
+          body.complete.coverage
+        );
+      } catch (error) {
+        const apiError = runStoreError(error);
+        return c.json(apiError.body, apiError.status);
+      }
 
       eventEmitter.emit('run:v1:completed', runId);
 
@@ -427,7 +484,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
           runId,
           status: body.complete.status,
           duration: body.complete.duration,
-          summary: body.complete.summary ?? run.summary,
+          summary: completedRun.summary,
+          coverage: completedRun.coverage,
         };
         wsManager.broadcast(event, runId, run.project, run.environment);
       }
@@ -438,8 +496,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   app.post('/api/v1/runs/:runId/tests', async (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertTestRequestSchema.safeParse(json);
@@ -466,8 +526,9 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.put('/api/v1/runs/:runId/scenarios/:scenarioId/steps', async (c) => {
     const runId = c.req.param('runId');
     const scenarioId = c.req.param('scenarioId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    try { requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertScenarioStepsRequestSchema.safeParse(json);
@@ -486,8 +547,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.patch('/api/v1/runs/:runId/tests/:testId/execution', async (c) => {
     const runId = c.req.param('runId');
     const testId = c.req.param('testId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1PatchExecutionRequestSchema.safeParse(json);
@@ -514,8 +577,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.post('/api/v1/runs/:runId/outlines/:outlineId/example-results', async (c) => {
     const runId = c.req.param('runId');
     const outlineId = c.req.param('outlineId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertOutlineExampleResultsRequestSchema.safeParse(json);
@@ -539,10 +604,37 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     return c.json({ success: true });
   });
 
-  app.post('/api/v1/runs/:runId/complete', async (c) => {
+  app.post('/api/v1/runs/:runId/cancel', (c) => {
     const runId = c.req.param('runId');
     const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    if (!run) return c.json({ error: 'Run not found', code: 'run-not-found' }, 404);
+    if (!store.cancelRun(runId)) {
+      const apiError = runStoreError(new RunStoreError('run-not-active', `Run '${runId}' is not active.`));
+      return c.json(apiError.body, apiError.status);
+    }
+
+    eventEmitter.emit('run:v1:completed', runId);
+    if (wsManager) {
+      const event: V1WebSocketEvent = {
+        type: 'run:v1:completed',
+        runId,
+        status: 'cancelled',
+        duration: run.duration,
+        summary: run.summary,
+        coverage: run.coverage,
+      };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    return c.json({ success: true });
+  });
+
+  app.post('/api/v1/runs/:runId/complete', async (c) => {
+    const runId = c.req.param('runId');
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1CompleteRunRequestSchema.safeParse(json);
@@ -551,7 +643,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     }
 
     const body: V1CompleteRunRequest = parsed.data;
-    store.completeRun(runId, body.status, body.duration, body.summary);
+    let completedRun: TestRunV1;
+    try {
+      completedRun = await store.completeRun(runId, body.status, body.duration, body.summary, body.coverage);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
 
     eventEmitter.emit('run:v1:completed', runId);
 
@@ -561,12 +659,72 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         runId,
         status: body.status,
         duration: body.duration,
-        summary: body.summary ?? run.summary,
+        summary: completedRun.summary,
+        coverage: completedRun.coverage,
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
     }
 
     return c.json({ success: true });
+  });
+
+  app.post('/api/v1/runs/:runId/coverage', async (c) => {
+    const runId = c.req.param('runId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V1AttachCoverageRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
+    }
+
+    const body: V1AttachCoverageRequest = parsed.data;
+    let persistence: { completed: true; paths: string[] };
+    try {
+      persistence = await store.attachCoverage(runId, body.coverage);
+    } catch (error) {
+      if (error instanceof RunStoreError) {
+        const apiError = runStoreError(error);
+        return c.json(apiError.body, apiError.status);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      const diagnostic = `LD-COV-072 coverage-persistence-failed: runId=${runId}; message=${message}`;
+      options.logger?.(diagnostic);
+      console.error(diagnostic);
+      return c.json({
+        error: 'Coverage persistence failed',
+        code: 'LD-COV-072',
+        diagnostic,
+        retryable: true,
+      }, 500);
+    }
+
+    let broadcast = { matched: 0, sent: 0, failed: 0 };
+    if (wsManager) {
+      const event: V1WebSocketEvent = {
+        type: 'run:v1:coverage',
+        runId,
+        coverage: body.coverage,
+      };
+      broadcast = wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    const restHydrationAvailable = store.getRun(runId)?.coverage !== undefined;
+    options.logger?.(
+      `LD-COV-080 server-accepted: runId=${runId}; persistenceCompleted=${persistence.completed}; ` +
+      `broadcastMatched=${broadcast.matched}; broadcastSent=${broadcast.sent}; ` +
+      `broadcastFailed=${broadcast.failed}; restHydrationAvailable=${restHydrationAvailable}`
+    );
+
+    return c.json({
+      success: true,
+      code: 'LD-COV-080',
+      request: { received: true },
+      persistence,
+      broadcast,
+      restHydration: { available: restHydrationAvailable },
+    });
   });
 
   httpServer.on('request', async (req: IncomingMessage, res: ServerResponse) => {

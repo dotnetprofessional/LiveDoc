@@ -1,24 +1,27 @@
 import * as React from "react"
 import { useStore, type Run, type RunGroup } from '../store';
 import { StatusBadge } from './StatusBadge';
-import type { AnyTest, TestCase } from '@swedevtools/livedoc-schema';
+import type { AnyTest, Status, TestCase } from '@swedevtools/livedoc-schema';
 import {
   ChevronRight,
   ChevronDown,
   Folder,
   FileText,
-  Loader2,
+  Gauge,
 } from "lucide-react"
 import { cn } from "../lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { buildGroupedNavTree, ContainerKind, NavItem } from '../lib/nav-tree';
 import { subtreeHasMatch } from '../lib/filter-utils';
+import { deriveRunBadges, formatRunBadge, mergeRunHistoryEntries, type RunHistoryEntry } from '../lib/run-history';
+import { latestLogicalRunGroups } from '../lib/run-grouping';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 
 type NavKind = 'Group' | ContainerKind;
 
@@ -80,15 +83,13 @@ function latestGroup(groups: RunGroup[]): RunGroup | undefined {
 function latestProjectEntries(
   runs: Run[],
   groupedRunIds: Set<string>,
-  groupedProjectEnvKeys: Set<string>,
   hideGroupedSourceProjects: boolean
 ): ProjectEntry[] {
   const latestByProjectEnv = new Map<string, ProjectEntry & { kind: 'project' }>();
 
   for (const run of runs) {
     const key = `${run.run.project}/${run.run.environment}`;
-    const grouped = groupedRunIds.has(run.run.runId) || groupedProjectEnvKeys.has(key);
-    if (hideGroupedSourceProjects && groupedProjectEnvKeys.has(key)) continue;
+    const grouped = groupedRunIds.has(run.run.runId);
 
     const existing = latestByProjectEnv.get(key);
     if (existing && timestampMs(existing.timestamp) >= timestampMs(run.run.timestamp)) continue;
@@ -105,10 +106,11 @@ function latestProjectEntries(
     });
   }
 
-  return Array.from(latestByProjectEnv.values());
+  return Array.from(latestByProjectEnv.values())
+    .filter((entry) => !(hideGroupedSourceProjects && entry.grouped));
 }
 
-export function Sidebar() {
+export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
   const {
     currentView,
     sidebarWidth,
@@ -119,10 +121,15 @@ export function Sidebar() {
     getCurrentRunGroup,
     getRunGroups,
     runs,
+    physicalRuns,
     projectHierarchy,
     projectGrouping,
+    audienceMode,
+    selectedRunId,
+    selectedRunView,
     selectRun,
     selectRunGroup,
+    setRunView,
     filterText,
     filterTags,
   } = useStore();
@@ -138,39 +145,39 @@ export function Sidebar() {
   const projectEntries = React.useMemo<ProjectEntry[]>(() => {
     if (projectGrouping.enabled && groups.length > 0) {
       const groupedRunIds = new Set(groups.flatMap((group) => group.group.runs.map((run) => run.runId)));
-      const groupedProjectEnvKeys = new Set(groups.flatMap((group) =>
-        group.group.runs.map((run) => `${run.project}/${run.environment}`)
-      ));
-      const groupEntries: ProjectEntry[] = groups.map((group) => ({
-        kind: 'group',
-        key: group.group.id,
-        label: group.group.name,
-        environment: group.group.environment,
-        group,
-        timestamp: group.run.timestamp,
-      }));
+      const latestGroupIds = new Set(
+        latestLogicalRunGroups(groups.map((group) => group.group)).map((group) => group.id)
+      );
+      const groupEntries: ProjectEntry[] = groups
+        .filter((group) => latestGroupIds.has(group.group.id))
+        .map((group) => ({
+          kind: 'group',
+          key: group.group.id,
+          label: group.group.name,
+          environment: group.group.environment,
+          group,
+          timestamp: group.run.timestamp,
+        }));
 
-      const rawEntries = latestProjectEntries(runs, groupedRunIds, groupedProjectEnvKeys, projectGrouping.hideSourceProjects);
+      const rawEntries = latestProjectEntries(runs, groupedRunIds, projectGrouping.hideSourceProjects);
 
       return [...groupEntries, ...rawEntries]
         .sort((a, b) => timestampMs(b.timestamp) - timestampMs(a.timestamp));
     }
 
     const latestByProjectEnv = new Map<string, Run>();
-    for (const run of runs) {
-      const key = `${run.run.project}/${run.run.environment}`;
-      const existing = latestByProjectEnv.get(key);
-      if (!existing || timestampMs(run.run.timestamp) > timestampMs(existing.run.timestamp)) {
-        latestByProjectEnv.set(key, run);
+    for (const project of projectHierarchy ?? []) {
+      for (const env of project.environments ?? []) {
+        if (!env.latestRun) continue;
+        latestByProjectEnv.set(`${project.name}/${env.name}`, env.latestRun);
       }
     }
 
-    if (latestByProjectEnv.size === 0) {
-      for (const project of projectHierarchy ?? []) {
-        for (const env of project.environments ?? []) {
-          if (!env.latestRun) continue;
-          latestByProjectEnv.set(`${project.name}/${env.name}`, env.latestRun);
-        }
+    for (const run of runs) {
+      const key = `${run.run.project}/${run.run.environment}`;
+      const existing = latestByProjectEnv.get(key);
+      if (!existing || (run.run.status === 'running' && existing.run.status !== 'running')) {
+        latestByProjectEnv.set(key, run);
       }
     }
 
@@ -190,7 +197,11 @@ export function Sidebar() {
 
   const selectedProjectEntry = React.useMemo(() => {
     if (currentGroup) {
-      return projectEntries.find((entry) => entry.kind === 'group' && entry.group.group.id === currentGroup.group.id);
+      return projectEntries.find((entry) =>
+        entry.kind === 'group' &&
+        entry.group.group.name === currentGroup.group.name &&
+        entry.group.group.environment === currentGroup.group.environment
+      );
     }
 
     if (currentRun) {
@@ -249,9 +260,66 @@ export function Sidebar() {
     const candidates = runs.filter(
       (run) => run.run.project === selectedProjectEntry.project && run.run.environment === environment
     );
+    const active = candidates.find((run) => run.run.status === 'running');
+    if (active) {
+      selectRun(active.run.runId);
+      return;
+    }
+
+    const hierarchyLatest = (projectHierarchy ?? [])
+      .find((project) => project.name === selectedProjectEntry.project)
+      ?.environments.find((env) => env.name === environment)
+      ?.latestRun;
+    if (hierarchyLatest) {
+      selectRun(hierarchyLatest.run.runId);
+      return;
+    }
+
     const chosen = latestRun(candidates);
     if (chosen) selectRun(chosen.run.runId);
-  }, [groups, runs, selectRun, selectRunGroup, selectedProjectEntry]);
+  }, [groups, projectHierarchy, runs, selectRun, selectRunGroup, selectedProjectEntry]);
+
+  const runHistoryEntriesForSelection = React.useMemo<RunHistoryEntry[]>(() => {
+    if (selectedProjectEntry?.kind !== 'project') return [];
+
+    const { project, environment } = selectedProjectEntry;
+    const toEntry = (run: Run['run']): RunHistoryEntry => ({
+      runId: run.runId,
+      timestamp: run.timestamp,
+      status: run.status,
+      summary: run.summary,
+      runType: run.runType,
+      baselineRunId: run.baselineRunId,
+    });
+
+    const historyFromHierarchy: RunHistoryEntry[] = (projectHierarchy ?? [])
+      .find((p) => p.name === project)
+      ?.environments.find((e) => e.name === environment)
+      ?.history.map((h) => ({
+        runId: h.runId,
+        timestamp: h.timestamp,
+        status: h.status as Status,
+        summary: h.summary as any,
+        runType: h.runType,
+        baselineRunId: h.baselineRunId,
+      })) ?? [];
+
+    const liveEntries: RunHistoryEntry[] = [
+      ...runs
+        .filter((r) => r.run.project === project && r.run.environment === environment)
+        .map((r) => toEntry(r.run)),
+      ...Object.values(physicalRuns)
+        .filter((r) => r.run.project === project && r.run.environment === environment)
+        .map((r) => toEntry(r.run)),
+    ];
+
+    return mergeRunHistoryEntries(historyFromHierarchy, liveEntries);
+  }, [physicalRuns, projectHierarchy, runs, selectedProjectEntry]);
+
+  const badgedRunEntries = React.useMemo(
+    () => deriveRunBadges(runHistoryEntriesForSelection),
+    [runHistoryEntriesForSelection]
+  );
 
   const runMenuEntries = React.useMemo(() => {
     if (selectedProjectEntry?.kind === 'group') {
@@ -263,23 +331,33 @@ export function Sidebar() {
           id: group.group.id,
           label: index === 0 ? 'Latest set' : group.run.timestamp,
           timestamp: group.run.timestamp,
+          badgeLabel: undefined as string | undefined,
         }));
     }
 
     if (selectedProjectEntry?.kind === 'project') {
-      return runs
-        .filter((run) => run.run.project === selectedProjectEntry.project && run.run.environment === selectedProjectEntry.environment)
-        .sort((a, b) => timestampMs(b.run.timestamp) - timestampMs(a.run.timestamp))
-        .map((run, index) => ({
+      return badgedRunEntries
+        .map((entry, index) => ({
           kind: 'run' as const,
-          id: run.run.runId,
-          label: index === 0 ? 'Latest' : run.run.timestamp,
-          timestamp: run.run.timestamp,
+          id: entry.runId,
+          label: index === 0 ? 'Latest' : entry.timestamp,
+          timestamp: entry.timestamp,
+          badgeLabel: formatRunBadge(entry.badge),
         }));
     }
 
     return [];
-  }, [groups, runs, selectedProjectEntry]);
+  }, [badgedRunEntries, groups, selectedProjectEntry]);
+
+  /** Selects a run entry from the chronological list, defaulting to Combined unless it's an
+   *  active partial only tracked in the physical cache (no combined snapshot yet). */
+  const selectRunEntry = React.useCallback((runId: string) => {
+    const hasCombinedLoaded = runs.some((r) => r.run.runId === runId);
+    const isActivePhysicalOnly =
+      !hasCombinedLoaded &&
+      physicalRuns[runId]?.run.status === 'running';
+    selectRun(runId, isActivePhysicalOnly ? 'physical' : 'combined');
+  }, [physicalRuns, runs, selectRun]);
 
   const currentRunLabel = React.useMemo(() => {
     if (currentGroup) {
@@ -287,15 +365,30 @@ export function Sidebar() {
       return match?.label ?? 'Latest set';
     }
 
-    if (currentRun) {
-      const match = runMenuEntries.find((entry) => entry.kind === 'run' && entry.id === currentRun.run.runId);
-      return match?.label ?? currentRun.run.timestamp;
+    const activeRunId = currentRun?.run.runId ?? selectedRunId;
+    if (activeRunId) {
+      const match = runMenuEntries.find((entry) => entry.kind === 'run' && entry.id === activeRunId);
+      return match?.label ?? currentRun?.run.timestamp ?? '—';
     }
 
     return '—';
-  }, [currentGroup, currentRun, runMenuEntries]);
+  }, [currentGroup, currentRun, runMenuEntries, selectedRunId]);
+
+  const selectedRunBadge = React.useMemo(() => {
+    const activeRunId = currentRun?.run.runId ?? selectedRunId;
+    if (!activeRunId) return undefined;
+    return badgedRunEntries.find((entry) => entry.runId === activeRunId)?.badge;
+  }, [badgedRunEntries, currentRun, selectedRunId]);
+
+  const showRunProjectionToggle =
+    !currentGroup &&
+    selectedRunBadge?.kind === 'partial' &&
+    currentRun?.run.status !== 'running';
 
   const documents = currentRun?.run.documents ?? [];
+  const hasCoverageDetails = currentGroup
+    ? currentGroup.group.runs.some((run) => (run.coverage?.files?.length ?? 0) > 0)
+    : (currentRun?.run.coverage?.files?.length ?? 0) > 0;
   const navTree = React.useMemo(() => buildGroupedNavTree(documents), [documents]);
 
   const navTreeForSidebar = React.useMemo(() => {
@@ -436,7 +529,7 @@ export function Sidebar() {
   return (
     <aside
       className="flex flex-col bg-card border-r shrink-0 overflow-hidden transition-all duration-300 ease-in-out"
-      style={{ width: sidebarWidth }}
+      style={{ width: fullWidth ? '100%' : sidebarWidth }}
     >
       <div className="border-b shrink-0 bg-muted/30">
         <div
@@ -551,10 +644,22 @@ export function Sidebar() {
                   >
                     <button
                       type="button"
-                      className="text-xs font-medium hover:text-foreground transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-medium hover:text-foreground transition-colors"
                       aria-label="Select run"
                     >
                       {currentRunLabel}
+                      {selectedRunBadge && (
+                        <span
+                          className={cn(
+                            "rounded-full px-1.5 py-0.5 text-[9px] font-bold",
+                            selectedRunBadge.kind === 'partial'
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {formatRunBadge(selectedRunBadge)}
+                        </span>
+                      )}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
@@ -563,16 +668,28 @@ export function Sidebar() {
                         key={entry.id}
                         onSelect={() => {
                           if (entry.kind === 'group') selectRunGroup(entry.id);
-                          else selectRun(entry.id);
+                          else selectRunEntry(entry.id);
                           setRunMenuOpen(false);
                         }}
                         className={cn(
                           "text-xs",
                           entry.id === currentGroup?.group.id && "bg-muted",
-                          entry.id === currentRun?.run.runId && "bg-muted"
+                          entry.id === (currentRun?.run.runId ?? selectedRunId) && "bg-muted"
                         )}
                       >
-                        {entry.label}
+                        <span className="truncate flex-1">{entry.label}</span>
+                        {entry.badgeLabel && (
+                          <span
+                            className={cn(
+                              "ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold shrink-0",
+                              entry.badgeLabel === 'Full'
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-primary/10 text-primary"
+                            )}
+                          >
+                            {entry.badgeLabel}
+                          </span>
+                        )}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -582,12 +699,31 @@ export function Sidebar() {
               )}
             </div>
 
+            {showRunProjectionToggle && (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">View</span>
+                <Tabs
+                  value={selectedRunView}
+                  onValueChange={(value) => setRunView(value as 'combined' | 'physical')}
+                >
+                  <TabsList
+                    className="h-6 rounded-full bg-muted/40 p-0.5"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <TabsTrigger value="combined" className="rounded-full px-2 py-0 text-[10px] leading-5">
+                      Combined
+                    </TabsTrigger>
+                    <TabsTrigger value="physical" className="rounded-full px-2 py-0 text-[10px] leading-5">
+                      This partial
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status</span>
               <div className="flex items-center gap-2">
-                {currentRun?.run.status === 'running' && (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-hidden="true" />
-                )}
                 {currentRun?.run.status ? (
                   <StatusBadge status={currentRun.run.status as any} size="xs" />
                 ) : (
@@ -600,6 +736,24 @@ export function Sidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
+        {audienceMode === 'developer' && hasCoverageDetails && (
+          <div className="px-2 pb-2">
+            <button
+              type="button"
+              className={cn(
+                "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                currentView.type === 'coverage'
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              onClick={() => navigate('coverage')}
+            >
+              <Gauge className="h-4 w-4" />
+              Coverage
+            </button>
+          </div>
+        )}
+
         <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-between">
           <span>Containers</span>
           <span className="bg-muted px-1.5 py-0.5 rounded text-[9px]">{documents.length}</span>

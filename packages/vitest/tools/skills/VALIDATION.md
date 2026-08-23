@@ -8,8 +8,8 @@
 | --- | --- |
 | Frontmatter `name` present | ✅ |
 | Frontmatter `description` present | ✅ |
-| Description ≤ 100 words | ✅ (30 words) |
-| Body ≤ 500 lines | ✅ (321 lines) |
+| Description ≤ 100 words | ✅ (28 words) |
+| Body ≤ 500 lines | ✅ (293 lines) |
 | `## Use this skill when` | ✅ |
 | `## Do not use this skill when` | ✅ |
 | `## Inputs` | ✅ |
@@ -21,6 +21,11 @@
 | `### Negative routing examples` | ✅ |
 | `## Failure handling` | ✅ |
 | Routing examples file (`examples/routing.md`) | ✅ |
+| Boundary-first strategy resource | ✅ |
+| jsdom/real-browser guidance | ✅ |
+| False-green anti-pattern catalogue | ✅ |
+| Tag-scoped partial-testing workflow | ✅ |
+| Source and package-shipped copies aligned | ✅ |
 
 ## Assumptions
 - Tests are written in TypeScript and use Vitest as the test runner

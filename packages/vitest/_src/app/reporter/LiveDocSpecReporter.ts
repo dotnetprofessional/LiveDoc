@@ -28,6 +28,7 @@ export default class LiveDocSpecReporter implements Reporter {
     private liveDocSpec: LiveDocSpec;
     private options: LiveDocReporterOptions;
     private exportConfig: ExportConfig | null = null;
+    private coverageContext: Record<string, unknown> = { runStartedAt: Date.now() };
 
     private streamEnabled = true;
     private taskById = new Map<string, Task>();
@@ -62,6 +63,7 @@ export default class LiveDocSpecReporter implements Reporter {
             livedoc.options.publish.server = options.publish.server ?? livedoc.options.publish.server;
             livedoc.options.publish.project = options.publish.project ?? livedoc.options.publish.project;
             livedoc.options.publish.environment = options.publish.environment ?? livedoc.options.publish.environment;
+            livedoc.options.publish.runType = options.publish.runType ?? livedoc.options.publish.runType;
         }
 
         // Parse export config for direct JSON file output
@@ -87,7 +89,7 @@ export default class LiveDocSpecReporter implements Reporter {
 
     async onInit(ctx: Vitest): Promise<void> {
         // Store context for potential future use
-        void ctx;
+        this.captureCoverageContext(ctx);
         this.liveDocSpec.executionStart();
 
         // Auto-discover a LiveDoc server when publish is not explicitly configured.
@@ -110,6 +112,30 @@ export default class LiveDocSpecReporter implements Reporter {
         }
     }
 
+    onCoverage(coverageMap: unknown): void {
+        this.coverageContext.coverageMap = coverageMap;
+    }
+
+    private captureCoverageContext(ctx: Vitest): void {
+        const config = (ctx as any)?.config ?? {};
+        const coverage = config.coverage ?? {};
+        const rawOptions = (this.options as any).rawOptions ?? {};
+        const reporterCoverage = rawOptions.coverage ?? {};
+        const rootDir = config.root || process.cwd();
+        const reportsDirectory = coverage.reportsDirectory
+            ? resolve(rootDir, coverage.reportsDirectory)
+            : undefined;
+
+        this.coverageContext = {
+            enabled: Boolean(coverage.enabled) || Boolean(reporterCoverage.enabled),
+            artifactPath: reporterCoverage.path ?? reporterCoverage.artifactPath,
+            rootDir,
+            reportsDirectory,
+            runStartedAt: Date.now(),
+            thresholds: reporterCoverage.thresholds,
+        };
+    }
+
     private applyPublishEnvironmentOverrides(): string | undefined {
         const envServerUrl = this.firstEnvironmentValue(
             'LIVEDOC_SERVER_URL',
@@ -126,12 +152,22 @@ export default class LiveDocSpecReporter implements Reporter {
             'LIVEDOC_PUBLISH_ENV',
             'LIVEDOC_VIEWER_ENV'
         );
+        const envRunType = this.firstEnvironmentValue('LIVEDOC_RUN_TYPE');
 
         if (envProject) {
             livedoc.options.publish.project = envProject;
         }
         if (envEnvironment) {
             livedoc.options.publish.environment = envEnvironment;
+        }
+        if (envRunType) {
+            const normalizedRunType = envRunType.toLowerCase();
+            if (normalizedRunType !== 'full' && normalizedRunType !== 'partial') {
+                throw new Error(
+                    `Invalid LIVEDOC_RUN_TYPE value '${envRunType}'. Expected 'full' or 'partial'.`
+                );
+            }
+            livedoc.options.publish.runType = normalizedRunType;
         }
         if (envServerUrl) {
             livedoc.options.publish.enabled = true;
@@ -275,6 +311,7 @@ export default class LiveDocSpecReporter implements Reporter {
                 server: publishOptions.server,
                 project: publishOptions.project,
                 environment: publishOptions.environment,
+                runType: publishOptions.runType,
                 silent: false
             });
             
@@ -286,16 +323,19 @@ export default class LiveDocSpecReporter implements Reporter {
             rawOptions.postReporters.push(viewerReporter);
         }
 
+        const rawOptions = (this.options as any).rawOptions || {};
+        rawOptions.coverageContext = this.coverageContext;
+
         // Output execution results with post-reporter support
-        await this.liveDocSpec.executionEnd(results, (this.options as any).rawOptions);
+        await this.liveDocSpec.executionEnd(results, rawOptions);
 
         // Export TestRunV1 JSON file if configured
         if (this.exportConfig) {
-            this.exportTestRunJson(results);
+            this.exportTestRunJson(results, rawOptions);
         }
     }
 
-    private exportTestRunJson(results: model.ExecutionResults): void {
+    private exportTestRunJson(results: model.ExecutionResults, rawOptions?: any): void {
         const exportConfig = this.exportConfig!;
         const outputPath = resolve(exportConfig.output);
 
@@ -310,10 +350,11 @@ export default class LiveDocSpecReporter implements Reporter {
         const converter = new LiveDocViewerReporter({
             project,
             environment,
+            runType: livedoc.options.publish.runType,
             silent: true,
         });
 
-        const testRun = converter.buildTestRun(results);
+        const testRun = converter.buildTestRun(results, rawOptions);
 
         try {
             mkdirSync(dirname(outputPath), { recursive: true });

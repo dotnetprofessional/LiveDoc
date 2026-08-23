@@ -16,7 +16,7 @@ public class LiveDocContext : IDisposable
     private readonly ITestOutputHelper _output;
     private readonly Type _testClassType;
     private readonly MethodInfo? _testMethod;
-    private readonly object[]? _testMethodArgs;
+    private readonly object?[]? _testMethodArgs;
     private readonly LiveDocFormatter _formatter;
     private readonly LiveDocTestRunReporter? _runReporter;
     
@@ -86,7 +86,8 @@ public class LiveDocContext : IDisposable
         ITestOutputHelper output, 
         Type testClassType, 
         MethodInfo? testMethod = null,
-        object[]? testMethodArgs = null)
+        object?[]? testMethodArgs = null,
+        int? outlineRowId = null)
     {
         _output = output;
         _testClassType = testClassType;
@@ -134,8 +135,8 @@ public class LiveDocContext : IDisposable
         if (_isOutline && testMethod != null)
         {
             _outlineId = LiveDocTestRunReporter.GenerateOutlineId(testClassType, testMethod.Name);
-            _exampleNumber = GetExampleNumber();
-            _outlineRowId = _exampleNumber - 1; // 0-based row IDs
+            _outlineRowId = outlineRowId ?? GetExampleNumber() - 1;
+            _exampleNumber = _outlineRowId + 1;
             _scenarioId = null; // outlines don't use per-row scenario IDs
         }
         else
@@ -276,12 +277,7 @@ public class LiveDocContext : IDisposable
         }
         else if (ruleAttr != null)
         {
-            // DisplayName is the single source of truth — it contains either the
-            // user-provided description or formatted method name, prefixed with "Rule: ".
-            var displayName = ruleAttr.DisplayName ?? FeatureAttribute.FormatName(_testMethod.Name);
-            name = displayName.StartsWith("Rule: ", StringComparison.OrdinalIgnoreCase)
-                ? displayName.Substring("Rule: ".Length)
-                : displayName;
+            name = ruleAttr.GetDisplayName(_testMethod);
         }
         else
         {
@@ -294,7 +290,7 @@ public class LiveDocContext : IDisposable
         return new RuleContext
         {
             Name = name,
-            Description = ruleAttr?.Description ?? ruleOutlineAttr?.Description,
+            Description = ruleAttr?.GetDescription(_testMethod) ?? ruleOutlineAttr?.Description,
             Tags = TagAttribute.GetTags(_testClassType, _testMethod),
             ValuesRaw = valuesRaw,
             ParamsRaw = paramsRaw,
@@ -814,15 +810,7 @@ public class LiveDocContext : IDisposable
         {
             _scenarioStopwatch.Stop();
             var failedStep = _steps.FirstOrDefault(s => s.Status == StepStatus.Failed);
-            ErrorInfo? error = null;
-            if (failedStep?.Exception != null)
-            {
-                error = new ErrorInfo
-                {
-                    Message = failedStep.Exception.Message,
-                    Stack = failedStep.Exception.StackTrace
-                };
-            }
+            var error = CreateErrorInfo(failedStep?.Exception);
 
             var finalStatus = hasFailed ? Reporter.Models.Status.Failed : Reporter.Models.Status.Passed;
             var durationMs = _scenarioStopwatch.ElapsedMilliseconds;
@@ -854,7 +842,10 @@ public class LiveDocContext : IDisposable
                         _outlineId, _outlineRowId, _outlineId,
                         finalStatus, durationMs, error);
                 }
-                _runReporter.RecordResult(finalStatus, _testCaseId);
+                _runReporter.RecordResult(
+                    finalStatus,
+                    _testCaseId,
+                    LiveDocTestRunReporter.GenerateOutlineResultId(_outlineId, _outlineRowId));
             }
             else if (_scenarioId != null)
             {
@@ -863,7 +854,7 @@ public class LiveDocContext : IDisposable
                     _runReporter.SetTestSteps(_scenarioId, reportedSteps);
 
                 _runReporter.UpdateTestExecution(_scenarioId, finalStatus, durationMs, error);
-                _runReporter.RecordResult(finalStatus, _testCaseId);
+                _runReporter.RecordResult(finalStatus, _testCaseId, _scenarioId);
             }
         }
     }
@@ -889,11 +880,23 @@ public class LiveDocContext : IDisposable
                 {
                     Status = step.Status.ToReporterStatus(),
                     Duration = (long)step.Duration.TotalMilliseconds,
+                    Error = CreateErrorInfo(step.Exception),
                     Attachments = step.Attachments
                 }
             });
         }
         return result;
+    }
+
+    private static ErrorInfo? CreateErrorInfo(Exception? exception)
+    {
+        return exception == null
+            ? null
+            : new ErrorInfo
+            {
+                Message = exception.Message,
+                Stack = exception.StackTrace
+            };
     }
 
     /// <summary>

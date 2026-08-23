@@ -137,14 +137,14 @@ public class RuleContext
 public class ExampleData
 {
     private readonly Dictionary<string, object?> _data;
-    private readonly object[]? _rawParameters;
+    private readonly object?[]? _rawParameters;
 
     public ExampleData(Dictionary<string, object?> data)
     {
         _data = data;
     }
 
-    public ExampleData(MethodInfo method, object[] parameters)
+    public ExampleData(MethodInfo method, object?[] parameters)
     {
         _rawParameters = parameters;
         _data = new Dictionary<string, object?>();

@@ -141,3 +141,19 @@
 - **Menu command fix**: Updated `livedoc.ps1` test menu items to explicitly set `$env:LIVEDOC_SERVER_URL = 'http://localhost:3100'` so the reporter bypasses auto-discovery and connects directly. This ensures test results flow to the viewer regardless of how the server was started.
 - **Reporter behavior**: `LiveDocSpecReporter.onInit()` checks `LIVEDOC_SERVER_URL` env var first (line 96), then falls back to `discoverServer()`. When env var is set, publishing is enabled immediately and the "LiveDoc Viewer: Connecting to..." message appears at test start.
 - **Key insight**: For local dev workflows where the viewer is started via npm scripts (not the standalone server CLI), explicit env var configuration is more reliable than port file auto-discovery.
+
+### VSTest Coverage Rejection Revision (2026-07-18)
+
+- **Automatic activation**: The package no longer sets `VSTestLogger`. The collector runsettings are selected only for coverage requests or Visual Studio execution; plain CLI `dotnet test` stays quiet, while custom runsettings remain untouched with `LD-COV-001` guidance.
+- **Collector correlation**: One order-independent invocation directory now backs both initialization and testhost environment injection. The attachment processor returns all input sets, scans every current marker, rejects stale disk fallback markers, and targets every matched metadata directory.
+- **Upload contract**: Coverage parsing remains shared. Per-run atomic accepted sentinels are written only after HTTP 2xx; `LD-COV-081` is the honest idempotent skip and failed requests remain retryable.
+- **Server/viewer evidence**: Coverage HTTP 2xx now follows awaited disk persistence and reports websocket matched/sent/failed counts plus REST hydration availability. Unknown-run viewer events hydrate by REST; only store-confirmed application emits `LD-COV-090`, and failures emit `LD-COV-091`.
+- **VSTest 18.6 caveat**: CLI artifact processing logs `Non incremental attachment processors are not supported` when `SupportsIncrementalProcessing=false`. The binding contract requires `false`; explicit `--logger LiveDocCoverage` remains the proven CLI fallback and completed conversion, HTTP 200, persistence, and REST retrieval.
+
+### VSTest Incremental Attachment Processor Correction (2026-07-18)
+
+- **VSTest requires incremental processors**: VSTest 18.6 skips attachment processors that return `SupportsIncrementalProcessing=false`. LiveDoc must return `true`; the earlier `false` contract is superseded.
+- **Cross-round truth is durable**: Processor instances are recreated between rounds. Invocation markers, run metadata, and per-run accepted sentinels on disk are the only correlation and idempotency state.
+- **Marker freshness has two authorities**: Attachment-delivered markers are trusted regardless of age. Disk fallback markers are selected by fresh marker-file mtime, never by `InitializedAtUtc`, which may legitimately predate a long test run by hours.
+- **Associativity requires unchanged returns plus sentinels**: Every attachment set is returned unchanged. A 2xx response writes the accepted sentinel; failures write none and remain retryable. Fresh-instance re-feed is therefore safe and does not double-post.
+- **Automatic path proven headlessly**: Packaged runsettings and collector processed Microsoft `.coverage` without `LiveDocCoverage` logger fallback, reached `LD-COV-080`, persisted run `mrr2a03n-pap1opnmz` with 43 files at 21.3% line coverage, and returned the same coverage through REST.

@@ -70,6 +70,33 @@ change anything — just add the package and start writing `.Spec.ts` files.
 
 ---
 
+## Choose Your Setup Path
+
+### AI-Assisted Setup (Recommended)
+
+If you use GitHub Copilot, Claude Code, Cursor, Roo Code, or Windsurf, give the
+assistant this prompt. LiveDoc does not need to be installed yet:
+
+> Read https://livedoc.swedevtools.com/ai/setup.md and configure this Vitest
+> project for LiveDoc, the Viewer, and V8 coverage. Preserve the existing Vitest
+> configuration.
+
+The bootstrap page teaches the assistant the required dependencies, imports, reporter configuration,
+file naming, coverage provider dependency, self-documenting value extraction,
+and validation commands. Review the generated changes, then continue to
+[Step 5](#step-5-run-it-) to run the suite.
+
+**[See the AI project setup workflow →](../../guides/ai-project-setup.mdx)**
+
+After setup, optionally install the reusable Vitest skill with
+`npx livedoc-vitest-setup` for future AI authoring sessions.
+
+### Manual Setup
+
+Continue with Step 3 to configure each file yourself.
+
+---
+
 ## Step 3: Configure Vitest
 
 Create (or update) a `vitest.config.ts` in your project root:
@@ -180,23 +207,6 @@ It provides:
 - 📐 **Table formatting** — automatically align data tables with a keystroke
 - ✂️ **Snippets** — quickly scaffold features, scenarios, and steps
 - 🎨 **Syntax highlighting** — Gherkin keywords stand out in your spec files
-
----
-
-## Optional: Install AI Skills
-
-If your team uses AI coding assistants, install the LiveDoc skill so your AI
-writes correct BDD tests with proper patterns and value extraction:
-
-```bash
-npx livedoc-vitest-setup
-```
-
-This installs skill files for your chosen AI tools (GitHub Copilot, Claude Code,
-Cursor, Windsurf, or Roo Code). Commit the generated files so every developer on
-the team benefits automatically.
-
-→ See [AI Skill Setup](../guides/ai-skill-setup.mdx) for details and non-interactive CI usage.
 
 ---
 

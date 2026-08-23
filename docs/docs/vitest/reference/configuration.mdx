@@ -106,6 +106,50 @@ export default defineConfig({
 
 ---
 
+### Code Coverage {#code-coverage}
+
+Vitest requires a coverage provider. Install the V8 provider at the same version
+as Vitest:
+
+```bash
+npm install --save-dev @vitest/coverage-v8
+```
+
+Configure the runner and LiveDoc reporter:
+
+```typescript
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        coverage: {
+          enabled: true,
+          thresholds: {
+            lines: 80,
+            branches: 75,
+          },
+        },
+      }),
+    ],
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+    },
+  },
+});
+```
+
+Run with `npx vitest run --coverage`. LiveDoc prefers the in-memory coverage map
+and can fall back to `coverage-summary.json` or LCOV. See
+[Code Coverage](../../viewer/guides/code-coverage.mdx) for provider selection,
+artifact paths, thresholds, and troubleshooting.
+
+---
+
 ### Globals Mode {#globals-mode}
 
 #### `test.globals` {#globals}

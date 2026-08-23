@@ -2,6 +2,8 @@ import * as React from 'react';
 import { useStore } from '../store';
 import { Loader2, CheckCircle2, XCircle, Activity } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { findLiveRunTarget, resolveLiveRunTarget } from '../lib/live-run';
+import { Button } from './ui/button';
 
 type BannerPhase = 'idle' | 'running' | 'completing' | 'done';
 
@@ -10,26 +12,39 @@ type BannerPhase = 'idle' | 'running' | 'completing' | 'done';
  * Shows live stats, transitions to a brief "complete" flash, then hides.
  */
 export function RunProgressBanner() {
-  const { runs, selectedRunId } = useStore();
-  const currentRun = runs.find((r) => r.run.runId === selectedRunId);
-  const runStatus = currentRun?.run.status;
-  const summary = currentRun?.run.summary;
+  const {
+    runs,
+    physicalRuns,
+    selectedRunId,
+    selectedRunGroupId,
+    getRunGroups,
+    selectRun,
+    selectRunGroup,
+  } = useStore();
+  const groups = getRunGroups();
+  const liveState = { runs, physicalRuns, groups, selectedRunId, selectedRunGroupId };
+  const activeTarget = findLiveRunTarget(liveState);
+  const trackedTargetKeyRef = React.useRef<string | undefined>(undefined);
+  if (activeTarget) trackedTargetKeyRef.current = activeTarget.key;
+  const displayTarget = activeTarget ?? resolveLiveRunTarget(trackedTargetKeyRef.current, liveState);
+  const runStatus = displayTarget?.run.run.status;
+  const summary = displayTarget?.run.run.summary;
 
   const [phase, setPhase] = React.useState<BannerPhase>('idle');
-  const prevRunStatusRef = React.useRef<string | undefined>(undefined);
+  const previouslyActiveRef = React.useRef(false);
   const dismissTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
-    const prevStatus = prevRunStatusRef.current;
-    prevRunStatusRef.current = runStatus;
+    const wasActive = previouslyActiveRef.current;
+    previouslyActiveRef.current = Boolean(activeTarget);
 
-    if (runStatus === 'running') {
+    if (activeTarget) {
       setPhase('running');
       if (dismissTimerRef.current) {
         clearTimeout(dismissTimerRef.current);
         dismissTimerRef.current = null;
       }
-    } else if (prevStatus === 'running' && runStatus) {
+    } else if (wasActive && displayTarget) {
       // Transition from running → terminal
       setPhase('completing');
       dismissTimerRef.current = setTimeout(() => {
@@ -37,13 +52,13 @@ export function RunProgressBanner() {
         dismissTimerRef.current = setTimeout(() => setPhase('idle'), 400);
       }, 2800);
     } else {
-      setPhase('idle');
+      setPhase((current) => current === 'completing' || current === 'done' ? current : 'idle');
     }
 
     return () => {
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     };
-  }, [runStatus]);
+  }, [activeTarget?.key, displayTarget?.key, runStatus]);
 
   if (phase === 'idle') return null;
 
@@ -58,6 +73,14 @@ export function RunProgressBanner() {
   const hasFailed = failed > 0;
 
   const completedStatus = runStatus === 'failed' || hasFailed ? 'failed' : 'passed';
+  const viewLiveRun = () => {
+    if (!displayTarget) return;
+    if (displayTarget.kind === 'group' && displayTarget.runGroupId) {
+      selectRunGroup(displayTarget.runGroupId);
+    } else if (displayTarget.runId) {
+      selectRun(displayTarget.runId, displayTarget.view);
+    }
+  };
 
   return (
     <div
@@ -96,9 +119,12 @@ export function RunProgressBanner() {
                 <Loader2 className="w-4 h-4 text-primary animate-spin" strokeWidth={2.5} />
               </div>
               <span className="text-sm font-semibold text-foreground tracking-tight">
-                Run in progress
+                Live update in progress
               </span>
               <Activity className="w-3.5 h-3.5 text-muted-foreground/50 animate-pulse" />
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                {displayTarget?.run.run.project}
+              </span>
             </>
           )}
 
@@ -106,7 +132,7 @@ export function RunProgressBanner() {
             <>
               <CheckCircle2 className="w-5 h-5 text-pass animate-in zoom-in-50 duration-300" strokeWidth={2.5} />
               <span className="text-sm font-semibold text-pass tracking-tight animate-in fade-in duration-300">
-                Run complete — all tests passed
+                Live update complete — all tests passed
               </span>
             </>
           )}
@@ -115,7 +141,7 @@ export function RunProgressBanner() {
             <>
               <XCircle className="w-5 h-5 text-fail animate-in zoom-in-50 duration-300" strokeWidth={2.5} />
               <span className="text-sm font-semibold text-fail tracking-tight animate-in fade-in duration-300">
-                Run complete — {failed} {failed === 1 ? 'failure' : 'failures'} detected
+                Live update complete — {failed} {failed === 1 ? 'failure' : 'failures'} detected
               </span>
             </>
           )}
@@ -123,6 +149,11 @@ export function RunProgressBanner() {
 
         {/* Right: Live stats */}
         <div className="flex items-center gap-4 text-xs font-medium shrink-0">
+          {isRunning && displayTarget && !displayTarget.isSelected && (
+            <Button variant="outline" size="sm" className="h-7" onClick={viewLiveRun}>
+              View live run
+            </Button>
+          )}
           {total > 0 && (
             <>
               <span className="text-muted-foreground tabular-nums">

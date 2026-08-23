@@ -70,6 +70,35 @@ No assembly attributes, no `.runsettings` files, no environment variables needed
 
 ---
 
+## Add Code Coverage
+
+The LiveDoc NuGet package includes its coverage collector and attachment
+processor. To collect line and branch data with Microsoft's collector, request
+Cobertura output:
+
+```powershell
+dotnet test .\MySolution.sln --collect:"Code Coverage;Format=Cobertura"
+```
+
+For this repository:
+
+```powershell
+dotnet test .\dotnet\xunit\livedoc-xunit.sln --collect:"Code Coverage;Format=Cobertura"
+```
+
+Visual Studio's **Analyze Code Coverage for All Tests** may emit a binary
+`.coverage` attachment. Install Microsoft's converter:
+
+```powershell
+dotnet tool install --global dotnet-coverage
+```
+
+No `coverlet.collector` dependency is required for the recommended Microsoft
+Code Coverage command. See the shared [Code Coverage guide](../../viewer/guides/code-coverage.mdx)
+for XPlat/Coverlet, custom runsettings, thresholds, diagnostics, and module scope.
+
+---
+
 ## Step 3: Customize (Optional)
 
 For custom project names, non-default ports, or CI/CD pipelines — pass parameters directly on the `--logger` flag:
@@ -151,6 +180,8 @@ dotnet test --logger LiveDoc
 | Viewer shows stale results | Browser cache or previous session data | Refresh the browser or restart the viewer |
 | `Project` shows assembly name | No custom project name set | Set `LIVEDOC_PROJECT` environment variable |
 | `Project` shows "Unknown" | Assembly name doesn't end in `.Tests`/`.Test`/`.Specs` | Set `LIVEDOC_PROJECT` environment variable |
+| Coverage is absent | The run did not request coverage | Use `--collect:"Code Coverage;Format=Cobertura"` or Visual Studio Analyze Code Coverage |
+| `dotnet-coverage-missing` | Visual Studio produced binary `.coverage` output | Install `dotnet-coverage` globally or set `LIVEDOC_DOTNET_COVERAGE_TOOL` |
 | CI: no results in viewer | `LIVEDOC_SERVER_URL` not set | Auto-discovery only checks `localhost:3100` — set the env var explicitly in CI |
 
 ---
@@ -161,3 +192,4 @@ dotnet test --logger LiveDoc
 - [Configuration Reference](../reference/configuration.mdx) — full environment variable and export reference
 - [Best Practices](./best-practices.mdx) — namespace organization for report hierarchy
 - [Troubleshooting](./troubleshooting.mdx) — common xUnit issues and fixes
+- [Code Coverage](../../viewer/guides/code-coverage.mdx) — dependencies, commands, runsettings, and Viewer hierarchy

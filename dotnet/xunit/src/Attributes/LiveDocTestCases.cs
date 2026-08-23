@@ -1,9 +1,41 @@
 using System.ComponentModel;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace SweDevTools.LiveDoc.xUnit;
+
+internal static class LiveDocTestInvocationRegistry
+{
+    private sealed record InvocationData(object?[] Values, int OutlineRowId);
+
+    private static readonly ConditionalWeakTable<ITest, InvocationData> Invocations = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> OutlineRowCounters = new();
+
+    public static void Register(ITest test, object?[]? values)
+    {
+        if (values == null)
+            return;
+
+        var method = test.TestCase.TestMethod;
+        var outlineKey = $"{method.TestClass.Class.Name}.{method.Method.Name}";
+        var rowId = OutlineRowCounters.AddOrUpdate(outlineKey, 0, (_, current) => current + 1);
+
+        Invocations.Remove(test);
+        Invocations.Add(test, new InvocationData(values.ToArray(), rowId));
+    }
+
+    public static object?[]? GetArguments(ITest test)
+    {
+        return Invocations.TryGetValue(test, out var invocation) ? invocation.Values : null;
+    }
+
+    public static int? GetOutlineRowId(ITest test)
+    {
+        return Invocations.TryGetValue(test, out var invocation) ? invocation.OutlineRowId : null;
+    }
+}
 
 /// <summary>
 /// Custom theory test case that groups examples in Test Explorer while 
@@ -88,6 +120,32 @@ internal class LiveDocTheoryTestCaseRunner : XunitTheoryTestCaseRunner
             beforeAfterAttributes,
             aggregator,
             cancellationTokenSource);
+    }
+}
+
+/// <summary>
+/// Custom test case that resolves Rule titles against the owning method.
+/// </summary>
+public class LiveDocRuleTestCase : XunitTestCase
+{
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("Called by the deserializer; should only be called by deriving classes for de-serialization purposes")]
+    public LiveDocRuleTestCase() { }
+
+    public LiveDocRuleTestCase(
+        IMessageSink diagnosticMessageSink,
+        TestMethodDisplay defaultMethodDisplay,
+        TestMethodDisplayOptions defaultMethodDisplayOptions,
+        ITestMethod testMethod)
+        : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod)
+    {
+    }
+
+    protected override string GetDisplayName(IAttributeInfo factAttribute, string displayName)
+    {
+        var method = TestMethod.Method.ToRuntimeMethod();
+        var rule = method.GetCustomAttribute<RuleAttribute>();
+        return "Rule: " + (rule?.GetDisplayName(method) ?? method.Name.Replace('_', ' '));
     }
 }
 
@@ -302,6 +360,7 @@ internal class LiveDocTestRunner : XunitTestRunner
         : base(test, messageBus, testClass, constructorArguments, testMethod, testMethodArguments, skipReason, beforeAfterAttributes, aggregator, cancellationTokenSource)
     {
         _testMethodArguments = testMethodArguments;
+        LiveDocTestInvocationRegistry.Register(test, testMethodArguments);
     }
 
     protected override Task<decimal> InvokeTestMethodAsync(ExceptionAggregator aggregator)
@@ -327,6 +386,7 @@ internal class LiveDocTestInvoker : XunitTestInvoker
 {
     private readonly object?[]? _testMethodArguments;
     private readonly MethodInfo _testMethodInfo;
+    private readonly int? _outlineRowId;
 
     public LiveDocTestInvoker(
         ITest test,
@@ -342,6 +402,7 @@ internal class LiveDocTestInvoker : XunitTestInvoker
     {
         _testMethodArguments = testMethodArguments;
         _testMethodInfo = testMethod;
+        _outlineRowId = LiveDocTestInvocationRegistry.GetOutlineRowId(test);
     }
 
     protected override object CreateTestClass()
@@ -350,7 +411,7 @@ internal class LiveDocTestInvoker : XunitTestInvoker
         // This allows EnsureContext() to pick it up during construction or first step
         if (_testMethodArguments != null && _testMethodArguments.Length > 0)
         {
-            LiveDocExampleDataAttribute.SetCurrentTestData(_testMethodInfo, _testMethodArguments);
+            LiveDocExampleDataAttribute.SetCurrentTestData(_testMethodInfo, _testMethodArguments, _outlineRowId);
         }
         
         var testClassInstance = base.CreateTestClass();
@@ -364,8 +425,7 @@ internal class LiveDocTestInvoker : XunitTestInvoker
             _testMethodArguments != null && 
             _testMethodArguments.Length > 0)
         {
-            var args = _testMethodArguments.Select(a => a ?? DBNull.Value).ToArray();
-            specTest.SetExampleDataInternal(_testMethodInfo, args);
+            specTest.SetExampleDataInternal(_testMethodInfo, _testMethodArguments);
         }
         
         return testClassInstance;

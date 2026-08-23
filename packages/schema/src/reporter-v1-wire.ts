@@ -72,6 +72,61 @@ export const V1StatisticsSchema = z.object({
   skipped: z.number().int().nonnegative(),
 });
 
+export const V1CoverageMetricNameSchema = z.enum(['lines', 'branches', 'functions', 'statements']);
+
+export const V1CoverageMetricSchema = z.object({
+  covered: z.number().nonnegative(),
+  total: z.number().nonnegative(),
+  skipped: z.number().nonnegative().optional(),
+  pct: z.number().min(0).max(100).nullable(),
+});
+
+export const V1CoverageSummarySchema = z.object({
+  lines: V1CoverageMetricSchema.optional(),
+  branches: V1CoverageMetricSchema.optional(),
+  functions: V1CoverageMetricSchema.optional(),
+  statements: V1CoverageMetricSchema.optional(),
+});
+
+export const V1CoverageProvenanceSchema = z.object({
+  tool: z.string().optional(),
+  format: z.string(),
+  path: z.string().optional(),
+  detected: z.enum(['auto', 'configured']),
+  generatedAt: z.string().optional(),
+});
+
+export const V1CoverageFileSchema = z.object({
+  path: z.string(),
+  module: z.string().optional(),
+  summary: V1CoverageSummarySchema,
+  detailRef: z.string().optional(),
+});
+
+export const V1CoverageDiagnosticSchema = z.object({
+  severity: z.enum(['info', 'warning', 'error']),
+  code: z.string(),
+  message: z.string(),
+  path: z.string().optional(),
+  details: z.array(z.string()).optional(),
+});
+
+export const V1CoverageThresholdSchema = z.object({
+  metric: V1CoverageMetricNameSchema,
+  minimum: z.number().min(0).max(100),
+  actual: z.number().min(0).max(100).nullable(),
+  status: z.enum(['passed', 'warning']),
+});
+
+export const V1CoverageReportSchema = z.object({
+  status: z.enum(['available', 'not-collected', 'partial', 'invalid']),
+  summary: V1CoverageSummarySchema.optional(),
+  files: z.array(V1CoverageFileSchema).optional(),
+  diagnostics: z.array(V1CoverageDiagnosticSchema).optional(),
+  provenance: V1CoverageProvenanceSchema.optional(),
+  thresholds: z.array(V1CoverageThresholdSchema).optional(),
+});
+
 export const V1BaseTestSchema = z.object({
   id: z.string(),
   kind: z.string(),
@@ -145,10 +200,13 @@ export const V1TestCaseSchema = z.object({
 });
 
 export const V1FrameworkSchema = z.string();
+export const V1RunTypeSchema = z.enum(['full', 'partial']);
 
 export const V1TestRunSchema = z.object({
   protocolVersion: z.literal('1.0'),
   runId: z.string(),
+  runType: V1RunTypeSchema.optional(),
+  baselineRunId: z.string().optional(),
   project: z.string(),
   environment: z.string(),
   framework: V1FrameworkSchema,
@@ -157,6 +215,7 @@ export const V1TestRunSchema = z.object({
   status: V1StatusSchema,
   summary: V1StatisticsSchema,
   documents: z.array(V1TestCaseSchema),
+  coverage: V1CoverageReportSchema.optional(),
 });
 
 // =============================================================================
@@ -168,6 +227,7 @@ export const V1StartRunRequestSchema = z.object({
   environment: z.string(),
   framework: z.string(),
   timestamp: z.string().optional(),
+  runType: V1RunTypeSchema.optional(),
 });
 
 export const V1StartRunResponseSchema = z.object({
@@ -186,6 +246,7 @@ export const V1UpsertTestCasesBatchRequestSchema = z.object({
     status: V1StatusSchema,
     duration: z.number().nonnegative(),
     summary: V1StatisticsSchema.optional(),
+    coverage: V1CoverageReportSchema.optional(),
   }).optional(),
 });
 
@@ -222,6 +283,11 @@ export const V1CompleteRunRequestSchema = z.object({
   status: V1StatusSchema,
   duration: z.number().nonnegative(),
   summary: V1StatisticsSchema.optional(),
+  coverage: V1CoverageReportSchema.optional(),
+});
+
+export const V1AttachCoverageRequestSchema = z.object({
+  coverage: V1CoverageReportSchema,
 });
 
 // =============================================================================
@@ -231,6 +297,8 @@ export const V1CompleteRunRequestSchema = z.object({
 export const V1WsRunStartedSchema = z.object({
   type: z.literal('run:v1:started'),
   runId: z.string(),
+  runType: V1RunTypeSchema.optional(),
+  baselineRunId: z.string().optional(),
   project: z.string(),
   environment: z.string(),
   framework: z.string(),
@@ -270,6 +338,13 @@ export const V1WsRunCompletedSchema = z.object({
   status: V1StatusSchema,
   duration: z.number().nonnegative(),
   summary: V1StatisticsSchema,
+  coverage: V1CoverageReportSchema.optional(),
+});
+
+export const V1WsRunCoverageSchema = z.object({
+  type: z.literal('run:v1:coverage'),
+  runId: z.string(),
+  coverage: V1CoverageReportSchema,
 });
 
 export const V1WebSocketEventSchema = z.union([
@@ -279,6 +354,7 @@ export const V1WebSocketEventSchema = z.union([
   V1WsTestExecutionSchema,
   V1WsOutlineExampleResultsSchema,
   V1WsRunCompletedSchema,
+  V1WsRunCoverageSchema,
 ]);
 
 export type V1WebSocketEvent = z.infer<typeof V1WebSocketEventSchema>;
@@ -291,3 +367,4 @@ export type V1UpsertScenarioStepsRequest = z.infer<typeof V1UpsertScenarioStepsR
 export type V1PatchExecutionRequest = z.infer<typeof V1PatchExecutionRequestSchema>;
 export type V1UpsertOutlineExampleResultsRequest = z.infer<typeof V1UpsertOutlineExampleResultsRequestSchema>;
 export type V1CompleteRunRequest = z.infer<typeof V1CompleteRunRequestSchema>;
+export type V1AttachCoverageRequest = z.infer<typeof V1AttachCoverageRequestSchema>;

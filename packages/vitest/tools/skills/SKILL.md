@@ -1,7 +1,7 @@
 ---
 name: livedoc-vitest
 description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the @swedevtools/livedoc-vitest framework. Generates self-documenting TypeScript specs with correct API usage, value extraction, and living documentation patterns.
-sdk_version: 0.2.0-beta.1
+sdk_version: 0.2.0-beta.2
 ---
 
 # LiveDoc Vitest Test Author
@@ -10,20 +10,22 @@ sdk_version: 0.2.0-beta.1
 
 ## Version Check
 
-This skill targets **@swedevtools/livedoc-vitest v0.2.0-beta.1**. Before writing tests, verify the installed version matches:
+This skill targets **@swedevtools/livedoc-vitest v0.2.0-beta.2**. Before writing tests, verify the installed version matches:
 
 ```bash
 npm ls @swedevtools/livedoc-vitest   # or: pnpm ls @swedevtools/livedoc-vitest
 ```
 
-If the installed version differs from `0.2.0-beta.1`, tell the developer: *"Your LiveDoc skill files target v0.2.0-beta.1 but you have vX.Y.Z installed. Run `npx livedoc-vitest-setup` to update the skill files, or check the changelog for breaking changes."*
+If the installed version differs from `0.2.0-beta.2`, tell the developer: *"Your LiveDoc skill files target v0.2.0-beta.2 but you have vX.Y.Z installed. Run `npx livedoc-vitest-setup` to update the skill files, or check the changelog for breaking changes."*
 
 ## Use this skill when
 - Creating or modifying `.Spec.ts` test files using `@swedevtools/livedoc-vitest`
 - Writing BDD `feature`/`scenario` tests → **read `resources/bdd-features.md`**
 - Writing MSpec `specification`/`rule` tests → **read `resources/specifications.md`**
-- Writing browser-based Playwright tests → **read `resources/playwright.md`**
+- Writing browser-based Playwright tests → **read `resources/web-testing.md` and `resources/playwright.md`**
+- Running tag-scoped incremental tests that patch the Viewer → **read `resources/partial-testing.md`**
 - Configuring reporters or static HTML export → **read `resources/reporter-config.md`**
+- Configuring Vitest coverage for LiveDoc Viewer → **read `resources/reporter-config.md`**
 - Debugging or fixing any LiveDoc Vitest test failures
 
 ## Do not use this skill when
@@ -31,6 +33,33 @@ If the installed version differs from `0.2.0-beta.1`, tell the developer: *"Your
 - Working on non-test TypeScript code (application logic, UI components, build scripts)
 - Writing plain Vitest tests without LiveDoc BDD/Specification patterns
 - Working on the viewer, VS Code extension, or server packages (unless writing their specs)
+
+---
+
+## Inputs
+
+- Behavior claim or defect to protect
+- Relevant production code and existing tests
+- Observable boundary: pure code, component, HTTP, browser, process, filesystem, or source tree
+- Vitest configuration and installed package versions
+
+## Outputs
+
+- The smallest trustworthy LiveDoc test, or a recommendation to use a native specialist test
+- Self-documenting titles with values extracted through LiveDoc context APIs
+- Focused validation evidence, including isolated execution and false-green checks
+
+## Workflow
+
+1. Read `resources/test-strategy.md` and apply the two-question litmus.
+2. Choose the lowest trustworthy boundary and an independent oracle.
+3. Select Feature or Specification based on audience and journey shape.
+4. For web claims, read `resources/web-testing.md`; do not use class names as appearance proxies.
+5. Implement one reported row per independent claim using the matching syntax resource.
+6. Review `resources/anti-patterns.md`.
+7. For incremental validation, read `resources/partial-testing.md` and prefer affected tags over file or title filters.
+8. Run the focused test alone, then its normal suite.
+9. Apply the false-green validation gate.
 
 ---
 
@@ -112,7 +141,8 @@ when("navigating to the homepage", async (ctx) => {
 });
 ```
 
-→ **Read `resources/playwright.md`** for `useBrowser` options, `screenshot` API, lifecycle management, and troubleshooting.
+→ **Read `resources/web-testing.md`** to choose jsdom or a real browser, then
+**read `resources/playwright.md`** for `useBrowser`, screenshots, lifecycle, and troubleshooting.
 
 ---
 
@@ -217,22 +247,44 @@ pnpm --filter @swedevtools/livedoc-vitest test          # Run all specs
 pnpm --filter @swedevtools/livedoc-vitest test MyFeature.Spec.ts
 ```
 
+### Tag-Scoped Partial Runs
+
+After publishing a full baseline, use tags with `LIVEDOC_RUN_TYPE=partial` so
+focused validation patches the Viewer without replacing unaffected results.
+Read `resources/partial-testing.md` for the setup convention and commands.
+
 ---
 
-## Routing Examples
+## Validation
 
-### Positive (USE this skill)
+- [ ] The test passes the two-question litmus.
+- [ ] The instrument can observe the behavior named in the title.
+- [ ] The intended test was collected and executed.
+- [ ] Values are visible in titles and extracted from context.
+- [ ] Expected results are independent of production logic.
+- [ ] The test passes alone and in its normal suite.
+- [ ] Incremental validation uses the smallest affected tag set and publishes as `partial`.
+- [ ] Critical behavior has been observed failing for the intended defect.
+- [ ] Attachments contain no secrets and supplement assertions.
+
+## Examples
+
+### Positive routing examples
 - "Create a BDD test for shipping costs" → Read `resources/bdd-features.md`, write feature/scenario
 - "Add data-driven tests for tax" → Read `resources/bdd-features.md`, use scenarioOutline
 - "Write spec tests for email validator" → Read `resources/specifications.md`, write specification/rule
-- "Write a Playwright test for the login page" → Read `resources/playwright.md`, use useBrowser
+- "Write a Playwright test for the login page" → Read `resources/web-testing.md` and `resources/playwright.md`
+- "Verify a responsive touch target" → Use a real browser and measure geometry
 - "Configure LiveDoc reporter output" → Read `resources/reporter-config.md`
+- "Configure LiveDoc coverage" → Read `resources/reporter-config.md`; install the provider matching the Vitest version
 - "Generate static HTML test report" → Read `resources/reporter-config.md`
+- "Validate changed checkout behavior incrementally" → Read `resources/partial-testing.md`; run affected tags as a partial
 
-### Negative (DO NOT use this skill)
+### Negative routing examples
 - "Create a C# test for shipping" → Use `livedoc-xunit` skill
 - "Build a React component" → Use `frontend-design` skill
 - "Write a plain vitest test" → No LiveDoc skill needed
+- "Convert every low-level test to LiveDoc" → Decline; curate only behavior with lasting documentation value
 - "Install AI skills for the team" → Run `npx livedoc-vitest-setup`
 
 ## Failure Handling
@@ -241,4 +293,6 @@ pnpm --filter @swedevtools/livedoc-vitest test MyFeature.Spec.ts
 - `ctx.example` undefined → ensure inside `scenarioOutline`/`ruleOutline`, not plain `scenario`/`rule`
 - Async hangs → ensure `async` only on step/rule callbacks, not on `feature`/`scenario`
 - Playwright `page()` throws → `useBrowser()` must be at module scope; `page()` called inside steps
+- Partial run replaces the full Viewer picture → ensure `LIVEDOC_RUN_TYPE=partial` and a full baseline already exists
+- Tag filter selects nothing → verify the setup file reads `LIVEDOC_TAGS` and normalizes the `@` prefix
 - Reporter issues → Read `resources/reporter-config.md`

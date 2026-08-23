@@ -27,6 +27,19 @@ LiveDoc brings Behavior-Driven Development to Vitest with full Gherkin syntax â€
 npm install --save-dev vitest @swedevtools/livedoc-vitest
 ```
 
+### Fastest Setup: Point Your AI at the Bootstrap URL
+
+Tell your assistant:
+
+> Read https://livedoc.swedevtools.com/ai/setup.md and configure this Vitest
+> project for LiveDoc, Viewer publishing, V8 coverage, and a first `.Spec.ts`.
+
+No LiveDoc package or skill needs to be installed first.
+[AI project setup â†’](https://livedoc.swedevtools.com/guides/ai-project-setup)
+
+After setup, `npx livedoc-vitest-setup` optionally installs reusable guidance for
+future AI sessions.
+
 ### Create a spec
 
 ```ts
@@ -79,6 +92,55 @@ export default defineConfig({
 ```bash
 npx vitest run
 ```
+
+### Publish a focused partial run
+
+After publishing one full baseline, mark an isolated development run as partial so the Viewer keeps the complete latest-known picture:
+
+```bash
+LIVEDOC_RUN_TYPE=partial npx vitest run features/Login.Spec.ts
+```
+
+You can also set `publish.runType` or `LiveDocViewerReporter({ runType: 'partial' })` in configuration. Partial runs require a running LiveDoc server and a completed full baseline for the same project and environment. Direct JSON/static partial export is not supported; release and production exports should use a full run.
+
+### Add coverage evidence
+
+LiveDoc can attach Vitest coverage as optional run evidence. It does not change the test run status; threshold misses appear as warnings in the viewer.
+
+Install the V8 provider on the same version as Vitest:
+
+```bash
+npm install --save-dev @vitest/coverage-v8
+```
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        coverage: { enabled: true, thresholds: { lines: 80 } },
+      }),
+    ],
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+    },
+  },
+});
+```
+
+```bash
+npx vitest run --coverage
+```
+
+LiveDoc consumes Vitest's in-memory coverage map before the run is published. It also auto-detects `coverage/coverage-summary.json` and `coverage/lcov.info` as fallbacks. For custom artifact paths, set `coverage.artifactPath` in the reporter or use `LIVEDOC_COVERAGE_PATH`.
+
+See the [Code Coverage guide](https://livedoc.swedevtools.com/viewer/guides/code-coverage) for provider choices, thresholds, troubleshooting, and the Viewer module hierarchy.
 
 ---
 

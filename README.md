@@ -9,6 +9,17 @@ A **Living Documentation** platform that brings Gherkin-style BDD syntax to mode
 
 📖 **[Full Documentation →](https://livedoc.swedevtools.com/)** · 🔬 **[Live Test Results →](https://dotnetprofessional.github.io/LiveDoc/)**
 
+## Fastest Setup — Point Your AI at One URL
+
+Tell your AI coding assistant:
+
+> Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
+> for LiveDoc. Preserve existing configuration and include the Viewer and full
+> code coverage.
+
+No LiveDoc package or skill needs to be installed first.
+[AI project setup guide →](https://livedoc.swedevtools.com/guides/ai-project-setup)
+
 ## Packages
 
 | Package | Description | Status |

@@ -59,6 +59,33 @@ runner, IDE integrations, and CI pipelines all work unchanged.
 
 ---
 
+## Choose Your Setup Path
+
+### AI-Assisted Setup (Recommended)
+
+If you use GitHub Copilot, Claude Code, Cursor, Roo Code, or Windsurf, give the
+assistant this prompt. LiveDoc does not need to be installed yet:
+
+> Read https://livedoc.swedevtools.com/ai/setup.md and configure this xUnit
+> project for LiveDoc with Viewer publishing and full Microsoft Code Coverage
+> including branch data. Preserve existing runsettings.
+
+The bootstrap page teaches the assistant which packages to install, the correct base classes and attributes,
+self-documenting value extraction, Viewer configuration, coverage collector
+choice, dependencies, diagnostics, and validation commands. Review the changes,
+then continue to [Step 4](#step-4-run-it-) to run the suite.
+
+**[See the AI project setup workflow →](../../guides/ai-project-setup.mdx)**
+
+After setup, optionally install the reusable xUnit skill with
+`dotnet msbuild -t:LiveDocInstallSkills` for future AI authoring sessions.
+
+### Manual Setup
+
+Continue with Step 3 to create the test yourself.
+
+---
+
 ## Step 3: Write Your First Test
 
 Replace the generated `UnitTest1.cs` with a file called `CalculatorTests.cs`:

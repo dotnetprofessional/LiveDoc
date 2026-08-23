@@ -96,21 +96,11 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
         Directory.CreateDirectory(outputDirectory);
         var exportPath = Path.Combine(outputDirectory, "livedoc-report.json");
 
-        var startInfo = new ProcessStartInfo("dotnet")
-        {
-            WorkingDirectory = Path.GetDirectoryName(projectPath)!,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false
-        };
-        startInfo.ArgumentList.Add("test");
-        startInfo.ArgumentList.Add(projectPath);
+        var startInfo = IsolatedTestProcess.Create(projectPath, exportPath);
         startInfo.ArgumentList.Add("--logger");
         startInfo.ArgumentList.Add("LiveDoc");
-        startInfo.Environment["LIVEDOC_EXPORT_PATH"] = exportPath;
         if (setProjectEnvironmentVariable)
             startInfo.Environment["LIVEDOC_PROJECT"] = "xunit-metadata-probe";
-        startInfo.Environment["LIVEDOC_SERVER_URL"] = "";
 
         using var process = Process.Start(startInfo)!;
         var stdoutTask = process.StandardOutput.ReadToEndAsync();

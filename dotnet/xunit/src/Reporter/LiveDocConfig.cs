@@ -1,4 +1,5 @@
 using System.Reflection;
+using SweDevTools.LiveDoc.xUnit.Reporter.Models;
 
 namespace SweDevTools.LiveDoc.xUnit.Reporter;
 
@@ -31,10 +32,30 @@ public class LiveDocConfig
     public const string EnvironmentEnvVar = "LIVEDOC_ENVIRONMENT";
 
     /// <summary>
+    /// Environment variable name for the run type ("full" or "partial").
+    /// </summary>
+    public const string RunTypeEnvVar = "LIVEDOC_RUN_TYPE";
+
+    /// <summary>
     /// Environment variable name for the JSON export file path.
     /// When set, the reporter writes a TestRunV1 JSON file after the test run completes.
     /// </summary>
     public const string ExportPathEnvVar = "LIVEDOC_EXPORT_PATH";
+
+    /// <summary>
+    /// Environment variable that explicitly enables LiveDoc coverage ingestion.
+    /// </summary>
+    public const string CoverageEnvVar = "LIVEDOC_COVERAGE";
+
+    /// <summary>
+    /// Environment variable for an explicit coverage artifact path.
+    /// </summary>
+    public const string CoveragePathEnvVar = "LIVEDOC_COVERAGE_PATH";
+
+    /// <summary>
+    /// Environment variable for the invocation-scoped run metadata directory used by post-run tools.
+    /// </summary>
+    public const string RunMetadataDirEnvVar = "LIVEDOC_RUN_METADATA_DIR";
 
     /// <summary>
     /// Assembly metadata key used to configure a stable LiveDoc project name.
@@ -94,12 +115,42 @@ public class LiveDocConfig
     private readonly string _environment;
 
     /// <summary>
+    /// Whether this invocation reports the full inventory or a focused subset.
+    /// </summary>
+    public RunType RunType => _readEnvironment
+        ? ParseRunType(GetEnvironmentValue(RunTypeEnvVar), _runType)
+        : _runType;
+    private readonly RunType _runType;
+
+    /// <summary>
     /// The file path for JSON export. Null if export is disabled.
     /// </summary>
     public string? ExportPath => _readEnvironment
         ? GetEnvironmentValue(ExportPathEnvVar) ?? _exportPath
         : _exportPath;
     private readonly string? _exportPath;
+
+    /// <summary>
+    /// Whether coverage ingestion was explicitly enabled.
+    /// </summary>
+    public bool CoverageEnabled => _readEnvironment
+        ? ParseBoolean(GetEnvironmentValue(CoverageEnvVar)) ?? _coverageEnabled
+        : _coverageEnabled;
+    private readonly bool _coverageEnabled;
+
+    /// <summary>
+    /// Optional explicit coverage artifact path.
+    /// </summary>
+    public string? CoveragePath => _readEnvironment
+        ? GetEnvironmentValue(CoveragePathEnvVar) ?? _coveragePath
+        : _coveragePath;
+    private readonly string? _coveragePath;
+
+    /// <summary>
+    /// Optional directory for run metadata consumed by post-run VSTest loggers.
+    /// </summary>
+    internal string? RunMetadataDir => ResolveRunMetadataDir();
+    private readonly string? _runMetadataDir;
 
     /// <summary>
     /// Whether reporting is enabled (ServerUrl is set).
@@ -115,18 +166,32 @@ public class LiveDocConfig
         _readEnvironment = true;
         _defaultProject = defaultProject;
         _environment = "local";
+        _runType = RunType.Full;
+        _coverageEnabled = false;
     }
 
     /// <summary>
     /// Creates a configuration with explicit values (for testing).
     /// </summary>
-    public LiveDocConfig(string serverUrl, string project, string environment, string? exportPath = null)
+    public LiveDocConfig(
+        string serverUrl,
+        string project,
+        string environment,
+        string? exportPath = null,
+        bool coverageEnabled = false,
+        string? coveragePath = null,
+        string? runMetadataDir = null,
+        RunType runType = RunType.Full)
     {
         _readEnvironment = false;
         _serverUrl = serverUrl;
         _project = project;
         _environment = environment;
+        _runType = runType;
         _exportPath = exportPath;
+        _coverageEnabled = coverageEnabled;
+        _coveragePath = coveragePath;
+        _runMetadataDir = runMetadataDir;
     }
 
     /// <summary>
@@ -155,8 +220,7 @@ public class LiveDocConfig
         var envUrl = GetEnvironmentValue(ServerUrlEnvVar);
         if (envUrl != null)
         {
-            _serverUrl = envUrl;
-            return _serverUrl;
+            return envUrl;
         }
 
         if (!string.IsNullOrEmpty(_serverUrl))
@@ -245,10 +309,93 @@ public class LiveDocConfig
         _project = null;
     }
 
+    internal static string DefaultRunMetadataRoot()
+    {
+        return Path.Combine(Path.GetTempPath(), "livedoc-xunit", "run-metadata");
+    }
+
+    internal static bool IsVisualStudioCoverageCollectorActive()
+    {
+        var profilingEnabled =
+            string.Equals(System.Environment.GetEnvironmentVariable("COR_ENABLE_PROFILING"), "1", StringComparison.Ordinal) ||
+            string.Equals(System.Environment.GetEnvironmentVariable("CORECLR_ENABLE_PROFILING"), "1", StringComparison.Ordinal);
+        if (!profilingEnabled)
+            return false;
+
+        var profilerDetails = string.Join(
+            " ",
+            new[]
+            {
+                System.Environment.GetEnvironmentVariable("COR_PROFILER"),
+                System.Environment.GetEnvironmentVariable("CORECLR_PROFILER"),
+                System.Environment.GetEnvironmentVariable("COR_PROFILER_PATH"),
+                System.Environment.GetEnvironmentVariable("CORECLR_PROFILER_PATH")
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        return string.IsNullOrWhiteSpace(profilerDetails) ||
+               profilerDetails.Contains("coverage", StringComparison.OrdinalIgnoreCase) ||
+               profilerDetails.Contains("324F817A-7420-4E6D-B3C1-143FBED6D855", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string? ResolveRunMetadataDir()
+    {
+        var configured = ExpandPath(GetEnvironmentValue(RunMetadataDirEnvVar) ?? _runMetadataDir);
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured;
+
+        return IsVisualStudioCoverageCollectorActive()
+            ? Path.Combine(DefaultRunMetadataRoot(), SanitizePathSegment(Project))
+            : null;
+    }
+
+    private static string SanitizePathSegment(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = value
+            .Select(ch => invalid.Contains(ch) ? '_' : ch)
+            .ToArray();
+        var sanitized = new string(chars).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "Unknown" : sanitized;
+    }
+
     private static string? GetEnvironmentValue(string name)
     {
         var value = System.Environment.GetEnvironmentVariable(name);
         return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static string? ExpandPath(string? path)
+    {
+        return string.IsNullOrWhiteSpace(path)
+            ? null
+            : System.Environment.ExpandEnvironmentVariables(path);
+    }
+
+    private static bool? ParseBoolean(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "1" or "true" or "yes" or "on" => true,
+            "0" or "false" or "no" or "off" => false,
+            _ => null
+        };
+    }
+
+    private static RunType ParseRunType(string? value, RunType fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return fallback;
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "full" => RunType.Full,
+            "partial" => RunType.Partial,
+            _ => throw new InvalidOperationException(
+                $"Invalid {RunTypeEnvVar} value '{value}'. Expected 'full' or 'partial'.")
+        };
     }
 
     private static string? ResolveProjectNameFromMetadata(AssemblyName assemblyName)

@@ -55,9 +55,10 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Guides',
       items: [
+        { type: 'link', label: 'Set Up a Project with AI', href: '/guides/ai-project-setup' },
+        'vitest/guides/ai-skill-setup',
         'vitest/guides/setup-imports',
         'vitest/guides/setup-globals',
-        'vitest/guides/ai-skill-setup',
         'vitest/guides/tags-and-filtering',
         'vitest/guides/custom-reporters',
         'vitest/guides/viewer-integration',
@@ -107,9 +108,10 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Guides',
       items: [
+        { type: 'link', label: 'Set Up a Project with AI', href: '/guides/ai-project-setup' },
+        'xunit/guides/ai-skill-setup',
         'xunit/guides/journey-testing',
         'xunit/guides/viewer-integration',
-        'xunit/guides/ai-skill-setup',
         'xunit/guides/debugging',
         'xunit/guides/ci-cd',
         'xunit/guides/best-practices',
@@ -140,6 +142,8 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Guides',
       items: [
+        { type: 'link', label: 'Set Up a Project with AI', href: '/guides/ai-project-setup' },
+        'viewer/guides/code-coverage',
         'viewer/guides/ci-cd-dashboards',
         'viewer/guides/multi-project-setup',
         'viewer/guides/static-export',

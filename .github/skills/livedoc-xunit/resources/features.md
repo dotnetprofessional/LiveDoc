@@ -428,9 +428,18 @@ public class CheckoutTests : FeatureTest
 | `LiveDocParamNotFoundException` | `Params["x"]` for non-existent parameter      | Check `<name:value>` syntax in title         |
 | `ctx.Step` is `null`          | Using `Action` overload instead of `Action<LiveDocContext>` | Use the `ctx =>` lambda overload  |
 | Test not in Test Explorer     | Missing `[Scenario]` attribute                  | Add `[Scenario]` — it inherits from `[Fact]` |
-| Placeholder not replaced      | `<Param>` doesn't match method parameter name   | Match case exactly in step title             |
+| Placeholder not replaced      | `<Param>` doesn't match method parameter name   | Matching is case-insensitive; check spelling |
 
 All exceptions include the step title and available values/params for easy debugging.
+
+---
+
+## Attachments and Evidence
+
+Feature scenarios can call `Attach`, `AttachScreenshot`, `AttachFile`, or
+`AttachJson` after asserting the behavior. Read `resources/evidence.md` for the
+supported APIs and redaction rules. Evidence supplements an assertion; it never
+replaces one.
 
 ---
 
@@ -441,7 +450,6 @@ All exceptions include the step title and available values/params for easy debug
 | Data Tables     | Use method parameters or constructor injection |
 | Doc Strings     | Use normal string variables                 |
 | Background      | Use class constructor or `IClassFixture<T>` |
-| Tags/filtering  | Coming in future release                    |
 
 ---
 
@@ -454,6 +462,7 @@ All exceptions include the step title and available values/params for easy debug
 - [ ] All test data appears in step title strings (self-documenting)
 - [ ] Values extracted via `ctx.Step!.Values` or `ctx.Step!.Params`, never hardcoded
 - [ ] `[Example]` parameter count matches method parameter count
-- [ ] `<Placeholder>` names in step titles match method parameter names exactly
+- [ ] `<Placeholder>` names in step titles match method parameter names (case-insensitive)
 - [ ] Async steps use `await` and the method returns `async Task`
+- [ ] Attachments are redacted and support an explicit assertion
 - [ ] Tests pass: `dotnet test`

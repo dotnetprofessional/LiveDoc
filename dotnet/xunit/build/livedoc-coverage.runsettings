@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector
+        friendlyName="LiveDocCoverage"
+        uri="datacollector://swedevtools/livedoc/coverage"
+        enabled="True" />
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

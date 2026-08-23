@@ -434,6 +434,15 @@ All exceptions include the step title and available values/params for easy debug
 
 ---
 
+## Attachments and Evidence
+
+Feature scenarios can call `Attach`, `AttachScreenshot`, `AttachFile`, or
+`AttachJson` after asserting the behavior. Read `resources/evidence.md` for the
+supported APIs and redaction rules. Evidence supplements an assertion; it never
+replaces one.
+
+---
+
 ## Features NOT Supported (by design)
 
 | Gherkin Feature | C# Alternative                              |
@@ -455,4 +464,5 @@ All exceptions include the step title and available values/params for easy debug
 - [ ] `[Example]` parameter count matches method parameter count
 - [ ] `<Placeholder>` names in step titles match method parameter names (case-insensitive)
 - [ ] Async steps use `await` and the method returns `async Task`
+- [ ] Attachments are redacted and support an explicit assertion
 - [ ] Tests pass: `dotnet test`

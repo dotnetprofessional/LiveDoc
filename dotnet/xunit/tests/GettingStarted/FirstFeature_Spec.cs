@@ -1,4 +1,3 @@
-using SweDevTools.LiveDoc.xUnit;
 using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.GettingStarted;
@@ -22,10 +21,10 @@ public class FirstFeature_Spec : FeatureTest
             freeShippingThreshold = ctx.Step!.Values[0].AsDecimal();
         });
 
-        When("the customer order total is '100.00' dollars", ctx =>
+        When("the customer order total is '101.00' dollars", ctx =>
         {
             orderTotal = ctx.Step!.Values[0].AsDecimal();
-            shippingRate = orderTotal >= freeShippingThreshold ? "Free" : "Standard";
+            shippingRate = orderTotal == freeShippingThreshold ? "Free" : "Standard";
         });
 
         Then("the shipping rate is 'Free'", ctx =>

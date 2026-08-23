@@ -16,10 +16,17 @@ function makeStep(id: string, keyword: string, title: string, status = "passed",
     };
 }
 
-function makeScenario(id: string, title: string, steps: any[], status = "passed", duration = 50) {
+function makeScenario(
+    id: string,
+    title: string,
+    steps: any[],
+    status = "passed",
+    duration = 50,
+    error?: { message: string; stack?: string }
+) {
     return {
         id, kind: "Scenario", title, steps,
-        execution: { status, duration },
+        execution: { status, duration, ...(error ? { error } : {}) },
     };
 }
 
@@ -195,7 +202,7 @@ feature(`V1 API — Run Lifecycle
                     makeStep("sc-2:step0", "given", "a registered user"),
                     makeStep("sc-2:step1", "when", "they enter wrong password"),
                     makeStep("sc-2:step2", "then", "an error is shown", "failed", 30),
-                ], "failed", 60),
+                ], "failed", 60, { message: "Invalid credentials" }),
             ]);
 
             upsertResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/testcases`, {
@@ -228,6 +235,10 @@ feature(`V1 API — Run Lifecycle
             expect(steps[0].keyword).toBe("given");
             expect(steps[0].execution.status).toBe("passed");
             expect(steps[2].keyword).toBe("then");
+        });
+
+        and("the failed scenario preserves error message 'Invalid credentials'", (ctx) => {
+            expect(run.documents[0].tests[1].execution.error.message).toBe(ctx.step.values[0]);
         });
     });
 
@@ -279,6 +290,266 @@ feature(`V1 API — Run Lifecycle
 
         and("the documents should still contain '1' test", (ctx) => {
             expect(run.documents[0].tests).toHaveLength(ctx.step.values[0]);
+        });
+    });
+
+    // ------------------------------------------------------------------
+    scenario("Completing a V1 run with coverage stores threshold warnings without failing the run", () => {
+        let runId: string;
+        let run: any;
+
+        given("a V1 run exists for project 'CoverageProject'", async (ctx) => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ project: ctx.step.values[0], environment: "local", framework: "vitest" }),
+            });
+            runId = (await res.json()).runId;
+        });
+
+        when("completing the run with line coverage '75' below threshold '80'", async (ctx) => {
+            const [actual, threshold] = ctx.step.values;
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/complete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    status: "passed",
+                    duration: 123,
+                    summary: { total: 1, passed: 1, failed: 0, pending: 0, skipped: 0 },
+                    coverage: {
+                        status: "available",
+                        summary: {
+                            lines: { covered: 75, total: 100, pct: actual },
+                        },
+                        files: [{
+                            path: "src/calculator.ts",
+                            summary: {
+                                lines: { covered: 75, total: 100, pct: actual },
+                            },
+                        }],
+                        thresholds: [{ metric: "lines", minimum: threshold, actual, status: "warning" }],
+                        diagnostics: [{
+                            severity: "warning",
+                            code: "threshold-warning",
+                            message: "lines coverage is 75.0%, below the configured 80.0% threshold.",
+                        }],
+                    },
+                }),
+            });
+        });
+
+        Then("the run status should remain 'passed'", async (ctx) => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
+            run = await res.json();
+            expect(run.status).toBe(ctx.step.values[0]);
+        });
+
+        and("the coverage line percentage should be '75'", (ctx) => {
+            expect(run.coverage.summary.lines.pct).toBe(ctx.step.values[0]);
+        });
+
+        and("the coverage threshold status should be 'warning'", (ctx) => {
+            expect(run.coverage.thresholds[0].status).toBe(ctx.step.values[0]);
+        });
+    });
+
+    // ------------------------------------------------------------------
+    scenario("Attaching post-run coverage updates an already completed V1 run", () => {
+        let runId: string;
+        let coverageResponse: Response;
+        let coverageResponseBody: any;
+        let persistedRun: any;
+        let run: any;
+
+        given("a completed V1 run exists for project 'PostRunCoverageProject'", async (ctx) => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ project: ctx.step.values[0], environment: "local", framework: "xunit" }),
+            });
+            runId = (await res.json()).runId;
+
+            await fetch(`${baseUrl}/api/v1/runs/${runId}/complete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    status: "passed",
+                    duration: 100,
+                    summary: { total: 1, passed: 1, failed: 0, pending: 0, skipped: 0 },
+                }),
+            });
+        });
+
+        when("attaching post-run line coverage '90' percent for file 'src/post-run.cs'", async (ctx) => {
+            const [linePct, filePath] = ctx.step.values;
+            coverageResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/coverage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    coverage: {
+                        status: "available",
+                        summary: {
+                            lines: { covered: 9, total: 10, pct: linePct },
+                        },
+                        files: [{
+                            path: filePath,
+                            summary: {
+                                lines: { covered: 9, total: 10, pct: linePct },
+                            },
+                        }],
+                        provenance: {
+                            tool: "dotnet-coverage",
+                            format: "visualstudio-coverage",
+                            detected: "auto",
+                        },
+                    },
+                }),
+            });
+            coverageResponseBody = await coverageResponse.json();
+            persistedRun = JSON.parse(await fs.readFile(
+                path.join(testDataDir, "PostRunCoverageProject", "local", "lastrun.json"),
+                "utf-8"
+            ));
+        });
+
+        Then("the coverage attach response status should be '200'", (ctx) => {
+            expect(coverageResponse.status).toBe(ctx.step.values[0]);
+        });
+
+        and("the response should report persistence completed 'true' after line coverage '90' is on disk", (ctx) => {
+            const [completed, linePct] = ctx.step.values;
+            expect(coverageResponseBody.persistence.completed).toBe(completed);
+            expect(persistedRun.coverage.summary.lines.pct).toBe(linePct);
+        });
+
+        and("the response should report broadcast counts matched '0', sent '0', and failed '0'", (ctx) => {
+            const [matched, sent, failed] = ctx.step.values;
+            expect(coverageResponseBody.broadcast).toEqual({ matched, sent, failed });
+        });
+
+        and("the response should report REST hydration available 'true'", (ctx) => {
+            expect(coverageResponseBody.restHydration.available).toBe(ctx.step.values[0]);
+        });
+
+        and("retrieving the run should show line coverage '90' percent", async (ctx) => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/${runId}`);
+            run = await res.json();
+            expect(run.coverage.summary.lines.pct).toBe(ctx.step.values[0]);
+        });
+
+        and("the run status should remain 'passed'", (ctx) => {
+            expect(run.status).toBe(ctx.step.values[0]);
+        });
+    });
+
+    // ------------------------------------------------------------------
+    scenario("Coverage broadcast continues after one subscribed client fails", () => {
+        let runId: string;
+        let responseBody: any;
+        let successfulSends = 0;
+        type FakeSocket = { readyState: number; send: (value: string) => void };
+        type FakeSubscription = {
+            ws: FakeSocket;
+            runIds: Set<string>;
+            projectFilters: Set<string>;
+        };
+
+        given("'2' subscribed clients where '1' client throws while sending", async (ctx) => {
+            const [clientCount] = ctx.step.values;
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ project: "BroadcastEvidenceProject", environment: "local", framework: "xunit" }),
+            });
+            runId = (await res.json()).runId;
+
+            const clients = (server.getWebSocketManager() as unknown as {
+                clients: Map<FakeSocket, FakeSubscription>;
+            }).clients;
+            const goodClient: FakeSocket = {
+                readyState: 1,
+                send: () => { successfulSends++; },
+            };
+            const badClient: FakeSocket = {
+                readyState: 1,
+                send: () => { throw new Error("simulated send failure"); },
+            };
+            for (const ws of [badClient, goodClient]) {
+                clients.set(ws, {
+                    ws,
+                    runIds: new Set([runId]),
+                    projectFilters: new Set<string>(),
+                });
+            }
+            expect(clients.size).toBe(clientCount);
+        });
+
+        when("coverage is attached while both subscribers match", async () => {
+            const clients = (server.getWebSocketManager() as unknown as {
+                clients: Map<FakeSocket, FakeSubscription>;
+            }).clients;
+            try {
+                const response = await fetch(`${baseUrl}/api/v1/runs/${runId}/coverage`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        coverage: {
+                            status: "available",
+                            summary: { lines: { covered: 1, total: 1, pct: 100 } },
+                        },
+                    }),
+                });
+                responseBody = await response.json();
+            } finally {
+                clients.clear();
+            }
+        });
+
+        Then("broadcast evidence should report matched '2', sent '1', failed '1', and successful sends '1'", (ctx) => {
+            const [matched, sent, failed, expectedSuccessfulSends] = ctx.step.values;
+            expect(responseBody.broadcast).toEqual({ matched, sent, failed });
+            expect(successfulSends).toBe(expectedSuccessfulSends);
+        });
+    });
+
+    // ------------------------------------------------------------------
+    scenario("Coverage persistence failure returns an actionable retryable response", () => {
+        let runId: string;
+        let coverageResponse: Response;
+        let responseBody: any;
+
+        given("a V1 run exists and its storage root becomes unwritable", async () => {
+            const res = await fetch(`${baseUrl}/api/v1/runs/start`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ project: "PersistenceFailureProject", environment: "local", framework: "xunit" }),
+            });
+            runId = (await res.json()).runId;
+            await server.getRunStore().flush();
+            await fs.rm(testDataDir, { recursive: true, force: true });
+            await fs.writeFile(testDataDir, "blocks directory recreation", "utf-8");
+        });
+
+        when("attaching post-run coverage after persistence becomes unavailable", async () => {
+            coverageResponse = await fetch(`${baseUrl}/api/v1/runs/${runId}/coverage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    coverage: {
+                        status: "available",
+                        summary: { lines: { covered: 1, total: 1, pct: 100 } },
+                    },
+                }),
+            });
+            responseBody = await coverageResponse.json();
+        });
+
+        Then("the response status should be '500' with code 'LD-COV-072' and retryable 'true'", (ctx) => {
+            const [status, code, retryable] = ctx.step.values;
+            expect(coverageResponse.status).toBe(status);
+            expect(responseBody.code).toBe(code);
+            expect(responseBody.retryable).toBe(retryable);
+            expect(responseBody.diagnostic).toContain(code);
         });
     });
 

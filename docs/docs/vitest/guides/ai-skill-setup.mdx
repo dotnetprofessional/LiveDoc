@@ -1,15 +1,15 @@
 ---
 sidebar_position: 2
-title: "AI Skill Setup"
-description: "Install the LiveDoc AI coding skill so your AI assistant writes correct BDD and Specification tests with proper patterns and value extraction."
+title: "Install Reusable AI Skills"
+description: "Install durable LiveDoc authoring guidance for future AI coding sessions after the project is configured."
 ---
 
-# AI Skill Setup
+# Install Reusable AI Skills
 
 <p className="intro">
-LiveDoc ships with AI coding skills that teach your AI assistant how to write
-correct BDD and Specification tests. The skill files are bundled with the npm
-package — no extra tools to install.
+This page installs durable LiveDoc authoring guidance after LiveDoc is already
+available in the project. To let an AI assistant install and configure LiveDoc
+from scratch using one URL, use [Set Up a Project with AI](../../guides/ai-project-setup.mdx).
 </p>
 
 ## One Command
@@ -92,6 +92,28 @@ Once installed, your AI assistant will:
 - **Extract values correctly** — using `ctx.step.values`, `ctx.step.params`, `ctx.step.table`, or `ctx.example`
 - **Name files properly** — using the `.Spec.ts` convention
 - **Organize folder structure** — structuring tests for clean viewer hierarchy
+- **Configure coverage** — installing the matching provider, enabling Vitest
+  and LiveDoc collection, setting thresholds, and diagnosing missing artifacts
+
+## Ask AI to Configure Coverage
+
+The installed skill can configure a project from a prompt such as:
+
+> Configure this LiveDoc Vitest project for line, branch, function, and statement
+> coverage in the Viewer using the V8 provider.
+
+The assistant should:
+
+1. Inspect the installed Vitest version.
+2. Install the matching `@vitest/coverage-v8` version.
+3. Enable `test.coverage` with provider `v8`.
+4. Enable `coverage` on `LiveDocSpecReporter`.
+5. Run `npx vitest run --coverage`.
+6. Confirm the Viewer receives the in-memory coverage map and all expected metrics.
+
+For Istanbul, explicitly request that provider so the assistant installs
+`@vitest/coverage-istanbul` instead. See
+[Code Coverage](../../viewer/guides/code-coverage.mdx) for the complete setup.
 
 ### Example: Before and After
 
@@ -156,3 +178,4 @@ were installed to the correct location for your tool.
 - [Getting Started](../learn/getting-started.mdx) — install LiveDoc and write your first test
 - [Best Practices](./best-practices.mdx) — patterns the AI skill enforces
 - [Custom Reporters](./custom-reporters.mdx) — configure test output
+- [Code Coverage](../../viewer/guides/code-coverage.mdx) — provider dependencies and configuration

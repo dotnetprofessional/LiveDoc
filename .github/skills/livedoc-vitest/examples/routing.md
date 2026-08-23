@@ -30,7 +30,17 @@
 ### Example 6: Write a browser test with Playwright
 > "Write a Playwright test that checks the viewer homepage loads correctly"
 
-→ This involves using `useBrowser` and `screenshot` from `@swedevtools/livedoc-vitest/playwright` in a `.Spec.ts` file with BDD patterns.
+→ Read `resources/web-testing.md` to confirm a real browser is required, then use `useBrowser` and `screenshot` from `@swedevtools/livedoc-vitest/playwright`. Assert behavior before attaching evidence.
+
+### Example 7: Verify responsive browser geometry
+> "Verify that the mobile action exposes at least a 44px touch target"
+
+→ Use a real browser and measure rendered geometry. A jsdom assertion or CSS class check cannot observe this claim.
+
+### Example 8: Validate an incremental change by tag
+> "Run only the checkout and pricing behavior and patch the Viewer"
+
+→ Read `resources/partial-testing.md`. Select `@checkout` and `@pricing`, publish the invocation as `partial`, and preserve the latest full baseline.
 
 ## Negative routing (DO NOT use this skill)
 
@@ -58,3 +68,8 @@
 > "Install the LiveDoc AI skill for my team" or "Generate a static HTML report"
 
 → These are setup/ops tasks. Run `npx livedoc-vitest-setup` for skills or `npx livedoc-viewer export -i results.json` for reports. Not test authoring.
+
+### Example 6: Converting every low-level test
+> "Convert the entire Vitest suite to LiveDoc"
+
+→ Do not convert tests mechanically. Apply the two-question litmus in `resources/test-strategy.md` and keep tests without lasting documentation value in native Vitest.

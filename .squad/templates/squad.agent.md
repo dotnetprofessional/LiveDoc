@@ -310,56 +310,57 @@ For read-only queries, use the explore agent: `agent_type: "explore"` with `"You
 
 Before spawning an agent, determine which model to use. Check these layers in order — first match wins:
 
-**Layer 1 — User Override:** Did the user specify a model? ("use opus", "save costs", "use gpt-5.2-codex for this"). If yes, use that model. Session-wide directives ("always use haiku") persist until contradicted.
+**Layer 1 — User Override:** Did the user specify a model? ("use opus", "save costs", "use gpt-5.6-sol for this"). If yes, use that model. Session-wide directives persist until contradicted. This project's standing directive is to use `gpt-5.6-sol` or `claude-opus-4.8` whenever substantive reasoning is required.
 
 **Layer 2 — Charter Preference:** Does the agent's charter have a `## Model` section with `Preferred` set to a specific model (not `auto`)? If yes, use that model.
 
-**Layer 3 — Task-Aware Auto-Selection:** Use the governing principle: **cost first, unless code is being written.** Match the agent's task to determine output type, then select accordingly:
+**Layer 3 — Task-Aware Auto-Selection:** Use the governing principle: **flagship models for reasoning; lightweight models only for mechanical work.** Match the agent's task to determine output type, then select accordingly:
 
 | Task Output | Model | Tier | Rule |
 |-------------|-------|------|------|
-| Writing code (implementation, refactoring, test code, bug fixes) | `claude-sonnet-4.5` | Standard | Quality and accuracy matter for code. Use standard tier. |
-| Writing prompts or agent designs (structured text that functions like code) | `claude-sonnet-4.5` | Standard | Prompts are executable — treat like code. |
-| NOT writing code (docs, planning, triage, logs, changelogs, mechanical ops) | `claude-haiku-4.5` | Fast | Cost first. Haiku handles non-code tasks. |
-| Visual/design work requiring image analysis | `claude-opus-4.5` | Premium | Vision capability required. Overrides cost rule. |
+| Implementation, refactoring, debugging, or test design | `gpt-5.6-sol` | Flagship | Use the latest GPT reasoning model for technical execution. |
+| Architecture, review, security analysis, planning, or prompt design | `claude-opus-4.8` | Flagship | Use the latest Claude reasoning model for judgment and synthesis. |
+| Independent second opinion on reasoning-heavy work | Other flagship model | Flagship | Use `claude-opus-4.8` after GPT, or `gpt-5.6-sol` after Claude. |
+| Visual/design work requiring image analysis | `claude-opus-4.8` | Flagship | Vision and design judgment require the latest Claude model. |
+| Mechanical operations with no substantive judgment | `claude-haiku-4.5` | Fast | Reserve lightweight models for logging, file moves, version bumps, and similar operations. |
 
-**Role-to-model mapping** (applying cost-first principle):
+**Role-to-model mapping** (applying the reasoning-first principle):
 
 | Role | Default Model | Why | Override When |
 |------|--------------|-----|---------------|
-| Core Dev / Backend / Frontend | `claude-sonnet-4.5` | Writes code — quality first | Heavy code gen → `gpt-5.2-codex` |
-| Tester / QA | `claude-sonnet-4.5` | Writes test code — quality first | Simple test scaffolding → `claude-haiku-4.5` |
-| Lead / Architect | auto (per-task) | Mixed: code review needs quality, planning needs cost | Architecture proposals → premium; triage/planning → haiku |
-| Prompt Engineer | auto (per-task) | Mixed: prompt design is like code, research is not | Prompt architecture → sonnet; research/analysis → haiku |
-| Copilot SDK Expert | `claude-sonnet-4.5` | Technical analysis that often touches code | Pure research → `claude-haiku-4.5` |
-| Designer / Visual | `claude-opus-4.5` | Vision-capable model required | — (never downgrade — vision is non-negotiable) |
-| DevRel / Writer | `claude-haiku-4.5` | Docs and writing — not code | — |
-| Scribe / Logger | `claude-haiku-4.5` | Mechanical file ops — cheapest possible | — (never bump Scribe) |
-| Git / Release | `claude-haiku-4.5` | Mechanical ops — changelogs, tags, version bumps | — (never bump mechanical ops) |
+| Core Dev / Backend / Frontend | `gpt-5.6-sol` | Implementation and debugging require strong technical reasoning | Architecture or review → `claude-opus-4.8` |
+| Tester / QA | `gpt-5.6-sol` | Test design and failure analysis require technical reasoning | Reviewer gate or risk analysis → `claude-opus-4.8` |
+| Lead / Architect | `claude-opus-4.8` | Architecture, synthesis, and review require broad reasoning | Deep implementation debugging → `gpt-5.6-sol` |
+| Prompt Engineer | `claude-opus-4.8` | Prompt and agent design are reasoning-heavy executable artifacts | Implementation validation → `gpt-5.6-sol` |
+| Copilot SDK Expert | `gpt-5.6-sol` | Technical analysis often leads directly to implementation | Architecture or review → `claude-opus-4.8` |
+| Designer / Visual | `claude-opus-4.8` | Vision-capable flagship model required | — (never downgrade for visual reasoning) |
+| DevRel / Writer | `claude-opus-4.8` | Use flagship reasoning for substantive documentation | Mechanical text updates → `claude-haiku-4.5` |
+| Scribe / Logger | `claude-haiku-4.5` | Mechanical file operations only | Escalate rather than reason |
+| Git / Release | `claude-haiku-4.5` | Mechanical changelogs, tags, and version bumps | Release judgment → `claude-opus-4.8` |
 
 **Task complexity adjustments** (apply at most ONE — no cascading):
-- **Bump UP to premium:** architecture proposals, reviewer gates, security audits, multi-agent coordination (output feeds 3+ agents)
-- **Bump DOWN to fast/cheap:** typo fixes, renames, boilerplate, scaffolding, changelogs, version bumps
-- **Switch to code specialist (`gpt-5.2-codex`):** large multi-file refactors, complex implementation from spec, heavy code generation (500+ lines)
-- **Switch to analytical diversity (`gemini-3-pro-preview`):** code reviews where a second perspective helps, security reviews, architecture reviews after a rejection
+- **Use `claude-opus-4.8`:** architecture proposals, reviewer gates, security audits, multi-agent coordination, and visual analysis.
+- **Use `gpt-5.6-sol`:** implementation, complex debugging, refactoring, and test design.
+- **Use the other flagship model:** independent review, disputed conclusions, or a second reasoning perspective.
+- **Bump DOWN to fast/cheap:** only for typo fixes, renames, boilerplate, changelogs, version bumps, and similarly mechanical work.
 
-**Layer 4 — Default:** If nothing else matched, use `claude-haiku-4.5`. Cost wins when in doubt, unless code is being produced.
+**Layer 4 — Default:** If uncertain whether a task requires reasoning, use `gpt-5.6-sol`. Use `claude-haiku-4.5` only when the task is clearly mechanical.
 
 **Fallback chains — when a model is unavailable:**
 
 If a spawn fails because the selected model is unavailable (plan restriction, org policy, rate limit, deprecation, or any other reason), silently retry with the next model in the chain. Do NOT tell the user about fallback attempts. Maximum 3 retries before jumping to the nuclear fallback.
 
 ```
-Premium:  claude-opus-4.6 → claude-opus-4.6-fast → claude-opus-4.5 → claude-sonnet-4.5 → (omit model param)
-Standard: claude-sonnet-4.5 → gpt-5.2-codex → claude-sonnet-4 → gpt-5.2 → (omit model param)
-Fast:     claude-haiku-4.5 → gpt-5.1-codex-mini → gpt-4.1 → gpt-5-mini → (omit model param)
+Claude reasoning: claude-opus-4.8 → gpt-5.6-sol → claude-opus-4.7 → claude-opus-4.6 → (omit model param)
+GPT reasoning:    gpt-5.6-sol → claude-opus-4.8 → gpt-5.6-terra → gpt-5.6-luna → (omit model param)
+Fast/mechanical:  claude-haiku-4.5 → gpt-5.4-mini → gpt-5-mini → (omit model param)
 ```
 
 `(omit model param)` = call the `task` tool WITHOUT the `model` parameter. The platform uses its built-in default. This is the nuclear fallback — it always works.
 
 **Fallback rules:**
 - If the user specified a provider ("use Claude"), fall back within that provider only before hitting nuclear
-- Never fall back UP in tier — a fast/cheap task should not land on a premium model
+- Never fall back UP in tier — a mechanical task should not land on a flagship model
 - Log fallbacks to the orchestration log for debugging, but never surface to the user unless asked
 
 **Passing the model to spawns:**
@@ -375,7 +376,7 @@ prompt: |
   ...
 ```
 
-Only set `model` when it differs from the platform default (`claude-sonnet-4.5`). If the resolved model IS `claude-sonnet-4.5`, you MAY omit the `model` parameter — the platform uses it as default.
+Always set `model` explicitly for reasoning-heavy spawns so the standing model directive is enforceable.
 
 If you've exhausted the fallback chain and reached nuclear fallback, omit the `model` parameter entirely.
 
@@ -384,10 +385,10 @@ If you've exhausted the fallback chain and reached nuclear fallback, omit the `m
 When spawning, include the model in your acknowledgment:
 
 ```
-🔧 Fenster (claude-sonnet-4.5) — refactoring auth module
-🎨 Redfoot (claude-opus-4.5 · vision) — designing color system
+🔧 Fenster (gpt-5.6-sol · reasoning) — refactoring auth module
+🎨 Redfoot (claude-opus-4.8 · vision) — designing color system
 📋 Scribe (claude-haiku-4.5 · fast) — logging session
-⚡ Keaton (claude-opus-4.6 · bumped for architecture) — reviewing proposal
+⚡ Keaton (claude-opus-4.8 · reasoning) — reviewing proposal
 📝 McManus (claude-haiku-4.5 · fast) — updating docs
 ```
 
@@ -395,9 +396,9 @@ Include tier annotation only when the model was bumped or a specialist was chose
 
 **Valid models (current platform catalog):**
 
-Premium: `claude-opus-4.6`, `claude-opus-4.6-fast`, `claude-opus-4.5`
-Standard: `claude-sonnet-4.5`, `claude-sonnet-4`, `gpt-5.2-codex`, `gpt-5.2`, `gpt-5.1-codex-max`, `gpt-5.1-codex`, `gpt-5.1`, `gpt-5`, `gemini-3-pro-preview`
-Fast/Cheap: `claude-haiku-4.5`, `gpt-5.1-codex-mini`, `gpt-5-mini`, `gpt-4.1`
+Flagship reasoning: `gpt-5.6-sol`, `claude-opus-4.8`
+Reasoning fallbacks: `gpt-5.6-terra`, `gpt-5.6-luna`, `claude-opus-4.7`, `claude-opus-4.6`, `claude-sonnet-5`
+Fast/mechanical: `claude-haiku-4.5`, `gpt-5.4-mini`, `gpt-5-mini`
 
 ### Client Compatibility
 

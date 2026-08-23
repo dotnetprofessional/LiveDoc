@@ -39,7 +39,12 @@ public abstract class LiveDocTestBase : IDisposable
         if (injectedMethod != null && injectedArgs != null && injectedArgs.Length > 0)
         {
             // Use injected data (for outline tests with auto-injection)
-            _context = new LiveDocContext(_output, GetType(), injectedMethod, injectedArgs);
+            _context = new LiveDocContext(
+                _output,
+                GetType(),
+                injectedMethod,
+                injectedArgs,
+                LiveDocExampleDataAttribute.CurrentOutlineRowId);
             return;
         }
 
@@ -123,13 +128,18 @@ public abstract class LiveDocTestBase : IDisposable
     /// Sets the current example data for outline tests with explicit method info.
     /// Used by the test framework for automatic injection.
     /// </summary>
-    internal void SetExampleDataInternal(MethodInfo testMethod, object[] args)
+    internal void SetExampleDataInternal(MethodInfo testMethod, object?[] args)
     {
         if (args.Length > 0 && testMethod != null)
         {
             // Dispose existing context if present and reinitialize with example data
             _context?.Dispose();
-            _context = new LiveDocContext(_output, GetType(), testMethod, args);
+            _context = new LiveDocContext(
+                _output,
+                GetType(),
+                testMethod,
+                args,
+                LiveDocExampleDataAttribute.CurrentOutlineRowId);
         }
     }
 

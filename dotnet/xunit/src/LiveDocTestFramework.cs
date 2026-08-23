@@ -84,7 +84,8 @@ public class LiveDocMessageSink : IMessageSink
 {
     private readonly IMessageSink _innerSink;
     private readonly Reporter.LiveDocTestRunReporter _reporter;
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _outlineRowCounters = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Concurrent.ConcurrentDictionary<int, byte>>
+        _claimedOutlineRows = new();
 
     private sealed record ClassMetadata(string Title, string? Description, string[]? Tags);
 
@@ -167,20 +168,6 @@ public class LiveDocMessageSink : IMessageSink
         var methodName = testMethod.Name;
         var durationMs = (long)(executionTime * 1000);
 
-        // Skip fixture/helper classes that aren't real test specs.
-        // Convention: real test classes end in "_Spec" or "Spec".
-        // To temporarily disable this filter for debugging test count mismatches,
-        // set the environment variable LIVEDOC_REPORT_ALL_TESTS=true.
-        // In Visual Studio: Test → Configure Run Settings → Select Solution Wide runsettings File
-        // → pick tests/debug.runsettings. No runsettings file selected = normal filtering.
-        var simpleClassName = className.Contains('.') ? className.Substring(className.LastIndexOf('.') + 1) : className;
-        var reportAll = string.Equals(
-            Environment.GetEnvironmentVariable("LIVEDOC_REPORT_ALL_TESTS"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
-        if (!reportAll && (isFeature || isSpec) && !simpleClassName.EndsWith("Spec", StringComparison.Ordinal))
-            return;
-
         // Derive assembly simple name — IAssemblyInfo.Name may return full name with version or DLL path
         var rawAssemblyName = testCase.TestMethod.TestClass.TestCollection.TestAssembly.Assembly.Name;
         // Handle both "Name.dll" paths and "Name, Version=..." full names
@@ -195,7 +182,8 @@ public class LiveDocMessageSink : IMessageSink
             var testCaseId = $"TestCase:{className}";
             var kind = DeriveTestKind(testMethod, isSpec);
             var isOutline = kind == "RuleOutline" || kind == "ScenarioOutline";
-            var testId = DeriveTestId(className, methodName, testMethod);
+            var args = GetTestArguments(test);
+            var testId = DeriveTestId(className, methodName, testMethod, args);
             var classType = ResolveType(className);
             var methodInfo = ResolveMethod(classType, methodName, testMethod);
             var classMetadata = ExtractClassMetadata(testClass, isSpec, classType, className);
@@ -207,21 +195,41 @@ public class LiveDocMessageSink : IMessageSink
                 test.DisplayName,
                 classMetadata.Tags);
 
-            // For outline tests, the same test ID is shared across all example rows.
-            // The fallback path must allow the 2nd+ rows through; HasTest alone would
-            // block them because the 1st row already created the outline shell.
-            // _outlineRowCounters tracks which outlines the fallback path started —
-            // if present, this is a subsequent row and we must proceed.
             if (isOutline)
             {
-                if (!_outlineRowCounters.ContainsKey(testId) && _reporter.HasTest(testId))
+                var registeredRowId = LiveDocTestInvocationRegistry.GetOutlineRowId(test);
+                if (registeredRowId.HasValue && _reporter.HasOutlineRow(testId, registeredRowId.Value))
+                {
+                    MarkOutlineRowClaimed(testId, registeredRowId.Value);
+                    _reporter.ReconcileOutlineExampleExecution(
+                        testId,
+                        registeredRowId.Value,
+                        status,
+                        durationMs,
+                        error);
+                    _reporter.RecordResult(
+                        status,
+                        testCaseId,
+                        Reporter.LiveDocTestRunReporter.GenerateOutlineResultId(testId, registeredRowId.Value));
                     return;
+                }
+
+                var rowId = ClaimOutlineRow(testId, args);
+                if (rowId.HasValue)
+                {
+                    _reporter.ReconcileOutlineExampleExecution(testId, rowId.Value, status, durationMs, error);
+                    _reporter.RecordResult(
+                        status,
+                        testCaseId,
+                        Reporter.LiveDocTestRunReporter.GenerateOutlineResultId(testId, rowId.Value));
+                    return;
+                }
             }
-            else
+            else if (_reporter.HasTest(testId))
             {
-                // Skip if already handled by LiveDocContext (which provides richer data with steps)
-                if (_reporter.HasTest(testId))
-                    return;
+                _reporter.UpdateTestExecution(testId, status, durationMs, error);
+                _reporter.RecordResult(status, testCaseId, testId);
+                return;
             }
 
             var style = isSpec ? Reporter.Models.TestKinds.Specification : Reporter.Models.TestKinds.Feature;
@@ -237,8 +245,8 @@ public class LiveDocMessageSink : IMessageSink
             {
                 // Outline tests need template titles and example rows
                 var templateTitle = methodMetadata.Title;
-                var rowId = _outlineRowCounters.AddOrUpdate(testId, 1, (_, v) => v + 1);
-                var args = testCase.TestMethodArguments ?? Array.Empty<object>();
+                var rowId = LiveDocTestInvocationRegistry.GetOutlineRowId(test)
+                    ?? _reporter.GetNextOutlineRowId(testId);
                 var parameters = methodInfo?.GetParameters() ?? Array.Empty<ParameterInfo>();
 
                 _reporter.BufferOutlineExample(
@@ -251,8 +259,12 @@ public class LiveDocMessageSink : IMessageSink
                     args,
                     methodMetadata.Description,
                     methodMetadata.Tags);
+                MarkOutlineRowClaimed(testId, rowId);
                 _reporter.AddOutlineExampleResult(testId, rowId, testId, status, durationMs, error);
-                _reporter.RecordResult(status, testCaseId);
+                _reporter.RecordResult(
+                    status,
+                    testCaseId,
+                    Reporter.LiveDocTestRunReporter.GenerateOutlineResultId(testId, rowId));
             }
             else
             {
@@ -264,7 +276,7 @@ public class LiveDocMessageSink : IMessageSink
                     methodMetadata.Description,
                     methodMetadata.Tags);
                 _reporter.UpdateTestExecution(testId, status, durationMs, error);
-                _reporter.RecordResult(status, testCaseId);
+                _reporter.RecordResult(status, testCaseId, testId);
             }
         }
         else
@@ -272,14 +284,48 @@ public class LiveDocMessageSink : IMessageSink
             // Standard (non-LiveDoc) test
             var displayName = test.DisplayName;
             var testCaseId = $"standard:{className}";
-            var testId = $"{className}.{methodName}";
+            var args = GetTestArguments(test);
+            var testId = args.Length == 0
+                ? $"{className}.{methodName}"
+                : $"{className}.{methodName}:{testCase.UniqueID}:{test.DisplayName}";
 
             _reporter.BufferTestCase(testCaseId, Reporter.Models.TestKinds.Standard, 
                 FormatTestCaseTitle(className), path: path);
             _reporter.BufferTest(testCaseId, testId, "Test", displayName);
             _reporter.UpdateTestExecution(testId, status, durationMs, error);
-            _reporter.RecordResult(status, testCaseId);
+            _reporter.RecordResult(status, testCaseId, $"{testCase.UniqueID}:{test.DisplayName}");
         }
+    }
+
+    private static object?[] GetTestArguments(ITest test)
+    {
+        return LiveDocTestInvocationRegistry.GetArguments(test)
+            ?? test.TestCase.TestMethodArguments?.ToArray()
+            ?? Array.Empty<object?>();
+    }
+
+    private int? ClaimOutlineRow(string outlineId, object?[] args)
+    {
+        var claimedRows = _claimedOutlineRows.GetOrAdd(
+            outlineId,
+            _ => new System.Collections.Concurrent.ConcurrentDictionary<int, byte>());
+
+        foreach (var rowId in _reporter.FindOutlineRowIds(outlineId, args))
+        {
+            if (claimedRows.TryAdd(rowId, 0))
+                return rowId;
+        }
+
+        return null;
+    }
+
+    private void MarkOutlineRowClaimed(string outlineId, int rowId)
+    {
+        _claimedOutlineRows
+            .GetOrAdd(
+                outlineId,
+                _ => new System.Collections.Concurrent.ConcurrentDictionary<int, byte>())
+            .TryAdd(rowId, 0);
     }
 
     private static Type? ResolveType(string className)
@@ -314,7 +360,11 @@ public class LiveDocMessageSink : IMessageSink
     /// Derives a test ID that matches what LiveDocContext would generate.
     /// Uses method attributes (not test case arguments) for reliable outline detection.
     /// </summary>
-    private static string DeriveTestId(string className, string methodName, Xunit.Abstractions.IMethodInfo testMethod)
+    private static string DeriveTestId(
+        string className,
+        string methodName,
+        Xunit.Abstractions.IMethodInfo testMethod,
+        object?[] args)
     {
         // Check for outline attributes — these generate shared IDs across all rows
         if (testMethod.GetCustomAttributes(typeof(RuleOutlineAttribute)).Any() ||
@@ -323,7 +373,7 @@ public class LiveDocMessageSink : IMessageSink
             return $"Outline:{className}:{methodName}";
         }
         // Simple scenario/rule — match GenerateScenarioId format
-        return $"Scenario:{className}:{methodName}";
+        return Reporter.LiveDocTestRunReporter.GenerateScenarioId(className, methodName, args);
     }
 
     /// <summary>
@@ -426,11 +476,12 @@ public class LiveDocMessageSink : IMessageSink
         {
             if (methodInfo != null)
             {
+                var ruleAttribute = methodInfo.GetCustomAttribute<RuleAttribute>();
                 title = kind switch
                 {
                     "RuleOutline" => GetOutlineTemplateTitle(methodInfo, isSpecification: true),
                     "ScenarioOutline" => GetOutlineTemplateTitle(methodInfo, isSpecification: false),
-                    "Rule" => StripKnownPrefix(methodInfo.GetCustomAttribute<RuleAttribute>()?.DisplayName ?? displayName),
+                    "Rule" => ruleAttribute?.GetDisplayName(methodInfo) ?? StripKnownPrefix(displayName),
                     "Scenario" => StripKnownPrefix(methodInfo.GetCustomAttribute<ScenarioAttribute>()?.DisplayName ?? displayName),
                     _ => title
                 };
@@ -439,7 +490,7 @@ public class LiveDocMessageSink : IMessageSink
                 {
                     "RuleOutline" => methodInfo.GetCustomAttribute<RuleOutlineAttribute>()?.Description,
                     "ScenarioOutline" => methodInfo.GetCustomAttribute<ScenarioOutlineAttribute>()?.Description,
-                    "Rule" => methodInfo.GetCustomAttribute<RuleAttribute>()?.Description,
+                    "Rule" => ruleAttribute?.GetDescription(methodInfo),
                     "Scenario" => methodInfo.GetCustomAttribute<ScenarioAttribute>()?.Description,
                     _ => null
                 };

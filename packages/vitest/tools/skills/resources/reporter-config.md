@@ -76,6 +76,50 @@ The reporter automatically finds the viewer server:
 
 Project and environment can also be set with `LIVEDOC_PROJECT` and `LIVEDOC_ENVIRONMENT`.
 
+### Coverage Evidence
+
+LiveDoc can attach coverage artifacts to the completed `TestRunV1` as supporting evidence. Coverage never changes the run pass/fail status; threshold misses are reported as warnings.
+
+Install the provider that matches the Vitest version:
+
+```bash
+npm install --save-dev @vitest/coverage-v8
+```
+
+```typescript
+import { LiveDocSpecReporter } from "@swedevtools/livedoc-vitest/reporter";
+
+export default defineConfig({
+    test: {
+        reporters: [
+            new LiveDocSpecReporter({
+                detailLevel: "spec+summary+headers",
+                coverage: {
+                    enabled: true,
+                    thresholds: { lines: 80, branches: 70 },
+                },
+            }),
+        ],
+        coverage: {
+            enabled: true,
+            provider: "v8",
+            reporter: ["text", "html", "json-summary"],
+        },
+    },
+});
+```
+
+Run `npx vitest run --coverage`. LiveDoc consumes Vitest's in-memory coverage map during the reporter lifecycle. File reporters are optional fallbacks for static export and external coverage tooling.
+
+Supported fallback artifacts:
+
+| Artifact | Auto-detected path | Notes |
+| --- | --- | --- |
+| Istanbul summary JSON | `coverage/coverage-summary.json` | Preferred for run and file summaries |
+| LCOV | `coverage/lcov.info` | Useful when summary JSON is not available |
+
+Use `coverage.artifactPath` or `LIVEDOC_COVERAGE_PATH` when the artifact is outside the standard coverage directory. Use `LIVEDOC_COVERAGE=true` to request diagnostics when coverage is expected but no supported artifact is found.
+
 ### Additional Options
 
 | Option | Type | Description |
@@ -100,11 +144,14 @@ export default defineConfig({
                 server: "http://localhost:3000",
                 project: "my-project",
                 environment: "local",
+                runType: "full",
             }),
         ],
     },
 });
 ```
+
+Set `runType: "partial"` or `LIVEDOC_RUN_TYPE=partial` for an isolated development run after a full baseline has been published. The Viewer preserves the baseline and lets users switch between the combined snapshot and only that partial invocation. Partial runs require server history and cannot be written directly as static JSON.
 
 ## JsonReporter
 

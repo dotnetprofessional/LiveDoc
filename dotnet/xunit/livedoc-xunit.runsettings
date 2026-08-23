@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RunSettings>
   <RunConfiguration>
-    <!-- Exclude the library DLL from test discovery -->
-    <TestAdaptersPaths>%SystemDrive%\Temp\foo;%SystemDrive%\Temp\bar</TestAdaptersPaths>
+    <!-- Make the in-repo LiveDoc VSTest logger discoverable from Visual Studio and vstest.console. -->
+    <TestAdaptersPaths>logger\bin\Debug\net8.0;logger\bin\Debug\net10.0;logger\bin\Release\net8.0;logger\bin\Release\net10.0;collector\bin\Debug\net8.0;collector\bin\Debug\net10.0;collector\bin\Release\net8.0;collector\bin\Release\net10.0;dotnet\xunit\logger\bin\Debug\net8.0;dotnet\xunit\logger\bin\Debug\net10.0;dotnet\xunit\logger\bin\Release\net8.0;dotnet\xunit\logger\bin\Release\net10.0;dotnet\xunit\collector\bin\Debug\net8.0;dotnet\xunit\collector\bin\Debug\net10.0;dotnet\xunit\collector\bin\Release\net8.0;dotnet\xunit\collector\bin\Release\net10.0</TestAdaptersPaths>
   </RunConfiguration>
   
   <DataCollectionRunSettings>
@@ -19,6 +19,7 @@
           </CodeCoverage>
         </Configuration>
       </DataCollector>
+      <DataCollector friendlyName="LiveDocCoverage" uri="datacollector://swedevtools/livedoc/coverage" enabled="True" />
     </DataCollectors>
   </DataCollectionRunSettings>
 </RunSettings>

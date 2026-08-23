@@ -9,7 +9,7 @@
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
-    <Version>0.2.0.1</Version>
+    <Version>0.2.0-beta.2</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -39,6 +39,9 @@
     <Compile Remove="logger\**" />
     <EmbeddedResource Remove="logger\**" />
     <None Remove="logger\**" />
+    <Compile Remove="collector\**" />
+    <EmbeddedResource Remove="collector\**" />
+    <None Remove="collector\**" />
     <Compile Remove="tools\journey-generator\**" />
     <EmbeddedResource Remove="tools\journey-generator\**" />
     <None Remove="tools\journey-generator\**" />
@@ -50,6 +53,7 @@
     <None Include="CHANGELOG.md" Pack="true" PackagePath="\" />
     <None Include="readme.txt" Pack="true" PackagePath="" />
     <None Include="build\SweDevTools.LiveDoc.xUnit.targets" Pack="true" PackagePath="build\" />
+    <None Include="build\livedoc-coverage.runsettings" Pack="true" PackagePath="build\" />
   </ItemGroup>
 
   <!-- Bundle AI skill files and setup script in the NuGet package -->
@@ -67,6 +71,12 @@
           Pack="true" PackagePath="tools\journey-generator\net8.0\" />
     <None Include="tools\journey-generator\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.runtimeconfig.json"
           Pack="true" PackagePath="tools\journey-generator\net8.0\" />
+    <None Include="tools\journey-generator\bin\$(Configuration)\net10.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.dll"
+          Pack="true" PackagePath="tools\journey-generator\net10.0\" />
+    <None Include="tools\journey-generator\bin\$(Configuration)\net10.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.deps.json"
+          Pack="true" PackagePath="tools\journey-generator\net10.0\" />
+    <None Include="tools\journey-generator\bin\$(Configuration)\net10.0\SweDevTools.LiveDoc.xUnit.JourneyGenerator.runtimeconfig.json"
+          Pack="true" PackagePath="tools\journey-generator\net10.0\" />
   </ItemGroup>
 
   <!-- Bundle the console logger DLL so VSTest can discover it (both TFMs) -->
@@ -74,6 +84,10 @@
     <None Include="logger\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
           Pack="true" PackagePath="build\net8.0\" />
     <None Include="logger\bin\$(Configuration)\net10.0\SweDevTools.LiveDoc.xUnit.TestLogger.dll"
+          Pack="true" PackagePath="build\net10.0\" />
+    <None Include="collector\bin\$(Configuration)\net8.0\SweDevTools.LiveDoc.xUnit.Coverage.Collector.dll"
+          Pack="true" PackagePath="build\net8.0\" />
+    <None Include="collector\bin\$(Configuration)\net10.0\SweDevTools.LiveDoc.xUnit.Coverage.Collector.dll"
           Pack="true" PackagePath="build\net10.0\" />
   </ItemGroup>
 
@@ -85,6 +99,12 @@
 
   <Target Name="BuildLoggerTool" BeforeTargets="GenerateNuspec">
     <MSBuild Projects="logger\LiveDoc.TestLogger.csproj"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="BuildCoverageCollectorTool" BeforeTargets="GenerateNuspec">
+    <MSBuild Projects="collector\LiveDoc.CoverageCollector.csproj"
              Targets="Restore;Build"
              Properties="Configuration=$(Configuration)" />
   </Target>

@@ -12,15 +12,17 @@ internal class LiveDocExampleDataAttribute : BeforeAfterTestAttribute
     // Use AsyncLocal to pass test method arguments from the invoker to the test instance
     private static readonly AsyncLocal<object?[]?> _currentTestArgs = new();
     private static readonly AsyncLocal<MethodInfo?> _currentTestMethod = new();
+    private static readonly AsyncLocal<int?> _currentOutlineRowId = new();
 
     /// <summary>
     /// Sets the current test arguments for the executing test.
     /// Called by the custom test invoker before creating the test class.
     /// </summary>
-    public static void SetCurrentTestData(MethodInfo testMethod, object?[]? args)
+    public static void SetCurrentTestData(MethodInfo testMethod, object?[]? args, int? outlineRowId)
     {
         _currentTestMethod.Value = testMethod;
         _currentTestArgs.Value = args;
+        _currentOutlineRowId.Value = outlineRowId;
     }
 
     /// <summary>
@@ -34,12 +36,18 @@ internal class LiveDocExampleDataAttribute : BeforeAfterTestAttribute
     public static object?[]? CurrentTestArgs => _currentTestArgs.Value;
 
     /// <summary>
+    /// Gets the stable row ID assigned to the current outline invocation.
+    /// </summary>
+    public static int? CurrentOutlineRowId => _currentOutlineRowId.Value;
+
+    /// <summary>
     /// Clears the current test data after test execution.
     /// </summary>
     public static void ClearCurrentTestData()
     {
         _currentTestMethod.Value = null;
         _currentTestArgs.Value = null;
+        _currentOutlineRowId.Value = null;
     }
 
     public override void Before(MethodInfo methodUnderTest)

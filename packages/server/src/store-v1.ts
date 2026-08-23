@@ -1,23 +1,24 @@
 import type {
   AnyTest,
+  CoverageReport,
   ExecutionResult,
   Statistics,
   Status,
   TestCase,
   TestRunV1,
 } from '@swedevtools/livedoc-schema';
-import { V1TestRunSchema } from '@swedevtools/livedoc-schema';
+import { V1CoverageReportSchema, V1TestRunSchema } from '@swedevtools/livedoc-schema';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { composeTestRun } from './run-composition.js';
 
 function sanitizeName(name: string): string {
   return name.replace(/[<>:"/\\|?*]/g, '_').trim() || 'unknown';
 }
 
-function formatHistoryFilename(timestamp: string, runId: string): string {
-  const date = new Date(timestamp);
-  const dateStr = date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  return `${dateStr}_${runId.slice(-8)}`;
+function formatHistoryFilename(completedAt: string, runId: string): string {
+  const dateStr = new Date(completedAt).toISOString().replace(/[:.]/g, '-');
+  return `${dateStr}_${sanitizeName(runId)}`;
 }
 
 function emptyStats(): Statistics {
@@ -74,7 +75,14 @@ type ProjectHierarchy = Array<{
     name: string;
     latestRun?: TestRunV1;
     historyCount: number;
-    history: Array<{ runId: string; timestamp: string; status: string; summary?: Statistics }>;
+    history: Array<{
+      runId: string;
+      timestamp: string;
+      status: string;
+      summary?: Statistics;
+      runType: 'full' | 'partial';
+      baselineRunId?: string;
+    }>;
   }>;
 }>;
 
@@ -87,12 +95,26 @@ interface RunRecord {
 
 export interface RunStoreDiagnostic {
   severity: 'warning' | 'error';
-  code: 'invalid-json' | 'unsupported-model' | 'invalid-model';
+  code: 'invalid-json' | 'unsupported-model' | 'invalid-model' | 'invalid-coverage';
   message: string;
   filePath: string;
   project?: string;
   environment?: string;
   details?: string[];
+}
+
+export type RunStoreErrorCode =
+  | 'no-baseline'
+  | 'run-active'
+  | 'framework-mismatch'
+  | 'run-cancelled'
+  | 'run-not-active'
+  | 'dependent-run';
+
+export class RunStoreError extends Error {
+  constructor(public readonly code: RunStoreErrorCode, message: string) {
+    super(message);
+  }
 }
 
 function makeOutlineKey(outlineId: string, rowId: number, testId: string): string {
@@ -130,11 +152,26 @@ function computeAggregateStatus(statuses: Status[]): Status {
   return 'pending';
 }
 
-function computeScenarioExecutionFromSteps(steps: Array<{ execution?: ExecutionResult }>): ExecutionResult {
+function computeScenarioExecutionFromSteps(
+  steps: Array<{ execution?: ExecutionResult }>,
+  existing?: ExecutionResult
+): ExecutionResult {
+  if (steps.length === 0) return existing ?? { status: 'pending', duration: 0 };
+
   const statuses = steps.map((s) => (s.execution?.status ?? 'pending') as Status);
   const status = computeAggregateStatus(statuses);
   const duration = steps.reduce((sum, s) => sum + (Number(s.execution?.duration) || 0), 0);
-  return { status, duration };
+  const error = steps.find((step) =>
+    (step.execution?.status === 'failed' || step.execution?.status === 'timedOut') &&
+    step.execution.error
+  )?.execution?.error ?? (status === 'failed' ? existing?.error : undefined);
+
+  return {
+    status,
+    duration,
+    ...(error ? { error } : {}),
+    ...(existing?.attachments ? { attachments: existing.attachments } : {}),
+  };
 }
 
 function computeOutlineRowStatus(
@@ -233,15 +270,23 @@ function buildIndexes(run: TestRunV1): Omit<RunRecord, 'run'> {
 }
 
 export class RunStore {
+  /** Completed physical runs only. */
   private runs: Map<string, RunRecord> = new Map();
+  /** In-flight physical runs are deliberately never part of completed indexes. */
+  private activeRuns: Map<string, RunRecord> = new Map();
+  private activeRunIdsByProject: Map<string, string> = new Map();
+  private completingRunIds: Set<string> = new Set();
+  private cancelledRunIds: Set<string> = new Set();
+  private completedAtByRunId: Map<string, string> = new Map();
+  private historyPathByRunId: Map<string, string> = new Map();
+  private latestCombinedByProject: Map<string, TestRunV1> = new Map();
+  private pendingPersistence: Set<Promise<unknown>> = new Set();
   private runsByProject: Map<string, string[]> = new Map();
   private diagnostics: RunStoreDiagnostic[] = [];
 
   private historyLimit: number;
   private dataDir: string;
   private initialized: boolean = false;
-
-  private runSaveTimers: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(historyLimit: number = 50, dataDir?: string) {
     this.historyLimit = historyLimit;
@@ -322,7 +367,31 @@ export class RunStore {
       return undefined;
     }
 
-    const parsed = V1TestRunSchema.safeParse(data);
+    const coverage = record.coverage;
+    let dataToParse = data;
+    if (coverage !== undefined) {
+      const coverageParsed = V1CoverageReportSchema.safeParse(coverage);
+      if (!coverageParsed.success) {
+        this.addDiagnostic({
+          severity: 'warning',
+          code: 'invalid-coverage',
+          message:
+            `Loaded ${path.basename(filePath)} without coverage because the coverage block does not match the LiveDoc coverage model.`,
+          filePath,
+          project,
+          environment,
+          details: coverageParsed.error.issues
+            .slice(0, 5)
+            .map((issue) => `coverage.${issue.path.join('.') || '<root>'}: ${issue.message}`),
+        });
+
+        const copy = { ...record };
+        delete copy.coverage;
+        dataToParse = copy;
+      }
+    }
+
+    const parsed = V1TestRunSchema.safeParse(dataToParse);
     if (!parsed.success) {
       this.addDiagnostic({
         severity: 'error',
@@ -353,6 +422,40 @@ export class RunStore {
     return path.join(this.getProjectEnvDir(project, environment), 'history');
   }
 
+  private projectKey(project: string, environment: string): string {
+    return `${project}/${environment}`;
+  }
+
+  private isFull(run: TestRunV1): boolean {
+    return (run.runType ?? 'full') === 'full';
+  }
+
+  private isCompleted(run: TestRunV1): boolean {
+    return run.status !== 'running' && run.status !== 'pending' && run.status !== 'cancelled';
+  }
+
+  private historyPath(run: TestRunV1, completedAt: string): string {
+    return path.join(this.getHistoryDir(run.project, run.environment), `${formatHistoryFilename(completedAt, run.runId)}.json`);
+  }
+
+  private async writeJsonAtomically(filePath: string, value: unknown): Promise<void> {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+    const handle = await fs.open(tempPath, 'w');
+    try {
+      await handle.writeFile(JSON.stringify(value, null, 2), 'utf-8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    try {
+      await fs.rename(tempPath, filePath);
+    } catch (error) {
+      await fs.rm(tempPath, { force: true }).catch(() => undefined);
+      throw error;
+    }
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
@@ -377,36 +480,12 @@ export class RunStore {
           const envStat = await fs.stat(envDir).catch(() => null);
           if (!envStat?.isDirectory()) continue;
 
-          const key = `${project}/${environment}`;
+          const key = this.projectKey(project, environment);
           const runIds: string[] = [];
-
-          const lastRunPath = path.join(envDir, 'lastrun.json');
-          try {
-            const content = await fs.readFile(lastRunPath, 'utf-8');
-            const run = this.validateStoredRun(content, lastRunPath, project, environment);
-            if (run) {
-              this.runs.set(run.runId, { run, ...buildIndexes(run) });
-              runIds.push(run.runId);
-            }
-          } catch (error) {
-            // no lastrun
-            if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-              this.addDiagnostic({
-                severity: 'error',
-                code: 'invalid-model',
-                message: `Could not read ${path.basename(lastRunPath)}.`,
-                filePath: lastRunPath,
-                project,
-                environment,
-                details: [error instanceof Error ? error.message : String(error)],
-              });
-            }
-          }
-
           const historyDir = path.join(envDir, 'history');
           try {
             const historyFiles = await fs.readdir(historyDir);
-            historyFiles.sort().reverse();
+            historyFiles.sort();
 
             for (const file of historyFiles) {
               if (!file.endsWith('.json')) continue;
@@ -415,10 +494,12 @@ export class RunStore {
                 const content = await fs.readFile(historyPath, 'utf-8');
                 const run = this.validateStoredRun(content, historyPath, project, environment);
                 if (!run) continue;
-                if (!this.runs.has(run.runId)) {
-                  this.runs.set(run.runId, { run, ...buildIndexes(run) });
-                  runIds.push(run.runId);
-                }
+                if (this.runs.has(run.runId)) continue;
+                run.runType ??= 'full';
+                this.runs.set(run.runId, { run, ...buildIndexes(run) });
+                runIds.unshift(run.runId);
+                this.historyPathByRunId.set(run.runId, historyPath);
+                this.completedAtByRunId.set(run.runId, run.timestamp);
               } catch (error) {
                 this.addDiagnostic({
                   severity: 'warning',
@@ -435,8 +516,38 @@ export class RunStore {
             // no history
           }
 
+          // Older servers only persisted lastrun. Treat it as a physical full run
+          // only when history does not already provide that run.
+          const lastRunPath = path.join(envDir, 'lastrun.json');
+          try {
+            const content = await fs.readFile(lastRunPath, 'utf-8');
+            const run = this.validateStoredRun(content, lastRunPath, project, environment);
+            if (run && !this.runs.has(run.runId) && this.isFull(run) && this.isCompleted(run)) {
+              run.runType = 'full';
+              this.runs.set(run.runId, { run, ...buildIndexes(run) });
+              runIds.unshift(run.runId);
+              this.completedAtByRunId.set(run.runId, run.timestamp);
+            }
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+              this.addDiagnostic({
+                severity: 'error',
+                code: 'invalid-model',
+                message: `Could not read ${path.basename(lastRunPath)}.`,
+                filePath: lastRunPath,
+                project,
+                environment,
+                details: [error instanceof Error ? error.message : String(error)],
+              });
+            }
+          }
+
           if (runIds.length > 0) {
             this.runsByProject.set(key, runIds);
+            const combined = await this.rebuildLatestCombined(project, environment);
+            if (combined) {
+              await this.writeJsonAtomically(this.getLastRunPath(project, environment), combined);
+            }
           }
         }
       }
@@ -449,73 +560,99 @@ export class RunStore {
     }
   }
 
-  private async saveRun(run: TestRunV1, isLatest: boolean = false): Promise<void> {
-    try {
-      const envDir = this.getProjectEnvDir(run.project, run.environment);
-      await fs.mkdir(envDir, { recursive: true });
+  private getLineage(run: TestRunV1): { baseline: TestRunV1; partials: TestRunV1[] } | undefined {
+    const runIds = this.runsByProject.get(this.projectKey(run.project, run.environment)) ?? [];
+    const position = runIds.indexOf(run.runId);
+    if (position < 0) return undefined;
+    const chronological = runIds.slice(position).reverse();
+    const baselineId = this.isFull(run) ? run.runId : run.baselineRunId;
+    if (!baselineId) return undefined;
+    const baselineIndex = chronological.findIndex((id) => id === baselineId);
+    const baseline = baselineIndex >= 0 ? this.runs.get(baselineId)?.run : undefined;
+    if (!baseline) return undefined;
+    const partials = chronological
+      .slice(baselineIndex + 1)
+      .map((id) => this.runs.get(id)?.run)
+      .filter((candidate): candidate is TestRunV1 =>
+        Boolean(candidate) && (candidate!.runType ?? 'full') === 'partial' && candidate!.baselineRunId === baseline.runId);
+    return { baseline, partials };
+  }
 
-      if (isLatest) {
-        const lastRunPath = this.getLastRunPath(run.project, run.environment);
-        await fs.writeFile(lastRunPath, JSON.stringify(run, null, 2), 'utf-8');
-      }
+  getCombinedRun(runId: string): TestRunV1 | undefined {
+    const run = this.runs.get(runId)?.run;
+    if (!run) return undefined;
+    const lineage = this.getLineage(run);
+    return lineage ? composeTestRun(lineage.baseline, lineage.partials).run : undefined;
+  }
 
-      if (run.status === 'passed' || run.status === 'failed') {
-        const historyDir = this.getHistoryDir(run.project, run.environment);
-        await fs.mkdir(historyDir, { recursive: true });
+  private computeLatestCombined(project: string, environment: string): TestRunV1 | undefined {
+    const key = this.projectKey(project, environment);
+    const latestPhysical = (this.runsByProject.get(key) ?? [])
+      .map((id) => this.runs.get(id)?.run)
+      .find((run): run is TestRunV1 => Boolean(run));
+    return latestPhysical ? this.getCombinedRun(latestPhysical.runId) ?? latestPhysical : undefined;
+  }
 
-        const filename = formatHistoryFilename(run.timestamp, run.runId);
-        const historyPath = path.join(historyDir, `${filename}.json`);
-        await fs.writeFile(historyPath, JSON.stringify(run, null, 2), 'utf-8');
-      }
-    } catch (err) {
-      console.error(`Failed to save run ${run.runId}:`, err);
+  private async rebuildLatestCombined(project: string, environment: string): Promise<TestRunV1 | undefined> {
+    const key = this.projectKey(project, environment);
+    const combined = this.computeLatestCombined(project, environment);
+    if (combined) this.latestCombinedByProject.set(key, combined);
+    else this.latestCombinedByProject.delete(key);
+    return combined;
+  }
+
+  private async persistCompletedRun(run: TestRunV1, completedAt: string): Promise<string[]> {
+    const historyPath = this.historyPath(run, completedAt);
+    await this.writeJsonAtomically(historyPath, run);
+    this.historyPathByRunId.set(run.runId, historyPath);
+    const combined = this.computeLatestCombined(run.project, run.environment);
+    const paths = [historyPath];
+    if (combined) {
+      const latestPath = this.getLastRunPath(run.project, run.environment);
+      await this.writeJsonAtomically(latestPath, combined);
+      paths.push(latestPath);
+      this.latestCombinedByProject.set(this.projectKey(run.project, run.environment), combined);
     }
+    return paths;
   }
 
-  private async enforceHistoryLimit(project: string, environment: string): Promise<void> {
-    const key = `${project}/${environment}`;
-    const projectRuns = this.runsByProject.get(key) || [];
-
-    while (projectRuns.length > this.historyLimit) {
-      const oldRunId = projectRuns.pop()!;
-      const oldRecord = this.runs.get(oldRunId);
-
-      if (oldRecord) {
-        const historyDir = this.getHistoryDir(project, environment);
-        try {
-          const historyFiles = await fs.readdir(historyDir);
-          for (const file of historyFiles) {
-            if (file.includes(oldRunId.slice(-8))) {
-              await fs.unlink(path.join(historyDir, file)).catch(() => {});
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      this.runs.delete(oldRunId);
+  createRun(
+    runId: string,
+    project: string,
+    environment: string,
+    framework: string,
+    timestamp: string,
+    runType: 'full' | 'partial' = 'full'
+  ): TestRunV1 {
+    const key = this.projectKey(project, environment);
+    if (this.activeRunIdsByProject.has(key)) {
+      throw new RunStoreError('run-active', `A run is already active for '${project}/${environment}'.`);
     }
 
-    this.runsByProject.set(key, projectRuns);
-  }
+    let baselineRunId: string | undefined;
+    if (runType === 'partial') {
+      const latest = (this.runsByProject.get(key) ?? [])
+        .map((id) => this.runs.get(id)?.run)
+        .find((candidate): candidate is TestRunV1 => Boolean(candidate));
+      const fullRun = latest && this.isFull(latest)
+        ? latest
+        : latest?.baselineRunId
+          ? this.runs.get(latest.baselineRunId)?.run
+          : undefined;
+      if (!fullRun) {
+        throw new RunStoreError('no-baseline', `No completed full baseline exists for '${project}/${environment}'.`);
+      }
+      if (fullRun.framework !== framework) {
+        throw new RunStoreError('framework-mismatch', `Baseline framework '${fullRun.framework}' does not match '${framework}'.`);
+      }
+      baselineRunId = fullRun.runId;
+    }
 
-  private scheduleSaveRun(run: TestRunV1): void {
-    const existing = this.runSaveTimers.get(run.runId);
-    if (existing) clearTimeout(existing);
-
-    const timer = setTimeout(() => {
-      void this.saveRun(run, true);
-      this.runSaveTimers.delete(run.runId);
-    }, 500);
-
-    this.runSaveTimers.set(run.runId, timer);
-  }
-
-  createRun(runId: string, project: string, environment: string, framework: string, timestamp: string): TestRunV1 {
     const run: TestRunV1 = {
       protocolVersion: '1.0',
       runId,
+      runType,
+      ...(baselineRunId ? { baselineRunId } : {}),
       project,
       environment,
       framework,
@@ -527,29 +664,48 @@ export class RunStore {
     };
 
     const record: RunRecord = { run, ...buildIndexes(run) };
-    this.runs.set(runId, record);
-
-    const key = `${project}/${environment}`;
-    const projectRuns = this.runsByProject.get(key) || [];
-    projectRuns.unshift(runId);
-    this.runsByProject.set(key, projectRuns);
-
-    void this.saveRun(run, true);
-    void this.enforceHistoryLimit(project, environment);
+    this.activeRuns.set(runId, record);
+    this.activeRunIdsByProject.set(key, runId);
+    this.cancelledRunIds.delete(runId);
 
     return run;
   }
 
   getAllRuns(): TestRunV1[] {
-    return Array.from(this.runs.values()).map((r) => r.run);
+    return [
+      ...Array.from(this.activeRuns.values()).map((r) => r.run),
+      ...Array.from(this.runs.values()).map((r) => r.run),
+    ];
   }
 
   getRun(runId: string): TestRunV1 | undefined {
-    return this.runs.get(runId)?.run;
+    return this.activeRuns.get(runId)?.run ?? this.runs.get(runId)?.run;
   }
 
   private getRecord(runId: string): RunRecord | undefined {
-    return this.runs.get(runId);
+    return this.activeRuns.get(runId);
+  }
+
+  assertMutable(runId: string): TestRunV1 {
+    if (this.completingRunIds.has(runId)) {
+      throw new RunStoreError('run-not-active', `Run '${runId}' is completing and no longer accepts updates.`);
+    }
+    const active = this.activeRuns.get(runId)?.run;
+    if (active) return active;
+    if (this.cancelledRunIds.has(runId)) {
+      throw new RunStoreError('run-cancelled', `Run '${runId}' was cancelled.`);
+    }
+    throw new RunStoreError('run-not-active', `Run '${runId}' is not active.`);
+  }
+
+  cancelRun(runId: string): boolean {
+    if (this.completingRunIds.has(runId)) return false;
+    const record = this.activeRuns.get(runId);
+    if (!record) return false;
+    this.activeRuns.delete(runId);
+    this.activeRunIdsByProject.delete(this.projectKey(record.run.project, record.run.environment));
+    this.cancelledRunIds.add(runId);
+    return true;
   }
 
   async deleteRun(runId: string): Promise<boolean> {
@@ -558,9 +714,13 @@ export class RunStore {
 
     const run = record.run;
 
+    if (this.hasDependents(runId)) {
+      throw new RunStoreError('dependent-run', `Run '${runId}' has dependent partial runs.`);
+    }
+
     this.runs.delete(runId);
 
-    const key = `${run.project}/${run.environment}`;
+    const key = this.projectKey(run.project, run.environment);
     const projectRuns = this.runsByProject.get(key) || [];
     const newProjectRuns = projectRuns.filter((id) => id !== runId);
 
@@ -568,37 +728,44 @@ export class RunStore {
     else this.runsByProject.set(key, newProjectRuns);
 
     try {
-      const historyDir = this.getHistoryDir(run.project, run.environment);
-      const historyFiles = await fs.readdir(historyDir).catch(() => []);
-      for (const file of historyFiles) {
-        if (file.includes(runId.slice(-8))) {
-          await fs.unlink(path.join(historyDir, file)).catch(() => {});
-        }
-      }
-
+      const historyPath = this.historyPathByRunId.get(runId);
+      if (historyPath) await fs.unlink(historyPath).catch(() => undefined);
+      this.historyPathByRunId.delete(runId);
+      this.completedAtByRunId.delete(runId);
+      const latest = await this.rebuildLatestCombined(run.project, run.environment);
       const latestRunPath = this.getLastRunPath(run.project, run.environment);
-      try {
-        const lastRunContent = await fs.readFile(latestRunPath, 'utf-8');
-        const lastRun = JSON.parse(lastRunContent) as TestRunV1;
-        if (lastRun.runId === runId) {
-          if (newProjectRuns.length > 0) {
-            const next = this.runs.get(newProjectRuns[0])?.run;
-            if (next) {
-              await fs.writeFile(latestRunPath, JSON.stringify(next, null, 2), 'utf-8');
-            }
-          } else {
-            await fs.unlink(latestRunPath).catch(() => {});
-          }
-        }
-      } catch {
-        // ignore
-      }
+      if (latest) await this.writeJsonAtomically(latestRunPath, latest);
+      else await fs.unlink(latestRunPath).catch(() => undefined);
 
       return true;
     } catch (err) {
       console.error(`Failed to delete run ${runId} from disk:`, err);
       return true;
     }
+  }
+
+  hasDependents(runId: string): boolean {
+    const run = this.runs.get(runId)?.run;
+    if (!run) return false;
+
+    const runIds = this.runsByProject.get(this.projectKey(run.project, run.environment)) ?? [];
+    const position = runIds.indexOf(runId);
+    if (position < 0) return false;
+
+    const baselineRunId = this.isFull(run) ? run.runId : run.baselineRunId;
+    const completedDependent = runIds
+      .slice(0, position)
+      .map((id) => this.runs.get(id)?.run)
+      .some((candidate) =>
+        candidate?.runType === 'partial' &&
+        candidate.baselineRunId === baselineRunId);
+    if (completedDependent) return true;
+
+    return Array.from(this.activeRuns.values())
+      .map((record) => record.run)
+      .some((candidate) =>
+        candidate.runType === 'partial' &&
+        candidate.baselineRunId === baselineRunId);
   }
 
   getProjectHierarchy(): ProjectHierarchy {
@@ -616,15 +783,17 @@ export class RunStore {
       const envList: ProjectHierarchy[number]['environments'] = [];
 
       for (const [envName, runIds] of environments.entries()) {
-        const latestRun = runIds[0] ? this.runs.get(runIds[0])?.run : undefined;
+        const latestRun = this.latestCombinedByProject.get(this.projectKey(projectName, envName));
 
-        const history = runIds.slice(1).map((id) => {
+        const history = runIds.map((id) => {
           const run = this.runs.get(id)?.run;
           return {
             runId: id,
             timestamp: run?.timestamp || '',
             status: run?.status || 'unknown',
             summary: run?.summary,
+            runType: run?.runType ?? 'full',
+            ...(run?.baselineRunId ? { baselineRunId: run.baselineRunId } : {}),
           };
         });
 
@@ -644,10 +813,7 @@ export class RunStore {
   }
 
   getLatestRun(project: string, environment: string): TestRunV1 | undefined {
-    const key = `${project}/${environment}`;
-    const runIds = this.runsByProject.get(key) || [];
-    if (runIds.length === 0) return undefined;
-    return this.runs.get(runIds[0])?.run;
+    return this.latestCombinedByProject.get(this.projectKey(project, environment));
   }
 
   private rebuildIndexes(record: RunRecord): void {
@@ -665,7 +831,10 @@ export class RunStore {
 
       for (const t of allTopLevel) {
         if (isScenario(t)) {
-          (t as any).execution = computeScenarioExecutionFromSteps(((t as any).steps ?? []) as any[]);
+          (t as any).execution = computeScenarioExecutionFromSteps(
+            ((t as any).steps ?? []) as any[],
+            (t as any).execution
+          );
         }
 
         if (isScenarioOutline(t) || isRuleOutline(t)) {
@@ -738,7 +907,6 @@ export class RunStore {
 
     this.rebuildIndexes(record);
     this.recomputeAggregates(record);
-    this.scheduleSaveRun(record.run);
   }
 
   upsertTest(runId: string, testCaseId: string, test: AnyTest): void {
@@ -757,7 +925,6 @@ export class RunStore {
 
     this.rebuildIndexes(record);
     this.recomputeAggregates(record);
-    this.scheduleSaveRun(record.run);
   }
 
   replaceScenarioSteps(runId: string, scenarioId: string, steps: AnyTest[]): void {
@@ -771,7 +938,6 @@ export class RunStore {
 
     this.rebuildIndexes(record);
     this.recomputeAggregates(record);
-    this.scheduleSaveRun(record.run);
   }
 
   patchTestExecution(
@@ -794,7 +960,6 @@ export class RunStore {
 
     this.rebuildIndexes(record);
     this.recomputeAggregates(record);
-    this.scheduleSaveRun(record.run);
   }
 
   upsertOutlineExampleResults(
@@ -827,27 +992,165 @@ export class RunStore {
 
     this.rebuildIndexes(record);
     this.recomputeAggregates(record);
-    this.scheduleSaveRun(record.run);
   }
 
-  completeRun(runId: string, status: Status, duration: number, summary?: Statistics): void {
-    const record = this.getRecord(runId);
-    if (!record) return;
+  async completeRun(
+    runId: string,
+    status: Status,
+    duration: number,
+    summary?: Statistics,
+    coverage?: CoverageReport
+  ): Promise<TestRunV1> {
+    const record = this.activeRuns.get(runId);
+    if (!record) {
+      if (this.cancelledRunIds.has(runId)) {
+        throw new RunStoreError('run-cancelled', `Run '${runId}' was cancelled.`);
+      }
+      const completed = this.runs.get(runId)?.run;
+      if (completed) return completed;
+      throw new RunStoreError('run-not-active', `Run '${runId}' is not active.`);
+    }
+
+    const previousRunState = {
+      duration: record.run.duration,
+      status: record.run.status,
+      summary: record.run.summary,
+      coverage: record.run.coverage,
+    };
 
     record.run.duration = duration;
     record.run.status = status;
     if (summary) record.run.summary = summary;
+    if (coverage) record.run.coverage = coverage;
 
-    void this.saveRun(record.run, true);
+    if (status === 'cancelled') {
+      this.activeRuns.delete(runId);
+      this.activeRunIdsByProject.delete(this.projectKey(record.run.project, record.run.environment));
+      this.cancelledRunIds.add(runId);
+      return record.run;
+    }
+
+    if (this.completingRunIds.has(runId)) {
+      throw new RunStoreError('run-not-active', `Run '${runId}' is already completing.`);
+    }
+    this.completingRunIds.add(runId);
+
+    const completedAt = new Date().toISOString();
+    const key = this.projectKey(record.run.project, record.run.environment);
+    // Index before building the combined view, but do not expose it as complete
+    // until both physical history and combined latest have been persisted.
+    this.runs.set(runId, record);
+    const completedIds = this.runsByProject.get(key) ?? [];
+    completedIds.unshift(runId);
+    this.runsByProject.set(key, completedIds);
+    this.completedAtByRunId.set(runId, completedAt);
+    const persistence = this.persistCompletedRun(record.run, completedAt);
+    this.pendingPersistence.add(persistence);
+    try {
+      await persistence;
+    } catch (error) {
+      this.runs.delete(runId);
+      this.runsByProject.set(key, completedIds.filter((id) => id !== runId));
+      this.completedAtByRunId.delete(runId);
+      const historyPath = this.historyPathByRunId.get(runId);
+      if (historyPath) await fs.unlink(historyPath).catch(() => undefined);
+      this.historyPathByRunId.delete(runId);
+      record.run.duration = previousRunState.duration;
+      record.run.status = previousRunState.status;
+      record.run.summary = previousRunState.summary;
+      record.run.coverage = previousRunState.coverage;
+      await this.rebuildLatestCombined(record.run.project, record.run.environment);
+      throw error;
+    } finally {
+      this.pendingPersistence.delete(persistence);
+      this.completingRunIds.delete(runId);
+    }
+    this.activeRuns.delete(runId);
+    this.activeRunIdsByProject.delete(key);
+    await this.enforceHistoryLimit(record.run.project, record.run.environment);
+    return record.run;
+  }
+
+  async attachCoverage(runId: string, coverage: CoverageReport): Promise<{ completed: true; paths: string[] }> {
+    const activeRecord = this.activeRuns.get(runId);
+    if (activeRecord) {
+      const previousCoverage = activeRecord.run.coverage;
+      activeRecord.run.coverage = coverage;
+      try {
+        // Coverage producers may arrive immediately before completion. Verify
+        // storage is writable without publishing active run data as lastrun.
+        await fs.mkdir(this.getProjectEnvDir(activeRecord.run.project, activeRecord.run.environment), { recursive: true });
+        return { completed: true, paths: [] };
+      } catch (error) {
+        activeRecord.run.coverage = previousCoverage;
+        throw error;
+      }
+    }
+
+    const record = this.runs.get(runId);
+    if (!record) {
+      if (this.cancelledRunIds.has(runId)) {
+        throw new RunStoreError('run-cancelled', `Run '${runId}' was cancelled.`);
+      }
+      throw new RunStoreError('run-not-active', `Run ${runId} is not completed.`);
+    }
+
+    const previousCoverage = record.run.coverage;
+    record.run.coverage = coverage;
+    try {
+      const historyPath = this.historyPathByRunId.get(runId);
+      if (!historyPath) throw new Error(`Run ${runId} has no persisted history path.`);
+      await this.writeJsonAtomically(historyPath, record.run);
+      const combined = this.computeLatestCombined(record.run.project, record.run.environment);
+      const paths = [historyPath];
+      if (combined) {
+        const latestPath = this.getLastRunPath(record.run.project, record.run.environment);
+        await this.writeJsonAtomically(latestPath, combined);
+        paths.push(latestPath);
+        this.latestCombinedByProject.set(this.projectKey(record.run.project, record.run.environment), combined);
+      }
+      return { completed: true, paths };
+    } catch (error) {
+      record.run.coverage = previousCoverage;
+      throw error;
+    }
   }
 
   async flush(): Promise<void> {
-    for (const [runId, timer] of this.runSaveTimers.entries()) {
-      clearTimeout(timer);
-      const record = this.runs.get(runId);
-      if (record) await this.saveRun(record.run, true);
+    // Active runs are intentionally not persisted. Completed invocations are
+    // synchronously persisted by completeRun and coverage attachment.
+    await Promise.all([...this.pendingPersistence]);
+  }
+
+  private async enforceHistoryLimit(project: string, environment: string): Promise<void> {
+    const key = this.projectKey(project, environment);
+    const runIds = this.runsByProject.get(key) ?? [];
+    // Preserve the current full lineage even when it exceeds the configured
+    // limit. Only whole older lineages can be safely evicted.
+    while (runIds.length > this.historyLimit) {
+      const oldestFullIndex = (() => {
+        for (let index = runIds.length - 1; index >= 0; index--) {
+          if (this.isFull(this.runs.get(runIds[index]!)!.run)) return index;
+        }
+        return -1;
+      })();
+      const nextFullIndex = (() => {
+        for (let index = oldestFullIndex - 1; index >= 0; index--) {
+          if (this.isFull(this.runs.get(runIds[index]!)!.run)) return index;
+        }
+        return -1;
+      })();
+      if (oldestFullIndex < 0 || nextFullIndex < 0) break;
+      const evicted = runIds.splice(nextFullIndex + 1);
+      for (const runId of evicted) {
+        const historyPath = this.historyPathByRunId.get(runId);
+        if (historyPath) await fs.unlink(historyPath).catch(() => undefined);
+        this.runs.delete(runId);
+        this.historyPathByRunId.delete(runId);
+        this.completedAtByRunId.delete(runId);
+      }
     }
-    this.runSaveTimers.clear();
+    this.runsByProject.set(key, runIds);
   }
 }
 
