@@ -16,6 +16,43 @@ feature(`Validate step rules
         let ruleOptions: LiveDocOptions = new LiveDocOptions();
         let executionResults: ExecutionResults;
 
+        scenario("Dynamic execution preserves the default 'singleGivenWhenThen' rule as 'enabled'", () => {
+            let defaultViolation: LiveDocRuleViolation | undefined;
+
+            given(`a feature with repeated Given steps
+                """
+                import { feature, scenario, given, when, Then as then } from './livedoc';
+
+                feature("Default rule configuration", () => {
+                    scenario("Repeated Given steps are rejected", () => {
+                        given("the first precondition", () => {});
+                        given("the second precondition", () => {});
+                        when("the action runs", () => {});
+                        then("the result is observed", () => {});
+                    });
+                });
+                """
+                `, (ctx) => {
+                outlineGiven = ctx.step;
+            });
+
+            when("executing the feature without rule overrides", async () => {
+                try {
+                    await LiveDoc.executeDynamicTestAsync(outlineGiven.docString!);
+                } catch (error) {
+                    defaultViolation = error as LiveDocRuleViolation;
+                }
+            });
+
+            then(`the default rule violation is
+                """
+                there should be only one given in a Scenario, Scenario Outline or Background. Try using and or but instead.
+                """
+                `, (ctx) => {
+                defaultViolation!.message.should.equal(ctx.step.docString);
+            });
+        });
+
         scenarioOutline(`Setting the LiveDocOptions to enabled for rules
             Examples:
             | step  | display name |
@@ -408,4 +445,3 @@ feature(`Validate step rules
         */
 
     });
-

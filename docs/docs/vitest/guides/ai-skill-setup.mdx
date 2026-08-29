@@ -1,15 +1,16 @@
 ---
 sidebar_position: 2
-title: "Install Reusable AI Skills"
-description: "Install durable LiveDoc authoring guidance for future AI coding sessions after the project is configured."
+title: "Manage AI Skills"
+description: "Refresh version-matched LiveDoc guidance or add repository-local support for another AI coding tool."
 ---
 
-# Install Reusable AI Skills
+# Manage AI Skills
 
 <p className="intro">
-This page installs durable LiveDoc authoring guidance after LiveDoc is already
-available in the project. To let an AI assistant install and configure LiveDoc
-from scratch using one URL, use [Set Up a Project with AI](../../guides/ai-project-setup.mdx).
+AI-led project setup installs durable, version-matched LiveDoc guidance
+automatically. Use this page when installing manually, refreshing skills after a
+package update, or adding another AI tool. Skills stay inside the repository so
+they can be reviewed, committed, and shared without affecting other projects.
 </p>
 
 ## One Command
@@ -20,14 +21,15 @@ From your project directory, run:
 npx livedoc-vitest-setup
 ```
 
-An interactive menu lets you choose which AI tool(s) to install for. The default is **all supported tools**.
+An interactive menu lets you choose one or more AI tools. The default is **all
+supported tools**.
 
 ### Non-Interactive (CI)
 
-Install for a specific tool without a menu:
+Install for selected tools without a menu:
 
 ```bash
-npx livedoc-vitest-setup --tool copilot
+npx livedoc-vitest-setup --tool copilot,codex,claude
 ```
 
 Install for all tools:
@@ -43,6 +45,7 @@ npx livedoc-vitest-setup --tool all
 | AI Tool                      | Installed? |
 | ---------------------------- | :--------: |
 | GitHub Copilot (VS Code/CLI) | ✅          |
+| OpenAI Codex                 | ✅          |
 | Claude Code                  | ✅          |
 | Roo Code                     | ✅          |
 | Cursor                       | ✅          |
@@ -50,7 +53,8 @@ npx livedoc-vitest-setup --tool all
 
 :::tip
 The installer places skill files in your **repository**. Commit them and
-every developer on the team benefits automatically.
+every developer on the team benefits automatically. Repository scope also keeps
+the skill aligned with this project's LiveDoc version.
 :::
 
 ---
@@ -62,6 +66,7 @@ The installer places skill instruction files in tool-specific locations:
 | AI Tool         | Location                                    |
 | --------------- | ------------------------------------------- |
 | GitHub Copilot  | `.github/skills/livedoc-vitest/`            |
+| OpenAI Codex    | `.agents/skills/livedoc-vitest/`            |
 | Claude Code     | `.claude/skills/livedoc-vitest/`            |
 | Roo Code        | `.roo/skills/livedoc-vitest/`               |
 | Cursor          | `.cursor/rules/livedoc-vitest/`             |
@@ -77,7 +82,7 @@ The skill files are bundled in the npm package under `tools/skills/`. Find them 
 node_modules/@swedevtools/livedoc-vitest/tools/skills/
 ```
 
-Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`) to the appropriate directory
+Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`, and `resources/`) to the appropriate directory
 from the table above.
 
 ---

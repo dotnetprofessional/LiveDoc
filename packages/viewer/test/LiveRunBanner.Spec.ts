@@ -109,4 +109,20 @@ specification(`Viewer Live Update Banner
     expect(target?.run.run.status).toBe('passed');
     expect(target?.isSelected).toBe(true);
   });
+
+  rule("A running run with '1' failed test remains the live banner target", (ctx) => {
+    const live = run('live-with-failure', 'Demo', 'running');
+    live.run.summary = { total: 1, passed: 0, failed: ctx.rule.values[0], pending: 0, skipped: 0 };
+
+    const target = findLiveRunTarget({
+      runs: [live],
+      physicalRuns: {},
+      groups: [],
+      selectedRunId: live.run.runId,
+      selectedRunGroupId: null,
+    });
+
+    expect(target?.runId).toBe(live.run.runId);
+    expect(target?.run.run.status).toBe('running');
+  });
 });

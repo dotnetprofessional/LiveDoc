@@ -55,9 +55,58 @@ public class Checkout_Feature_Metadata_Spec : FeatureTest
     [Tag("scenario-outline-method")]
     [ScenarioOutline("Scenario outline sends '<value>' metadata", Description = "Scenario outline description from attribute")]
     [Example("retail")]
+    [Example("wholesale")]
     public void Scenario_outline_without_steps(string value)
     {
-        Assert.Equal("retail", value);
+        Assert.Contains(value, new[] { "retail", "wholesale" });
+    }
+
+    [ScenarioOutline("Forward discount '<discountPercent>' keeps a fixed cart total")]
+    [Example(100)]
+    [Example(10)]
+    public void Forward_discount_template(int discountPercent)
+    {
+        Given("a cart totaling '100.00'", () => { });
+        And($"a fixed discount ceiling of '100' precedes a discount of '{discountPercent}'", () => { });
+        When($"a discount of '{discountPercent}' percent is applied", () => { });
+        Then("the cart remains valid", () => Assert.True(discountPercent > 0));
+    }
+
+    [ScenarioOutline("Reverse discount '<discountPercent>' keeps a fixed cart total")]
+    [Example(10)]
+    [Example(100)]
+    public void Reverse_discount_template(int discountPercent)
+    {
+        Given("a cart totaling '100.00'", () => { });
+        And($"a fixed discount ceiling of '100' precedes a discount of '{discountPercent}'", () => { });
+        When($"a discount of '{discountPercent}' percent is applied", () => { });
+        Then("the cart remains valid", () => Assert.True(discountPercent > 0));
+    }
+
+    [ScenarioOutline("Decimal tax rate '<rate>' uses the current culture")]
+    [Example(1.5)]
+    [Example(2.5)]
+    public void Decimal_comma_template(decimal rate)
+    {
+        var originalCulture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture =
+                System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
+            When($"a tax rate '{rate}' is applied", () => Assert.True(rate > 0));
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    [ScenarioOutline("Equal parameter values preserve distinct '<a>' and '<b>' bindings")]
+    [Example(1, 1)]
+    [Example(2, 3)]
+    public void Equal_parameter_values(int a, int b)
+    {
+        Then($"values '{a}' and '{b}' remain distinct", () => Assert.True(a > 0 && b > 0));
     }
 }
 

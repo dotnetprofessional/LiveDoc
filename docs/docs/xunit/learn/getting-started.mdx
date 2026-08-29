@@ -45,44 +45,46 @@ This scaffolds a standard xUnit project with a single test file.
 
 ## Step 2: Install LiveDoc
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+  <TabItem value="ai-agent" label="AI Agent" default>
+
+Give GitHub Copilot, OpenAI Codex, Claude Code, Cursor, Roo Code, Windsurf, or
+another repository-aware agent this prompt:
+
+```text
+Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
+for LiveDoc. Inspect the project first, then ask me one configuration question
+at a time. Summarize the proposed setup and wait for my approval before editing
+files or installing packages.
+```
+
+The agent will confirm the project name, Viewer publishing, Microsoft Code
+Coverage, thresholds, tag-based partial testing, and whether to add a
+representative LiveDoc test. It also asks which AI tools you use and installs
+version-matched skills for each one inside the repository. It creates
+PowerShell and Bash launchers for normal and coverage runs. After it finishes,
+continue to [Step 4](#step-4-run-it-) to inspect the result.
+
+  </TabItem>
+  <TabItem value="dotnet-cli" label=".NET CLI">
+
 ```bash
 dotnet add package SweDevTools.LiveDoc.xUnit
 ```
 
-That's it — one package, no extra configuration files.
+  </TabItem>
+</Tabs>
+
+For manual installation, that's it — one package, no extra configuration files.
 
 :::tip Already using xUnit?
 LiveDoc builds on top of xUnit's existing infrastructure. `[Scenario]` inherits
 from `[Fact]` and `[ScenarioOutline]` inherits from `[Theory]`, so your test
 runner, IDE integrations, and CI pipelines all work unchanged.
 :::
-
----
-
-## Choose Your Setup Path
-
-### AI-Assisted Setup (Recommended)
-
-If you use GitHub Copilot, Claude Code, Cursor, Roo Code, or Windsurf, give the
-assistant this prompt. LiveDoc does not need to be installed yet:
-
-> Read https://livedoc.swedevtools.com/ai/setup.md and configure this xUnit
-> project for LiveDoc with Viewer publishing and full Microsoft Code Coverage
-> including branch data. Preserve existing runsettings.
-
-The bootstrap page teaches the assistant which packages to install, the correct base classes and attributes,
-self-documenting value extraction, Viewer configuration, coverage collector
-choice, dependencies, diagnostics, and validation commands. Review the changes,
-then continue to [Step 4](#step-4-run-it-) to run the suite.
-
-**[See the AI project setup workflow →](../../guides/ai-project-setup.mdx)**
-
-After setup, optionally install the reusable xUnit skill with
-`dotnet msbuild -t:LiveDocInstallSkills` for future AI authoring sessions.
-
-### Manual Setup
-
-Continue with Step 3 to create the test yourself.
 
 ---
 
@@ -151,6 +153,19 @@ formats the test output that appears in your IDE and test reports.
 ---
 
 ## Step 4: Run It 🎉
+
+If the AI Agent configured the project:
+
+```powershell
+.\scripts\test-livedoc.ps1
+.\scripts\test-livedoc.ps1 -Coverage
+```
+
+The first command runs tests normally. The second requests Microsoft Code
+Coverage in Cobertura format, including branch data, without requiring the full
+collector syntax.
+
+For a manual installation:
 
 ```bash
 dotnet test --logger LiveDoc

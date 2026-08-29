@@ -9,6 +9,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
 [Specification("Authoritative Result Output", Description = @"
     The LiveDoc export must use xUnit's final result for every discovered test,
     including failures outside LiveDoc steps, outline rows, and helper fixtures.")]
+[Collection(Environment_Sensitive_Collection.Name)]
 public class Authoritative_Result_Output_Spec : SpecificationTest
 {
     public Authoritative_Result_Output_Spec(ITestOutputHelper output) : base(output) { }

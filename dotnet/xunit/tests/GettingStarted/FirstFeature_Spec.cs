@@ -24,7 +24,7 @@ public class FirstFeature_Spec : FeatureTest
         When("the customer order total is '101.00' dollars", ctx =>
         {
             orderTotal = ctx.Step!.Values[0].AsDecimal();
-            shippingRate = orderTotal == freeShippingThreshold ? "Free" : "Standard";
+            shippingRate = orderTotal >= freeShippingThreshold ? "Free" : "Standard";
         });
 
         Then("the shipping rate is 'Free'", ctx =>

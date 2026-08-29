@@ -1,15 +1,16 @@
 ---
 sidebar_position: 2
-title: "Install Reusable AI Skills"
-description: "Install durable LiveDoc xUnit authoring guidance for future AI coding sessions after the project is configured."
+title: "Manage AI Skills"
+description: "Refresh version-matched LiveDoc xUnit guidance or add repository-local support for another AI coding tool."
 ---
 
-# Install Reusable AI Skills
+# Manage AI Skills
 
 <p className="intro">
-This page installs durable LiveDoc authoring guidance after the NuGet package is
-available in the project. To let an AI assistant install and configure LiveDoc
-from scratch using one URL, use [Set Up a Project with AI](../../guides/ai-project-setup.mdx).
+AI-led project setup installs durable, version-matched LiveDoc guidance
+automatically. Use this page when installing manually, refreshing skills after a
+package update, or adding another AI tool. Skills stay inside the repository so
+they can be reviewed, committed, and shared without affecting other projects.
 </p>
 
 ## One Command
@@ -20,39 +21,33 @@ From your test project directory, run:
 dotnet msbuild -t:LiveDocInstallSkills
 ```
 
-This installs skill files for **all supported AI tools** into your project. Commit them to share with your team.
+This installs skill files for **all supported AI tools** into your repository.
+Commit them to share with your team.
 
 ### Options
 
-Install for a specific tool only:
+Install for selected tools only:
 
 ```bash
-dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot
-```
-
-Install to your home directory (personal, all projects):
-
-```bash
-dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocScope=user
+dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot,codex,claude
 ```
 
 ---
 
 ## Supported AI Tools
 
-| AI Tool                      | Project Scope | User Scope |
-| ---------------------------- | :-----------: | :--------: |
-| GitHub Copilot (VS Code/CLI) | ✅            | ✅          |
-| Claude Code                  | ✅            | ✅          |
-| Roo Code                     | ✅            | ✅          |
-| Cursor                       | ✅            | —          |
-| Windsurf                     | ✅            | —          |
+| AI Tool                      | Repository Scope |
+| ---------------------------- | :--------------: |
+| GitHub Copilot (VS Code/CLI) | ✅               |
+| OpenAI Codex                 | ✅               |
+| Claude Code                  | ✅               |
+| Roo Code                     | ✅               |
+| Cursor                       | ✅               |
+| Windsurf                     | ✅               |
 
 :::tip
-**Project scope** installs skill files in your repository. Commit them and
-every developer on the team benefits automatically.
-
-**User scope** installs to your home directory — available across all your projects.
+Repository scope keeps the installed skill aligned with this project's LiveDoc
+version. Commit the files and every developer on the team benefits automatically.
 :::
 
 ---
@@ -61,13 +56,14 @@ every developer on the team benefits automatically.
 
 The installer places skill instruction files in tool-specific locations:
 
-| AI Tool         | Project Scope Location                      | User Scope Location              |
-| --------------- | ------------------------------------------- | -------------------------------- |
-| GitHub Copilot  | `.github/skills/livedoc-xunit/`             | `~/.copilot/skills/livedoc-xunit/` |
-| Claude Code     | `.claude/skills/livedoc-xunit/`             | `~/.claude/skills/livedoc-xunit/`  |
-| Roo Code        | `.roo/skills/livedoc-xunit/`                | `~/.roo/skills/livedoc-xunit/`     |
-| Cursor          | `.cursor/rules/livedoc-xunit/`              | —                                |
-| Windsurf        | `.windsurf/rules/livedoc-xunit/`            | —                                |
+| AI Tool         | Repository Location                         |
+| --------------- | ------------------------------------------- |
+| GitHub Copilot  | `.github/skills/livedoc-xunit/`             |
+| OpenAI Codex    | `.agents/skills/livedoc-xunit/`             |
+| Claude Code     | `.claude/skills/livedoc-xunit/`             |
+| Roo Code        | `.roo/skills/livedoc-xunit/`                |
+| Cursor          | `.cursor/rules/livedoc-xunit/`              |
+| Windsurf        | `.windsurf/rules/livedoc-xunit/`            |
 
 ### Manual Fallback
 
@@ -82,7 +78,7 @@ NuGet cache:
 %USERPROFILE%\.nuget\packages\swedevtools.livedoc.xunit\<version>\tools\skills\
 ```
 
-Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`) to the appropriate directory
+Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`, and `resources/`) to the appropriate directory
 from the table above.
 
 ---

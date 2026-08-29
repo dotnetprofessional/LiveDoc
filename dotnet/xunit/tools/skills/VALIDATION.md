@@ -9,7 +9,7 @@
 | Frontmatter `name` present | PASS |
 | Frontmatter `description` present | PASS |
 | Description <= 100 words | PASS (40 words) |
-| Body <= 500 lines | PASS (337 lines) |
+| Body <= 500 lines | PASS (378 lines) |
 | `## Use this skill when` | PASS |
 | `## Do not use this skill when` | PASS |
 | `## Inputs` | PASS |
@@ -25,6 +25,9 @@
 | Attachment and evidence guidance | PASS |
 | False-green anti-pattern catalogue | PASS |
 | Tag-scoped partial-testing workflow | PASS |
+| Framework defect verification and duplicate search | PASS |
+| Sanitized draft and explicit consent before submission | PASS |
+| Rule-violation self-correction gate | PASS |
 | Source and package-shipped copies aligned | PASS |
 
 ## Assumptions

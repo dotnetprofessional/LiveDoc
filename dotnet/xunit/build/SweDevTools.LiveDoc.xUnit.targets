@@ -49,7 +49,7 @@
   <!--
     LiveDoc AI Skill Installer.
     Invoked explicitly: dotnet msbuild -t:LiveDocInstallSkills
-    Non-interactive:    dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot
+    Non-interactive:    dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot,codex,claude
     NOT run during normal builds.
   -->
   <PropertyGroup>

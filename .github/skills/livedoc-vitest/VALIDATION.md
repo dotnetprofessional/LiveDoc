@@ -9,7 +9,7 @@
 | Frontmatter `name` present | ✅ |
 | Frontmatter `description` present | ✅ |
 | Description ≤ 100 words | ✅ (28 words) |
-| Body ≤ 500 lines | ✅ (293 lines) |
+| Body ≤ 500 lines | ✅ (334 lines) |
 | `## Use this skill when` | ✅ |
 | `## Do not use this skill when` | ✅ |
 | `## Inputs` | ✅ |
@@ -25,6 +25,9 @@
 | jsdom/real-browser guidance | ✅ |
 | False-green anti-pattern catalogue | ✅ |
 | Tag-scoped partial-testing workflow | ✅ |
+| Framework defect verification and duplicate search | ✅ |
+| Sanitized draft and explicit consent before submission | ✅ |
+| Rule-violation self-correction gate | ✅ |
 | Source and package-shipped copies aligned | ✅ |
 
 ## Assumptions

@@ -22,7 +22,7 @@ export interface ServerConfig {
 // =============================================================================
 
 export interface ReporterConfig {
-  server?: string;          // Server URL, e.g., 'http://localhost:3000'
+  server?: string;          // Server URL, e.g., 'http://localhost:3100'
   project?: string;         // Auto-detected if not provided
   environment?: string;     // Defaults to 'local'
   mode?: 'live' | 'batch' | 'file';

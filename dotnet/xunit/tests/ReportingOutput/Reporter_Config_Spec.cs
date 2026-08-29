@@ -221,10 +221,9 @@ public class Reporter_Config_Spec : SpecificationTest
     [Rule("RunTypeEnvVar constant is 'LIVEDOC_RUN_TYPE'")]
     public void RunTypeEnvVar_constant_is_correct()
     {
-        Assert.True(string.Equals(
-            Rule.Values[0].AsString(),
-            LiveDocConfig.RunTypeEnvVar,
-            StringComparison.Ordinal));
+#pragma warning disable xUnit2000 // LiveDoc titles are the source of expected values.
+        Assert.Equal(Rule.Values[0].AsString(), LiveDocConfig.RunTypeEnvVar);
+#pragma warning restore xUnit2000
     }
 
     [Rule("ProjectMetadataKey constant is correct")]

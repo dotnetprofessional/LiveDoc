@@ -41,43 +41,20 @@ from unit-level specifications to full end-to-end API journeys.
 
 ---
 
-## Quick Start
+## Start Here
 
-```bash
-dotnet add package SweDevTools.LiveDoc.xUnit
-```
+The [Getting Started guide](./learn/getting-started) is the single setup path
+for the xUnit SDK. Choose **AI Agent** or **.NET CLI** there, then create and run
+your first living specification.
 
-:::tip Let AI perform the entire setup
-Tell your assistant: **"Read https://livedoc.swedevtools.com/ai/setup.md and
-configure this xUnit project for LiveDoc, the Viewer, and full code coverage."**
-No LiveDoc package or skill needs to be installed first.
-[AI project setup →](/guides/ai-project-setup)
-:::
+<div className="nav-grid">
 
-```csharp
-[Feature("Shopping Cart")]
-public class CartTests : FeatureTest
-{
-    public CartTests(ITestOutputHelper output) : base(output) { }
+<a className="nav-card" href="./learn/getting-started">
+<strong>🚀 Get Started with xUnit</strong>
+<span>Install LiveDoc manually or with an AI agent, then run your first documented test.</span>
+</a>
 
-    [Scenario("Adding an item increases the count")]
-    public void AddItem()
-    {
-        var cart = new Cart();
-
-        Given("an empty cart", () => { });
-        When("I add '1' item", () => cart.Add("Widget"));
-        Then("the cart contains '1' item", () =>
-            Assert.Equal(1, cart.Count));
-    }
-}
-```
-
-```bash
-dotnet test --logger LiveDoc
-```
-
-**[Full getting started guide →](./learn/getting-started)**
+</div>
 
 ---
 
@@ -103,11 +80,6 @@ dotnet test --logger LiveDoc
 <a className="nav-card" href="./guides/best-practices">
 <strong>💡 Guides</strong>
 <span>Best practices, viewer integration, debugging, troubleshooting, and more.</span>
-</a>
-
-<a className="nav-card" href="/guides/ai-project-setup">
-<strong>🤖 Set Up with AI</strong>
-<span>Give your assistant one URL and let it install and configure LiveDoc, the Viewer, and coverage.</span>
 </a>
 
 </div>

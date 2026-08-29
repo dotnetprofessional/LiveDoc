@@ -26,16 +26,19 @@ public class Async_Execution_Spec : FeatureTest
     public async Task Async_Given_step()
     {
         string? result = null;
+        string? observedResult = null;
         
         await Given("an async operation completes", async () =>
         {
             await Task.Delay(1); // Simulate async work
             result = "completed";
         });
+
+        When("the completed result is observed", () => observedResult = result);
         
         Then("the result is set", () =>
         {
-            Assert.Equal("completed", result);
+            Assert.Equal("completed", observedResult);
         });
     }
 
@@ -62,8 +65,10 @@ public class Async_Execution_Spec : FeatureTest
     public async Task Async_Then_step()
     {
         var data = new List<string>();
-        
-        Given("some data", () => data.Add("item"));
+
+        Given("an empty data list", () => { });
+
+        When("an item is added", () => data.Add("item"));
         
         await Then("the async assertion passes", async () =>
         {
@@ -104,16 +109,19 @@ public class Async_Execution_Spec : FeatureTest
     public async Task Async_step_with_context_access()
     {
         int? extractedValue = null;
+        int? observedValue = null;
         
         await Given("a value of '42' is provided", async ctx =>
         {
             await Task.Delay(1);
             extractedValue = ctx.Step!.Values[0].AsInt();
         });
+
+        When("the extracted value is observed", () => observedValue = extractedValue);
         
         Then("the value was extracted", () =>
         {
-            Assert.Equal(42, extractedValue);
+            Assert.Equal(42, observedValue);
         });
     }
 

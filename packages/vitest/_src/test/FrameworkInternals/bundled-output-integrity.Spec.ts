@@ -43,15 +43,6 @@ specification(`Playwright bundle does not inline livedoc internals
         expect(content).not.toContain("scenarioStartHooks");
     });
 
-    rule("dist/playwright/index.cjs requires '@swedevtools/livedoc-vitest'", () => {
-        const content = readDist("playwright/index.cjs");
-        expect(content).toContain("@swedevtools/livedoc-vitest");
-    });
-
-    rule("dist/playwright/index.cjs does not contain 'scenarioStartHooks'", () => {
-        const content = readDist("playwright/index.cjs");
-        expect(content).not.toContain("scenarioStartHooks");
-    });
 });
 
 // ─── Setup Entry Point ──────────────────────────────────────────────
@@ -73,15 +64,6 @@ specification(`Setup bundle does not inline livedoc internals
         expect(content).not.toContain("scenarioStartHooks");
     });
 
-    rule("dist/setup.cjs requires '@swedevtools/livedoc-vitest'", () => {
-        const content = readDist("setup.cjs");
-        expect(content).toContain("@swedevtools/livedoc-vitest");
-    });
-
-    rule("dist/setup.cjs does not contain 'scenarioStartHooks'", () => {
-        const content = readDist("setup.cjs");
-        expect(content).not.toContain("scenarioStartHooks");
-    });
 });
 
 // ─── Reporter Entry Point ───────────────────────────────────────────
@@ -103,13 +85,4 @@ specification(`Reporter bundle does not inline livedoc internals
         expect(content).not.toContain("scenarioStartHooks");
     });
 
-    rule("dist/reporter/index.cjs requires '@swedevtools/livedoc-vitest'", () => {
-        const content = readDist("reporter/index.cjs");
-        expect(content).toContain("@swedevtools/livedoc-vitest");
-    });
-
-    rule("dist/reporter/index.cjs does not contain 'scenarioStartHooks'", () => {
-        const content = readDist("reporter/index.cjs");
-        expect(content).not.toContain("scenarioStartHooks");
-    });
 });

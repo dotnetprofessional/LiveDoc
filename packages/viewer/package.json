@@ -1,6 +1,6 @@
 {
   "name": "@swedevtools/livedoc-viewer",
-  "version": "0.2.0-beta.2",
+  "version": "0.3.0",
   "description": "LiveDoc BDD Test Results Viewer - Real-time test visualization",
   "author": "Garry McGlennon",
   "license": "MIT",
@@ -53,8 +53,8 @@
     "clsx": "^2.1.1",
     "commander": "^12.1.0",
     "framer-motion": "^12.23.26",
-    "hono": "^4.11.1",
-    "lucide-react": "^0.330.0",
+    "hono": "^4.12.25",
+    "lucide-react": "^0.475.0",
     "open": "^10.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -62,7 +62,7 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "ws": "^8.18.3",
+    "ws": "^8.21.0",
     "zod": "^3.24.3",
     "zustand": "^5.0.9"
   },

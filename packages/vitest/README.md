@@ -24,7 +24,7 @@ LiveDoc brings Behavior-Driven Development to Vitest with full Gherkin syntax â€
 ### Install
 
 ```bash
-npm install --save-dev vitest @swedevtools/livedoc-vitest
+npm install --save-dev vitest@^4.0.16 @swedevtools/livedoc-vitest
 ```
 
 ### Fastest Setup: Point Your AI at the Bootstrap URL
@@ -32,13 +32,16 @@ npm install --save-dev vitest @swedevtools/livedoc-vitest
 Tell your assistant:
 
 > Read https://livedoc.swedevtools.com/ai/setup.md and configure this Vitest
-> project for LiveDoc, Viewer publishing, V8 coverage, and a first `.Spec.ts`.
+> project for LiveDoc. Inspect it first, ask me one configuration question at a
+> time, and wait for approval before making changes.
 
 No LiveDoc package or skill needs to be installed first.
 [AI project setup â†’](https://livedoc.swedevtools.com/guides/ai-project-setup)
 
-After setup, `npx livedoc-vitest-setup` optionally installs reusable guidance for
-future AI sessions.
+AI setup installs version-matched skills inside the repository for every
+selected tool. Run `npx livedoc-vitest-setup --tool copilot,codex,claude` later
+to refresh them or add another tool. It also adds `test:livedoc` and, when
+coverage is enabled, `test:livedoc:coverage` package scripts.
 
 ### Create a spec
 

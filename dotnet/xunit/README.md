@@ -17,14 +17,18 @@ dotnet add package SweDevTools.LiveDoc.xUnit
 Tell your assistant:
 
 > Read https://livedoc.swedevtools.com/ai/setup.md and configure this xUnit
-> solution for LiveDoc, Viewer publishing, Microsoft Code Coverage, and a first
-> Feature or Specification.
+> solution for LiveDoc. Inspect it first, ask me one configuration question at a
+> time, and wait for approval before making changes.
 
 No LiveDoc package or skill needs to be installed first.
 [AI project setup →](https://livedoc.swedevtools.com/guides/ai-project-setup)
 
-After setup, `dotnet msbuild -t:LiveDocInstallSkills` optionally installs
-reusable guidance for future AI sessions.
+AI setup installs version-matched skills inside the repository for every
+selected tool. Run
+`dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot,codex,claude`
+later to refresh them or add another tool. It also creates repository-local
+`scripts/test-livedoc.ps1` and `scripts/test-livedoc.sh` launchers with a simple
+coverage switch.
 
 ### 2. Create a test class
 
@@ -69,13 +73,23 @@ dotnet test
 
 Output is beautifully formatted in Gherkin style in the Test Detail Summary panel.
 
-### 4. Publish a focused partial run
+### 4. Publish a tag-scoped partial run
 
-After publishing one full baseline, mark an isolated development run as partial so the Viewer keeps the complete latest-known picture:
+Use `[Tag]` on stable product capabilities. LiveDoc exposes each tag as an xUnit
+`Category` trait:
 
-```bash
-set LIVEDOC_RUN_TYPE=partial
-dotnet test --filter "FullyQualifiedName~Login"
+```csharp
+[Tag("authentication")]
+[Feature("Login")]
+public class LoginTests : FeatureTest { }
+```
+
+After publishing one full baseline, run affected tags as a partial so the Viewer
+patches those results into the complete latest-known picture:
+
+```powershell
+$env:LIVEDOC_RUN_TYPE = "partial"
+dotnet test --filter "Category=authentication"
 ```
 
 Partial runs require a running LiveDoc server and a completed full baseline for the same project and environment. Set `LIVEDOC_RUN_TYPE=full` (or clear the variable) for the next complete run. Direct partial JSON export is not supported; release and production exports should use a full run.
@@ -128,7 +142,9 @@ Install the LiveDoc AI skill for your coding assistant:
 dotnet msbuild -t:LiveDocInstallSkills
 ```
 
-Supports GitHub Copilot, Claude Code, Roo Code, Cursor, and Windsurf. See the [AI Skill Setup Guide](https://livedoc.swedevtools.com/xunit/guides/ai-skill-setup) for details.
+Supports GitHub Copilot, OpenAI Codex, Claude Code, Roo Code, Cursor, and
+Windsurf. Skills are installed inside the repository so they stay aligned with
+the project's LiveDoc version. See the [AI Skill Setup Guide](https://livedoc.swedevtools.com/xunit/guides/ai-skill-setup) for details.
 
 The installed skill also teaches agents how to resolve coverage diagnostics. If an agent sees `dotnet-coverage-missing`, it should install `dotnet-coverage` as a setup step or configure `LIVEDOC_DOTNET_COVERAGE_TOOL`.
 

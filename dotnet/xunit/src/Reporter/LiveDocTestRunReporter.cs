@@ -27,6 +27,7 @@ public class LiveDocTestRunReporter : IDisposable
     private readonly ConcurrentDictionary<string, BaseTest> _tests = new();
     private readonly ConcurrentDictionary<string, string> _testToTestCase = new();
     private readonly ConcurrentDictionary<string, Models.Status> _recordedResults = new();
+    private readonly ConcurrentDictionary<string, Dictionary<int, OutlineStepObservation>> _outlineStepObservations = new();
     private Stopwatch _runStopwatch;
     private bool _disposed;
     private Task? _flushTask;
@@ -41,6 +42,11 @@ public class LiveDocTestRunReporter : IDisposable
     private DateTime _startedAt;
     private ConcurrentBag<Task> _realtimeTasks = new();
     private int _realtimeStartFailed;
+
+    private sealed record OutlineStepObservation(
+        List<StepTest> RawSteps,
+        List<StepTest> TemplateSteps,
+        List<List<string[]>> QuotedParameterCandidates);
 
     /// <summary>
     /// Gets the singleton instance.
@@ -181,6 +187,7 @@ public class LiveDocTestRunReporter : IDisposable
                         Tags = sot.Tags,
                         Steps = sot.Steps,
                         Execution = sot.Execution,
+                        RuleViolations = sot.RuleViolations,
                         Examples = sot.Examples.Select(dt => new DataTable
                         {
                             Name = dt.Name,
@@ -203,6 +210,7 @@ public class LiveDocTestRunReporter : IDisposable
                         Description = rot.Description,
                         Tags = rot.Tags,
                         Execution = rot.Execution,
+                        RuleViolations = rot.RuleViolations,
                         Examples = rot.Examples.Select(dt => new DataTable
                         {
                             Name = dt.Name,
@@ -1070,6 +1078,166 @@ public class LiveDocTestRunReporter : IDisposable
     }
 
     /// <summary>
+    /// Sets non-fatal structural violations on a buffered scenario or outline.
+    /// </summary>
+    public void SetTestRuleViolations(string testId, List<RuleViolation> violations)
+    {
+        if (!_tests.TryGetValue(testId, out var test))
+            return;
+
+        lock (test)
+        {
+            test.RuleViolations = violations.Count == 0
+                ? null
+                : violations
+                    .GroupBy(violation => (violation.Rule, violation.Message, violation.Title))
+                    .Select(group => group.First())
+                    .ToList();
+        }
+    }
+
+    /// <summary>
+    /// Resolves outline templates from all observed rows so authored constants
+    /// remain constant even when they equal one row's example value.
+    /// </summary>
+    public void SetOutlineTestSteps(
+        string outlineId,
+        int rowId,
+        List<StepTest> rawSteps,
+        List<StepTest> templateSteps,
+        List<List<string[]>> quotedParameterCandidates)
+    {
+        if (!_tests.TryGetValue(outlineId, out var test) || test is not ScenarioOutlineTest outline)
+            return;
+
+        var observations = _outlineStepObservations.GetOrAdd(outlineId, _ => new());
+        lock (outline)
+        {
+            observations[rowId] = new OutlineStepObservation(
+                rawSteps,
+                templateSteps,
+                quotedParameterCandidates);
+            outline.Steps = ResolveOutlineSteps(observations);
+        }
+    }
+
+    private static List<StepTest> ResolveOutlineSteps(
+        IReadOnlyDictionary<int, OutlineStepObservation> observations)
+    {
+        var ordered = observations.OrderBy(item => item.Key).Select(item => item.Value).ToList();
+        var stepCount = ordered.Select(item => item.RawSteps.Count).DefaultIfEmpty().Max();
+        var result = new List<StepTest>(stepCount);
+
+        for (var index = 0; index < stepCount; index++)
+        {
+            var available = ordered
+                .Where(item => item.RawSteps.Count > index && item.TemplateSteps.Count > index)
+                .ToList();
+            if (available.Count == 0)
+                continue;
+
+            var title = ResolveStepTitle(
+                available.Select(item => item.RawSteps[index].Title).ToList(),
+                available.Select(item => item.TemplateSteps[index].Title).ToList(),
+                available.Select(item => item.QuotedParameterCandidates[index]).ToList());
+
+            var source = available[0].TemplateSteps[index];
+            result.Add(new StepTest
+            {
+                Id = source.Id,
+                Title = title,
+                Description = source.Description,
+                Tags = source.Tags,
+                DataTables = source.DataTables,
+                Execution = source.Execution,
+                Keyword = source.Keyword,
+                RuleViolations = source.RuleViolations
+            });
+        }
+
+        return result;
+    }
+
+    private static string ResolveStepTitle(
+        IReadOnlyList<string> rawTitles,
+        IReadOnlyList<string> templateTitles,
+        IReadOnlyList<List<string[]>> quotedParameterCandidates)
+    {
+        if (rawTitles.Distinct(StringComparer.Ordinal).Count() == 1)
+            return rawTitles[0];
+
+        var quotedValuePattern = new System.Text.RegularExpressions.Regex(@"'([^']*)'");
+        var structures = rawTitles
+            .Select(title => quotedValuePattern.Replace(title, "''"))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (structures.Count != 1)
+            return templateTitles.Distinct(StringComparer.Ordinal).Count() == 1
+                ? templateTitles[0]
+                : rawTitles.OrderBy(value => value, StringComparer.Ordinal).First();
+
+        var rawValues = rawTitles
+            .Select(title => quotedValuePattern.Matches(title).Select(match => match.Groups[1].Value).ToArray())
+            .ToList();
+        var templateValues = templateTitles
+            .Select(title => quotedValuePattern.Matches(title).Select(match => match.Groups[1].Value).ToArray())
+            .ToList();
+        var valueCount = rawValues.Select(values => values.Length).Distinct().SingleOrDefault();
+        if (valueCount == 0 ||
+            rawValues.Any(values => values.Length != valueCount) ||
+            templateValues.Any(values => values.Length != valueCount))
+        {
+            return rawTitles.OrderBy(value => value, StringComparer.Ordinal).First();
+        }
+
+        var resolvedValues = new string[valueCount];
+        for (var valueIndex = 0; valueIndex < valueCount; valueIndex++)
+        {
+            var rawAtPosition = rawValues
+                .Select(values => values[valueIndex])
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (rawAtPosition.Count == 1)
+            {
+                resolvedValues[valueIndex] = rawAtPosition[0];
+                continue;
+            }
+
+            var candidateSets = quotedParameterCandidates
+                .Where(candidates => candidates.Count > valueIndex)
+                .Select(candidates => candidates[valueIndex].AsEnumerable())
+                .ToList();
+            var binding = (candidateSets.Count == 0
+                    ? Enumerable.Empty<string>()
+                    : candidateSets
+                        .Skip(1)
+                        .Aggregate(candidateSets[0], (left, right) => left.Intersect(right, StringComparer.Ordinal)))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (binding.Count == 1)
+            {
+                resolvedValues[valueIndex] = $"<{binding[0]}>";
+                continue;
+            }
+
+            var templatesAtPosition = templateValues
+                .Select(values => values[valueIndex])
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            resolvedValues[valueIndex] =
+                templatesAtPosition.Count == 1 &&
+                System.Text.RegularExpressions.Regex.IsMatch(templatesAtPosition[0], @"^<[^:>]+>$")
+                    ? templatesAtPosition[0]
+                    : rawAtPosition.OrderBy(value => value, StringComparer.Ordinal).First();
+        }
+
+        var nextValue = 0;
+        return quotedValuePattern.Replace(
+            rawTitles.OrderBy(value => value, StringComparer.Ordinal).First(),
+            _ => $"'{resolvedValues[nextValue++]}'");
+    }
+
+    /// <summary>
     /// Updates the execution result of a buffered test.
     /// </summary>
     public void UpdateTestExecution(
@@ -1295,6 +1463,7 @@ public class LiveDocTestRunReporter : IDisposable
         _tests.Clear();
         _testToTestCase.Clear();
         _recordedResults.Clear();
+        _outlineStepObservations.Clear();
         _totalCount = 0;
         _passedCount = 0;
         _failedCount = 0;

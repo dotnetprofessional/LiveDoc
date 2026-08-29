@@ -128,7 +128,7 @@ public class JourneyResult_Parse_Spec : SpecificationTest
     {
         var result = JourneyResult.Parse(0, "");
 
-        Assert.Equal(0, result.Steps.Count);
+        Assert.Empty(result.Steps);
     }
 
     [Rule("Step name is normalized to first token with quotes stripped")]

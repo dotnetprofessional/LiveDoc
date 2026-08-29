@@ -227,6 +227,26 @@ public class ExecutionResult
 }
 
 /// <summary>
+/// A non-fatal structural issue in a living specification.
+/// </summary>
+public class RuleViolation
+{
+    [JsonPropertyName("rule")]
+    public string Rule { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("errorId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ErrorId { get; set; }
+}
+
+/// <summary>
 /// Statistics for a test case or run.
 /// </summary>
 public class Statistics
@@ -422,6 +442,10 @@ public class BaseTest
 
     [JsonPropertyName("execution")]
     public ExecutionResult Execution { get; set; } = new();
+
+    [JsonPropertyName("ruleViolations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<RuleViolation>? RuleViolations { get; set; }
 }
 
 /// <summary>

@@ -1,4 +1,6 @@
 using System;
+using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace SweDevTools.LiveDoc.xUnit;
 
@@ -30,8 +32,9 @@ namespace SweDevTools.LiveDoc.xUnit;
 /// }
 /// </code>
 /// </example>
+[TraitDiscoverer(TagDiscoverer.DiscovererTypeName, TagDiscoverer.AssemblyName)]
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
-public class TagAttribute : Attribute
+public class TagAttribute : Attribute, ITraitAttribute
 {
     /// <summary>
     /// The parsed tag values.
@@ -44,7 +47,12 @@ public class TagAttribute : Attribute
     /// <param name="tags">Comma-separated tag values (e.g., "smoke, regression").</param>
     public TagAttribute(string tags)
     {
-        Tags = (tags ?? "")
+        Tags = ParseTags(tags);
+    }
+
+    internal static string[] ParseTags(string? tags)
+    {
+        return (tags ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 

@@ -13,27 +13,25 @@ names are a fallback when no stable capability tag exists.
 Tests omitted from a partial invocation keep their baseline result. Partial runs
 require a running server and cannot be exported directly as static JSON.
 
-## v0.2.0-beta.2 Filtering Limitation
+## Define Filterable Tags
 
-LiveDoc `[Tag]` values are currently published as report metadata but are not
-exposed as xUnit runner traits. Until runner-filterable `[Tag]` support lands,
-pair the LiveDoc tag with an xUnit category:
+LiveDoc exposes every `[Tag]` value as an xUnit `Category` trait. Class tags
+apply to every test in the Feature or Specification; method tags select the
+individual Scenario, Rule, or outline:
 
 ```csharp
 [Tag("checkout")]
-[Trait("Category", "checkout")]
 [Feature("Checkout")]
 public class CheckoutTests : FeatureTest
 {
     [Tag("pricing")]
-    [Trait("Category", "pricing")]
     [Scenario("A discount is applied")]
     public void Discount_is_applied() { }
 }
 ```
 
-The duplicate attributes are a temporary compatibility measure. Do not claim
-that `dotnet test --filter` can select `[Tag]` directly in this version.
+Comma-separated values such as `[Tag("checkout, pricing")]` create one
+`Category` trait per tag. Filter with `Category=<tag>`; do not use `Tag=<tag>`.
 
 ## Agent Workflow
 
@@ -64,8 +62,8 @@ LIVEDOC_RUN_TYPE=partial dotnet test --filter "Category=checkout|Category=pricin
 
 ## Failure Handling
 
-- `[Tag]` selects no tests: add the temporary matching `[Trait("Category",
-  "...")]` until runner-filterable tags are available.
+- `[Tag]` selects no tests: use `Category=<tag>` and verify the package version,
+  spelling, and filter expression.
 - The Viewer loses unaffected results: the run was published as `full`; repeat
   with `LIVEDOC_RUN_TYPE=partial`.
 - Combined view is unavailable: publish a full baseline with the same project

@@ -62,11 +62,15 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("Attach with base64 data and mimeType 'text/plain' stores kind 'file'")]
     public void Attach_stores_kind_file()
     {
+        string? data = null;
+        string? mimeType = null;
+
         Given("base64 data 'dGVzdA==' with mimeType 'text/plain'", ctx =>
         {
-            var (data, mimeType) = ctx.Step!.Values.As<string, string>();
-            Attach(data, mimeType);
+            (data, mimeType) = ctx.Step!.Values.As<string, string>();
         });
+
+        When("the data is attached", () => Attach(data!, mimeType!));
 
         Then("the attachment kind should be 'file'", ctx =>
         {
@@ -94,11 +98,17 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("Attach with custom kind 'screenshot' stores that kind value")]
     public void Attach_with_custom_kind()
     {
-        Given("base64 data with custom kind 'screenshot'", ctx =>
+        string? data = null;
+        string? mimeType = null;
+        string? kind = null;
+
+        Given("base64 data 'dGVzdA==' with mimeType 'image/png' and custom kind 'screenshot'", ctx =>
         {
-            var kind = ctx.Step!.Values[0].AsString();
-            Attach("dGVzdA==", "image/png", kind: kind);
+            (data, mimeType, kind) = ctx.Step!.Values.As<string, string, string>();
         });
+
+        When("the data is attached with the custom kind", () =>
+            Attach(data!, mimeType!, kind: kind!));
 
         Then("the attachment kind should be 'screenshot'", ctx =>
         {
@@ -112,11 +122,15 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("Attach with title 'Login page capture' stores the title")]
     public void Attach_with_title()
     {
+        string? title = null;
+
         Given("an attachment with title 'Login page capture'", ctx =>
         {
-            var title = ctx.Step!.Values[0].AsString();
-            Attach("dGVzdA==", "text/plain", title: title);
+            title = ctx.Step!.Values[0].AsString();
         });
+
+        When("the attachment is created with that title", () =>
+            Attach("dGVzdA==", "text/plain", title: title));
 
         Then("the attachment title should be 'Login page capture'", ctx =>
         {
@@ -130,10 +144,18 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("Each attachment gets a unique non-empty ID")]
     public void Each_attachment_gets_unique_id()
     {
-        Given("two attachments are created", () =>
+        string? firstData = null;
+        string? secondData = null;
+
+        Given("attachment data 'AAAA' and 'BBBB'", ctx =>
         {
-            Attach("AAAA", "text/plain");
-            Attach("BBBB", "text/plain");
+            (firstData, secondData) = ctx.Step!.Values.As<string, string>();
+        });
+
+        When("two attachments are created", () =>
+        {
+            Attach(firstData!, "text/plain");
+            Attach(secondData!, "text/plain");
         });
 
         Then("each should have a distinct non-empty ID", () =>
@@ -152,11 +174,12 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachScreenshot produces kind 'screenshot' and mimeType 'image/png'")]
     public void AttachScreenshot_defaults()
     {
-        When("a screenshot is attached with data 'iVBORw0KGgo='", ctx =>
-        {
-            var data = ctx.Step!.Values[0].AsString();
-            AttachScreenshot(data);
-        });
+        string? data = null;
+
+        Given("screenshot data 'iVBORw0KGgo='", ctx =>
+            data = ctx.Step!.Values[0].AsString());
+
+        When("the screenshot is attached", () => AttachScreenshot(data!));
 
         Then("the attachment kind should be 'screenshot'", ctx =>
         {
@@ -184,11 +207,13 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachScreenshot with title 'Error dialog' stores the title")]
     public void AttachScreenshot_with_title()
     {
-        When("a screenshot is attached with title 'Error dialog'", ctx =>
-        {
-            var title = ctx.Step!.Values[0].AsString();
-            AttachScreenshot("iVBORw0KGgo=", title);
-        });
+        string? title = null;
+
+        Given("a screenshot title 'Error dialog'", ctx =>
+            title = ctx.Step!.Values[0].AsString());
+
+        When("the screenshot is attached with that title", () =>
+            AttachScreenshot("iVBORw0KGgo=", title));
 
         Then("the attachment title should be 'Error dialog'", ctx =>
         {
@@ -213,11 +238,15 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachJson with an anonymous object serializes as indented JSON")]
     public void AttachJson_anonymous_object()
     {
-        When("AttachJson is called with an object containing name 'Alice' and age '30'", ctx =>
+        object? payload = null;
+
+        Given("an object containing name 'Alice' and age '30'", ctx =>
         {
             var (name, age) = ctx.Step!.Values.As<string, int>();
-            AttachJson(new { name, age });
+            payload = new { name, age };
         });
+
+        When("AttachJson is called with the object", () => AttachJson(payload!));
 
         Then("the decoded JSON should contain the serialized name and age", () =>
         {
@@ -233,11 +262,13 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachJson with a raw JSON string passes it through without double-serialization")]
     public void AttachJson_string_passthrough()
     {
-        var rawJson = "{\"key\":\"value\"}";
+        string? rawJson = null;
+
+        Given("a raw JSON string", () => rawJson = "{\"key\":\"value\"}");
 
         When("AttachJson is called with a raw JSON string", () =>
         {
-            AttachJson(rawJson);
+            AttachJson(rawJson!);
         });
 
         Then("the decoded output should match the original string exactly", () =>
@@ -252,10 +283,11 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachJson produces kind 'file' and mimeType 'application/json'")]
     public void AttachJson_metadata()
     {
-        When("AttachJson is called with an object", () =>
-        {
-            AttachJson(new { test = true });
-        });
+        object? payload = null;
+
+        Given("an object payload", () => payload = new { test = true });
+
+        When("AttachJson is called with the object", () => AttachJson(payload!));
 
         Then("the attachment kind should be 'file'", ctx =>
         {
@@ -276,15 +308,19 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachJson with nested objects containing city 'Sydney' serializes correctly")]
     public void AttachJson_nested_objects()
     {
-        When("AttachJson is called with a nested object containing city 'Sydney'", ctx =>
+        object? payload = null;
+
+        Given("a nested object containing city 'Sydney'", ctx =>
         {
             var city = ctx.Step!.Values[0].AsString();
-            AttachJson(new
+            payload = new
             {
                 user = new { name = "Bob", address = new { city } },
                 active = true
-            });
+            };
         });
+
+        When("AttachJson is called with the nested object", () => AttachJson(payload!));
 
         Then("the decoded JSON should contain the nested city and active flag", () =>
         {
@@ -299,11 +335,13 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachJson with title 'API Response' stores the title")]
     public void AttachJson_with_title()
     {
-        When("AttachJson is called with title 'API Response'", ctx =>
-        {
-            var title = ctx.Step!.Values[0].AsString();
-            AttachJson(new { status = "ok" }, title);
-        });
+        string? title = null;
+
+        Given("an attachment title 'API Response'", ctx =>
+            title = ctx.Step!.Values[0].AsString());
+
+        When("AttachJson is called with the title", () =>
+            AttachJson(new { status = "ok" }, title));
 
         Then("the attachment title should be 'API Response'", ctx =>
         {
@@ -446,11 +484,16 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("Multiple Attach calls accumulate '3' attachments in order")]
     public void Multiple_attach_accumulates()
     {
-        When("'3' attachments are added with titles 'First', 'Second', and 'Third'", () =>
+        string[]? titles = null;
+
+        Given("attachment titles 'First', 'Second', and 'Third'", ctx =>
+            titles = ctx.Step!.ValuesRaw.ToArray());
+
+        When("'3' attachments are added in title order", () =>
         {
-            Attach(ToBase64("first"), "text/plain", title: "First");
-            Attach(ToBase64("second"), "text/plain", title: "Second");
-            Attach(ToBase64("third"), "text/plain", title: "Third");
+            Attach(ToBase64("first"), "text/plain", title: titles![0]);
+            Attach(ToBase64("second"), "text/plain", title: titles[1]);
+            Attach(ToBase64("third"), "text/plain", title: titles[2]);
         });
 
         Then("there should be '3' attachments in declaration order", ctx =>
@@ -467,11 +510,16 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("Mixing Attach, AttachScreenshot, and AttachJson on the same step works")]
     public void Mixed_attachment_types()
     {
+        object? jsonPayload = null;
+
+        Given("plain text, screenshot, and JSON attachment data", () =>
+            jsonPayload = new { mixed = true });
+
         When("Attach, AttachScreenshot, and AttachJson are all called", () =>
         {
             Attach("dGVzdA==", "text/plain", title: "Plain text");
             AttachScreenshot("iVBORw0KGgo=", "Screenshot");
-            AttachJson(new { mixed = true }, "JSON data");
+            AttachJson(jsonPayload!, "JSON data");
         });
 
         Then("there should be '3' attachments with distinct kinds and mimeTypes", ctx =>
@@ -498,10 +546,11 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("Attach with empty string data creates a valid attachment")]
     public void Attach_empty_data()
     {
-        When("Attach is called with empty base64 data", () =>
-        {
-            Attach("", "text/plain");
-        });
+        string? data = null;
+
+        Given("empty base64 data", () => data = "");
+
+        When("Attach is called with the empty data", () => Attach(data!, "text/plain"));
 
         Then("the attachment should exist with empty base64 and a valid ID", () =>
         {
@@ -515,10 +564,11 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachJson with null value serializes to 'null'")]
     public void AttachJson_null_value()
     {
-        When("AttachJson is called with a null value", () =>
-        {
-            AttachJson(null!);
-        });
+        object? payload = new object();
+
+        Given("a null JSON value", () => payload = null);
+
+        When("AttachJson is called with the null value", () => AttachJson(payload!));
 
         Then("the decoded output should be 'null'", ctx =>
         {
@@ -533,10 +583,12 @@ public class Attachment_Api_Spec : FeatureTest
     [Scenario("AttachJson with array data serializes all elements")]
     public void AttachJson_array_data()
     {
-        When("AttachJson is called with array '[1, 2, 3]'", () =>
-        {
-            AttachJson(new[] { 1, 2, 3 });
-        });
+        int[]? payload = null;
+
+        Given("array data '[1, 2, 3]'", ctx =>
+            payload = ctx.Step!.Values[0].As<int[]>());
+
+        When("AttachJson is called with the array", () => AttachJson(payload!));
 
         Then("the decoded JSON should contain all array elements", () =>
         {

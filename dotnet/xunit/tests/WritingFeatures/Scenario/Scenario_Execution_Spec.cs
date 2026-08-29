@@ -37,7 +37,8 @@ public class Scenario_Execution_Spec : FeatureTest
         // This should start fresh, not inherit from first scenario
         var stepCount = 0;
         
-        Given("a fresh state", () => stepCount++);
+        Given("a fresh state", () => stepCount = 0);
+        When("one step executes", () => stepCount++);
         Then("the count is 1", () => Assert.Equal(1, stepCount));
     }
 

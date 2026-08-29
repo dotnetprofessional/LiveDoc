@@ -14,8 +14,8 @@ A **Living Documentation** platform that brings Gherkin-style BDD syntax to mode
 Tell your AI coding assistant:
 
 > Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
-> for LiveDoc. Preserve existing configuration and include the Viewer and full
-> code coverage.
+> for LiveDoc. Inspect the project first, ask me one configuration question at a
+> time, and wait for approval before making changes.
 
 No LiveDoc package or skill needs to be installed first.
 [AI project setup guide →](https://livedoc.swedevtools.com/guides/ai-project-setup)
@@ -32,7 +32,7 @@ No LiveDoc package or skill needs to be installed first.
 ## Quick Start — TypeScript (Vitest)
 
 ```bash
-npm install @swedevtools/livedoc-vitest vitest --save-dev
+npm install --save-dev vitest@^4.0.16 @swedevtools/livedoc-vitest
 ```
 
 ```typescript

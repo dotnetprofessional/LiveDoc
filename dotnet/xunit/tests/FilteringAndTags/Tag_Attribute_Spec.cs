@@ -2,6 +2,7 @@ using SweDevTools.LiveDoc.xUnit;
 using SweDevTools.LiveDoc.xUnit.Core;
 using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.FilteringAndTags;
 
@@ -53,6 +54,12 @@ public class Tag_Attribute_Spec : SpecificationTest
     {
         var attr = new TagAttribute("");
         Assert.Empty(attr.Tags);
+    }
+
+    [Rule("Tag attributes participate in xUnit trait discovery")]
+    public void Tags_are_xunit_traits()
+    {
+        Assert.IsAssignableFrom<ITraitAttribute>(new TagAttribute("smoke"));
     }
 
     #endregion
@@ -133,71 +140,3 @@ public class Tag_Attribute_Spec : SpecificationTest
 
     #endregion
 }
-
-#region Test Fixtures
-
-[Tag("feature-tag")]
-[Feature("Tag Class Helper")]
-public class ClassWithTags : FeatureTest
-{
-    public ClassWithTags(ITestOutputHelper output) : base(output) { }
-}
-
-[Tag("smoke, regression")]
-[Tag("integration")]
-[Feature("Tag Multiple Helper")]
-public class ClassWithMultipleTags : FeatureTest
-{
-    public ClassWithMultipleTags(ITestOutputHelper output) : base(output) { }
-}
-
-[Feature("Tag Method Helper")]
-public class ClassWithMethodTags : FeatureTest
-{
-    public ClassWithMethodTags(ITestOutputHelper output) : base(output) { }
-    
-    [Tag("method-tag")]
-    [Scenario]
-    public void Tagged_method() { }
-}
-
-[Tag("class-tag")]
-[Feature("Tag Merge Helper")]
-public class ClassWithBothTags : FeatureTest
-{
-    public ClassWithBothTags(ITestOutputHelper output) : base(output) { }
-    
-    [Tag("method-tag")]
-    [Scenario]
-    public void Tagged_method() { }
-}
-
-[Tag("smoke")]
-[Feature("Tag Dedup Helper")]
-public class ClassWithDuplicateTags : FeatureTest
-{
-    public ClassWithDuplicateTags(ITestOutputHelper output) : base(output) { }
-    
-    [Tag("smoke")]
-    [Scenario]
-    public void Tagged_method() { }
-}
-
-[Tag("SMOKE")]
-[Feature("Tag Case Dedup Helper")]
-public class ClassWithCaseDuplicates : FeatureTest
-{
-    public ClassWithCaseDuplicates(ITestOutputHelper output) : base(output) { }
-    
-    [Tag("smoke")]
-    [Scenario]
-    public void Tagged_method() { }
-}
-
-[Feature("Tag Empty Helper")]
-public class ClassWithoutTags : FeatureTest
-{
-    public ClassWithoutTags(ITestOutputHelper output) : base(output) { }
-}
-
-#endregion

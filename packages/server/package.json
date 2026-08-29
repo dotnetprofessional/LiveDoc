@@ -1,6 +1,6 @@
 {
   "name": "@swedevtools/livedoc-server",
-  "version": "0.2.0-beta.2",
+  "version": "0.3.0",
   "description": "LiveDoc Server - Shared server infrastructure for LiveDoc ecosystem",
   "author": "Garry McGlennon",
   "license": "MIT",
@@ -47,9 +47,9 @@
     "@hono/node-server": "^1.19.7",
     "@swedevtools/livedoc-schema": "workspace:*",
     "commander": "^12.1.0",
-    "hono": "^4.11.1",
+    "hono": "^4.12.25",
     "open": "^10.2.0",
-    "ws": "^8.18.3"
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@swedevtools/livedoc-vitest": "workspace:*",

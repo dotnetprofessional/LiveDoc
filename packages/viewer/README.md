@@ -7,7 +7,7 @@
 [![npm version](https://img.shields.io/npm/v/@swedevtools/livedoc-viewer.svg)](https://www.npmjs.com/package/@swedevtools/livedoc-viewer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-📖 [Documentation](https://livedoc.swedevtools.com/viewer/learn/getting-started) · [GitHub](https://github.com/dotnetprofessional/LiveDoc)
+📖 [Documentation](https://livedoc.swedevtools.com/viewer/) · [GitHub](https://github.com/dotnetprofessional/LiveDoc)
 
 </div>
 

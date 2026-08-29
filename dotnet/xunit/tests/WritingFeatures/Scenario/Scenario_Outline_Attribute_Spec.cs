@@ -62,31 +62,3 @@ public class Scenario_Outline_Attribute_Spec : SpecificationTest
         Assert.Equal("two", secondData[1]);
     }
 }
-
-#region Test Fixtures
-
-/// <summary>
-/// Helper fixture class for Scenario_Outline_Attribute_Spec tests.
-/// Not a real test - just provides methods to inspect via reflection.
-/// </summary>
-[Feature("Scenario Outline Attribute Fixtures")]
-public class Scenario_Outline_Attribute_Fixtures : FeatureTest
-{
-    public Scenario_Outline_Attribute_Fixtures(ITestOutputHelper output) : base(output) { }
-    
-    [ScenarioOutline(Description = "This is a data-driven test")]
-    [Example(1)]
-    public void Described_outline(int value) { }
-    
-    [Tag("edge-cases, boundary")]
-    [ScenarioOutline]
-    [Example(1)]
-    public void Tagged_outline(int value) { }
-    
-    [ScenarioOutline]
-    [Example(1, "one")]
-    [Example(2, "two")]
-    public void With_examples(int number, string word) { }
-}
-
-#endregion

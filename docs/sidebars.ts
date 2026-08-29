@@ -21,6 +21,11 @@ const sidebars: SidebarsConfig = {
   ],
   vitest: [
     {
+      type: 'doc',
+      id: 'vitest/index',
+      label: 'Overview',
+    },
+    {
       type: 'category',
       label: 'Learn',
       collapsed: false,
@@ -120,6 +125,11 @@ const sidebars: SidebarsConfig = {
     },
   ],
   viewer: [
+    {
+      type: 'doc',
+      id: 'viewer/index',
+      label: 'Overview',
+    },
     {
       type: 'category',
       label: 'Learn',

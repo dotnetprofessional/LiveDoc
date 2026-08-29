@@ -412,17 +412,14 @@ function withDerivedRunState(run: TestRunV1): TestRunV1 {
     return { ...run, summary, status: run.status };
   }
 
-  // Run is still active — never derive 'passed' until run:v1:completed arrives
+  // Test outcomes do not end an invocation. Preserve an explicit running
+  // lifecycle status until run:v1:completed supplies the terminal status.
   const derivedStatus: Status =
-    summary.failed > 0
-      ? 'failed'
-      : run.status === 'running'
+    run.status === 'running'
+      ? 'running'
+      : summary.pending > 0 || summary.total > 0
         ? 'running'
-        : summary.pending > 0
-          ? 'running'
-          : summary.total > 0
-            ? 'passed'
-            : 'pending';
+        : 'pending';
 
   return { ...run, summary, status: derivedStatus };
 }

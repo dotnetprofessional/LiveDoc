@@ -55,10 +55,10 @@ A minimal `.csproj` for a LiveDoc xUnit test project:
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
-    <PackageReference Include="xunit" Version="2.*" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
-    <PackageReference Include="SweDevTools.LiveDoc.xUnit" Version="*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="SweDevTools.LiveDoc.xUnit" Version="0.3.0" />
   </ItemGroup>
 </Project>
 ```
@@ -116,6 +116,19 @@ The same settings are available as environment variables. These are useful in CI
 | `LIVEDOC_DOTNET_COVERAGE_TOOL` | `dotnet-coverage` from `PATH` | Converter path for binary Visual Studio `.coverage` files. |
 | `LIVEDOC_COVERAGE_THRESHOLD_LINES` | *(none)* | Non-fatal minimum line percentage. |
 | `LIVEDOC_COVERAGE_THRESHOLD_BRANCHES` | *(none)* | Non-fatal minimum branch percentage. |
+
+For incremental validation, mark stable capabilities with `[Tag]`. LiveDoc
+exposes tags as xUnit `Category` traits, allowing a focused run to patch the
+latest full Viewer baseline:
+
+```powershell
+$env:LIVEDOC_RUN_TYPE = "partial"
+dotnet test --filter "Category=checkout|Category=pricing"
+```
+
+Partial runs require a running server and an existing full run for the same
+project and environment. Use a full run for release validation and static
+exports.
 
 ```yaml
 # GitHub Actions — env block

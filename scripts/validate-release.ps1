@@ -398,6 +398,42 @@ if (missing.length > 0) {
             Record-Fail "vitest/exports" "Verification failed"
         }
 
+        # ── Test 4: Execute the packaged DSL under the installed Vitest peer ──
+        Write-Check "Executing a packaged LiveDoc specification..."
+        $smokeSpec = @"
+import { expect } from 'vitest';
+import { specification, rule } from '@swedevtools/livedoc-vitest';
+
+specification('Packaged SDK smoke test', () => {
+    rule("adding '2' and '3' returns '5'", (ctx) => {
+        const [left, right, expected] = ctx.rule.values;
+        expect(left + right).toBe(expected);
+    });
+});
+"@
+        $smokeFile = Join-Path $stageDir 'PackageSmoke.spec.ts'
+        Set-Content -Path $smokeFile -Value $smokeSpec -Encoding utf8
+        $vitestBin = Join-Path $stageDir 'node_modules\.bin\vitest.cmd'
+        if (-not (Test-Path $vitestBin)) {
+            $vitestBin = Join-Path $stageDir 'node_modules\.bin\vitest'
+        }
+        $smokeOutput = $null
+        try {
+            Push-Location $stageDir
+            $smokeOutput = & $vitestBin run $smokeFile --reporter=default 2>&1 | Out-String
+            $smokeExitCode = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+
+        if ($smokeExitCode -eq 0 -and $smokeOutput -match '1 passed') {
+            Write-Pass "Packaged LiveDoc DSL executes successfully"
+            Record-Pass "vitest/dsl-smoke"
+        } else {
+            Write-Fail "Packaged LiveDoc DSL execution failed"
+            Record-Fail "vitest/dsl-smoke" ($smokeOutput.Trim())
+        }
+
     } finally {
         Remove-Item -Path $stageDir -Recurse -Force -ErrorAction SilentlyContinue
     }

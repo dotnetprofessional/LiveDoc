@@ -182,6 +182,9 @@ Same attribute as used with `[ScenarioOutline]`:
 public class CalculatorSpec : SpecificationTest { ... }
 ```
 
+- Every tag is exposed as an xUnit `Category` trait for `dotnet test --filter "Category=<tag>"`
+- For incremental Viewer updates, read `resources/partial-testing.md`
+
 ---
 
 ## Value Extraction

@@ -45,7 +45,7 @@ await server.close();
 ### Standalone Mode (CLI)
 
 ```bash
-npx livedoc-server --port 3000 --host localhost
+npx @swedevtools/livedoc-server --port 3100 --host localhost
 ```
 
 ### Using Types

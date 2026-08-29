@@ -884,10 +884,12 @@ export class RunStore {
 
     record.run.summary = runStats;
 
-    if (runStats.failed > 0) record.run.status = 'failed';
-    else if (runStats.pending > 0) record.run.status = 'running';
-    else if (runStats.total > 0 && runStats.passed + runStats.skipped === runStats.total) record.run.status = 'passed';
-    else record.run.status = 'pending';
+    // Aggregate test outcomes do not own the invocation lifecycle. Before the
+    // terminal event the run is active; once completion starts, preserve the
+    // runner-provided terminal status even if a late update is still in flight.
+    if (this.activeRuns.has(record.run.runId) && !this.completingRunIds.has(record.run.runId)) {
+      record.run.status = 'running';
+    }
   }
 
   upsertTestCase(runId: string, testCase: TestCase): void {
@@ -1011,6 +1013,11 @@ export class RunStore {
       throw new RunStoreError('run-not-active', `Run '${runId}' is not active.`);
     }
 
+    if (this.completingRunIds.has(runId)) {
+      throw new RunStoreError('run-not-active', `Run '${runId}' is already completing.`);
+    }
+    this.completingRunIds.add(runId);
+
     const previousRunState = {
       duration: record.run.duration,
       status: record.run.status,
@@ -1027,13 +1034,9 @@ export class RunStore {
       this.activeRuns.delete(runId);
       this.activeRunIdsByProject.delete(this.projectKey(record.run.project, record.run.environment));
       this.cancelledRunIds.add(runId);
+      this.completingRunIds.delete(runId);
       return record.run;
     }
-
-    if (this.completingRunIds.has(runId)) {
-      throw new RunStoreError('run-not-active', `Run '${runId}' is already completing.`);
-    }
-    this.completingRunIds.add(runId);
 
     const completedAt = new Date().toISOString();
     const key = this.projectKey(record.run.project, record.run.environment);

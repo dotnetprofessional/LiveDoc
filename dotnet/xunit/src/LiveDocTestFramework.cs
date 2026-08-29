@@ -259,6 +259,8 @@ public class LiveDocMessageSink : IMessageSink
                     args,
                     methodMetadata.Description,
                     methodMetadata.Tags);
+                if (!isSpec)
+                    _reporter.SetTestRuleViolations(testId, CreateMissingGherkinStepViolations(methodMetadata.Title));
                 MarkOutlineRowClaimed(testId, rowId);
                 _reporter.AddOutlineExampleResult(testId, rowId, testId, status, durationMs, error);
                 _reporter.RecordResult(
@@ -275,6 +277,8 @@ public class LiveDocMessageSink : IMessageSink
                     methodMetadata.Title,
                     methodMetadata.Description,
                     methodMetadata.Tags);
+                if (!isSpec)
+                    _reporter.SetTestRuleViolations(testId, CreateMissingGherkinStepViolations(methodMetadata.Title));
                 _reporter.UpdateTestExecution(testId, status, durationMs, error);
                 _reporter.RecordResult(status, testCaseId, testId);
             }
@@ -302,6 +306,31 @@ public class LiveDocMessageSink : IMessageSink
         return LiveDocTestInvocationRegistry.GetArguments(test)
             ?? test.TestCase.TestMethodArguments?.ToArray()
             ?? Array.Empty<object?>();
+    }
+
+    private static List<Reporter.Models.RuleViolation> CreateMissingGherkinStepViolations(string title)
+    {
+        return new List<Reporter.Models.RuleViolation>
+        {
+            new()
+            {
+                Rule = "mustIncludeGiven",
+                Message = "scenario does not have a given.",
+                Title = title
+            },
+            new()
+            {
+                Rule = "mustIncludeWhen",
+                Message = "scenario does not have a when, use when to describe the test action.",
+                Title = title
+            },
+            new()
+            {
+                Rule = "mustIncludeThen",
+                Message = "scenario does not have a then, use then to describe the expected outcome.",
+                Title = title
+            }
+        };
     }
 
     private int? ClaimOutlineRow(string outlineId, object?[] args)
@@ -488,7 +517,7 @@ public class LiveDocMessageSink : IMessageSink
 
                 description = kind switch
                 {
-                    "RuleOutline" => methodInfo.GetCustomAttribute<RuleOutlineAttribute>()?.Description,
+                    "RuleOutline" => methodInfo.GetCustomAttribute<RuleOutlineAttribute>()?.GetDescription(methodInfo),
                     "ScenarioOutline" => methodInfo.GetCustomAttribute<ScenarioOutlineAttribute>()?.Description,
                     "Rule" => ruleAttribute?.GetDescription(methodInfo),
                     "Scenario" => methodInfo.GetCustomAttribute<ScenarioAttribute>()?.Description,
@@ -515,6 +544,11 @@ public class LiveDocMessageSink : IMessageSink
             {
                 var attr = testMethod.GetCustomAttributes(attrType).FirstOrDefault();
                 description = attr?.GetNamedArgument<string>("Description");
+                if ((attrType == typeof(RuleAttribute) || attrType == typeof(RuleOutlineAttribute)) &&
+                    string.Equals(description, testMethod.Name, StringComparison.Ordinal))
+                {
+                    description = null;
+                }
 
                 // Rule/RuleOutline descriptions are constructor values. Avoid treating
                 // CallerMemberName-provided method names as user-authored descriptions.
@@ -648,8 +682,9 @@ public class LiveDocMessageSink : IMessageSink
         if (isSpecification)
         {
             var ruleOutlineAttr = methodInfo.GetCustomAttribute<RuleOutlineAttribute>();
-            if (!string.IsNullOrWhiteSpace(ruleOutlineAttr?.Description))
-                return ruleOutlineAttr.Description;
+            var configuredTemplate = ruleOutlineAttr?.GetTitleTemplate(methodInfo);
+            if (!string.IsNullOrWhiteSpace(configuredTemplate))
+                return configuredTemplate;
 
             if (!string.IsNullOrWhiteSpace(ruleOutlineAttr?.DisplayName) &&
                 !string.Equals(ruleOutlineAttr.DisplayName, methodAsTitle, StringComparison.Ordinal))

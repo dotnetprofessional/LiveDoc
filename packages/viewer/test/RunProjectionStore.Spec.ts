@@ -244,6 +244,34 @@ specification(`Viewer Run Projection Store
     expect(Object.keys(state.physicalRuns)).toHaveLength(0);
   });
 
+  rule("A failed testcase upsert keeps an active full run 'running' while recording '1' failure", (ctx) => {
+    const [expectedStatus, expectedFailures] = ctx.rule.values as ['running', number];
+    resetStore();
+    useStore.getState().addRun(makeRunState(baselineRun({
+      status: 'running',
+      summary: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 },
+      documents: [],
+    })));
+
+    useStore.getState().upsertTestCase('run-a', {
+      id: 'failed-doc',
+      kind: 'Feature',
+      title: 'Feature with an early failure',
+      tests: [{
+        id: 'failed-scenario',
+        kind: 'Scenario',
+        title: 'A scenario fails before the suite completes',
+        steps: [],
+        execution: { status: 'failed', duration: 10 },
+      }],
+      statistics: { total: 1, passed: 0, failed: expectedFailures, pending: 0, skipped: 0 },
+    } as any);
+
+    const active = useStore.getState().runs[0]!.run;
+    expect(active.status).toBe(expectedStatus);
+    expect(active.summary.failed).toBe(expectedFailures);
+  });
+
   rule("Late partial testcase updates change only the physical projection while Combined stays at '2' documents", (ctx) => {
     const [expectedCombinedDocuments] = ctx.rule.values as [number];
     resetStore();

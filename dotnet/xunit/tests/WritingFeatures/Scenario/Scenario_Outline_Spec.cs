@@ -57,12 +57,14 @@ public class Scenario_Outline_Spec : FeatureTest
     {
         object? capturedName = null;
         object? capturedAge = null;
+        (string Name, int Age)? profile = null;
         
-        Given("a user profile", () =>
+        Given("a user profile named <name> aged <age>", () => profile = (name, age));
+
+        When("the example values are accessed", () =>
         {
-            // Access via method parameters directly
-            capturedName = name;
-            capturedAge = age;
+            capturedName = profile!.Value.Name;
+            capturedAge = profile.Value.Age;
         });
         
         Then("the values match the example row", () =>
@@ -81,18 +83,26 @@ public class Scenario_Outline_Spec : FeatureTest
     [Example(0, 0.0, false)]
     public void Type_preservation(int intValue, double doubleValue, bool boolValue)
     {
-        Given("example data with different types", () =>
+        Type? integerType = null;
+        Type? doubleType = null;
+        Type? booleanType = null;
+        object[]? values = null;
+
+        Given("example values <intValue>, <doubleValue>, and <boolValue>", () =>
+            values = [intValue, doubleValue, boolValue]);
+
+        When("the example value types are inspected", () =>
         {
-            // Values are strongly typed via method parameters
-            Assert.IsType<int>(intValue);
-            Assert.IsType<double>(doubleValue);
-            Assert.IsType<bool>(boolValue);
+            integerType = values![0].GetType();
+            doubleType = values[1].GetType();
+            booleanType = values[2].GetType();
         });
         
         Then("types are preserved in the test", () =>
         {
-            // This validates the xUnit [InlineData] underpinning works correctly
-            Assert.True(true);
+            Assert.Equal(typeof(int), integerType);
+            Assert.Equal(typeof(double), doubleType);
+            Assert.Equal(typeof(bool), booleanType);
         });
     }
 
@@ -106,11 +116,13 @@ public class Scenario_Outline_Spec : FeatureTest
     public void String_values(string first, string second, string expected)
     {
         string? result = null;
+        (string First, string Second) values = default;
         
         Given($"first value is '{first}' and second is '{second}'", () =>
-        {
-            result = $"{first} {second}";
-        });
+            values = (first, second));
+
+        When("the values are concatenated", () =>
+            result = $"{values.First} {values.Second}");
         
         Then($"concatenated result is '{expected}'", () =>
         {

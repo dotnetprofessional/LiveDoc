@@ -31,8 +31,8 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.5.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -45,16 +45,20 @@
     <ProjectReference Include="..\logger\LiveDoc.TestLogger.csproj" />
     <ProjectReference Include="..\collector\LiveDoc.CoverageCollector.csproj" />
     <ProjectReference Include="..\tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj" />
+    <ProjectReference Include="ReportingOutput\Fixtures\ReflectionMetadata\ReflectionMetadata.csproj" />
   </ItemGroup>
 
   <!-- Exclude nested fixture projects (compiled independently) -->
   <ItemGroup>
     <Compile Remove="SampleApi\**" />
     <Compile Remove="ReportingOutput\Fixtures\**" />
+    <Compile Remove="FilteringAndTags\Fixtures\**" />
     <Content Remove="SampleApi\**" />
     <Content Remove="ReportingOutput\Fixtures\**" />
+    <Content Remove="FilteringAndTags\Fixtures\**" />
     <None Remove="SampleApi\**" />
     <None Remove="ReportingOutput\Fixtures\**" />
+    <None Remove="FilteringAndTags\Fixtures\**" />
   </ItemGroup>
 
   <!-- Copy journey test data to output -->

@@ -9,7 +9,7 @@
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
-    <Version>0.2.0-beta.2</Version>
+    <Version>0.3.0</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -21,6 +21,8 @@
     <!-- Prevent VS Test Explorer from discovering this assembly -->
     <GenerateTestArtifacts>false</GenerateTestArtifacts>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <!-- The setup helper is user-invoked and must not execute automatically during package installation. -->
+    <NoWarn>$(NoWarn);NU5111</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

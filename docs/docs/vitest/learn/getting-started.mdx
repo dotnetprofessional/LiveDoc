@@ -46,9 +46,29 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 <Tabs>
-  <TabItem value="npm" label="npm" default>
+  <TabItem value="ai-agent" label="AI Agent" default>
+
+Give GitHub Copilot, OpenAI Codex, Claude Code, Cursor, Roo Code, Windsurf, or
+another repository-aware agent this prompt:
+
+```text
+Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
+for LiveDoc. Inspect the project first, then ask me one configuration question
+at a time. Summarize the proposed setup and wait for my approval before editing
+files or installing packages.
+```
+
+The agent will confirm the project name, Viewer publishing, code coverage,
+thresholds, tag-based partial testing, and whether to add a representative
+LiveDoc spec. It also asks which AI tools you use and installs version-matched
+skills for each one inside the repository. It adds `test:livedoc` and, when
+coverage is enabled, `test:livedoc:coverage` package scripts. After it finishes,
+continue to [Step 5](#step-5-run-it-) to inspect the result.
+
+  </TabItem>
+  <TabItem value="npm" label="npm">
     ```bash
-    npm install --save-dev vitest @swedevtools/livedoc-vitest
+    npm install --save-dev vitest@^4.0.16 @swedevtools/livedoc-vitest
     ```
   </TabItem>
   <TabItem value="yarn" label="Yarn">
@@ -58,7 +78,7 @@ import TabItem from '@theme/TabItem';
   </TabItem>
   <TabItem value="pnpm" label="pnpm">
     ```bash
-    pnpm add --save-dev vitest @swedevtools/livedoc-vitest
+    pnpm add --save-dev vitest@^4.0.16 @swedevtools/livedoc-vitest
     ```
   </TabItem>
 </Tabs>
@@ -67,33 +87,6 @@ import TabItem from '@theme/TabItem';
 LiveDoc works alongside your existing Vitest configuration. You don't need to
 change anything — just add the package and start writing `.Spec.ts` files.
 :::
-
----
-
-## Choose Your Setup Path
-
-### AI-Assisted Setup (Recommended)
-
-If you use GitHub Copilot, Claude Code, Cursor, Roo Code, or Windsurf, give the
-assistant this prompt. LiveDoc does not need to be installed yet:
-
-> Read https://livedoc.swedevtools.com/ai/setup.md and configure this Vitest
-> project for LiveDoc, the Viewer, and V8 coverage. Preserve the existing Vitest
-> configuration.
-
-The bootstrap page teaches the assistant the required dependencies, imports, reporter configuration,
-file naming, coverage provider dependency, self-documenting value extraction,
-and validation commands. Review the generated changes, then continue to
-[Step 5](#step-5-run-it-) to run the suite.
-
-**[See the AI project setup workflow →](../../guides/ai-project-setup.mdx)**
-
-After setup, optionally install the reusable Vitest skill with
-`npx livedoc-vitest-setup` for future AI authoring sessions.
-
-### Manual Setup
-
-Continue with Step 3 to configure each file yourself.
 
 ---
 
@@ -184,7 +177,14 @@ You **must** import `Then` with uppercase `T` and alias it. Writing
 ## Step 5: Run It 🎉
 
 ```bash
-npx vitest run
+npm run test:livedoc
+```
+
+If you used the manual installation path and did not add that package script,
+run `npx vitest run` instead. With AI-configured coverage, use:
+
+```bash
+npm run test:livedoc:coverage
 ```
 
 You'll see output like this:
@@ -216,8 +216,8 @@ It provides:
 - **Configure** Vitest with `include: ['**/*.Spec.ts']` and the `LiveDocSpecReporter`
 - **Write specs** using `feature` → `scenario` → `given` / `when` / `then`
 - **Import `Then as then`** to avoid the ESM thenable issue
-- **Run** with `npx vitest run` and enjoy structured, readable output
-- **Install AI skills** with `npx livedoc-vitest-setup` so your AI assistant writes correct tests
+- **Run** with `npm run test:livedoc` and use `test:livedoc:coverage` when coverage is configured
+- **Keep AI skills version-matched** with `npx livedoc-vitest-setup`
 
 ---
 

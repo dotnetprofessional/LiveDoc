@@ -12,5 +12,7 @@
 | Field-picking contract | Only known fields are asserted | Compare the complete payload with explicit rules |
 | Development-history title | Test names a bug, revision, or team member | State the current requirement |
 | Multi-case loop | Many independent cases produce one failure | Use `[RuleOutline]` or `[ScenarioOutline]` |
+| Repeated primary Gherkin step | A Scenario uses multiple Given, When, or Then calls | Keep one of each and use And/But for continuations |
+| Incomplete Gherkin flow | A Scenario omits Given, When, or Then | State the precondition, action, and expected outcome explicitly |
 | Secret in output | Credential value enters title, exception, attachment, or report | Assert absence and report paths only |
 | Screenshot-only proof | Evidence exists without a behavioral assertion | Assert first, attach second |

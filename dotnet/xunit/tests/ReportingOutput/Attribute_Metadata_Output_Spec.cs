@@ -10,6 +10,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     LiveDoc's xUnit reporter must preserve Feature, Scenario, Specification,
     Rule, RuleOutline, and Given/When/Then/And/But metadata even when a test does not
     explicitly create a LiveDoc context before the framework fallback reports it.")]
+[Collection(Environment_Sensitive_Collection.Name)]
 public class Attribute_Metadata_Output_Spec : SpecificationTest
 {
     public Attribute_Metadata_Output_Spec(ITestOutputHelper output) : base(output) { }
@@ -42,7 +43,26 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
         var outline = FindTest(feature, "ScenarioOutline", "Scenario outline sends '<value>' metadata");
         Assert.Equal("Scenario outline description from attribute", outline["description"]!.GetValue<string>());
         AssertTags(outline, "feature-class", "scenario-outline-method");
-        Assert.Single(outline["examples"]![0]!["rows"]!.AsArray());
+        Assert.Equal(2, outline["examples"]![0]!["rows"]!.AsArray().Count);
+
+        var forward = FindTest(feature, "ScenarioOutline", "Forward discount '<discountPercent>' keeps a fixed cart total");
+        AssertStep(forward, "given", "a cart totaling '100.00'");
+        AssertStep(forward, "and", "a fixed discount ceiling of '100' precedes a discount of '<discountPercent>'");
+        AssertStep(forward, "when", "a discount of '<discountPercent>' percent is applied");
+
+        var reverse = FindTest(feature, "ScenarioOutline", "Reverse discount '<discountPercent>' keeps a fixed cart total");
+        AssertStep(reverse, "given", "a cart totaling '100.00'");
+        AssertStep(reverse, "and", "a fixed discount ceiling of '100' precedes a discount of '<discountPercent>'");
+        AssertStep(reverse, "when", "a discount of '<discountPercent>' percent is applied");
+
+        var decimalComma = FindTest(feature, "ScenarioOutline", "Decimal tax rate '<rate>' uses the current culture");
+        AssertStep(decimalComma, "when", "a tax rate '<rate>' is applied");
+
+        var equalParameters = FindTest(
+            feature,
+            "ScenarioOutline",
+            "Equal parameter values preserve distinct '<a>' and '<b>' bindings");
+        AssertStep(equalParameters, "then", "values '<a>' and '<b>' remain distinct");
 
         Assert.Contains("Feature: Checkout Feature Attribute", result.Output);
         Assert.Contains("Scenario: Scenario attribute sends <customer:retail> metadata", result.Output);
@@ -73,7 +93,8 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
 
         Assert.Contains("Specification: Rule Specification Attribute", result.Output);
         Assert.Contains("Rule: Rule attribute sends <threshold:42> metadata", result.Output);
-        Assert.Contains("Rule Outline: Rule outline sends '<value>' metadata", result.Output);
+        Assert.Contains("Rule: Rule outline sends '42' metadata", result.Output);
+        Assert.Contains("Rule: Rule outline sends '100' metadata", result.Output);
     }
 
     [Rule("The viewer export uses LiveDocProject assembly metadata when LIVEDOC_PROJECT is not set")]
@@ -86,8 +107,21 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
         Assert.Equal("xunit-metadata-probe", root["project"]!.GetValue<string>());
     }
 
+    [Rule("Discovery lists concrete RuleOutline and ScenarioOutline names for every serializable Example row")]
+    public async Task Outline_discovery_uses_concrete_example_names()
+    {
+        var result = await RunMetadataProbe(listTests: true);
+        Assert.Equal(0, result.ExitCode);
+
+        Assert.Contains("Rule: Rule outline sends '42' metadata", result.Output);
+        Assert.Contains("Rule: Rule outline sends '100' metadata", result.Output);
+        Assert.Contains("Scenario: Scenario outline sends 'retail' metadata", result.Output);
+        Assert.Contains("Scenario: Scenario outline sends 'wholesale' metadata", result.Output);
+    }
+
     private static async Task<ProbeResult> RunMetadataProbe(
         bool setProjectEnvironmentVariable = true,
+        bool listTests = false,
         [CallerFilePath] string filePath = "")
     {
         var specDirectory = Path.GetDirectoryName(filePath)!;
@@ -99,6 +133,8 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
         var startInfo = IsolatedTestProcess.Create(projectPath, exportPath);
         startInfo.ArgumentList.Add("--logger");
         startInfo.ArgumentList.Add("LiveDoc");
+        if (listTests)
+            startInfo.ArgumentList.Add("--list-tests");
         if (setProjectEnvironmentVariable)
             startInfo.Environment["LIVEDOC_PROJECT"] = "xunit-metadata-probe";
 

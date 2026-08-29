@@ -189,6 +189,111 @@ feature(`RunStore Data Management
         });
     });
 
+    scenario("A failed test does not complete an active run", () => {
+        let run: ReturnType<typeof store.getRun>;
+
+        given("a running test run exists", () => {
+            store.createRun("run-with-failure", "Project", "dev", "xunit", new Date().toISOString());
+        });
+
+        when("a test case reports '1' failed scenario while the invocation is still active", (ctx) => {
+            store.upsertTestCase("run-with-failure", {
+                id: "feature-with-failure",
+                kind: "Feature",
+                title: "Failure during active run",
+                tests: [{
+                    id: "failed-scenario",
+                    kind: "Scenario",
+                    title: "A scenario fails",
+                    steps: [{
+                        id: "failed-step",
+                        kind: "Step",
+                        keyword: "then",
+                        title: "an assertion fails",
+                        execution: { status: "failed", duration: 10 }
+                    }],
+                    execution: { status: "failed", duration: 10 }
+                }],
+                statistics: { total: 1, passed: 0, failed: ctx.step.values[0], pending: 0, skipped: 0 }
+            });
+            run = store.getRun("run-with-failure");
+        });
+
+        Then("the active run status remains 'running'", (ctx) => {
+            expect(run?.status).toBe(ctx.step.values[0]);
+        });
+
+        and("the live summary still reports '1' failed test", (ctx) => {
+            expect(run?.summary.failed).toBe(ctx.step.values[0]);
+        });
+    });
+
+    scenario("A late test update cannot replace a terminal run status", () => {
+        let completing: Promise<NonNullable<ReturnType<typeof store.getRun>>>;
+        let releasePersistence: () => void = () => {};
+        let run: ReturnType<typeof store.getRun>;
+
+        given("a run has '1' pending test and '1' skipped test", (ctx) => {
+            store.createRun("run-with-late-update", "Project", "dev", "xunit", new Date().toISOString());
+            store.upsertTestCase("run-with-late-update", {
+                id: "mixed-results",
+                kind: "Specification",
+                title: "Mixed results",
+                tests: [{
+                    id: "pending-rule",
+                    kind: "Rule",
+                    title: "Pending rule",
+                    execution: { status: "pending", duration: 0 }
+                }, {
+                    id: "skipped-rule",
+                    kind: "Rule",
+                    title: "Skipped rule",
+                    execution: { status: "skipped", duration: 0 }
+                }],
+                statistics: {
+                    total: 2,
+                    passed: 0,
+                    failed: 0,
+                    pending: ctx.step.values[0],
+                    skipped: ctx.step.values[1]
+                }
+            });
+        });
+
+        when("completion reports terminal status 'passed' before a late duration update arrives", async (ctx) => {
+            const storeInternals = store as unknown as {
+                writeJsonAtomically(filePath: string, value: unknown): Promise<void>;
+            };
+            const writeJsonAtomically = storeInternals.writeJsonAtomically.bind(store);
+            let delayNextWrite = true;
+            const persistenceGate = new Promise<void>((resolve) => {
+                releasePersistence = resolve;
+            });
+            storeInternals.writeJsonAtomically = async (filePath: string, value: unknown) => {
+                if (delayNextWrite) {
+                    delayNextWrite = false;
+                    await persistenceGate;
+                }
+                return writeJsonAtomically(filePath, value);
+            };
+
+            completing = store.completeRun("run-with-late-update", ctx.step.values[0], 100);
+            store.patchTestExecution("run-with-late-update", "pending-rule", { duration: 25 });
+            releasePersistence();
+            await completing;
+            run = store.getRun("run-with-late-update");
+        });
+
+        Then("the completed run status remains 'passed'", (ctx) => {
+            expect(run?.status).toBe(ctx.step.values[0]);
+        });
+
+        and("the recomputed summary still reports '1' pending and '1' skipped test", (ctx) => {
+            expect(run?.summary.pending).toBe(ctx.step.values[0]);
+            expect(run?.summary.skipped).toBe(ctx.step.values[1]);
+        });
+    });
+
     scenario("Updating a node preserves existing template step docString", () => {
         let outline: any;
 

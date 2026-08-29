@@ -5,6 +5,7 @@ import { LiveDocOptions } from "./LiveDocOptions";
 import { RuleViolations } from "./model/RuleViolations";
 import { LiveDocRuleOption } from "./LiveDocRuleOption";
 import { LiveDocRuleViolation } from "./model/LiveDocRuleViolation";
+import { AsyncLocalStorage } from "node:async_hooks";
 import chalk from "chalk";
 import { featureRegistry, suiteRegistry } from "./LiveDocRegistry";
 import SilentReporter from "./reporter/SilentReporter";
@@ -90,6 +91,27 @@ let scenarioId = 0;
 let currentSpecification: model.Specification | null = null;
 let ruleCount = 0;
 
+type DeclarationType =
+    | "Feature"
+    | "Scenario"
+    | "Scenario Outline"
+    | "Background"
+    | "Specification"
+    | "Rule"
+    | "Rule Outline"
+    | "Given"
+    | "When"
+    | "Then"
+    | "And"
+    | "But";
+
+interface DeclarationContext {
+    type: DeclarationType;
+    title: string;
+}
+
+const declarationContextStorage = new AsyncLocalStorage<DeclarationContext>();
+
 // Registry for specifications (parallels featureRegistry)
 const specificationRegistry: model.Specification[] = [];
 
@@ -153,12 +175,96 @@ function resetDynamicState(): void {
     capturedThrownException = null;
     resultsFileWritten = false;
 
-    // Reset options to prevent filter/rule leakage across dynamic runs
-    livedoc.options = new LiveDocOptions();
+    // Reset options to prevent filter/rule leakage across dynamic runs.
+    livedoc.options = createDefaultOptions();
 
     // Clear violation tracking to prevent cross-run deduplication
     for (const key in displayedViolations) {
         delete displayedViolations[key];
+    }
+
+}
+
+function createDefaultOptions(): LiveDocOptions {
+    const options = new LiveDocOptions();
+    options.rules.singleGivenWhenThen = LiveDocRuleOption.enabled;
+    options.rules.backgroundMustOnlyIncludeGiven = LiveDocRuleOption.enabled;
+    options.rules.enforceTitle = LiveDocRuleOption.enabled;
+    options.rules.enforceUsingGivenOverBefore = LiveDocRuleOption.warning;
+    options.rules.mustIncludeGiven = LiveDocRuleOption.warning;
+    options.rules.mustIncludeWhen = LiveDocRuleOption.warning;
+    options.rules.mustIncludeThen = LiveDocRuleOption.warning;
+    return options;
+}
+
+function assertDeclarationParent(
+    type: DeclarationType,
+    title: string,
+    expectedParent: DeclarationType | null,
+    missingParentMessage: string,
+    filename: string
+): void {
+    const declarationTitle = title.trim().split(/\r?\n/, 1)[0].trim();
+    const currentDeclarationContext = declarationContextStorage.getStore();
+
+    if (currentDeclarationContext?.type === expectedParent) {
+        return;
+    }
+
+    if (currentDeclarationContext) {
+        throw new model.ParserException(
+            `Invalid nesting: ${type} "${declarationTitle}" cannot be declared within ${currentDeclarationContext.type} "${currentDeclarationContext.title}".`,
+            declarationTitle,
+            filename
+        );
+    }
+
+    if (expectedParent !== null) {
+        throw new model.ParserException(missingParentMessage, title, filename);
+    }
+}
+
+function captureParserException(error: unknown): void {
+    if (!isDynamicExecution || !(error instanceof model.ParserException)) {
+        return;
+    }
+
+    capturedThrownException = {
+        type: "ParserException",
+        message: error.description,
+        data: {
+            description: error.description,
+            title: error.title,
+            filename: error.filename,
+        },
+    };
+}
+
+function withDeclarationContext<T>(context: DeclarationContext, fn: () => T): T {
+    return declarationContextStorage.run(context, fn);
+}
+
+async function withDeclarationContextAsync<T>(
+    context: DeclarationContext,
+    fn: () => T | Promise<T>
+): Promise<T> {
+    return await declarationContextStorage.run(context, fn);
+}
+
+function getStepDeclarationType(stepType: string): DeclarationType {
+    switch (stepType) {
+        case "given":
+            return "Given";
+        case "when":
+            return "When";
+        case "then":
+            return "Then";
+        case "and":
+            return "And";
+        case "but":
+            return "But";
+        default:
+            throw new Error(`Unsupported LiveDoc step type: ${stepType}`);
     }
 }
 
@@ -215,17 +321,8 @@ if (dynamicResultsFile) {
 
 // Global options
 export const livedoc = {
-    options: new LiveDocOptions(),
+    options: createDefaultOptions(),
 };
-
-// Initialize with recommended rules
-livedoc.options.rules.singleGivenWhenThen = LiveDocRuleOption.enabled;
-livedoc.options.rules.backgroundMustOnlyIncludeGiven = LiveDocRuleOption.enabled;
-livedoc.options.rules.enforceTitle = LiveDocRuleOption.enabled;
-livedoc.options.rules.enforceUsingGivenOverBefore = LiveDocRuleOption.warning;
-livedoc.options.rules.mustIncludeGiven = LiveDocRuleOption.warning;
-livedoc.options.rules.mustIncludeWhen = LiveDocRuleOption.warning;
-livedoc.options.rules.mustIncludeThen = LiveDocRuleOption.warning;
 
 // Tracking displayed violations to avoid duplicates
 const displayedViolations: Record<string, boolean> = {};
@@ -553,6 +650,7 @@ function displayWarnings(filename: string) {
  */
 function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
     const filename = getFilenameFromStack(3); // Extra stack frame due to wrapper
+    assertDeclarationParent("Feature", title, null, "", filename);
 
     // Check if callback is async BEFORE calling vitest's describe
     // This ensures the exception is thrown before vitest gets control
@@ -616,7 +714,10 @@ function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Feature", title: thisFeature.title },
+            () => fn(ctx)
+        );
         
         // Restore contexts
         isPendingContext = previousPendingContext;
@@ -647,11 +748,11 @@ export const feature = Object.assign(
  * Internal scenario implementation
  */
 function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
-    if (!currentFeature) {
-        throw new model.ParserException("Scenario must be within a feature.", title, "");
-    }
-
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Scenario", title, "Feature", "Scenario must be within a feature.", filename);
+    if (!currentFeature) {
+        throw new model.ParserException("Scenario must be within a feature.", title, filename);
+    }
     
     // Check if callback is async BEFORE calling vitest's describe
     if (fn.constructor.name === 'AsyncFunction') {
@@ -747,7 +848,10 @@ function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opt
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Scenario", title: scenarioModel.title },
+            () => fn(ctx)
+        );
 
         // Restore contexts
         isPendingContext = previousPendingContext;
@@ -781,11 +885,11 @@ export const scenario = Object.assign(
  * Internal background implementation
  */
 function backgroundImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
-    if (!currentFeature) {
-        throw new model.ParserException("Background must be within a feature.", title, "");
-    }
-
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Background", title, "Feature", "Background must be within a feature.", filename);
+    if (!currentFeature) {
+        throw new model.ParserException("Background must be within a feature.", title, filename);
+    }
     
     // Check if callback is async BEFORE calling vitest's describe
     if (fn.constructor.name === 'AsyncFunction') {
@@ -826,7 +930,10 @@ function backgroundImpl(title: string, fn: (ctx: any) => void | Promise<void>, o
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Background", title: backgroundModel.title },
+            () => fn(ctx)
+        );
 
         // Restore previous background
         currentBackground = previousBackground;
@@ -881,11 +988,17 @@ export function onScenarioEnd(fn: () => Promise<void>): void {
  * Internal scenario outline implementation
  */
 function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
-    if (!currentFeature) {
-        throw new model.ParserException("Scenario Outline must be within a feature.", title, "");
-    }
-
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent(
+        "Scenario Outline",
+        title,
+        "Feature",
+        "Scenario Outline must be within a feature.",
+        filename
+    );
+    if (!currentFeature) {
+        throw new model.ParserException("Scenario Outline must be within a feature.", title, filename);
+    }
     
     // Check if callback is async BEFORE calling vitest's describe
     if (fn.constructor.name === 'AsyncFunction') {
@@ -999,7 +1112,10 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
                     },
                 };
 
-                fn(ctx);
+                withDeclarationContext(
+                    { type: "Scenario Outline", title: scenarioOutlineModel.title },
+                    () => fn(ctx)
+                );
 
                 // Restore contexts
                 isPendingContext = previousPendingContext;
@@ -1040,6 +1156,7 @@ export const scenarioOutline = Object.assign(
  */
 function specificationImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Specification", title, null, "", filename);
 
     // Create specification immediately during registration phase
     const thisSpecification = parser.createSpecification(title, filename);
@@ -1090,7 +1207,10 @@ function specificationImpl(title: string, fn: (ctx: any) => void | Promise<void>
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Specification", title: thisSpecification.title },
+            () => fn(ctx)
+        );
         
         // Restore contexts
         isPendingContext = previousPendingContext;
@@ -1121,8 +1241,10 @@ export const specification = Object.assign(
  * Internal rule implementation
  */
 function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Rule", title, "Specification", "Rule must be within a specification.", filename);
     if (!currentSpecification) {
-        throw new model.ParserException("Rule must be within a specification.", title, "");
+        throw new model.ParserException("Rule must be within a specification.", title, filename);
     }
 
     const ruleModel = parser.addRule(currentSpecification, title);
@@ -1168,10 +1290,14 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
 
         const startTime = Date.now();
         try {
-            await fn(ctx);
+            await withDeclarationContextAsync(
+                { type: "Rule", title: ruleModel.title },
+                () => fn(ctx)
+            );
             ruleModel.status = model.SpecStatus.pass;
             ruleModel.executionTime = Date.now() - startTime;
         } catch (error: any) {
+            captureParserException(error);
             ruleModel.status = model.SpecStatus.fail;
             ruleModel.executionTime = Date.now() - startTime;
             ruleModel.error = error;
@@ -1216,8 +1342,16 @@ export const rule = Object.assign(
  * Internal rule outline implementation
  */
 function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    const filename = getFilenameFromStack(3);
+    assertDeclarationParent(
+        "Rule Outline",
+        title,
+        "Specification",
+        "Rule Outline must be within a specification.",
+        filename
+    );
     if (!currentSpecification) {
-        throw new model.ParserException("Rule Outline must be within a specification.", title, "");
+        throw new model.ParserException("Rule Outline must be within a specification.", title, filename);
     }
 
     const ruleOutlineModel = parser.addRuleOutline(currentSpecification, title);
@@ -1293,10 +1427,14 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
 
                 const startTime = Date.now();
                 try {
-                    await fn(ctx);
+                    await withDeclarationContextAsync(
+                        { type: "Rule Outline", title: ruleOutlineModel.title },
+                        () => fn(ctx)
+                    );
                     example.status = model.SpecStatus.pass;
                     example.executionTime = Date.now() - startTime;
                 } catch (error: any) {
+                    captureParserException(error);
                     example.status = model.SpecStatus.fail;
                     example.executionTime = Date.now() - startTime;
                     example.error = error;
@@ -1515,10 +1653,10 @@ function createStepFunction(stepType: string) {
                                 return stepDefinition.getStepContext();
                             },
                         };
-                        const result = fn(ctx);
-                        if (result && typeof result.then === "function") {
-                            await result;
-                        }
+                        await withDeclarationContextAsync(
+                            { type: getStepDeclarationType(stepDefinition.type), title: stepDefinition.title },
+                            () => fn(ctx)
+                        );
                     }
                 } else if (capturedScenario) {
                     // For scenario steps: Re-execute stored background steps before first step
@@ -1536,20 +1674,23 @@ function createStepFunction(stepType: string) {
                             parser.applyPassedParams(stepDetail.stepDefinition);
                             const bgStartTime = Date.now();
                             try {
-                                const result = stepDetail.func({
-                                    get feature() {
-                                        return capturedFeature?.getFeatureContext();
+                                await withDeclarationContextAsync(
+                                    {
+                                        type: getStepDeclarationType(stepDetail.stepDefinition.type),
+                                        title: stepDetail.stepDefinition.title,
                                     },
-                                    get background() {
-                                        return capturedFeature?.getBackgroundContext();
-                                    },
-                                    get step() {
-                                        return stepDetail.stepDefinition.getStepContext();
-                                    },
-                                });
-                                if (result && typeof result.then === "function") {
-                                    await result;
-                                }
+                                    () => stepDetail.func({
+                                        get feature() {
+                                            return capturedFeature?.getFeatureContext();
+                                        },
+                                        get background() {
+                                            return capturedFeature?.getBackgroundContext();
+                                        },
+                                        get step() {
+                                            return stepDetail.stepDefinition.getStepContext();
+                                        },
+                                    })
+                                );
                                 // Mark background step as passed
                                 stepDetail.stepDefinition.setStatus(model.SpecStatus.pass, Date.now() - bgStartTime);
                             } catch (error: any) {
@@ -1590,10 +1731,10 @@ function createStepFunction(stepType: string) {
                             },
                         };
 
-                        const result = fn(ctx);
-                        if (result && typeof result.then === "function") {
-                            await result;
-                        }
+                        await withDeclarationContextAsync(
+                            { type: getStepDeclarationType(stepDefinition.type), title: stepDefinition.title },
+                            () => fn(ctx)
+                        );
                     }
                 }
                 
@@ -1607,6 +1748,7 @@ function createStepFunction(stepType: string) {
                     (taskMeta as any).livedoc.step.attachments = stepDefinition.attachments;
                 }
             } catch (error: any) {
+                captureParserException(error);
                 // Mark step as failed and capture exception details
                 const duration = Date.now() - startTime;
                 stepDefinition.setStatus(model.SpecStatus.fail, duration);
@@ -2184,6 +2326,12 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                 
                 if (results.thrownException.type === 'LiveDocRuleViolation' && results.thrownException.data) {
                     throw this.reconstructRuleViolation(results.thrownException.data);
+                } else if (results.thrownException.type === 'ParserException' && results.thrownException.data) {
+                    throw new model.ParserException(
+                        results.thrownException.data.description,
+                        results.thrownException.data.title,
+                        results.thrownException.data.filename
+                    );
                 } else {
                     throw new Error(results.thrownException.message);
                 }

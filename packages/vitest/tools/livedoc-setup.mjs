@@ -3,6 +3,7 @@
 // Usage:
 //   npx @swedevtools/livedoc-vitest setup                    # Interactive menu
 //   npx @swedevtools/livedoc-vitest setup --tool copilot     # Non-interactive
+//   npx livedoc-vitest-setup --tool copilot,codex,claude      # Multiple tools
 //   npx livedoc-vitest-setup --tool all                      # Direct bin entry
 
 import { existsSync, mkdirSync, cpSync, readdirSync, statSync, copyFileSync } from 'node:fs';
@@ -36,6 +37,7 @@ const gitRoot = findGitRoot();
 // ── Tool definitions (same mapping as xUnit SDK) ──────────
 const tools = [
   { key: 'copilot',  name: 'GitHub Copilot', dest: '.github/skills/livedoc-vitest' },
+  { key: 'codex',    name: 'OpenAI Codex',   dest: '.agents/skills/livedoc-vitest' },
   { key: 'claude',   name: 'Claude Code',    dest: '.claude/skills/livedoc-vitest' },
   { key: 'roo',      name: 'Roo Code',       dest: '.roo/skills/livedoc-vitest' },
   { key: 'cursor',   name: 'Cursor',         dest: '.cursor/rules/livedoc-vitest' },
@@ -95,12 +97,17 @@ function parseArgs() {
 function resolveNonInteractive(toolArg) {
   if (toolArg === 'all') return tools;
 
-  const match = tools.find((t) => t.key === toolArg);
-  if (!match) {
-    console.error(`  Unknown tool: ${toolArg}. Use: copilot, claude, roo, cursor, windsurf, all`);
-    process.exit(1);
+  const requested = [...new Set(toolArg.split(',').map((value) => value.trim()).filter(Boolean))];
+  const selected = [];
+  for (const key of requested) {
+    const match = tools.find((tool) => tool.key === key);
+    if (!match) {
+      console.error(`  Unknown tool: ${key}. Use: copilot, codex, claude, roo, cursor, windsurf, all`);
+      process.exit(1);
+    }
+    selected.push(match);
   }
-  return [match];
+  return selected;
 }
 
 // ── Interactive menu ──────────────────────────────────────
@@ -117,9 +124,10 @@ function showInteractiveMenu() {
       console.log(`    ${i + 1}. ${t.name}`);
     });
     console.log('    A. All of the above');
+    console.log('    Use commas to select multiple tools, for example: 1,2,3');
     console.log('');
 
-    rl.question('  Choice [A]: ', (answer) => {
+    rl.question('  Choice(s) [A]: ', (answer) => {
       rl.close();
       const choice = (answer || 'A').trim();
 
@@ -128,9 +136,9 @@ function showInteractiveMenu() {
         return;
       }
 
-      const idx = parseInt(choice, 10);
-      if (idx >= 1 && idx <= tools.length) {
-        resolve([tools[idx - 1]]);
+      const indices = [...new Set(choice.split(',').map((value) => Number.parseInt(value.trim(), 10)))];
+      if (indices.length > 0 && indices.every((idx) => idx >= 1 && idx <= tools.length)) {
+        resolve(indices.map((idx) => tools[idx - 1]));
         return;
       }
 

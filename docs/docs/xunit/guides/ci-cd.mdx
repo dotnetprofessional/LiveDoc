@@ -115,7 +115,7 @@ older version, update the NuGet package.
 
 ```csharp
 [Feature("My API Journeys")]
-[Trait("Category", "Journey")]
+[Tag("Journey")]
 public class MyApiJourneys : JourneyTest { ... }
 ```
 
@@ -125,7 +125,15 @@ dotnet test --filter "Category!=Journey"
 
 ### Tag-Based Filtering
 
-Use `dotnet test --filter` to include or exclude by category:
+LiveDoc `[Tag]` attributes are exposed as xUnit `Category` traits:
+
+```csharp
+[Tag("Smoke, Critical")]
+[Feature("Checkout")]
+public class CheckoutTests : FeatureTest { ... }
+```
+
+Use `dotnet test --filter` to include or exclude those tags:
 
 ```bash
 dotnet test --filter "Category=Smoke"           # Only smoke tests

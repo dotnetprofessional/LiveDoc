@@ -22,7 +22,10 @@ public class LiveDocContext : IDisposable
     
     private readonly List<StepExecution> _steps = new();
     private readonly System.Diagnostics.Stopwatch _scenarioStopwatch;
-    private string _currentStepType = "Given";
+    private string _currentStepType = "";
+    private bool _hasGiven;
+    private bool _hasWhen;
+    private bool _hasThen;
     private ExampleData? _currentExample;
     private StepContext? _currentStep;
     private string? _testCaseId;
@@ -263,17 +266,12 @@ public class LiveDocContext : IDisposable
 
         var ruleAttr = _testMethod.GetCustomAttribute<RuleAttribute>();
         var ruleOutlineAttr = _testMethod.GetCustomAttribute<RuleOutlineAttribute>();
+        var parameterValues = OutlineDisplayNameFormatter.GetParameterValues(_testMethod, _testMethodArgs);
 
         string name;
         if (ruleOutlineAttr != null)
         {
-            // DisplayName is the single source of truth — it contains either the
-            // user-provided description or formatted method name, prefixed with "Rule Outline: ".
-            // Strip the prefix since FormatRule() adds its own "Rule:" prefix.
-            var displayName = ruleOutlineAttr.DisplayName ?? FeatureAttribute.FormatName(_testMethod.Name);
-            name = displayName.StartsWith("Rule Outline: ", StringComparison.OrdinalIgnoreCase)
-                ? displayName.Substring("Rule Outline: ".Length)
-                : displayName;
+            name = ruleOutlineAttr.GetDisplayName(_testMethod, parameterValues);
         }
         else if (ruleAttr != null)
         {
@@ -290,7 +288,7 @@ public class LiveDocContext : IDisposable
         return new RuleContext
         {
             Name = name,
-            Description = ruleAttr?.GetDescription(_testMethod) ?? ruleOutlineAttr?.Description,
+            Description = ruleAttr?.GetDescription(_testMethod) ?? ruleOutlineAttr?.GetDescription(_testMethod),
             Tags = TagAttribute.GetTags(_testClassType, _testMethod),
             ValuesRaw = valuesRaw,
             ParamsRaw = paramsRaw,
@@ -436,7 +434,7 @@ public class LiveDocContext : IDisposable
         for (int i = 0; i < Math.Min(parameters.Length, _testMethodArgs.Length); i++)
         {
             var paramName = parameters[i].Name;
-            var paramValue = _testMethodArgs[i]?.ToString() ?? "";
+            var paramValue = OutlineDisplayNameFormatter.FormatValue(_testMethodArgs[i]);
             
             // Replace <paramName> with the actual value (case-insensitive)
             result = Regex.Replace(
@@ -469,8 +467,9 @@ public class LiveDocContext : IDisposable
         {
             var ruleOutlineAttr = testMethod.GetCustomAttribute<RuleOutlineAttribute>();
             // RuleOutline Description or non-default DisplayName is the explicit title template.
-            if (!string.IsNullOrEmpty(ruleOutlineAttr?.Description))
-                return ruleOutlineAttr.Description;
+            var configuredTemplate = ruleOutlineAttr?.GetTitleTemplate(testMethod);
+            if (!string.IsNullOrEmpty(configuredTemplate))
+                return configuredTemplate;
 
             var methodAsTitle = "Rule Outline: " + testMethod.Name.Replace("_", " ");
             if (!string.IsNullOrEmpty(ruleOutlineAttr?.DisplayName) &&
@@ -519,15 +518,14 @@ public class LiveDocContext : IDisposable
             Type = type,
             Description = displayTitle,
             OriginalDescription = description,
-            StartTime = DateTime.UtcNow
+            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            StartTime = DateTime.UtcNow,
+            RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
 
         try
         {
-            // Track current step type for And/But indentation
-            if (type != "and" && type != "but")
-                _currentStepType = type;
-
             // Execute the actual step (this preserves debugging!)
             step();
 
@@ -578,14 +576,14 @@ public class LiveDocContext : IDisposable
             Type = type,
             Description = displayTitle,
             OriginalDescription = description,
-            StartTime = DateTime.UtcNow
+            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            StartTime = DateTime.UtcNow,
+            RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
 
         try
         {
-            if (type != "and" && type != "but")
-                _currentStepType = type;
-
             // Execute with context
             step(this);
 
@@ -630,14 +628,14 @@ public class LiveDocContext : IDisposable
             Type = type,
             Description = displayTitle,
             OriginalDescription = description,
-            StartTime = DateTime.UtcNow
+            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            StartTime = DateTime.UtcNow,
+            RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
 
         try
         {
-            if (type != "and" && type != "but")
-                _currentStepType = type;
-
             await step();
 
             execution.Status = StepStatus.Passed;
@@ -684,14 +682,14 @@ public class LiveDocContext : IDisposable
             Type = type,
             Description = displayTitle,
             OriginalDescription = description,
-            StartTime = DateTime.UtcNow
+            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            StartTime = DateTime.UtcNow,
+            RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
 
         try
         {
-            if (type != "and" && type != "but")
-                _currentStepType = type;
-
             await step(this);
 
             execution.Status = StepStatus.Passed;
@@ -726,6 +724,117 @@ public class LiveDocContext : IDisposable
     {
         // Steps are not individually reported in bulk mode — 
         // final status is captured in scenario completion
+    }
+
+    private List<Reporter.Models.RuleViolation>? TrackStepRuleViolations(string type, string title)
+    {
+        if (_isSpecification)
+            return null;
+
+        var normalizedType = type.ToLowerInvariant();
+        var violations = new List<Reporter.Models.RuleViolation>();
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            violations.Add(CreateRuleViolation(
+                "enforceTitle",
+                $"{normalizedType} seems to be missing a title. Titles are important to convey the meaning of the Spec."));
+        }
+
+        switch (normalizedType)
+        {
+            case "given":
+                if (_hasGiven)
+                    violations.Add(CreateRepeatedStepViolation(normalizedType));
+                _hasGiven = true;
+                _currentStepType = normalizedType;
+                break;
+
+            case "when":
+                if (!_hasGiven)
+                {
+                    violations.Add(CreateRuleViolation(
+                        "mustIncludeGiven",
+                        "scenario does not have a given."));
+                }
+                if (_hasWhen)
+                    violations.Add(CreateRepeatedStepViolation(normalizedType));
+                _hasWhen = true;
+                _currentStepType = normalizedType;
+                break;
+
+            case "then":
+                if (!_hasWhen)
+                {
+                    violations.Add(CreateRuleViolation(
+                        "mustIncludeWhen",
+                        "scenario does not have a when, use when to describe the test action."));
+                }
+                if (_hasThen)
+                    violations.Add(CreateRepeatedStepViolation(normalizedType));
+                _hasThen = true;
+                _currentStepType = normalizedType;
+                break;
+
+            case "and":
+            case "but":
+                if (string.IsNullOrEmpty(_currentStepType))
+                {
+                    violations.Add(CreateRuleViolation(
+                        "andButMustHaveGivenWhenThen",
+                        $"{normalizedType} step definition must be preceded by a given, when or then."));
+                }
+                break;
+        }
+
+        return violations.Count > 0 ? violations : null;
+    }
+
+    private Reporter.Models.RuleViolation CreateRepeatedStepViolation(string type)
+    {
+        return CreateRuleViolation(
+            "singleGivenWhenThen",
+            $"there should be only one {type} in a Scenario or Scenario Outline. Try using and or but instead.");
+    }
+
+    private Reporter.Models.RuleViolation CreateRuleViolation(string rule, string message)
+    {
+        return new Reporter.Models.RuleViolation
+        {
+            Rule = rule,
+            Message = message,
+            Title = Scenario.Name
+        };
+    }
+
+    private List<Reporter.Models.RuleViolation> BuildScenarioRuleViolations()
+    {
+        if (_isSpecification)
+            return new List<Reporter.Models.RuleViolation>();
+
+        var violations = new List<Reporter.Models.RuleViolation>();
+        var stepViolations = _steps
+            .SelectMany(step => step.RuleViolations ?? Enumerable.Empty<Reporter.Models.RuleViolation>())
+            .ToList();
+
+        if (!_hasGiven && stepViolations.All(violation => violation.Rule != "mustIncludeGiven"))
+            violations.Add(CreateRuleViolation("mustIncludeGiven", "scenario does not have a given."));
+
+        if (!_hasWhen && stepViolations.All(violation => violation.Rule != "mustIncludeWhen"))
+        {
+            violations.Add(CreateRuleViolation(
+                "mustIncludeWhen",
+                "scenario does not have a when, use when to describe the test action."));
+        }
+
+        if (!_hasThen)
+        {
+            violations.Add(CreateRuleViolation(
+                "mustIncludeThen",
+                "scenario does not have a then, use then to describe the expected outcome."));
+        }
+
+        return violations;
     }
 
     private StepContext CreateStepContext(string type, string originalDescription, string displayTitle)
@@ -817,12 +926,21 @@ public class LiveDocContext : IDisposable
 
             // Build step data for reporting
             var reportedSteps = BuildStepData();
+            var testRuleViolations = BuildScenarioRuleViolations();
 
             if (_isOutline && _outlineId != null)
             {
-                // Set template steps on the outline (only first example's steps are kept)
+                _runReporter.SetTestRuleViolations(_outlineId, testRuleViolations);
+                // Resolve authored constants and parameterized values across all observed rows.
                 if (reportedSteps.Count > 0)
-                    _runReporter.SetTestSteps(_outlineId, reportedSteps);
+                {
+                    _runReporter.SetOutlineTestSteps(
+                        _outlineId,
+                        _outlineRowId,
+                        BuildStepData(useTemplate: false),
+                        reportedSteps,
+                        _steps.Select(step => step.QuotedParameterCandidates).ToList());
+                }
 
                 // Add per-step example results for this row (matches vitest format)
                 // Server expects testId = step ID, not outline ID
@@ -849,6 +967,7 @@ public class LiveDocContext : IDisposable
             }
             else if (_scenarioId != null)
             {
+                _runReporter.SetTestRuleViolations(_scenarioId, testRuleViolations);
                 // Set steps on scenario test
                 if (reportedSteps.Count > 0)
                     _runReporter.SetTestSteps(_scenarioId, reportedSteps);
@@ -859,7 +978,7 @@ public class LiveDocContext : IDisposable
         }
     }
 
-    private List<StepTest> BuildStepData()
+    private List<StepTest> BuildStepData(bool useTemplate = true)
     {
         var parentId = _isOutline ? _outlineId! : _scenarioId!;
         var result = new List<StepTest>();
@@ -867,9 +986,10 @@ public class LiveDocContext : IDisposable
         {
             var step = _steps[i];
             var stepId = LiveDocTestRunReporter.GenerateStepId(parentId, step.Type, i + 1);
-            // For outlines, reconstruct template with <placeholders> from bound values
             var title = _isOutline
-                ? ReconstructTemplate(step.OriginalDescription ?? step.Description)
+                ? useTemplate
+                    ? step.TemplateDescription ?? step.OriginalDescription ?? step.Description
+                    : step.OriginalDescription ?? step.Description
                 : step.Description;
             result.Add(new StepTest
             {
@@ -882,7 +1002,8 @@ public class LiveDocContext : IDisposable
                     Duration = (long)step.Duration.TotalMilliseconds,
                     Error = CreateErrorInfo(step.Exception),
                     Attachments = step.Attachments
-                }
+                },
+                RuleViolations = step.RuleViolations
             });
         }
         return result;
@@ -909,22 +1030,45 @@ public class LiveDocContext : IDisposable
             return description;
 
         var result = description;
-        // Replace bound values with <paramName>, longest values first to avoid partial matches
-        foreach (var kvp in _currentExample.GetAll().OrderByDescending(k => k.Value?.ToString()?.Length ?? 0))
+        // Stable ordering handles duplicate values consistently.
+        foreach (var kvp in _currentExample.GetAll()
+                     .OrderBy(item => item.Key, StringComparer.Ordinal))
         {
-            var valueStr = kvp.Value?.ToString();
-            if (string.IsNullOrEmpty(valueStr)) continue;
             var placeholder = $"<{kvp.Key}>";
-
-            // Replace quoted occurrences: 'value...' → '<paramName>' (value may be part of quoted text)
-            result = Regex.Replace(result, $"'{Regex.Escape(valueStr)}([^']*)'", m =>
+            var formats = OutlineDisplayNameFormatter.GetValueFormats(kvp.Value)
+                .OrderByDescending(value => value.Length)
+                .ThenBy(value => value, StringComparer.Ordinal);
+            foreach (var value in formats)
             {
-                var suffix = m.Groups[1].Value;
-                return string.IsNullOrEmpty(suffix)
-                    ? $"'{placeholder}'"
-                    : $"'{placeholder}{suffix}'";
-            });
+                if (string.IsNullOrEmpty(value))
+                    continue;
+
+                result = Regex.Replace(
+                    result,
+                    $"'{Regex.Escape(value)}'",
+                    $"'{placeholder}'");
+            }
         }
         return result;
+    }
+
+    private List<string[]> GetQuotedParameterCandidates(string description)
+    {
+        if (_currentExample == null)
+            return new List<string[]>();
+
+        return Regex.Matches(description, @"'([^']*)'")
+            .Select(match =>
+            {
+                var quotedValue = match.Groups[1].Value;
+                return _currentExample.GetAll()
+                    .Where(parameter => OutlineDisplayNameFormatter
+                        .GetValueFormats(parameter.Value)
+                        .Contains(quotedValue, StringComparer.Ordinal))
+                    .Select(parameter => parameter.Key)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToArray();
+            })
+            .ToList();
     }
 }

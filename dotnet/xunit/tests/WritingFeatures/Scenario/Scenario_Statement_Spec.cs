@@ -69,30 +69,3 @@ public class Scenario_Statement_Spec : SpecificationTest
 
     #endregion
 }
-
-#region Test Fixtures
-
-/// <summary>
-/// Helper fixture class for Scenario_Statement_Spec tests.
-/// Not a real test - just provides methods to inspect via reflection.
-/// </summary>
-[Feature("Scenario Statement Fixtures")]
-public class Scenario_Statement_Fixtures : FeatureTest
-{
-    public Scenario_Statement_Fixtures(ITestOutputHelper output) : base(output) { }
-    
-    [Scenario]
-    public void User_logs_in_successfully() { }
-    
-    [Scenario]
-    public void Named_scenario() { }
-    
-    [Scenario(Description = "Tests the complete login flow for registered users")]
-    public void Described_scenario() { }
-    
-    [Tag("happy-path, auth")]
-    [Scenario]
-    public void Tagged_scenario() { }
-}
-
-#endregion

@@ -40,7 +40,7 @@
 ### Example 8: Validate an incremental change by tag
 > "Run only checkout and pricing behavior and patch the Viewer"
 
-→ Read `resources/partial-testing.md`. In v0.2.0-beta.2, select matching xUnit `Category` traits, publish the invocation as `partial`, and preserve the latest full baseline.
+→ Read `resources/partial-testing.md`. Select LiveDoc `[Tag]` values through xUnit `Category` filters, publish the invocation as `partial`, and preserve the latest full baseline.
 
 ## Negative routing (DO NOT use this skill)
 

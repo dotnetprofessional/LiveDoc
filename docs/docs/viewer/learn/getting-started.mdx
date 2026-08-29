@@ -27,16 +27,6 @@ By the end of this page you will have:
 - **Node.js 18+** installed
 - A project using **@swedevtools/livedoc-vitest** or **LiveDoc.xUnit** (.NET)
 
-:::tip Fastest project setup: give your AI one URL
-Tell your assistant:
-
-**"Read https://livedoc.swedevtools.com/ai/setup.md and configure this
-repository for LiveDoc, the Viewer, and full code coverage."**
-
-No LiveDoc package or reusable skill needs to be installed first.
-[AI project setup workflow](/guides/ai-project-setup)
-:::
-
 ---
 
 ## Step 1: Install the Viewer
@@ -45,7 +35,28 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 <Tabs>
-  <TabItem value="global" label="Global (recommended)" default>
+  <TabItem value="ai-agent" label="AI Agent" default>
+
+Give GitHub Copilot, OpenAI Codex, Claude Code, Cursor, Roo Code, Windsurf, or
+another repository-aware agent this prompt:
+
+```text
+Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
+for LiveDoc. Inspect the project first, then ask me one configuration question
+at a time. Summarize the proposed setup and wait for my approval before editing
+files or installing packages.
+```
+
+The agent will ask whether to install the Viewer globally, add it as a
+development dependency, use an existing installation, or skip it. It will also
+confirm publishing, project identity, coverage, validation, and the AI tools
+that should receive version-matched repository skills before making changes.
+
+No LiveDoc package or reusable skill needs to be installed before using this
+path.
+
+  </TabItem>
+  <TabItem value="global" label="Global">
     ```bash
     npm install -g @swedevtools/livedoc-viewer
     ```

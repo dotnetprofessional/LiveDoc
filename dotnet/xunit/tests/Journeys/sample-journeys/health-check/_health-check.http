@@ -3,6 +3,8 @@
 
 # Scenario: Server reports healthy status
 
+# Given the sample API is running
+
 # When checking the health endpoint
 # @name healthCheck
 GET {{baseUrl}}/health

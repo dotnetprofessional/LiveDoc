@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { createServer as createHttpServer, IncomingMessage, ServerResponse, Server as HttpServer } from 'http';
 import * as fs from 'fs';
@@ -12,6 +12,7 @@ import type {
   TestRunV1,
   TestCase,
   AnyTest,
+  StepTest,
   V1WebSocketEvent,
   V1StartRunRequest,
   V1StartRunResponse,
@@ -35,6 +36,161 @@ import {
   V1CompleteRunRequestSchema,
   V1AttachCoverageRequestSchema,
 } from './schema.js';
+
+type JsonObject = Record<string, unknown>;
+
+function asObject(value: unknown): JsonObject | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as JsonObject
+    : undefined;
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asNonNegativeNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function legacyExecution(node: JsonObject): AnyTest['execution'] {
+  const execution = asObject(node.execution);
+  const status = asString(execution?.status ?? node.status, 'pending') as AnyTest['execution']['status'];
+  return {
+    status,
+    duration: asNonNegativeNumber(execution?.duration ?? node.duration),
+    ...(asObject(execution?.error ?? node.error)
+      ? { error: asObject(execution?.error ?? node.error) as AnyTest['execution']['error'] }
+      : {}),
+  };
+}
+
+function legacyStatistics(value: unknown): TestCase['statistics'] {
+  const statistics = asObject(value);
+  return {
+    total: asNonNegativeNumber(statistics?.total),
+    passed: asNonNegativeNumber(statistics?.passed),
+    failed: asNonNegativeNumber(statistics?.failed),
+    pending: asNonNegativeNumber(statistics?.pending),
+    skipped: asNonNegativeNumber(statistics?.skipped),
+  };
+}
+
+function legacyStep(node: JsonObject): StepTest {
+  const keyword = asString(node.keyword ?? node.type, 'given').toLowerCase();
+  return {
+    id: asString(node.id),
+    kind: 'Step',
+    title: asString(node.title),
+    ...(typeof node.description === 'string' ? { description: node.description } : {}),
+    ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+    keyword: (['given', 'when', 'then', 'and', 'but'].includes(keyword) ? keyword : 'given') as StepTest['keyword'],
+    execution: legacyExecution(node),
+  };
+}
+
+function legacyTest(node: JsonObject): AnyTest {
+  const kind = asString(node.kind ?? node.type, 'Test').toLowerCase();
+  const children = Array.isArray(node.children)
+    ? node.children.map(asObject).filter((child): child is JsonObject => child !== undefined)
+    : Array.isArray(node.steps)
+      ? node.steps.map(asObject).filter((child): child is JsonObject => child !== undefined)
+      : [];
+
+  if (kind === 'scenario') {
+    return {
+      id: asString(node.id),
+      kind: 'Scenario',
+      title: asString(node.title),
+      ...(typeof node.description === 'string' ? { description: node.description } : {}),
+      ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+      steps: children.map(legacyStep),
+      execution: legacyExecution(node),
+    };
+  }
+
+  return {
+    id: asString(node.id),
+    kind: kind === 'rule' ? 'Rule' : 'Test',
+    title: asString(node.title),
+    ...(typeof node.description === 'string' ? { description: node.description } : {}),
+    ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+    execution: legacyExecution(node),
+  };
+}
+
+function legacyTestCase(node: JsonObject): TestCase {
+  const children = Array.isArray(node.children)
+    ? node.children
+    : Array.isArray(node.scenarios)
+      ? node.scenarios
+      : Array.isArray(node.tests)
+        ? node.tests
+        : [];
+  const tests = children
+    .map(asObject)
+    .filter((child): child is JsonObject => child !== undefined)
+    .map(legacyTest);
+
+  return {
+    id: asString(node.id),
+    kind: asString(node.kind, 'Feature').toLowerCase() === 'suite' ? 'Suite' : 'Feature',
+    title: asString(node.title),
+    ...(typeof node.filename === 'string' ? { path: node.filename } : {}),
+    ...(typeof node.description === 'string' ? { description: node.description } : {}),
+    ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+    tests,
+    statistics: legacyStatistics(node.statistics ?? node.stats),
+  };
+}
+
+function legacyRunResponse(run: TestRunV1): JsonObject {
+  const documents = run.documents.map((document) => {
+    const children = document.tests.map((test) => {
+      const steps = test.kind === 'Scenario' && Array.isArray((test as { steps?: StepTest[] }).steps)
+        ? (test as { steps: StepTest[] }).steps.map((step) => ({
+            ...step,
+            type: step.keyword,
+            status: step.execution.status,
+            duration: step.execution.duration,
+            ...(step.execution.error ? { error: step.execution.error } : {}),
+          }))
+        : [];
+      return {
+        ...test,
+        type: test.kind,
+        status: test.execution?.status,
+        duration: test.execution?.duration,
+        steps,
+        children: steps,
+      };
+    });
+    const status = document.statistics.failed > 0
+      ? 'failed'
+      : document.statistics.pending > 0
+        ? 'running'
+        : document.statistics.total > 0
+          ? 'passed'
+          : 'pending';
+    return {
+      ...document,
+      filename: document.path,
+      status,
+      duration: children.reduce((sum, test) => sum + asNonNegativeNumber(test.duration), 0),
+      children,
+      scenarios: children,
+    };
+  });
+
+  return {
+    ...run,
+    version: '1.0',
+    documents,
+    features: documents,
+    suites: [],
+    summary: { ...run.summary, duration: run.duration },
+  };
+}
 
 // Re-export all schema types
 export * from './schema.js';
@@ -176,6 +332,46 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     };
   };
   const requireActiveRun = (runId: string): TestRunV1 => store.assertMutable(runId);
+  const forwardToV1 = async (request: Request, pathname: string): Promise<Response> => {
+    const url = new URL(request.url);
+    url.pathname = pathname;
+    const body = request.method === 'GET' || request.method === 'HEAD'
+      ? undefined
+      : await request.text();
+    return app.fetch(new Request(url, {
+      method: request.method,
+      headers: request.headers,
+      body,
+    }));
+  };
+
+  const legacyHierarchy = () => {
+    const projects = new Map<string, Map<string, TestRunV1[]>>();
+    for (const run of store.getAllRuns()) {
+      const environments = projects.get(run.project) ?? new Map<string, TestRunV1[]>();
+      const runs = environments.get(run.environment) ?? [];
+      runs.push(run);
+      environments.set(run.environment, runs);
+      projects.set(run.project, environments);
+    }
+
+    return Array.from(projects, ([name, environments]) => ({
+      name,
+      environments: Array.from(environments, ([environmentName, runs]) => ({
+        name: environmentName,
+        latestRun: runs[0],
+        historyCount: runs.length,
+        history: runs.map((run) => ({
+          runId: run.runId,
+          timestamp: run.timestamp,
+          status: run.status,
+          summary: run.summary,
+          runType: run.runType ?? 'full',
+          ...(run.baselineRunId ? { baselineRunId: run.baselineRunId } : {}),
+        })),
+      })),
+    }));
+  };
 
   // Logging middleware
   if (options.logger) {
@@ -210,9 +406,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   // List projects
   app.get('/api/projects', (c) => {
-    // Derive this from the same hierarchy used by the UI navigation endpoint,
-    // to avoid any divergence/staleness between endpoints.
-    const hierarchy = store.getProjectHierarchy();
+    const hierarchy = legacyHierarchy();
     const projects = hierarchy.flatMap((project) =>
       project.environments.map((environment) => ({
         project: project.name,
@@ -234,7 +428,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   // Get project hierarchy for navigation
   app.get('/api/hierarchy', (c) => {
-    const hierarchy = store.getProjectHierarchy();
+    const hierarchy = legacyHierarchy();
     return c.json({ projects: hierarchy });
   });
 
@@ -256,12 +450,12 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   // Get run by ID
   app.get('/api/runs/:runId', (c) => {
-    const runId = c.req.param('runId');
+    const runId = asString(c.req.param('runId'));
     const run = store.getRun(runId);
     if (!run) {
       return c.json({ error: 'Run not found' }, 404);
     }
-    return c.json(run);
+    return c.json(legacyRunResponse(run));
   });
 
   // Delete a run
@@ -271,6 +465,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
     if (!run) {
       return c.json({ error: 'Run not found' }, 404);
+    }
+
+    if (store.cancelRun(runId)) {
+      return c.json({ success: true });
     }
 
     let deleted: boolean;
@@ -725,6 +923,168 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       broadcast,
       restHydration: { available: restHydrationAvailable },
     });
+  });
+
+  // Unversioned endpoints remain supported for existing reporters. Their
+  // lifecycle semantics and persisted data are delegated to the v1 model.
+  app.post('/api/runs/start', (c) => forwardToV1(c.req.raw, '/api/v1/runs/start'));
+  app.post('/api/runs/:runId/complete', (c) =>
+    forwardToV1(c.req.raw, `/api/v1/runs/${c.req.param('runId')}/complete`));
+
+  const upsertLegacyNode = (
+    run: TestRunV1,
+    parentId: string | undefined,
+    node: JsonObject
+  ): { success: boolean; event?: V1WebSocketEvent } => {
+    const kind = asString(node.kind ?? node.type).toLowerCase();
+    if (kind === 'feature' || kind === 'suite' || (!parentId && Array.isArray(node.scenarios))) {
+      const testCase = legacyTestCase(node);
+      if (!testCase.id || !testCase.title) return { success: false };
+      store.upsertTestCase(run.runId, testCase);
+      return {
+        success: true,
+        event: { type: 'testcase:upsert', runId: run.runId, testCase },
+      };
+    }
+
+    const parentDocument = parentId
+      ? run.documents.find((document) => document.id === parentId)
+      : undefined;
+    if (kind === 'scenario' || kind === 'rule' || kind === 'test') {
+      if (!parentDocument) return { success: false };
+      const test = legacyTest(node);
+      if (!test.id || !test.title) return { success: false };
+      store.upsertTest(run.runId, parentDocument.id, test);
+      return {
+        success: true,
+        event: { type: 'test:upsert', runId: run.runId, testCaseId: parentDocument.id, test },
+      };
+    }
+
+    if (kind === 'step') {
+      const scenario = parentId
+        ? run.documents.flatMap((document) => document.tests).find((test) => test.id === parentId)
+        : undefined;
+      if (!scenario || scenario.kind !== 'Scenario') return { success: false };
+      const step = legacyStep(node);
+      if (!step.id || !step.title) return { success: false };
+      const steps = [...((scenario as { steps?: StepTest[] }).steps ?? [])];
+      const existing = steps.findIndex((candidate) => candidate.id === step.id);
+      if (existing >= 0) steps[existing] = step;
+      else steps.push(step);
+      store.replaceScenarioSteps(run.runId, scenario.id, steps);
+      return { success: true };
+    }
+
+    return { success: false };
+  };
+
+  const legacyNodeHandler = async (
+    c: Context,
+    getPayload: (body: JsonObject) => { parentId?: string; node?: JsonObject }
+  ) => {
+    const runId = asString(c.req.param('runId'));
+    let run: TestRunV1;
+    try {
+      run = requireActiveRun(runId);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+
+    const body = asObject(await c.req.json().catch(() => null));
+    if (!body) return c.json({ error: 'Invalid request' }, 400);
+    const payload = getPayload(body);
+    if (!payload.node) return c.json({ error: 'Invalid request' }, 400);
+    const result = upsertLegacyNode(run, payload.parentId, payload.node);
+    if (!result.success) return c.json({ error: 'Parent or node not found' }, 404);
+    if (wsManager && result.event) {
+      wsManager.broadcast(result.event, runId, run.project, run.environment);
+    }
+    return c.json({ success: true });
+  };
+
+  app.post('/api/runs/:runId/features', (c) =>
+    legacyNodeHandler(c, (body) => ({ node: { ...body, kind: 'Feature' } })));
+  app.post('/api/runs/:runId/scenarios', (c) =>
+    legacyNodeHandler(c, (body) => ({
+      parentId: typeof body.featureId === 'string' ? body.featureId : undefined,
+      node: { ...body, kind: body.kind ?? body.type ?? 'Scenario' },
+    })));
+  app.post('/api/runs/:runId/steps', (c) =>
+    legacyNodeHandler(c, (body) => ({
+      parentId: typeof body.scenarioId === 'string' ? body.scenarioId : undefined,
+      node: { ...body, kind: 'Step' },
+    })));
+  app.post('/api/runs/:runId/scenarios/:scenarioId/complete', async (c) => {
+    const runId = c.req.param('runId');
+    try {
+      requireActiveRun(runId);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+    const body = asObject(await c.req.json().catch(() => null));
+    if (!body) return c.json({ error: 'Invalid request' }, 400);
+    store.patchTestExecution(runId, c.req.param('scenarioId'), {
+      status: asString(body.status, 'pending') as AnyTest['execution']['status'],
+      duration: asNonNegativeNumber(body.duration),
+    });
+    return c.json({ success: true });
+  });
+
+  app.post('/api/runs', async (c) => {
+    const body = asObject(await c.req.json().catch(() => null));
+    if (!body) return c.json({ error: 'Invalid request' }, 400);
+    const project = asString(body.project);
+    const environment = asString(body.environment);
+    const framework = asString(body.framework);
+    if (!project || !environment || !framework) {
+      return c.json({ error: 'Invalid request' }, 400);
+    }
+
+    const runId = generateId();
+    let run: TestRunV1;
+    try {
+      run = store.createRun(
+        runId,
+        project,
+        environment,
+        framework,
+        asString(body.timestamp, new Date().toISOString())
+      );
+      const legacyDocuments = [
+        ...(Array.isArray(body.features) ? body.features : []),
+        ...(Array.isArray(body.suites) ? body.suites : []),
+      ];
+      for (const value of legacyDocuments) {
+        const document = asObject(value);
+        if (document) store.upsertTestCase(runId, legacyTestCase(document));
+      }
+      run = await store.completeRun(
+        runId,
+        asString(body.status, 'passed') as TestRunV1['status'],
+        asNonNegativeNumber(body.duration),
+        legacyStatistics(body.summary)
+      );
+    } catch (error) {
+      store.cancelRun(runId);
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+
+    eventEmitter.emit('run:v1:completed', runId);
+    if (wsManager) {
+      wsManager.broadcast({
+        type: 'run:v1:completed',
+        runId,
+        status: run.status,
+        duration: run.duration,
+        summary: run.summary,
+        coverage: run.coverage,
+      }, runId, run.project, run.environment);
+    }
+    return c.json({ runId }, 201);
   });
 
   httpServer.on('request', async (req: IncomingMessage, res: ServerResponse) => {

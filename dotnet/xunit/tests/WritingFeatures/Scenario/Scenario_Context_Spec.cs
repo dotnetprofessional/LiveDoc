@@ -23,7 +23,9 @@ public class Scenario_Context_Spec : FeatureTest
     {
         string? scenarioName = null;
         
-        Given("a scenario is running", () =>
+        Given("a scenario is running", () => { });
+
+        When("the scenario name is read from its context", () =>
         {
             scenarioName = this.Scenario.Name;
         });

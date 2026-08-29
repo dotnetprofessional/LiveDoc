@@ -133,17 +133,18 @@ The AI doesn't just produce syntactically correct tests — it produces **well-s
 LiveDoc does not need to be installed first. Give your AI assistant this prompt:
 
 > Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
-> for LiveDoc. Preserve existing configuration and include the Viewer and full
-> code coverage.
+> for LiveDoc. Inspect the project first, ask me one configuration question at a
+> time, and wait for approval before making changes.
 
 The bootstrap page teaches the agent how to detect Vitest, xUnit, or a mixed
-monorepo; install the packages; configure the Viewer and coverage; and validate
-the result.
+monorepo; interview you about project identity, Viewer publishing, coverage,
+thresholds, and partial testing; install the approved packages; and validate the
+result.
 
 **[See how AI project setup works →](/guides/ai-project-setup)**
 
-After setup, you can optionally install LiveDoc's reusable skills so future AI
-sessions retain framework-specific authoring guidance.
+AI setup also installs version-matched LiveDoc skills inside the repository for
+every selected tool, including Copilot, Codex, and Claude Code.
 
 ---
 
@@ -250,7 +251,7 @@ Browse the LiveDoc xUnit test suite — BDD features, journey tests, and .NET sp
 BDD and specification patterns for Vitest with zero boilerplate.
 
 ```bash
-npm install -D @swedevtools/livedoc-vitest
+npm install -D vitest@^4.0.16 @swedevtools/livedoc-vitest
 ```
 
 **[Get Started →](/vitest/learn/getting-started)** · [Set up with AI →](/guides/ai-project-setup)
@@ -323,17 +324,17 @@ GET {{baseUrl}}/api/users/{{createUser.id}}
 <span>BDD, specifications, data-driven tests, and the reporting model.</span>
 </a>
 
-<a className="nav-card" href="/vitest/learn/getting-started">
+<a className="nav-card" href="/vitest/">
 <strong>⚡ Vitest SDK</strong>
 <span>TypeScript API reference, tutorials, and guides.</span>
 </a>
 
-<a className="nav-card" href="/xunit/learn/getting-started">
+<a className="nav-card" href="/xunit/">
 <strong>🔷 xUnit SDK</strong>
 <span>.NET API reference, tutorials, and guides.</span>
 </a>
 
-<a className="nav-card" href="/viewer/learn/getting-started">
+<a className="nav-card" href="/viewer/">
 <strong>🖥️ Viewer</strong>
 <span>Real-time test result visualizer and dashboard.</span>
 </a>

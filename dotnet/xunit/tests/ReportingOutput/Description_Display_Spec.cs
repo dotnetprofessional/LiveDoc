@@ -20,16 +20,16 @@ public class Description_Display_Spec : FeatureTest
     [Scenario]
     public void Simple_scenario_shows_feature_description()
     {
-        Given("a test with a feature description", () =>
-        {
-            // The description should be visible in test output
-        });
+        string? description = null;
+
+        Given("a test with a feature description", () => { });
+
+        When("the feature description is read", () => description = Feature.Description);
         
         Then("the description appears in the output", () =>
         {
-            // Check the Feature.Description is set
-            Assert.NotNull(Feature.Description);
-            Assert.Contains("description", Feature.Description, StringComparison.OrdinalIgnoreCase);
+            Assert.NotNull(description);
+            Assert.Contains("description", description, StringComparison.OrdinalIgnoreCase);
         });
     }
 }

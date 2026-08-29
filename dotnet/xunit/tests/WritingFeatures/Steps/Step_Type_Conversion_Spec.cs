@@ -26,11 +26,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_integer()
     {
         int? value = null;
+        LiveDocValue? source = null;
         
-        Given("a quantity of '100' items", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsInt();
-        });
+        Given("a quantity of '100' items", ctx => source = ctx.Step!.Values[0]);
+
+        When("the quantity is converted to an integer", () => value = source!.AsInt());
 
         Then("the integer value is correct", () =>
         {
@@ -42,11 +42,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_long()
     {
         long? value = null;
+        LiveDocValue? source = null;
         
-        Given("a large ID '9999999999999'", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsLong();
-        });
+        Given("a large ID '9999999999999'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the ID is converted to a long integer", () => value = source!.AsLong());
 
         Then("the long value is correct", () =>
         {
@@ -58,11 +58,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_decimal()
     {
         decimal? value = null;
+        LiveDocValue? source = null;
         
-        Given("a price of '99.99'", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsDecimal();
-        });
+        Given("a price of '99.99'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the price is converted to a decimal", () => value = source!.AsDecimal());
 
         Then("the decimal value is correct", () =>
         {
@@ -74,11 +74,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_double()
     {
         double? value = null;
+        LiveDocValue? source = null;
         
-        Given("a measurement of '3.14159'", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsDouble();
-        });
+        Given("a measurement of '3.14159'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the measurement is converted to a double", () => value = source!.AsDouble());
 
         Then("the double value is correct", () =>
         {
@@ -91,11 +91,19 @@ public class Step_Type_Conversion_Spec : FeatureTest
     {
         int? negInt = null;
         decimal? negDecimal = null;
+        LiveDocValue? integerSource = null;
+        LiveDocValue? decimalSource = null;
         
         Given("values '-42' and '-99.99'", ctx =>
         {
-            negInt = ctx.Step!.Values[0].AsInt();
-            negDecimal = ctx.Step!.Values[1].AsDecimal();
+            integerSource = ctx.Step!.Values[0];
+            decimalSource = ctx.Step.Values[1];
+        });
+
+        When("the negative values are converted", () =>
+        {
+            negInt = integerSource!.AsInt();
+            negDecimal = decimalSource!.AsDecimal();
         });
 
         Then("negative values are parsed correctly", () =>
@@ -113,11 +121,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_boolean_true()
     {
         bool? value = null;
+        LiveDocValue? source = null;
         
-        Given("active is 'true'", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsBool();
-        });
+        Given("active is 'true'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the active value is converted to a boolean", () => value = source!.AsBool());
 
         Then("the boolean is true", () =>
         {
@@ -129,11 +137,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_boolean_false()
     {
         bool? value = null;
+        LiveDocValue? source = null;
         
-        Given("disabled is 'false'", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsBool();
-        });
+        Given("disabled is 'false'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the disabled value is converted to a boolean", () => value = source!.AsBool());
 
         Then("the boolean is false", () =>
         {
@@ -146,11 +154,19 @@ public class Step_Type_Conversion_Spec : FeatureTest
     {
         bool? upper = null;
         bool? mixed = null;
+        LiveDocValue? upperSource = null;
+        LiveDocValue? mixedSource = null;
         
         Given("values 'TRUE' and 'False'", ctx =>
         {
-            upper = ctx.Step!.Values[0].AsBool();
-            mixed = ctx.Step!.Values[1].AsBool();
+            upperSource = ctx.Step!.Values[0];
+            mixedSource = ctx.Step.Values[1];
+        });
+
+        When("the values are converted to booleans", () =>
+        {
+            upper = upperSource!.AsBool();
+            mixed = mixedSource!.AsBool();
         });
 
         Then("both are parsed correctly", () =>
@@ -168,11 +184,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_iso_date()
     {
         DateTime? value = null;
+        LiveDocValue? source = null;
         
-        Given("a date of '2024-06-15'", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsDateTime();
-        });
+        Given("a date of '2024-06-15'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the date is converted to a date-time value", () => value = source!.AsDateTime());
 
         Then("the date is parsed correctly", () =>
         {
@@ -186,11 +202,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_iso_datetime()
     {
         DateTime? value = null;
+        LiveDocValue? source = null;
         
-        Given("a timestamp of '2024-06-15T14:30:00'", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsDateTime();
-        });
+        Given("a timestamp of '2024-06-15T14:30:00'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the timestamp is converted to a date-time value", () => value = source!.AsDateTime());
 
         Then("the datetime is parsed correctly", () =>
         {
@@ -207,11 +223,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_enum_by_name()
     {
         DayOfWeek? value = null;
+        LiveDocValue? source = null;
         
-        Given("a day of <day:Wednesday>", ctx =>
-        {
-            value = ctx.Step!.Params["day"].As<DayOfWeek>();
-        });
+        Given("a day of <day:Wednesday>", ctx => source = ctx.Step!.Params["day"]);
+
+        When("the day is converted to an enum", () => value = source!.As<DayOfWeek>());
 
         Then("the enum is parsed correctly", () =>
         {
@@ -223,11 +239,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Enum_parsing_is_case_insensitive()
     {
         DayOfWeek? value = null;
+        LiveDocValue? source = null;
         
-        Given("a day of <day:FRIDAY>", ctx =>
-        {
-            value = ctx.Step!.Params["day"].As<DayOfWeek>();
-        });
+        Given("a day of <day:FRIDAY>", ctx => source = ctx.Step!.Params["day"]);
+
+        When("the uppercase day is converted to an enum", () => value = source!.As<DayOfWeek>());
 
         Then("the enum is parsed correctly", () =>
         {
@@ -243,11 +259,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_integer_array()
     {
         int[]? values = null;
+        LiveDocValue? source = null;
         
-        Given("IDs '[1, 2, 3, 4, 5]'", ctx =>
-        {
-            values = ctx.Step!.Values[0].As<int[]>();
-        });
+        Given("IDs '[1, 2, 3, 4, 5]'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the IDs are converted to an integer array", () => values = source!.As<int[]>());
 
         Then("the array is parsed correctly", () =>
         {
@@ -259,11 +275,11 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Convert_to_string_array()
     {
         string[]? values = null;
+        LiveDocValue? source = null;
         
-        Given("tags '[\"sale\", \"new\", \"featured\"]'", ctx =>
-        {
-            values = ctx.Step!.Values[0].As<string[]>();
-        });
+        Given("tags '[\"sale\", \"new\", \"featured\"]'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the tags are converted to a string array", () => values = source!.As<string[]>());
 
         Then("the string array is parsed correctly", () =>
         {
@@ -279,12 +295,15 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Invalid_integer_throws_with_context()
     {
         LiveDocConversionException? caught = null;
+        LiveDocValue? source = null;
         
-        Given("an invalid number 'abc'", ctx =>
+        Given("an invalid number 'abc'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the invalid number is converted to an integer", () =>
         {
             try
             {
-                _ = ctx.Step!.Values[0].AsInt();
+                _ = source!.AsInt();
             }
             catch (LiveDocConversionException ex)
             {
@@ -304,12 +323,15 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Invalid_boolean_throws_with_context()
     {
         LiveDocConversionException? caught = null;
+        LiveDocValue? source = null;
         
-        Given("an invalid bool 'yes'", ctx =>
+        Given("an invalid bool 'yes'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the invalid value is converted to a boolean", () =>
         {
             try
             {
-                _ = ctx.Step!.Values[0].AsBool();
+                _ = source!.AsBool();
             }
             catch (LiveDocConversionException ex)
             {
@@ -328,12 +350,15 @@ public class Step_Type_Conversion_Spec : FeatureTest
     public void Invalid_date_throws_with_context()
     {
         LiveDocConversionException? caught = null;
+        LiveDocValue? source = null;
         
-        Given("an invalid date 'not-a-date'", ctx =>
+        Given("an invalid date 'not-a-date'", ctx => source = ctx.Step!.Values[0]);
+
+        When("the invalid value is converted to a date", () =>
         {
             try
             {
-                _ = ctx.Step!.Values[0].AsDateTime();
+                _ = source!.AsDateTime();
             }
             catch (LiveDocConversionException ex)
             {

@@ -24,11 +24,12 @@ public class Step_Quoted_Values_Spec : FeatureTest
     public void Single_quoted_value_is_extracted()
     {
         string? capturedValue = null;
+        StepContext? sourceStep = null;
         
-        Given("a quantity of '42' items", ctx =>
-        {
-            capturedValue = ctx.Step!.Values[0].AsString();
-        });
+        Given("a quantity of '42' items", ctx => sourceStep = ctx.Step);
+
+        When("the quoted quantity is extracted", () =>
+            capturedValue = sourceStep!.Values[0].AsString());
 
         Then("the value should be extracted", () =>
         {
@@ -40,13 +41,17 @@ public class Step_Quoted_Values_Spec : FeatureTest
     public void Multiple_quoted_values_are_extracted_in_order()
     {
         List<string>? values = null;
+        StepContext? sourceStep = null;
         
-        When("I add '5' items of 'Earl Grey Tea' at '4.99'", ctx =>
+        Given("an item entry contains '5', 'Earl Grey Tea', and '4.99'", ctx =>
+            sourceStep = ctx.Step);
+
+        When("the quoted item values are extracted", () =>
         {
             values = new List<string>();
-            for (int i = 0; i < ctx.Step!.Values.Count; i++)
+            for (int i = 0; i < sourceStep!.Values.Count; i++)
             {
-                values.Add(ctx.Step!.Values[i].AsString());
+                values.Add(sourceStep.Values[i].AsString());
             }
         });
 
@@ -63,11 +68,12 @@ public class Step_Quoted_Values_Spec : FeatureTest
     public void Quoted_values_with_spaces_are_preserved()
     {
         string? productName = null;
+        StepContext? sourceStep = null;
         
-        Given("a product named 'Byron Breakfast Tea Blend'", ctx =>
-        {
-            productName = ctx.Step!.Values[0].AsString();
-        });
+        Given("a product named 'Byron Breakfast Tea Blend'", ctx => sourceStep = ctx.Step);
+
+        When("the quoted product name is extracted", () =>
+            productName = sourceStep!.Values[0].AsString());
 
         Then("the full name with spaces is captured", () =>
         {
@@ -79,11 +85,12 @@ public class Step_Quoted_Values_Spec : FeatureTest
     public void Empty_quoted_value_is_extracted()
     {
         string? value = null;
+        StepContext? sourceStep = null;
         
-        Given("a name of '' (empty)", ctx =>
-        {
-            value = ctx.Step!.Values[0].AsString();
-        });
+        Given("a name of '' (empty)", ctx => sourceStep = ctx.Step);
+
+        When("the quoted name is extracted", () =>
+            value = sourceStep!.Values[0].AsString());
 
         Then("the empty string is captured", () =>
         {
@@ -95,11 +102,11 @@ public class Step_Quoted_Values_Spec : FeatureTest
     public void Values_count_reflects_actual_quotes()
     {
         int? count = null;
+        StepContext? sourceStep = null;
         
-        Given("no quoted values here", ctx =>
-        {
-            count = ctx.Step!.Values.Count;
-        });
+        Given("a step has no quoted values", ctx => sourceStep = ctx.Step);
+
+        When("the quoted value count is read", () => count = sourceStep!.Values.Count);
 
         Then("count should be zero", () =>
         {
@@ -112,10 +119,13 @@ public class Step_Quoted_Values_Spec : FeatureTest
     {
         string? first = null;
         string? second = null;
+        StepContext? sourceStep = null;
         
-        When("user '123' buys product '456'", ctx =>
+        Given("user '123' selects product '456'", ctx => sourceStep = ctx.Step);
+
+        When("the user and product values are deconstructed", () =>
         {
-            var (v1, v2) = ctx.Step!.Values;
+            var (v1, v2) = sourceStep!.Values;
             first = v1.AsString();
             second = v2.AsString();
         });
@@ -133,10 +143,13 @@ public class Step_Quoted_Values_Spec : FeatureTest
         int? userId = null;
         string? productName = null;
         decimal? price = null;
+        StepContext? sourceStep = null;
         
-        When("user '42' buys 'Tea' for '9.99'", ctx =>
+        Given("user '42' selects 'Tea' priced at '9.99'", ctx => sourceStep = ctx.Step);
+
+        When("the values are deconstructed with target types", () =>
         {
-            (userId, productName, price) = ctx.Step!.Values.As<int, string, decimal>();
+            (userId, productName, price) = sourceStep!.Values.As<int, string, decimal>();
         });
 
         Then("values are correctly typed", () =>
@@ -151,12 +164,15 @@ public class Step_Quoted_Values_Spec : FeatureTest
     public void Accessing_beyond_available_values_throws()
     {
         LiveDocValueIndexException? caught = null;
+        StepContext? sourceStep = null;
         
-        Given("only one value '42'", ctx =>
+        Given("only one value '42'", ctx => sourceStep = ctx.Step);
+
+        When("a sixth value is requested", () =>
         {
             try
             {
-                _ = ctx.Step!.Values[5];
+                _ = sourceStep!.Values[5];
             }
             catch (LiveDocValueIndexException ex)
             {
@@ -176,11 +192,11 @@ public class Step_Quoted_Values_Spec : FeatureTest
     public void ValuesRaw_contains_raw_strings()
     {
         IReadOnlyList<string>? rawValues = null;
+        StepContext? sourceStep = null;
         
-        Given("values '42' and 'true'", ctx =>
-        {
-            rawValues = ctx.Step!.ValuesRaw;
-        });
+        Given("values '42' and 'true'", ctx => sourceStep = ctx.Step);
+
+        When("the raw values are read", () => rawValues = sourceStep!.ValuesRaw);
 
         Then("raw values are plain strings", () =>
         {

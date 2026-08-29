@@ -11,19 +11,14 @@ internal static class LiveDocTestInvocationRegistry
     private sealed record InvocationData(object?[] Values, int OutlineRowId);
 
     private static readonly ConditionalWeakTable<ITest, InvocationData> Invocations = new();
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> OutlineRowCounters = new();
 
-    public static void Register(ITest test, object?[]? values)
+    public static void Register(ITest test, object?[]? values, int outlineRowId)
     {
         if (values == null)
             return;
 
-        var method = test.TestCase.TestMethod;
-        var outlineKey = $"{method.TestClass.Class.Name}.{method.Method.Name}";
-        var rowId = OutlineRowCounters.AddOrUpdate(outlineKey, 0, (_, current) => current + 1);
-
         Invocations.Remove(test);
-        Invocations.Add(test, new InvocationData(values.ToArray(), rowId));
+        Invocations.Add(test, new InvocationData(values.ToArray(), outlineRowId));
     }
 
     public static object?[]? GetArguments(ITest test)
@@ -83,6 +78,8 @@ public class LiveDocTheoryTestCase : XunitTheoryTestCase
 /// </summary>
 internal class LiveDocTheoryTestCaseRunner : XunitTheoryTestCaseRunner
 {
+    private int _nextRowIndex;
+
     public LiveDocTheoryTestCaseRunner(
         IXunitTestCase testCase,
         string displayName,
@@ -108,6 +105,18 @@ internal class LiveDocTheoryTestCaseRunner : XunitTheoryTestCaseRunner
         ExceptionAggregator aggregator,
         CancellationTokenSource cancellationTokenSource)
     {
+        var parameterValues = OutlineDisplayNameFormatter.GetParameterValues(testMethod, testMethodArguments);
+        var ruleOutline = testMethod.GetCustomAttribute<RuleOutlineAttribute>();
+        var scenarioOutline = testMethod.GetCustomAttribute<ScenarioOutlineAttribute>();
+        if (test.TestCase is IXunitTestCase xunitTestCase && ruleOutline != null)
+        {
+            test = new XunitTest(xunitTestCase, "Rule: " + ruleOutline.GetDisplayName(testMethod, parameterValues));
+        }
+        else if (test.TestCase is IXunitTestCase scenarioTestCase && scenarioOutline != null)
+        {
+            test = new XunitTest(scenarioTestCase, "Scenario: " + scenarioOutline.GetDisplayName(testMethod, parameterValues));
+        }
+
         // Return our custom runner that injects example data
         return new LiveDocTestRunner(
             test,
@@ -119,7 +128,8 @@ internal class LiveDocTheoryTestCaseRunner : XunitTheoryTestCaseRunner
             skipReason,
             beforeAfterAttributes,
             aggregator,
-            cancellationTokenSource);
+            cancellationTokenSource,
+            _nextRowIndex++);
     }
 }
 
@@ -154,6 +164,9 @@ public class LiveDocRuleTestCase : XunitTestCase
 /// </summary>
 public class LiveDocRuleOutlineTestCase : XunitTestCase
 {
+    private int _outlineRowIndex;
+    private string? _dataRowSkipReason;
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Called by the deserializer; should only be called by deriving classes for de-serialization purposes")]
     public LiveDocRuleOutlineTestCase() { }
@@ -164,25 +177,47 @@ public class LiveDocRuleOutlineTestCase : XunitTestCase
         TestMethodDisplayOptions defaultMethodDisplayOptions,
         ITestMethod testMethod,
         object?[]? testMethodArguments = null)
-        : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
+        : this(
+            diagnosticMessageSink,
+            defaultMethodDisplay,
+            defaultMethodDisplayOptions,
+            testMethod,
+            testMethodArguments,
+            0,
+            null)
     {
     }
+
+    public LiveDocRuleOutlineTestCase(
+        IMessageSink diagnosticMessageSink,
+        TestMethodDisplay defaultMethodDisplay,
+        TestMethodDisplayOptions defaultMethodDisplayOptions,
+        ITestMethod testMethod,
+        object?[]? testMethodArguments,
+        int outlineRowIndex,
+        string? dataRowSkipReason)
+        : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
+    {
+        _outlineRowIndex = outlineRowIndex;
+        _dataRowSkipReason = dataRowSkipReason;
+    }
+
+    internal void SetOutlineRowIndex(int outlineRowIndex)
+    {
+        _outlineRowIndex = outlineRowIndex;
+    }
+
+    internal int OutlineRowIndex => _outlineRowIndex;
 
     protected override string GetDisplayName(IAttributeInfo factAttribute, string displayName)
     {
         var method = TestMethod.Method.ToRuntimeMethod();
-        var parameters = method.GetParameters();
         var arguments = TestMethodArguments;
 
         if (arguments == null || arguments.Length == 0)
             return "Rule: " + FormatMethodName(method.Name);
 
-        // Build parameter values dictionary
-        var paramValues = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < Math.Min(parameters.Length, arguments.Length); i++)
-        {
-            paramValues[parameters[i].Name!] = arguments[i];
-        }
+        var paramValues = OutlineDisplayNameFormatter.GetParameterValues(method, arguments);
 
         // Get the RuleOutline attribute
         var ruleOutlineAttr = method.GetCustomAttribute<RuleOutlineAttribute>();
@@ -193,6 +228,30 @@ public class LiveDocRuleOutlineTestCase : XunitTestCase
 
         // Fallback to formatting method name
         return "Rule: " + Core.ValueParser.FormatMethodNameWithValues(method.Name, paramValues);
+    }
+
+    protected override string GetSkipReason(IAttributeInfo factAttribute)
+    {
+        return _dataRowSkipReason ?? base.GetSkipReason(factAttribute);
+    }
+
+    protected override string GetUniqueID()
+    {
+        return $"{base.GetUniqueID()}-{_outlineRowIndex}";
+    }
+
+    public override void Serialize(IXunitSerializationInfo data)
+    {
+        base.Serialize(data);
+        data.AddValue("LiveDocOutlineRowIndex", _outlineRowIndex);
+        data.AddValue("LiveDocDataRowSkipReason", _dataRowSkipReason);
+    }
+
+    public override void Deserialize(IXunitSerializationInfo data)
+    {
+        base.Deserialize(data);
+        _outlineRowIndex = data.GetValue<int>("LiveDocOutlineRowIndex");
+        _dataRowSkipReason = data.GetValue<string?>("LiveDocDataRowSkipReason");
     }
 
     public override async Task<RunSummary> RunAsync(
@@ -224,6 +283,9 @@ public class LiveDocRuleOutlineTestCase : XunitTestCase
 /// </summary>
 public class LiveDocScenarioOutlineTestCase : XunitTestCase
 {
+    private int _outlineRowIndex;
+    private string? _dataRowSkipReason;
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     [Obsolete("Called by the deserializer; should only be called by deriving classes for de-serialization purposes")]
     public LiveDocScenarioOutlineTestCase() { }
@@ -234,48 +296,81 @@ public class LiveDocScenarioOutlineTestCase : XunitTestCase
         TestMethodDisplayOptions defaultMethodDisplayOptions,
         ITestMethod testMethod,
         object?[]? testMethodArguments = null)
-        : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
+        : this(
+            diagnosticMessageSink,
+            defaultMethodDisplay,
+            defaultMethodDisplayOptions,
+            testMethod,
+            testMethodArguments,
+            0,
+            null)
     {
     }
+
+    public LiveDocScenarioOutlineTestCase(
+        IMessageSink diagnosticMessageSink,
+        TestMethodDisplay defaultMethodDisplay,
+        TestMethodDisplayOptions defaultMethodDisplayOptions,
+        ITestMethod testMethod,
+        object?[]? testMethodArguments,
+        int outlineRowIndex,
+        string? dataRowSkipReason)
+        : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod, testMethodArguments)
+    {
+        _outlineRowIndex = outlineRowIndex;
+        _dataRowSkipReason = dataRowSkipReason;
+    }
+
+    internal void SetOutlineRowIndex(int outlineRowIndex)
+    {
+        _outlineRowIndex = outlineRowIndex;
+    }
+
+    internal int OutlineRowIndex => _outlineRowIndex;
 
     protected override string GetDisplayName(IAttributeInfo factAttribute, string displayName)
     {
         var method = TestMethod.Method.ToRuntimeMethod();
-        var parameters = method.GetParameters();
         var arguments = TestMethodArguments;
 
         if (arguments == null || arguments.Length == 0)
             return "Scenario: " + FormatMethodName(method.Name);
 
-        // Build parameter values dictionary
-        var paramValues = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < Math.Min(parameters.Length, arguments.Length); i++)
-        {
-            paramValues[parameters[i].Name!] = arguments[i];
-        }
+        var paramValues = OutlineDisplayNameFormatter.GetParameterValues(method, arguments);
 
         // Get the ScenarioOutline attribute
         var scenarioOutlineAttr = method.GetCustomAttribute<ScenarioOutlineAttribute>();
-        if (scenarioOutlineAttr != null && !string.IsNullOrEmpty(scenarioOutlineAttr.Description))
+        if (scenarioOutlineAttr != null)
         {
-            // Replace <paramName> with actual values
-            var formattedDesc = System.Text.RegularExpressions.Regex.Replace(
-                scenarioOutlineAttr.Description,
-                @"<([^>]+)>",
-                match =>
-                {
-                    var paramName = match.Groups[1].Value;
-                    if (paramValues.TryGetValue(paramName, out var value))
-                    {
-                        return value?.ToString() ?? "";
-                    }
-                    return match.Value;
-                });
-            return "Scenario: " + formattedDesc;
+            return "Scenario: " + scenarioOutlineAttr.GetDisplayName(method, paramValues);
         }
 
         // Fallback to formatting method name
         return "Scenario: " + Core.ValueParser.FormatMethodNameWithValues(method.Name, paramValues);
+    }
+
+    protected override string GetSkipReason(IAttributeInfo factAttribute)
+    {
+        return _dataRowSkipReason ?? base.GetSkipReason(factAttribute);
+    }
+
+    protected override string GetUniqueID()
+    {
+        return $"{base.GetUniqueID()}-{_outlineRowIndex}";
+    }
+
+    public override void Serialize(IXunitSerializationInfo data)
+    {
+        base.Serialize(data);
+        data.AddValue("LiveDocOutlineRowIndex", _outlineRowIndex);
+        data.AddValue("LiveDocDataRowSkipReason", _dataRowSkipReason);
+    }
+
+    public override void Deserialize(IXunitSerializationInfo data)
+    {
+        base.Deserialize(data);
+        _outlineRowIndex = data.GetValue<int>("LiveDocOutlineRowIndex");
+        _dataRowSkipReason = data.GetValue<string?>("LiveDocDataRowSkipReason");
     }
 
     public override async Task<RunSummary> RunAsync(
@@ -323,6 +418,12 @@ internal class LiveDocTestCaseRunner : XunitTestCaseRunner
     protected override async Task<RunSummary> RunTestAsync()
     {
         // Use our custom test runner that injects example data
+        var outlineRowIndex = TestCase switch
+        {
+            LiveDocRuleOutlineTestCase ruleOutline => ruleOutline.OutlineRowIndex,
+            LiveDocScenarioOutlineTestCase scenarioOutline => scenarioOutline.OutlineRowIndex,
+            _ => 0
+        };
         var runner = new LiveDocTestRunner(
             new XunitTest(TestCase, DisplayName),
             MessageBus,
@@ -333,7 +434,8 @@ internal class LiveDocTestCaseRunner : XunitTestCaseRunner
             SkipReason,
             BeforeAfterAttributes,
             Aggregator,
-            CancellationTokenSource);
+            CancellationTokenSource,
+            outlineRowIndex);
         
         return await runner.RunAsync();
     }
@@ -356,11 +458,12 @@ internal class LiveDocTestRunner : XunitTestRunner
         string? skipReason,
         IReadOnlyList<BeforeAfterTestAttribute> beforeAfterAttributes,
         ExceptionAggregator aggregator,
-        CancellationTokenSource cancellationTokenSource)
+        CancellationTokenSource cancellationTokenSource,
+        int outlineRowIndex)
         : base(test, messageBus, testClass, constructorArguments, testMethod, testMethodArguments, skipReason, beforeAfterAttributes, aggregator, cancellationTokenSource)
     {
         _testMethodArguments = testMethodArguments;
-        LiveDocTestInvocationRegistry.Register(test, testMethodArguments);
+        LiveDocTestInvocationRegistry.Register(test, testMethodArguments, outlineRowIndex);
     }
 
     protected override Task<decimal> InvokeTestMethodAsync(ExceptionAggregator aggregator)

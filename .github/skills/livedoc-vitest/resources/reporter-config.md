@@ -55,7 +55,7 @@ export default defineConfig({
                 detailLevel: "spec+summary+headers",
                 publish: {
                     enabled: true,
-                    server: "http://localhost:3000",
+                    server: "http://localhost:3100",
                     project: "my-project",
                     environment: "local",
                 },
@@ -141,7 +141,7 @@ export default defineConfig({
     test: {
         reporters: [
             new LiveDocViewerReporter({
-                server: "http://localhost:3000",
+                server: "http://localhost:3100",
                 project: "my-project",
                 environment: "local",
                 runType: "full",
