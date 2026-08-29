@@ -299,18 +299,15 @@ feature(`Server API - BDD Data Streaming
         let run: any;
 
         when("adding a feature 'User Login' to the run", async () => {
-            response = await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
+            response = await fetch(`${baseUrl}/api/runs/${runId}/features`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    node: {
-                        id: "feature-1",
-                        kind: "feature",
-                        title: "User Login",
-                        tags: [],
-                        children: [],
-                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
-                    }
+                    id: "feature-1",
+                    title: "User Login",
+                    tags: [],
+                    scenarios: [],
+                    statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
                 })
             });
         });
@@ -332,36 +329,32 @@ feature(`Server API - BDD Data Streaming
         let run: any;
 
         given("a feature 'feature-1' exists in the run", async () => {
-            await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
+            await fetch(`${baseUrl}/api/runs/${runId}/features`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    node: {
-                        id: "feature-1",
-                        kind: "feature",
-                        title: "User Login",
-                        tags: [],
-                        children: [],
-                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
-                    }
+                    id: "feature-1",
+                    title: "User Login",
+                    tags: [],
+                    scenarios: [],
+                    statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
                 })
             });
         });
 
         when("adding a scenario 'Valid credentials' to the feature", async () => {
-            response = await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
+            response = await fetch(`${baseUrl}/api/runs/${runId}/scenarios`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    parentId: "feature-1",
-                    node: {
-                        id: "scenario-1",
-                        kind: "scenario",
-                        title: "Valid credentials",
-                        tags: [],
-                        children: [],
-                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
-                    }
+                    featureId: "feature-1",
+                    id: "scenario-1",
+                    type: "Scenario",
+                    title: "Valid credentials",
+                    tags: [],
+                    status: "pending",
+                    duration: 0,
+                    steps: []
                 })
             });
         });
@@ -383,53 +376,44 @@ feature(`Server API - BDD Data Streaming
         let run: any;
 
         given("a scenario 'scenario-1' exists in the run", async () => {
-            await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
+            await fetch(`${baseUrl}/api/runs/${runId}/features`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    node: {
-                        id: "feature-1",
-                        kind: "feature",
-                        title: "Feature",
-                        tags: [],
-                        children: [],
-                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
-                    }
+                    id: "feature-1",
+                    title: "Feature",
+                    tags: [],
+                    scenarios: [],
+                    statistics: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
                 })
             });
-            await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
+            await fetch(`${baseUrl}/api/runs/${runId}/scenarios`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    parentId: "feature-1",
-                    node: {
-                        id: "scenario-1",
-                        kind: "scenario",
-                        title: "Test scenario",
-                        tags: [],
-                        children: [],
-                        stats: { total: 0, passed: 0, failed: 0, pending: 0, skipped: 0 }
-                    }
+                    featureId: "feature-1",
+                    id: "scenario-1",
+                    type: "Scenario",
+                    title: "Test scenario",
+                    tags: [],
+                    status: "pending",
+                    duration: 0,
+                    steps: []
                 })
             });
         });
 
         when("adding a step 'a registered user' with status 'passed' and duration '15'", async () => {
-            response = await fetch(`${baseUrl}/api/runs/${runId}/nodes`, {
+            response = await fetch(`${baseUrl}/api/runs/${runId}/steps`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    parentId: "scenario-1",
-                    node: {
-                        id: "step-1",
-                        kind: "step",
-                        title: "a registered user",
-                        keyword: "given",
-                        execution: {
-                            status: "passed",
-                            duration: 15
-                        }
-                    }
+                    scenarioId: "scenario-1",
+                    id: "step-1",
+                    type: "Given",
+                    title: "a registered user",
+                    status: "passed",
+                    duration: 15
                 })
             });
         });
@@ -571,4 +555,3 @@ feature(`Server API - Batch Mode
         });
     });
 });
-

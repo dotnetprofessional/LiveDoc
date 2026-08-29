@@ -10,6 +10,18 @@ BDD test framework using Gherkin syntax. Tests are living documentation.
 
 **Embed all inputs and expected outputs in step titles.** This makes features self-documenting—readers see what was tested without reading code. 
 
+### Trustworthiness Gate
+
+Before adding a LiveDoc test, require both answers to be yes:
+
+1. Would the test survive a rewrite that preserved the same behavior?
+2. Would the test fail if that behavior broke?
+
+Choose the lowest boundary that can observe the claim. Use jsdom for DOM
+semantics and state; use a real browser for layout, focus, scrolling,
+accessibility-tree, or pixel claims. Keep expected values independent from
+production logic, and use one scenario/rule or outline row per independent claim.
+
 ### CRITICAL: Avoid Value Drift
 To ensure the documentation matches the execution, **NEVER** hardcode values in step implementations that are already present in the title. Always extract them using the context APIs (`ctx.step.values`, `ctx.example`, etc.).
 

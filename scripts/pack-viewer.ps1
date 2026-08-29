@@ -114,13 +114,26 @@ try {
     $rawJson = Get-Content (Join-Path $viewerDir 'package.json') -Raw
     foreach ($dep in $workspaceDeps.GetEnumerator()) {
         $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:*`""), "`"$($dep.Key)`": `"$($dep.Value)`""
-        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:^`""), "`"^$($dep.Value)`""
-        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:~`""), "`"~$($dep.Value)`""
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:^`""), "`"$($dep.Key)`": `"^$($dep.Value)`""
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:~`""), "`"$($dep.Key)`": `"~$($dep.Value)`""
     }
 
-    # Remove bundleDependencies — we'll have real node_modules, no need to bundle
-    # Actually keep it — npm pack uses this to include node_modules in the tarball
-    Set-Content -Path (Join-Path $stageDir 'package.json') -Value $rawJson -Encoding utf8
+    # npm validates workspace protocols even in devDependencies during a production-only
+    # staging install. Resolve every remaining monorepo reference, not just runtime deps.
+    foreach ($dep in $packageVersions.GetEnumerator()) {
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:*`""), "`"$($dep.Key)`": `"$($dep.Value)`""
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:^`""), "`"$($dep.Key)`": `"^$($dep.Value)`""
+        $rawJson = $rawJson -replace [regex]::Escape("`"$($dep.Key)`": `"workspace:~`""), "`"$($dep.Key)`": `"~$($dep.Value)`""
+    }
+
+    # Dev dependencies are irrelevant to the production staging install. Even with
+    # --omit=dev, npm resolves them and would require unpublished local prereleases.
+    $installPkg = $rawJson | ConvertFrom-Json
+    $installPkg.PSObject.Properties.Remove('devDependencies')
+    $installJson = $installPkg | ConvertTo-Json -Depth 100
+
+    # Keep bundleDependencies — npm pack uses this to include production node_modules.
+    Set-Content -Path (Join-Path $stageDir 'package.json') -Value $installJson -Encoding utf8
     Write-Host "  ✓ Wrote resolved package.json" -ForegroundColor Green
 
     # ── Step 3: Install deps in staging ────────────────────────────────────

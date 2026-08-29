@@ -84,3 +84,51 @@
 - **Bug 2 — Skipped → Pending**: `FinalizeOutlineStats` had no Skipped branch in its row-status ternary. Skipped results fell through to Pending. Also `stats.Skipped` was hardcoded to 0. Fixed both: added `g.All(Skipped)` branch and proper `stats.Skipped` count. Outline execution status now cascades Failed → Passed → Skipped → Pending.
 - **Key files**: `dotnet/xunit/src/LiveDocTestFramework.cs` (lines ~193-208, HasTest guard split), `dotnet/xunit/src/Reporter/LiveDocTestRunReporter.cs` (FinalizeOutlineStats).
 - **Test counts**: All 511 tests pass (452 + 59).
+
+### Reporter v1 Payload Compatibility Analysis (2026-07-25)
+
+**Payload Inspection:** lastrun.json from xUnit against Reporter v1 schema.
+
+**Validation Result:** Payload **mostly conforms** to v1 schema. All critical fields present, types correct, and enum serialization lowercase. However, two xUnit-specific fragilities identified:
+
+**Critical Findings:**
+
+1. **sessionId mismatch**: lastrun.json includes `sessionId: "599f0329-19f5-4a7c-ace4-d48249ff7eba"`, but xUnit's `TestRunV1` class (ReporterModels.cs line 432-463) **lacks this field**. The schema declares it optional, but its presence without explicit serialization in the C# model suggests either: (a) sessionId is injected by the server after export, or (b) xUnit model is stale. Server must handle both payload shapes.
+
+2. **Enum serialization as object type**: xUnit's `TypedValue.From()` (line 86, ReporterModels.cs) uses `_ => "object"` for all non-primitives. This means CLR enum values like `ChannelType` are serialized as `{"value": 6, "type": "object"}` instead of strings. Per schema, type=object is valid, but numeric enum values are opaque to the viewer — no type metadata. Fragile for binding/rendering.
+
+3. **Duration=0 edge case**: Row 3 in exampleResults shows `duration: 0`, which is valid per schema but may confuse viewers that assume duration > 0 for passed tests.
+
+**Schema Conformance:**
+- rowId sequential and unique (0,1,2,3) ✓
+- statistics.total == exampleResults.length ✓
+- All required fields present ✓
+- Status enum lowercase (passed) ✓
+- Tags and ruleViolations correctly omitted/optional ✓
+
+**Recommended Server/Viewer Guardrails:**
+- **sessionId optional**: Accept payloads with and without sessionId. If present, use for deduplication; if absent, derive from runId.
+- **Enum type validation**: For type=object with numeric value, flag for viewer inspection. Consider requiring string representation or metadata (e.g., `{"value": "6", "enumName": "ChannelType"}`).
+- **Outline row coherency**: Validate exampleResults.length == examples[].rows.length and all rowIds unique.
+- **testId reference check**: Ensure exampleResults[].testId points to an existing test in the document.
+- **Duration normalization**: Treat duration=0 as valid but log if all rows in outline show 0 (timing skew).
+- **Protocol version pinning**: Store protocolVersion alongside payload to gate future schema migrations.
+
+**Recommendation to xUnit team:** Update TypedValue.From() to detect enums and encode them as strings (e.g., `ChannelType.SomeName` → `"SomeName"`) or add optional `enumName` field for type discrimination. Document enum handling convention for all frameworks.
+
+### Team Updates (2026-05-15 — lastrun-viewer-diagnostics investigation)
+
+**Simon's payload compatibility inspection**: Analyzed xUnit lastrun.json payload against Reporter v1 schema. Payload conforms to spec with two fragilities identified: (1) sessionId field missing from C# model but present in exported JSON, (2) enums serialized as type=object with numeric values instead of strings. No render blocker — requires server/viewer guardrails (accept both sessionId shapes, render type=object safely, xUnit should detect and serialize enums as strings). Decision documented: "xUnit Reporter v1 Payload Shape Compatibility". Status: Inspection complete, no code changes required.
+
+**Kaylee's diagnostics proposal**: Viewer diagnostics framework proposed for static data validation, enhanced empty state detection, dev-mode diagnostics panel, error boundaries, and protocol version checks. Awaiting architecture review.
+
+**Zoe's regression test proposal**: Four BDD scenarios proposed for server API compliance testing (valid hydration, corrupt JSON, old schema, empty session coexistence).
+
+### VSTest Coverage Attachment Processor (2026-07-18)
+
+- **Discovery contract**: VSTest only scans `*collector.dll` assemblies for data collectors. `IDataCollectorAttachmentProcessor` is loaded from an invoked collector carrying `[DataCollectorAttachmentProcessor]`; standalone processors are not discovered.
+- **Environment injection**: `Microsoft.TestPlatform.ObjectModel` 17.11.0 includes `ITestExecutionEnvironmentSpecifier`. VSTest initializes collectors before querying their testhost environment variables, so the collector can create and inject an invocation-scoped `LIVEDOC_RUN_METADATA_DIR`.
+- **Cross-process metadata matching**: The collector sends a small invocation marker attachment containing the exact metadata directory and collector initialization time. The attachment processor claims the LiveDoc marker URI plus Microsoft and Coverlet coverage URIs, preventing stale metadata matches across concurrent or repeated runs.
+- **Two processing phases**: .NET SDK 10.0.301 can invoke attachment processing twice for one CLI run. The first invocation includes the LiveDoc marker and performs the upload; a later artifact-processing pass can omit the marker. Markerless passes must emit `LD-COV-043` and skip upload to avoid duplicate or stale attachment.
+- **Diagnostics channel**: Collector warnings appear in Visual Studio **Output → Tests**. Attachment-processor informational messages may be suppressed, so the processor also appends coded lifecycle evidence to `livedoc-coverage-processor.log` under the invocation metadata directory.
+- **Validated local path**: A .NET 8 test run under SDK 10.0.301 discovered the net10 VSTest collector host, injected metadata, received `datacollector://microsoft/CodeCoverage/2.0`, converted with `dotnet-coverage` 18.6.2, parsed Cobertura, and received HTTP 200 from `POST /api/v1/runs/{runId}/coverage`.

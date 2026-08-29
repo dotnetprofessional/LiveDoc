@@ -84,12 +84,7 @@ $outputDir = Join-Path $repoRoot "releases\$packageId"
 $nupkg = Get-ChildItem -Path $outputDir -Filter "$packageId.$version.nupkg" | Select-Object -First 1
 
 if (-not $nupkg) {
-    # Try any matching nupkg
-    $nupkg = Get-ChildItem -Path $outputDir -Filter "*.nupkg" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-}
-
-if (-not $nupkg) {
-    Write-Host "`n✗ No .nupkg file found in $outputDir" -ForegroundColor Red
+    Write-Host "`n✗ Expected package $packageId.$version.nupkg was not found in $outputDir" -ForegroundColor Red
     Write-Host "  Run pack-nuget.ps1 first or remove -SkipPack." -ForegroundColor Yellow
     exit 1
 }
@@ -97,9 +92,23 @@ if (-not $nupkg) {
 Write-Host "`n→ Package: $($nupkg.Name)" -ForegroundColor White
 
 if ($DryRun) {
-    Write-Host "`n→ Dry run: validating package..." -ForegroundColor White
-    dotnet nuget push $nupkg.FullName --source https://api.nuget.org/v3/index.json --dry-run 2>&1
-    Write-Host "`n✓ Dry run complete. Package is valid." -ForegroundColor Green
+    Write-Host "`n→ Dry run: validating package locally (no network publish)..." -ForegroundColor White
+    $validationDir = Join-Path ([System.IO.Path]::GetTempPath()) "livedoc-nuget-validation-$([System.IO.Path]::GetRandomFileName())"
+    New-Item -ItemType Directory -Path $validationDir -Force | Out-Null
+    try {
+        dotnet nuget push $nupkg.FullName --source $validationDir 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Local NuGet package validation failed with exit code $LASTEXITCODE"
+        }
+
+        $validatedPackage = Join-Path $validationDir $nupkg.Name
+        if (-not (Test-Path $validatedPackage)) {
+            throw "Local NuGet validation did not produce $($nupkg.Name)"
+        }
+    } finally {
+        Remove-Item -Path $validationDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "`n✓ Dry run complete. Package is valid and nothing was published." -ForegroundColor Green
     return
 }
 

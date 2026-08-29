@@ -1,0 +1,12 @@
+docs: Squad session log and orchestration records
+
+- Added orchestration logs for Wash, Zoe, and Coordinator validation
+- Created session log for specification tag rendering fix
+- Merged decision from inbox: Specification Tag Rendering Parity (2026-05-13)
+- Updated Wash's history.md with new learning
+
+Squad session complete: Specification tag rendering now renders tags for
+Specification, Rule, and RuleOutline using the same formatTags() path as
+Feature/Scenario output. Regression coverage added and all tests passing.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

@@ -25,6 +25,14 @@ public class StepExecution
     /// For outlines, this contains &lt;placeholder&gt; tokens for template display.
     /// </summary>
     public string? OriginalDescription { get; set; }
+    /// <summary>
+    /// The outline template candidate captured using the culture active when the step was authored.
+    /// </summary>
+    public string? TemplateDescription { get; set; }
+    /// <summary>
+    /// Candidate outline parameters for each quoted literal, captured under the active culture.
+    /// </summary>
+    public List<string[]> QuotedParameterCandidates { get; set; } = new();
     public StepStatus Status { get; set; }
     public TimeSpan Duration { get; set; }
     public Exception? Exception { get; set; }
@@ -33,6 +41,10 @@ public class StepExecution
     /// Attachments collected during this step's execution (screenshots, images, files).
     /// </summary>
     public List<Reporter.Models.Attachment>? Attachments { get; set; }
+    /// <summary>
+    /// Non-fatal Gherkin structure violations associated with this step.
+    /// </summary>
+    public List<Reporter.Models.RuleViolation>? RuleViolations { get; set; }
 }
 
 /// <summary>
@@ -137,14 +149,14 @@ public class RuleContext
 public class ExampleData
 {
     private readonly Dictionary<string, object?> _data;
-    private readonly object[]? _rawParameters;
+    private readonly object?[]? _rawParameters;
 
     public ExampleData(Dictionary<string, object?> data)
     {
         _data = data;
     }
 
-    public ExampleData(MethodInfo method, object[] parameters)
+    public ExampleData(MethodInfo method, object?[] parameters)
     {
         _rawParameters = parameters;
         _data = new Dictionary<string, object?>();

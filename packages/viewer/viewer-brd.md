@@ -13,6 +13,7 @@ The LiveDoc Viewer is a web-based dashboard that provides a professional, polish
 | **Real-time Execution View**       | ⚠️ Partial | [Details](#real-time-execution-view)       |
 | **Drill-down Navigation**          | ✅ Done     | [Details](#drill-down-navigation)          |
 | **Persistent Run History**         | ✅ Done     | [Details](#persistent-run-history)         |
+| **Partial Run Composition**        | ✅ Done     | [Details](#partial-run-composition)        |
 | **Scenario Outline Visualization** | ✅ Done     | [Details](#scenario-outline-visualization) |
 | **Syntax Highlighting**            | ✅ Done     | [Details](#syntax-highlighting)            |
 | **Business-Friendly Mode**         | ⏳ Planned  | [Details](#business-friendly-mode)         |
@@ -63,6 +64,12 @@ The system stores a history of previous test runs (defaulting to the last 50). T
 
 **Detail Sample:**
 - A "History" tab within a project/environment showing a list of past runs with timestamps and summary stats.
+
+### Partial Run Composition
+
+Developers and AI agents can mark an isolated invocation as partial after a full baseline exists. The Viewer keeps one chronological history with Full and Partial badges. Selecting a partial defaults to the combined baseline-plus-updates snapshot and offers a contextual "This partial" view for the exact tests executed by that invocation.
+
+During an active partial, the latest completed combined documentation remains visible. The focused physical results stream independently and replace the combined snapshot only after successful completion.
 
 ### Scenario Outline Visualization
 Displays parameterized scenarios as a template followed by a table of examples. Each example row shows its specific execution status, making it easy to see which data combinations passed or failed.

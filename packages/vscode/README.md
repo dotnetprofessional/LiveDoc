@@ -9,7 +9,9 @@ VS Code extension providing tools and snippets for working with the LiveDoc BDD 
 - **Data Table Formatting** — Auto-format Scenario Outline and Data Tables with alignment
 - **Code Snippets** — Quickly scaffold BDD constructs
 - **Activity Bar Explorer** — Browse test results in the sidebar
-- **Integrated Viewer** — Open the LiveDoc Viewer directly in VS Code
+- **Integrated Viewer** — Open the same Quality Signals dashboard, failure
+  diagnostics, Full/Partial run history, rule violations, and module coverage
+  explorer directly in VS Code
 
 ### Code Snippets
 

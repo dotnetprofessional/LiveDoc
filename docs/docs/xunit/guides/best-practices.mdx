@@ -106,6 +106,28 @@ public void Free_shipping()
 
 ---
 
+## Keep One Primary Given, When, and Then {#gherkin-structure}
+
+A Scenario should have one primary precondition, one primary action, and one
+primary outcome. Use `And` or `But` to continue the current phase:
+
+```csharp
+Given("an authenticated administrator", () => AuthenticateAdministrator());
+And("an export containing '4' configuration sections", ctx =>
+    LoadExport(ctx.Step!.Values[0].AsInt()));
+When("the export is imported", () => ImportConfiguration());
+Then("all '4' sections are restored", ctx =>
+    Assert.Equal(ctx.Step!.Values[0].AsInt(), RestoredSectionCount));
+And("the import is recorded in the audit log", () =>
+    Assert.True(AuditLogContainsImport()));
+```
+
+LiveDoc reports repeated or missing Given/When/Then calls, untitled steps, and
+And/But calls without a preceding primary step as non-fatal rule violations.
+They appear in the Viewer without changing test pass/fail status.
+
+---
+
 ## Use the Description Attribute {#descriptions}
 
 Add `Description` to container attributes (`[Feature]`, `[Specification]`)
@@ -349,6 +371,7 @@ public class ShoppingTests : FeatureTest
 
 - [ ] **Namespaces** mirror domain boundaries for clean viewer hierarchy
 - [ ] **Step titles** contain all inputs and expected outputs
+- [ ] **Gherkin structure** uses one primary Given, When, and Then with And/But continuations
 - [ ] **Descriptions** added to `[Feature]` and `[Specification]` attributes
 - [ ] **Values extracted** via `ctx.Step.Values` or `ctx.Step.Params` — never hardcoded
 - [ ] **Constructor** accepts `ITestOutputHelper` and passes to `base(output)`

@@ -32,6 +32,16 @@
 
 → Read `resources/journey-testing.md`. Add MSBuild properties, create journeys folder, configure `http-client.env.json`.
 
+### Example 7: Attach diagnostic evidence
+> "Attach the failed API response to this scenario"
+
+→ Read `resources/evidence.md`. Assert the response contract first, then attach redacted JSON as supporting evidence.
+
+### Example 8: Validate an incremental change by tag
+> "Run only checkout and pricing behavior and patch the Viewer"
+
+→ Read `resources/partial-testing.md`. Select LiveDoc `[Tag]` values through xUnit `Category` filters, publish the invocation as `partial`, and preserve the latest full baseline.
+
 ## Negative routing (DO NOT use this skill)
 
 ### Example 1: Writing a TypeScript spec
@@ -53,3 +63,13 @@
 > "Fix a bug in the LiveDocContext class"
 
 → This is framework development, not test authoring. Handle directly without this skill.
+
+### Example 5: Stabilizing a test with fixed delays
+> "Add a five-second delay before checking whether the server started"
+
+→ Do not use a fixed sleep. Add a readiness probe with bounded cancellation and deterministic cleanup.
+
+### Example 6: Converting every low-level test
+> "Convert the entire xUnit suite to LiveDoc"
+
+→ Do not convert tests mechanically. Apply the two-question litmus in `resources/test-strategy.md` and retain tests without lasting documentation value as plain xUnit.

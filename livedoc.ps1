@@ -15,7 +15,7 @@
     Execute a command by hotkey without the interactive menu.
 
 .PARAMETER Command
-    CLI dispatch: build, clean, test, docs-build, docs-serve, etc.
+    CLI dispatch: build, clean, test, docs-build, docs-serve, kill-port-3100, etc.
 #>
 param(
     [switch]$List,
@@ -148,6 +148,43 @@ function Pack-AllToReleases {
     Write-Host 'Pack complete!' -ForegroundColor Green
 }
 
+function Stop-Port3100Listener {
+    $listeners = @(
+        Get-NetTCPConnection -LocalPort 3100 -ErrorAction SilentlyContinue |
+            Where-Object { $_.State -eq 'Listen' } |
+            Select-Object -ExpandProperty OwningProcess -Unique
+    )
+
+    if ($listeners.Count -eq 0) {
+        Write-Host 'No listener found on port 3100.' -ForegroundColor Yellow
+        return
+    }
+
+    foreach ($listenerPid in $listeners) {
+        $proc = Get-Process -Id $listenerPid -ErrorAction SilentlyContinue
+        if (-not $proc) {
+            Write-Host "Listener process PID $listenerPid is no longer running." -ForegroundColor Yellow
+            continue
+        }
+
+        $processLabel = if ($proc) { "$($proc.ProcessName) (PID $listenerPid)" } else { "PID $listenerPid" }
+        Write-Host "Stopping $processLabel on port 3100..." -ForegroundColor Cyan
+        Stop-Process -Id $listenerPid -Force
+    }
+
+    Start-Sleep -Seconds 1
+    $remaining = @(
+        Get-NetTCPConnection -LocalPort 3100 -ErrorAction SilentlyContinue |
+            Where-Object { $_.State -eq 'Listen' }
+    )
+
+    if ($remaining.Count -gt 0) {
+        throw 'Port 3100 is still in use after stopping listener process(es).'
+    }
+
+    Write-Host 'Port 3100 is free.' -ForegroundColor Green
+}
+
 function Get-PackageInfo {
     param([string]$PackageDir)
     $pkgJson = Join-Path $PackageDir 'package.json'
@@ -206,6 +243,7 @@ if ($Command) {
         }
         'docs-build'   { Invoke-InDirectory -Path (Join-Path $repoRoot 'docs') -Action { npx docusaurus build }; return }
         'docs-serve'   { Invoke-InDirectory -Path (Join-Path $repoRoot 'docs') -Action { npx docusaurus start --port 4000 }; return }
+        'kill-port-3100' { Stop-Port3100Listener; return }
         'pack'         { Pack-AllToReleases; return }
         default        { Write-Error "Unknown command: $Command. Use -List to see available items."; return }
     }
@@ -225,6 +263,10 @@ $items.Add((New-MenuItem -Label 'Dev All (Viewer + Server)' -HotKey 'a' `
         }
     }.GetNewClosure() `
     -Description 'Start viewer and server in hot-reload mode'))
+
+$items.Add((New-MenuItem -Label 'Kill Port 3100 Listener' -HotKey 'k' `
+    -Action { Stop-Port3100Listener } `
+    -Description 'Stop whatever process is listening on the viewer API port'))
 
 $items.Add((New-MenuSeparator -Label 'Workflows'))
 

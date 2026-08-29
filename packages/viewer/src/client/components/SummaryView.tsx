@@ -1,37 +1,44 @@
 import { RunLike } from '../store';
-import { StatsBar } from './StatsBar';
 import { useStore } from '../store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { StatusBadge } from './StatusBadge';
-import { Clock, Calendar, Globe, Zap, ArrowRight } from 'lucide-react';
+import { Activity, ArrowRight, Calendar, Clock, Gauge, Globe, ListChecks, ShieldCheck, XCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { AnyTest, RuleViolation, TestCase } from '@swedevtools/livedoc-schema';
 import { subtreeHasMatch } from '../lib/filter-utils';
 import { NavItem } from '../lib/nav-tree';
 import { formatDuration } from '../lib/status-utils';
+import { CoverageHealthCard } from './CoverageHealthCard';
+import { StatusProgressBar } from './ProgressBar';
+import { coverageToneStyles, formatPct, getCoverageSources, getMetric, hasCoverageDetails, metricTone } from '../lib/coverage-utils';
+import { cn } from '../lib/utils';
 
 interface SummaryViewProps {
   run: RunLike;
 }
 
 export function SummaryView({ run }: SummaryViewProps) {
-  const { navigate, filterText, filterTags } = useStore();
+  const { navigate, filterText, filterTags, selectedRunView } = useStore();
 
   const acceptableSlowMs = 1000;
 
   const runModel = run.run;
   const documents = runModel.documents ?? [];
-  
-  // vx-9: For sessions, use the latest run's summary (not cumulative session summary)
-  // because documents are last-writer-wins — the cumulative totals can exceed visible tests.
-  const latestRunInfo = (runModel.runs && runModel.runs.length > 0)
-    ? runModel.runs
+
+  const latestRunInfo = (runModel.sourceRuns && runModel.sourceRuns.length > 0)
+    ? runModel.sourceRuns
         .slice()
         .sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1))[0]
     : undefined;
-  const summary = latestRunInfo?.summary ?? runModel.summary;
+  const summary = runModel.summary;
   const duration = runModel.duration;
   const status = runModel.status;
+  // Combined view of a partial run reflects the latest partial's own duration, not a total
+  // elapsed time — label it accordingly rather than the (potentially misleading) "Duration".
+  const isCombinedPartial = runModel.runType === 'partial' && selectedRunView !== 'physical';
+  const durationLabel = isCombinedPartial ? 'Latest update' : 'Duration';
 
   const textLower = filterText.trim().toLowerCase();
   const hasText = textLower.length > 0;
@@ -163,6 +170,15 @@ export function SummaryView({ run }: SummaryViewProps) {
   const hasHotspots = hotspots.longRunning.length > 0 || hotspots.timeouts.length > 0;
   const hasFailures = failingContainers.length > 0;
   const hasRuleViolations = ruleViolationItems.totalViolations > 0;
+  const coverageSources = getCoverageSources(run);
+  const overallCoverageSource = coverageSources.find((source) => source.scope === 'overall')
+    ?? coverageSources.find(hasCoverageDetails);
+  const coverageLines = getMetric(overallCoverageSource?.coverage?.summary, 'lines');
+  const hasCoverage = Boolean(
+    overallCoverageSource &&
+    (overallCoverageSource.coverage?.status === 'available' || overallCoverageSource.coverage?.status === 'partial') &&
+    hasCoverageDetails(overallCoverageSource)
+  );
 
   return (
     <div className="space-y-8">
@@ -192,7 +208,9 @@ export function SummaryView({ run }: SummaryViewProps) {
                 Run in progress — results are updating live
               </span>
             ) : (
-              'Latest execution health and organization overview.'
+              latestRunInfo
+                ? `Grouped health across ${runModel.sourceRuns?.length ?? 0} related test projects.`
+                : 'Latest execution health and organization overview.'
             )}
           </p>
         </div>
@@ -207,21 +225,67 @@ export function SummaryView({ run }: SummaryViewProps) {
         </div>
       </div>
 
-      <Separator className="opacity-50" />
-
       {/* Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Stats Card */}
-        <Card className="lg:col-span-2 overflow-hidden border-none shadow-xl bg-linear-to-br from-card to-muted/30">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-bold flex items-center gap-2">
-              <Zap className="w-5 h-5 text-primary" />
-              Execution Summary
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <Card className="overflow-hidden border-muted/60 bg-card lg:col-span-3">
+          <CardHeader className="border-b pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
+              <Activity className="h-5 w-5 text-primary" />
+              Quality Signals
             </CardTitle>
-            <CardDescription>Real-time metrics from the latest test run</CardDescription>
+            <CardDescription>Real-time summary from the latest test run</CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
-            <StatsBar summary={summary} duration={duration} ruleViolations={ruleViolationItems.totalViolations} isRunning={status === 'running'} size="lg" />
+          <CardContent className="space-y-5 pt-5">
+            <div className={cn(
+              'grid gap-px overflow-hidden rounded-lg bg-border',
+              hasCoverage ? 'md:grid-cols-2 xl:grid-cols-5' : 'md:grid-cols-2 xl:grid-cols-4'
+            )}>
+              <QualitySignal
+                icon={ListChecks}
+                label="Tests"
+                value={summary.total}
+                detail="total"
+                tone="neutral"
+              />
+              <QualitySignal
+                icon={XCircle}
+                label="Failed"
+                value={summary.failed}
+                detail={summary.failed > 0 ? 'failed' : 'no failures'}
+                tone={summary.failed > 0 ? 'fail' : 'pass'}
+              />
+              <QualitySignal
+                icon={ShieldCheck}
+                label="Rule violations"
+                value={ruleViolationItems.totalViolations}
+                detail={ruleViolationItems.totalViolations > 0 ? 'review' : 'no violations'}
+                tone={ruleViolationItems.totalViolations > 0 ? 'warn' : 'pass'}
+              />
+              {hasCoverage && (
+                <QualitySignal
+                  icon={Gauge}
+                  label="Coverage"
+                  value={formatPct(coverageLines?.pct)}
+                  detail="lines"
+                  tone={coverageToneStyles[metricTone(coverageLines)].signalTone}
+                />
+              )}
+              <QualitySignal
+                icon={Clock}
+                label={durationLabel}
+                value={formatDuration(duration)}
+                detail="run time"
+                tone="neutral"
+              />
+            </div>
+            <StatusProgressBar
+              passed={summary.passed}
+              failed={summary.failed}
+              pending={summary.pending}
+              skipped={summary.skipped}
+              isRunning={status === 'running'}
+              size="lg"
+            />
           </CardContent>
         </Card>
 
@@ -243,7 +307,7 @@ export function SummaryView({ run }: SummaryViewProps) {
               <span className="text-sm font-bold">{new Date(runModel.timestamp).toLocaleTimeString()}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">Duration</span>
+              <span className="text-sm font-medium text-muted-foreground">{durationLabel}</span>
               <span className="text-sm font-bold flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
                 {formatDuration(duration)}
@@ -252,6 +316,7 @@ export function SummaryView({ run }: SummaryViewProps) {
             <Separator />
           </CardContent>
         </Card>
+
       </div>
 
       {/* Hotspots */}
@@ -334,94 +399,182 @@ export function SummaryView({ run }: SummaryViewProps) {
         </div>
       ) : null}
 
-      {/* Failures */}
-      {hasFailures ? (
-        <div id="dashboard-failures" className="space-y-4 pt-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Failures</h2>
-              <p className="text-sm text-muted-foreground font-medium">Most useful starting points when something broke</p>
-            </div>
-            <Badge variant="secondary" className="font-bold">
-              {failingContainers.length}
-            </Badge>
-          </div>
-
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="divide-y">
-              {failingContainers.slice(0, 10).map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-muted/40 transition-colors"
-                  onClick={() => navigate('node', n.id)}
-                >
-                  <StatusBadge status={(n as any).execution?.status} size="md" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
-                      {String((n as any).kind ?? '')}
-                    </div>
-                    <div className="text-sm font-semibold truncate">{String((n as any).title ?? '')}</div>
-                  </div>
-                  <div className="text-xs font-bold text-muted-foreground/70">
-                    {(n as any).execution?.duration ? formatDuration((n as any).execution.duration) : ''}
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              ))}
-            </div>
-          </div>
+      {hasFailures && (
+        <div className="pt-2">
+          <FailureHealthCard
+            failures={failingContainers}
+            onSelect={(id) => navigate('node', id)}
+          />
         </div>
-      ) : null}
+      )}
 
-      {/* Rule Violations */}
-      {hasRuleViolations ? (
-        <div id="dashboard-rule-violations" className="space-y-4 pt-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight">Rule Violations</h2>
-              <p className="text-sm text-muted-foreground font-medium">Non-fatal warnings that may indicate weak specs or unclear intent</p>
-            </div>
-            <Badge variant="secondary" className="font-bold">
-              {ruleViolationItems.totalViolations}
-            </Badge>
-          </div>
-
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="divide-y">
-              {ruleViolationItems.items.slice(0, 10).map((x) => {
-                const first = x.violations?.[0];
-                const detail = first
-                  ? `${String(first.rule || 'Rule')}: ${String(first.message || '')}`
-                  : '';
-
-                return (
-                  <button
-                    key={x.node.id}
-                    type="button"
-                    className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-muted/40 transition-colors"
-                    onClick={() => navigate('node', x.node.id)}
-                  >
-                    <StatusBadge status={(x.node as any).execution?.status} size="md" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
-                        {String((x.node as any).kind ?? '')}
-                      </div>
-                      <div className="text-sm font-semibold truncate">{String((x.node as any).title ?? '')}</div>
-                      {detail ? (
-                        <div className="text-xs text-muted-foreground truncate mt-1">
-                          {detail}{x.violations.length > 1 ? ` (+${x.violations.length - 1} more)` : ''}
-                        </div>
-                      ) : null}
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+      {hasCoverage && (
+        <div className="pt-2">
+          <CoverageHealthCard run={run} />
         </div>
-      ) : null}
+      )}
+
+      {hasRuleViolations && (
+        <div className="pt-2">
+          <RuleViolationHealthCard
+            items={ruleViolationItems.items}
+            totalViolations={ruleViolationItems.totalViolations}
+            onSelect={(id) => navigate('node', id)}
+          />
+        </div>
+      )}
     </div>
   );
 }
+
+function FailureHealthCard({
+  failures,
+  onSelect,
+}: {
+  failures: TestCase[];
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <Card id="dashboard-failures" className="overflow-hidden border-muted/60 bg-card">
+      <CardHeader className="border-b pb-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
+              <XCircle className="h-5 w-5 text-fail" />
+              Failures
+            </CardTitle>
+            <CardDescription className="mt-1">Most useful starting points when something broke.</CardDescription>
+          </div>
+          <Badge variant="secondary" className="font-bold">
+            {failures.length}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y">
+          {failures.slice(0, 10).map((failure) => (
+            <button
+              key={failure.id}
+              type="button"
+              className="flex min-h-14 w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              onClick={() => onSelect(failure.id)}
+            >
+              <StatusBadge status="failed" size="md" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                  {String(failure.kind ?? '')}
+                </span>
+                <span className="block truncate text-sm font-semibold">{String(failure.title ?? '')}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RuleViolationHealthCard({
+  items,
+  totalViolations,
+  onSelect,
+}: {
+  items: Array<{ node: TestCase | AnyTest; violations: RuleViolation[] }>;
+  totalViolations: number;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <Card id="dashboard-rule-violations" className="overflow-hidden border-muted/60 bg-card">
+      <CardHeader className="border-b pb-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
+              <ShieldCheck className="h-5 w-5 text-amber-500" />
+              Rule Violations
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Non-fatal warnings that may indicate weak specs or unclear intent.
+            </CardDescription>
+          </div>
+          <Badge variant="secondary" className="font-bold">
+            {totalViolations}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y">
+          {items.slice(0, 10).map(({ node, violations }) => {
+            const first = violations[0];
+            const detail = first ? `${first.rule || 'Rule'}: ${first.message || ''}` : '';
+            const status = 'execution' in node
+              ? node.execution.status
+              : node.statistics.failed > 0 ? 'failed' : 'passed';
+
+            return (
+              <button
+                key={node.id}
+                type="button"
+                className="flex min-h-14 w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                onClick={() => onSelect(node.id)}
+              >
+                <StatusBadge status={status} size="md" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                    {node.kind}
+                  </span>
+                  <span className="block truncate text-sm font-semibold">{node.title}</span>
+                  {detail && (
+                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      {detail}{violations.length > 1 ? ` (+${violations.length - 1} more)` : ''}
+                    </span>
+                  )}
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+type SignalTone = 'neutral' | 'pass' | 'fail' | 'warn' | 'info';
+
+function QualitySignal({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+  detail: string;
+  tone: SignalTone;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-3 bg-card px-3 py-4 sm:block">
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <Icon className={cn('h-4 w-4', signalToneClass[tone])} />
+        <span className="truncate">{label}</span>
+      </div>
+      <div className={cn('mt-0 text-2xl font-black tabular-nums sm:mt-4 sm:text-3xl', signalToneClass[tone])}>
+        {value}
+      </div>
+      <div className={cn('ml-auto text-[10px] font-bold uppercase tracking-widest sm:ml-0 sm:mt-1', signalToneClass[tone])}>
+        {detail}
+      </div>
+    </div>
+  );
+}
+
+const signalToneClass: Record<SignalTone, string> = {
+  neutral: 'text-foreground',
+  pass: 'text-pass',
+  fail: 'text-fail',
+  warn: 'text-amber-500',
+  info: 'text-sky-400',
+};

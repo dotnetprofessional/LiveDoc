@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { createServer as createHttpServer, IncomingMessage, ServerResponse, Server as HttpServer } from 'http';
 import * as fs from 'fs';
@@ -6,12 +6,13 @@ import * as path from 'path';
 import * as os from 'os';
 import { EventEmitter } from 'events';
 import { WebSocketManager } from './websocket.js';
-import { RunStore, runStore } from './store.js';
+import { RunStore, RunStoreError, runStore } from './store.js';
 import type {
   ServerConfig,
   TestRunV1,
   TestCase,
   AnyTest,
+  StepTest,
   V1WebSocketEvent,
   V1StartRunRequest,
   V1StartRunResponse,
@@ -21,7 +22,8 @@ import type {
   V1UpsertScenarioStepsRequest,
   V1PatchExecutionRequest,
   V1UpsertOutlineExampleResultsRequest,
-  V1CompleteRunRequest
+  V1CompleteRunRequest,
+  V1AttachCoverageRequest
 } from './schema.js';
 import {
   V1StartRunRequestSchema,
@@ -32,16 +34,170 @@ import {
   V1PatchExecutionRequestSchema,
   V1UpsertOutlineExampleResultsRequestSchema,
   V1CompleteRunRequestSchema,
+  V1AttachCoverageRequestSchema,
 } from './schema.js';
+
+type JsonObject = Record<string, unknown>;
+
+function asObject(value: unknown): JsonObject | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as JsonObject
+    : undefined;
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asNonNegativeNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function legacyExecution(node: JsonObject): AnyTest['execution'] {
+  const execution = asObject(node.execution);
+  const status = asString(execution?.status ?? node.status, 'pending') as AnyTest['execution']['status'];
+  return {
+    status,
+    duration: asNonNegativeNumber(execution?.duration ?? node.duration),
+    ...(asObject(execution?.error ?? node.error)
+      ? { error: asObject(execution?.error ?? node.error) as AnyTest['execution']['error'] }
+      : {}),
+  };
+}
+
+function legacyStatistics(value: unknown): TestCase['statistics'] {
+  const statistics = asObject(value);
+  return {
+    total: asNonNegativeNumber(statistics?.total),
+    passed: asNonNegativeNumber(statistics?.passed),
+    failed: asNonNegativeNumber(statistics?.failed),
+    pending: asNonNegativeNumber(statistics?.pending),
+    skipped: asNonNegativeNumber(statistics?.skipped),
+  };
+}
+
+function legacyStep(node: JsonObject): StepTest {
+  const keyword = asString(node.keyword ?? node.type, 'given').toLowerCase();
+  return {
+    id: asString(node.id),
+    kind: 'Step',
+    title: asString(node.title),
+    ...(typeof node.description === 'string' ? { description: node.description } : {}),
+    ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+    keyword: (['given', 'when', 'then', 'and', 'but'].includes(keyword) ? keyword : 'given') as StepTest['keyword'],
+    execution: legacyExecution(node),
+  };
+}
+
+function legacyTest(node: JsonObject): AnyTest {
+  const kind = asString(node.kind ?? node.type, 'Test').toLowerCase();
+  const children = Array.isArray(node.children)
+    ? node.children.map(asObject).filter((child): child is JsonObject => child !== undefined)
+    : Array.isArray(node.steps)
+      ? node.steps.map(asObject).filter((child): child is JsonObject => child !== undefined)
+      : [];
+
+  if (kind === 'scenario') {
+    return {
+      id: asString(node.id),
+      kind: 'Scenario',
+      title: asString(node.title),
+      ...(typeof node.description === 'string' ? { description: node.description } : {}),
+      ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+      steps: children.map(legacyStep),
+      execution: legacyExecution(node),
+    };
+  }
+
+  return {
+    id: asString(node.id),
+    kind: kind === 'rule' ? 'Rule' : 'Test',
+    title: asString(node.title),
+    ...(typeof node.description === 'string' ? { description: node.description } : {}),
+    ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+    execution: legacyExecution(node),
+  };
+}
+
+function legacyTestCase(node: JsonObject): TestCase {
+  const children = Array.isArray(node.children)
+    ? node.children
+    : Array.isArray(node.scenarios)
+      ? node.scenarios
+      : Array.isArray(node.tests)
+        ? node.tests
+        : [];
+  const tests = children
+    .map(asObject)
+    .filter((child): child is JsonObject => child !== undefined)
+    .map(legacyTest);
+
+  return {
+    id: asString(node.id),
+    kind: asString(node.kind, 'Feature').toLowerCase() === 'suite' ? 'Suite' : 'Feature',
+    title: asString(node.title),
+    ...(typeof node.filename === 'string' ? { path: node.filename } : {}),
+    ...(typeof node.description === 'string' ? { description: node.description } : {}),
+    ...(Array.isArray(node.tags) ? { tags: node.tags.filter((tag): tag is string => typeof tag === 'string') } : {}),
+    tests,
+    statistics: legacyStatistics(node.statistics ?? node.stats),
+  };
+}
+
+function legacyRunResponse(run: TestRunV1): JsonObject {
+  const documents = run.documents.map((document) => {
+    const children = document.tests.map((test) => {
+      const steps = test.kind === 'Scenario' && Array.isArray((test as { steps?: StepTest[] }).steps)
+        ? (test as { steps: StepTest[] }).steps.map((step) => ({
+            ...step,
+            type: step.keyword,
+            status: step.execution.status,
+            duration: step.execution.duration,
+            ...(step.execution.error ? { error: step.execution.error } : {}),
+          }))
+        : [];
+      return {
+        ...test,
+        type: test.kind,
+        status: test.execution?.status,
+        duration: test.execution?.duration,
+        steps,
+        children: steps,
+      };
+    });
+    const status = document.statistics.failed > 0
+      ? 'failed'
+      : document.statistics.pending > 0
+        ? 'running'
+        : document.statistics.total > 0
+          ? 'passed'
+          : 'pending';
+    return {
+      ...document,
+      filename: document.path,
+      status,
+      duration: children.reduce((sum, test) => sum + asNonNegativeNumber(test.duration), 0),
+      children,
+      scenarios: children,
+    };
+  });
+
+  return {
+    ...run,
+    version: '1.0',
+    documents,
+    features: documents,
+    suites: [],
+    summary: { ...run.summary, duration: run.duration },
+  };
+}
 
 // Re-export all schema types
 export * from './schema.js';
 
 // Re-export store
-export { RunStore, runStore } from './store.js';
-
-// Re-export SessionManager
-export { SessionManager, sessionManager } from './session-manager.js';
+export { RunStore, RunStoreError, runStore } from './store.js';
+export { composeTestRun } from './run-composition.js';
 
 // Re-export WebSocketManager
 export { WebSocketManager } from './websocket.js';
@@ -93,7 +249,7 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
   if (!fs.existsSync(portFile)) {
     return null;
   }
-  
+
   try {
     const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
     const port = Number(info?.port);
@@ -115,7 +271,7 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
     if (!Number.isFinite(port) || port <= 0) {
       return null;
     }
-    
+
     // Verify server is actually running
     try {
       const response = await fetch(`http://localhost:${port}/api/health`, {
@@ -133,7 +289,7 @@ export async function discoverServer(): Promise<{ url: string; port: number } | 
   } catch (e: any) {
     // Ignore errors during discovery
   }
-  
+
   return null;
 }
 
@@ -145,21 +301,78 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // Use port 0 for ephemeral port assignment, otherwise default to 3100
   const port = options.port !== undefined ? options.port : 3100;
   const host = options.host || '0.0.0.0';
-  
+
   // Use the singleton store or create a new one with custom options
   const store = options.dataDir || options.historyLimit
     ? new RunStore(options.historyLimit || 50, options.dataDir)
     : runStore;
-  
+
   // Create HTTP server first
   const httpServer = createHttpServer();
-  
+
   // Initialize WebSocket manager
   let wsManager: WebSocketManager | null = null;
-  
+
   // Create Hono app
   const app = new Hono();
-  
+  const runStoreError = (error: unknown): { status: 404 | 409 | 410 | 500; body: { error: string; code: string } } => {
+    if (error instanceof RunStoreError) {
+      if (error.code === 'run-cancelled') return { status: 410, body: { error: error.message, code: error.code } };
+      if (error.code === 'no-baseline' || error.code === 'run-active' || error.code === 'framework-mismatch' || error.code === 'dependent-run') {
+        return { status: 409, body: { error: error.message, code: error.code } };
+      }
+      return { status: 404, body: { error: error.message, code: error.code } };
+    }
+    return {
+      status: 500,
+      body: {
+        error: error instanceof Error ? error.message : 'Run persistence failed',
+        code: 'run-persistence-failed',
+      },
+    };
+  };
+  const requireActiveRun = (runId: string): TestRunV1 => store.assertMutable(runId);
+  const forwardToV1 = async (request: Request, pathname: string): Promise<Response> => {
+    const url = new URL(request.url);
+    url.pathname = pathname;
+    const body = request.method === 'GET' || request.method === 'HEAD'
+      ? undefined
+      : await request.text();
+    return app.fetch(new Request(url, {
+      method: request.method,
+      headers: request.headers,
+      body,
+    }));
+  };
+
+  const legacyHierarchy = () => {
+    const projects = new Map<string, Map<string, TestRunV1[]>>();
+    for (const run of store.getAllRuns()) {
+      const environments = projects.get(run.project) ?? new Map<string, TestRunV1[]>();
+      const runs = environments.get(run.environment) ?? [];
+      runs.push(run);
+      environments.set(run.environment, runs);
+      projects.set(run.project, environments);
+    }
+
+    return Array.from(projects, ([name, environments]) => ({
+      name,
+      environments: Array.from(environments, ([environmentName, runs]) => ({
+        name: environmentName,
+        latestRun: runs[0],
+        historyCount: runs.length,
+        history: runs.map((run) => ({
+          runId: run.runId,
+          timestamp: run.timestamp,
+          status: run.status,
+          summary: run.summary,
+          runType: run.runType ?? 'full',
+          ...(run.baselineRunId ? { baselineRunId: run.baselineRunId } : {}),
+        })),
+      })),
+    }));
+  };
+
   // Logging middleware
   if (options.logger) {
     app.use('*', async (c, next) => {
@@ -176,26 +389,24 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'X-LiveDoc-Token']
   }));
-  
+
   // =========================================================================
   // API Routes
   // =========================================================================
-  
+
   // Health check
   app.get('/api/health', (c) => {
-    return c.json({ 
-      status: 'ok', 
+    return c.json({
+      status: 'ok',
       port: actualPort,
       version: '1.0',
       clients: wsManager?.getClientCount() || 0
     });
   });
-  
+
   // List projects
   app.get('/api/projects', (c) => {
-    // Derive this from the same hierarchy used by the UI navigation endpoint,
-    // to avoid any divergence/staleness between endpoints.
-    const hierarchy = store.getProjectHierarchy();
+    const hierarchy = legacyHierarchy();
     const projects = hierarchy.flatMap((project) =>
       project.environments.map((environment) => ({
         project: project.name,
@@ -214,13 +425,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
     return c.json({ projects });
   });
-  
+
   // Get project hierarchy for navigation
   app.get('/api/hierarchy', (c) => {
-    const hierarchy = store.getProjectHierarchy();
+    const hierarchy = legacyHierarchy();
     return c.json({ projects: hierarchy });
   });
-  
+
   // List all runs
   app.get('/api/runs', (c) => {
     const runs = store.getAllRuns();
@@ -231,38 +442,50 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       environment: r.environment,
       framework: r.framework,
       status: r.status,
-      timestamp: r.timestamp
+      timestamp: r.timestamp,
+      runType: r.runType ?? 'full',
+      ...(r.baselineRunId ? { baselineRunId: r.baselineRunId } : {}),
     })));
   });
 
   // Get run by ID
   app.get('/api/runs/:runId', (c) => {
-    const runId = c.req.param('runId');
+    const runId = asString(c.req.param('runId'));
     const run = store.getRun(runId);
     if (!run) {
       return c.json({ error: 'Run not found' }, 404);
     }
-    return c.json(run);
+    return c.json(legacyRunResponse(run));
   });
-  
+
   // Delete a run
   app.delete('/api/runs/:runId', async (c) => {
     const runId = c.req.param('runId');
     const run = store.getRun(runId);
-    
+
     if (!run) {
       return c.json({ error: 'Run not found' }, 404);
     }
-    
-    const deleted = await store.deleteRun(runId);
-    
+
+    if (store.cancelRun(runId)) {
+      return c.json({ success: true });
+    }
+
+    let deleted: boolean;
+    try {
+      deleted = await store.deleteRun(runId);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+
     if (deleted) {
       return c.json({ success: true });
     }
-    
+
     return c.json({ error: 'Failed to delete run' }, 500);
   });
-  
+
   // Get runs for project
   app.get('/api/projects/:project/:environment/runs', (c) => {
     const project = c.req.param('project');
@@ -274,16 +497,18 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         status: r.status,
         timestamp: r.timestamp,
         duration: r.duration,
-        summary: r.summary
+        summary: r.summary,
+        runType: r.runType ?? 'full',
+        ...(r.baselineRunId ? { baselineRunId: r.baselineRunId } : {}),
       }))
     });
   });
-  
+
   // Get latest run for project
   app.get('/api/projects/:project/:environment/latest', (c) => {
     const project = c.req.param('project');
     const environment = c.req.param('environment');
-    const run = store.getRunsForProject(project, environment)[0];
+    const run = store.getLatestRun(project, environment);
     if (!run) {
       return c.json({ error: 'No runs found' }, 404);
     }
@@ -311,17 +536,24 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         framework: r.framework,
         status: r.status,
         timestamp: r.timestamp,
+        runType: r.runType ?? 'full',
+        ...(r.baselineRunId ? { baselineRunId: r.baselineRunId } : {}),
       }))
     );
   });
 
   app.get('/api/v1/runs/:runId', (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
+    const view = c.req.query('view');
+    const run = view === 'combined' ? store.getCombinedRun(runId) : store.getRun(runId);
     if (!run) {
       return c.json({ error: 'Run not found' }, 404);
     }
     return c.json(run);
+  });
+
+  app.get('/api/v1/diagnostics', (c) => {
+    return c.json({ diagnostics: store.getDiagnostics() });
   });
 
   app.get('/api/v1/projects/:project/:environment/latest', (c) => {
@@ -345,7 +577,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     const runId = generateId();
     const timestamp = body.timestamp || new Date().toISOString();
 
-    const run = store.createRun(runId, body.project, body.environment, body.framework, timestamp);
+    let run: TestRunV1;
+    try {
+      run = store.createRun(runId, body.project, body.environment, body.framework, timestamp, body.runType ?? 'full');
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
 
     eventEmitter.emit('run:v1:started', runId);
 
@@ -357,26 +595,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         environment: run.environment,
         framework: run.framework,
         timestamp: run.timestamp,
+        runType: run.runType,
+        ...(run.baselineRunId ? { baselineRunId: run.baselineRunId } : {}),
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
-
-      // Broadcast session update so the viewer knows about the session immediately
-      const sessionId = run.sessionId;
-      if (sessionId) {
-        const { sessionManager } = await import('./session-manager.js');
-        const session = sessionManager.getSession(sessionId);
-        if (session) {
-          const sessionEvent: V1WebSocketEvent = {
-            type: 'session:v1:updated',
-            sessionId,
-            project: session.project,
-            environment: session.environment,
-            status: session.status,
-            summary: session.summary,
-          };
-          wsManager.broadcast(sessionEvent, runId, session.project, session.environment);
-        }
-      }
     }
 
     const response: V1StartRunResponse = {
@@ -390,8 +612,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   app.post('/api/v1/runs/:runId/testcases', async (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertTestCaseRequestSchema.safeParse(json);
@@ -413,8 +637,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // Batch upsert multiple test cases in a single request
   app.post('/api/v1/runs/:runId/testcases/batch', async (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertTestCasesBatchRequestSchema.safeParse(json);
@@ -434,7 +660,19 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
     // Optionally complete the run in the same request (avoids extra HTTP call)
     if (body.complete) {
-      store.completeRun(runId, body.complete.status, body.complete.duration, body.complete.summary);
+      let completedRun: TestRunV1;
+      try {
+        completedRun = await store.completeRun(
+          runId,
+          body.complete.status,
+          body.complete.duration,
+          body.complete.summary,
+          body.complete.coverage
+        );
+      } catch (error) {
+        const apiError = runStoreError(error);
+        return c.json(apiError.body, apiError.status);
+      }
 
       eventEmitter.emit('run:v1:completed', runId);
 
@@ -444,7 +682,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
           runId,
           status: body.complete.status,
           duration: body.complete.duration,
-          summary: body.complete.summary ?? run.summary,
+          summary: completedRun.summary,
+          coverage: completedRun.coverage,
         };
         wsManager.broadcast(event, runId, run.project, run.environment);
       }
@@ -455,8 +694,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 
   app.post('/api/v1/runs/:runId/tests', async (c) => {
     const runId = c.req.param('runId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertTestRequestSchema.safeParse(json);
@@ -483,8 +724,9 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.put('/api/v1/runs/:runId/scenarios/:scenarioId/steps', async (c) => {
     const runId = c.req.param('runId');
     const scenarioId = c.req.param('scenarioId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    try { requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertScenarioStepsRequestSchema.safeParse(json);
@@ -503,8 +745,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.patch('/api/v1/runs/:runId/tests/:testId/execution', async (c) => {
     const runId = c.req.param('runId');
     const testId = c.req.param('testId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1PatchExecutionRequestSchema.safeParse(json);
@@ -531,8 +775,10 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   app.post('/api/v1/runs/:runId/outlines/:outlineId/example-results', async (c) => {
     const runId = c.req.param('runId');
     const outlineId = c.req.param('outlineId');
-    const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1UpsertOutlineExampleResultsRequestSchema.safeParse(json);
@@ -556,10 +802,37 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     return c.json({ success: true });
   });
 
-  app.post('/api/v1/runs/:runId/complete', async (c) => {
+  app.post('/api/v1/runs/:runId/cancel', (c) => {
     const runId = c.req.param('runId');
     const run = store.getRun(runId);
-    if (!run) return c.json({ error: 'Run not found' }, 404);
+    if (!run) return c.json({ error: 'Run not found', code: 'run-not-found' }, 404);
+    if (!store.cancelRun(runId)) {
+      const apiError = runStoreError(new RunStoreError('run-not-active', `Run '${runId}' is not active.`));
+      return c.json(apiError.body, apiError.status);
+    }
+
+    eventEmitter.emit('run:v1:completed', runId);
+    if (wsManager) {
+      const event: V1WebSocketEvent = {
+        type: 'run:v1:completed',
+        runId,
+        status: 'cancelled',
+        duration: run.duration,
+        summary: run.summary,
+        coverage: run.coverage,
+      };
+      wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    return c.json({ success: true });
+  });
+
+  app.post('/api/v1/runs/:runId/complete', async (c) => {
+    const runId = c.req.param('runId');
+    let run: TestRunV1;
+    try { run = requireActiveRun(runId); } catch (error) {
+      const apiError = runStoreError(error); return c.json(apiError.body, apiError.status);
+    }
 
     const json = await c.req.json().catch(() => null);
     const parsed = V1CompleteRunRequestSchema.safeParse(json);
@@ -568,7 +841,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     }
 
     const body: V1CompleteRunRequest = parsed.data;
-    store.completeRun(runId, body.status, body.duration, body.summary);
+    let completedRun: TestRunV1;
+    try {
+      completedRun = await store.completeRun(runId, body.status, body.duration, body.summary, body.coverage);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
 
     eventEmitter.emit('run:v1:completed', runId);
 
@@ -578,70 +857,246 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
         runId,
         status: body.status,
         duration: body.duration,
-        summary: body.summary ?? run.summary,
+        summary: completedRun.summary,
+        coverage: completedRun.coverage,
       };
       wsManager.broadcast(event, runId, run.project, run.environment);
-      
-      // Broadcast session update
-      const sessionId = run.sessionId;
-      if (sessionId) {
-        const { sessionManager } = await import('./session-manager.js');
-        const session = sessionManager.getSession(sessionId);
-        if (session) {
-          const sessionEvent: V1WebSocketEvent = {
-            type: 'session:v1:updated',
-            sessionId,
-            project: session.project,
-            environment: session.environment,
-            status: session.status,
-            summary: session.summary,
-          };
-          wsManager.broadcast(sessionEvent, runId, session.project, session.environment);
-        }
-      }
     }
 
     return c.json({ success: true });
   });
-  
-  // Session endpoints
-  app.get('/api/v1/sessions', async (c) => {
-    const project = c.req.query('project');
-    const environment = c.req.query('environment');
-    
-    if (!project || !environment) {
-      return c.json({ error: 'Missing required query parameters: project, environment' }, 400);
+
+  app.post('/api/v1/runs/:runId/coverage', async (c) => {
+    const runId = c.req.param('runId');
+    const run = store.getRun(runId);
+    if (!run) return c.json({ error: 'Run not found' }, 404);
+
+    const json = await c.req.json().catch(() => null);
+    const parsed = V1AttachCoverageRequestSchema.safeParse(json);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid request', details: parsed.error.format() }, 400);
     }
-    
-    const { sessionManager } = await import('./session-manager.js');
-    const sessions = sessionManager.listSessions(project, environment);
-    
-    return c.json({ sessions });
-  });
-  
-  app.get('/api/v1/sessions/:sessionId', async (c) => {
-    const sessionId = c.req.param('sessionId');
-    
-    const { sessionManager } = await import('./session-manager.js');
-    const session = sessionManager.getSession(sessionId);
-    
-    if (!session) {
-      return c.json({ error: 'Session not found' }, 404);
+
+    const body: V1AttachCoverageRequest = parsed.data;
+    let persistence: { completed: true; paths: string[] };
+    try {
+      persistence = await store.attachCoverage(runId, body.coverage);
+    } catch (error) {
+      if (error instanceof RunStoreError) {
+        const apiError = runStoreError(error);
+        return c.json(apiError.body, apiError.status);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      const diagnostic = `LD-COV-072 coverage-persistence-failed: runId=${runId}; message=${message}`;
+      options.logger?.(diagnostic);
+      console.error(diagnostic);
+      return c.json({
+        error: 'Coverage persistence failed',
+        code: 'LD-COV-072',
+        diagnostic,
+        retryable: true,
+      }, 500);
     }
-    
-    return c.json(session);
+
+    let broadcast = { matched: 0, sent: 0, failed: 0 };
+    if (wsManager) {
+      const event: V1WebSocketEvent = {
+        type: 'run:v1:coverage',
+        runId,
+        coverage: body.coverage,
+      };
+      broadcast = wsManager.broadcast(event, runId, run.project, run.environment);
+    }
+
+    const restHydrationAvailable = store.getRun(runId)?.coverage !== undefined;
+    options.logger?.(
+      `LD-COV-080 server-accepted: runId=${runId}; persistenceCompleted=${persistence.completed}; ` +
+      `broadcastMatched=${broadcast.matched}; broadcastSent=${broadcast.sent}; ` +
+      `broadcastFailed=${broadcast.failed}; restHydrationAvailable=${restHydrationAvailable}`
+    );
+
+    return c.json({
+      success: true,
+      code: 'LD-COV-080',
+      request: { received: true },
+      persistence,
+      broadcast,
+      restHydration: { available: restHydrationAvailable },
+    });
   });
-  
+
+  // Unversioned endpoints remain supported for existing reporters. Their
+  // lifecycle semantics and persisted data are delegated to the v1 model.
+  app.post('/api/runs/start', (c) => forwardToV1(c.req.raw, '/api/v1/runs/start'));
+  app.post('/api/runs/:runId/complete', (c) =>
+    forwardToV1(c.req.raw, `/api/v1/runs/${c.req.param('runId')}/complete`));
+
+  const upsertLegacyNode = (
+    run: TestRunV1,
+    parentId: string | undefined,
+    node: JsonObject
+  ): { success: boolean; event?: V1WebSocketEvent } => {
+    const kind = asString(node.kind ?? node.type).toLowerCase();
+    if (kind === 'feature' || kind === 'suite' || (!parentId && Array.isArray(node.scenarios))) {
+      const testCase = legacyTestCase(node);
+      if (!testCase.id || !testCase.title) return { success: false };
+      store.upsertTestCase(run.runId, testCase);
+      return {
+        success: true,
+        event: { type: 'testcase:upsert', runId: run.runId, testCase },
+      };
+    }
+
+    const parentDocument = parentId
+      ? run.documents.find((document) => document.id === parentId)
+      : undefined;
+    if (kind === 'scenario' || kind === 'rule' || kind === 'test') {
+      if (!parentDocument) return { success: false };
+      const test = legacyTest(node);
+      if (!test.id || !test.title) return { success: false };
+      store.upsertTest(run.runId, parentDocument.id, test);
+      return {
+        success: true,
+        event: { type: 'test:upsert', runId: run.runId, testCaseId: parentDocument.id, test },
+      };
+    }
+
+    if (kind === 'step') {
+      const scenario = parentId
+        ? run.documents.flatMap((document) => document.tests).find((test) => test.id === parentId)
+        : undefined;
+      if (!scenario || scenario.kind !== 'Scenario') return { success: false };
+      const step = legacyStep(node);
+      if (!step.id || !step.title) return { success: false };
+      const steps = [...((scenario as { steps?: StepTest[] }).steps ?? [])];
+      const existing = steps.findIndex((candidate) => candidate.id === step.id);
+      if (existing >= 0) steps[existing] = step;
+      else steps.push(step);
+      store.replaceScenarioSteps(run.runId, scenario.id, steps);
+      return { success: true };
+    }
+
+    return { success: false };
+  };
+
+  const legacyNodeHandler = async (
+    c: Context,
+    getPayload: (body: JsonObject) => { parentId?: string; node?: JsonObject }
+  ) => {
+    const runId = asString(c.req.param('runId'));
+    let run: TestRunV1;
+    try {
+      run = requireActiveRun(runId);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+
+    const body = asObject(await c.req.json().catch(() => null));
+    if (!body) return c.json({ error: 'Invalid request' }, 400);
+    const payload = getPayload(body);
+    if (!payload.node) return c.json({ error: 'Invalid request' }, 400);
+    const result = upsertLegacyNode(run, payload.parentId, payload.node);
+    if (!result.success) return c.json({ error: 'Parent or node not found' }, 404);
+    if (wsManager && result.event) {
+      wsManager.broadcast(result.event, runId, run.project, run.environment);
+    }
+    return c.json({ success: true });
+  };
+
+  app.post('/api/runs/:runId/features', (c) =>
+    legacyNodeHandler(c, (body) => ({ node: { ...body, kind: 'Feature' } })));
+  app.post('/api/runs/:runId/scenarios', (c) =>
+    legacyNodeHandler(c, (body) => ({
+      parentId: typeof body.featureId === 'string' ? body.featureId : undefined,
+      node: { ...body, kind: body.kind ?? body.type ?? 'Scenario' },
+    })));
+  app.post('/api/runs/:runId/steps', (c) =>
+    legacyNodeHandler(c, (body) => ({
+      parentId: typeof body.scenarioId === 'string' ? body.scenarioId : undefined,
+      node: { ...body, kind: 'Step' },
+    })));
+  app.post('/api/runs/:runId/scenarios/:scenarioId/complete', async (c) => {
+    const runId = c.req.param('runId');
+    try {
+      requireActiveRun(runId);
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+    const body = asObject(await c.req.json().catch(() => null));
+    if (!body) return c.json({ error: 'Invalid request' }, 400);
+    store.patchTestExecution(runId, c.req.param('scenarioId'), {
+      status: asString(body.status, 'pending') as AnyTest['execution']['status'],
+      duration: asNonNegativeNumber(body.duration),
+    });
+    return c.json({ success: true });
+  });
+
+  app.post('/api/runs', async (c) => {
+    const body = asObject(await c.req.json().catch(() => null));
+    if (!body) return c.json({ error: 'Invalid request' }, 400);
+    const project = asString(body.project);
+    const environment = asString(body.environment);
+    const framework = asString(body.framework);
+    if (!project || !environment || !framework) {
+      return c.json({ error: 'Invalid request' }, 400);
+    }
+
+    const runId = generateId();
+    let run: TestRunV1;
+    try {
+      run = store.createRun(
+        runId,
+        project,
+        environment,
+        framework,
+        asString(body.timestamp, new Date().toISOString())
+      );
+      const legacyDocuments = [
+        ...(Array.isArray(body.features) ? body.features : []),
+        ...(Array.isArray(body.suites) ? body.suites : []),
+      ];
+      for (const value of legacyDocuments) {
+        const document = asObject(value);
+        if (document) store.upsertTestCase(runId, legacyTestCase(document));
+      }
+      run = await store.completeRun(
+        runId,
+        asString(body.status, 'passed') as TestRunV1['status'],
+        asNonNegativeNumber(body.duration),
+        legacyStatistics(body.summary)
+      );
+    } catch (error) {
+      store.cancelRun(runId);
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+
+    eventEmitter.emit('run:v1:completed', runId);
+    if (wsManager) {
+      wsManager.broadcast({
+        type: 'run:v1:completed',
+        runId,
+        status: run.status,
+        duration: run.duration,
+        summary: run.summary,
+        coverage: run.coverage,
+      }, runId, run.project, run.environment);
+    }
+    return c.json({ runId }, 201);
+  });
+
   httpServer.on('request', async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-    
+
     const headers = new Headers();
     for (const [key, value] of Object.entries(req.headers)) {
       if (value) {
         headers.set(key, Array.isArray(value) ? value.join(', ') : value);
       }
     }
-    
+
     let body: string | undefined;
     if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
       const chunks: Buffer[] = [];
@@ -650,13 +1105,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       }
       body = Buffer.concat(chunks).toString();
     }
-    
+
     const request = new Request(url.toString(), {
       method: req.method,
       headers,
       body,
     });
-    
+
     try {
       const response = await app.fetch(request);
       res.statusCode = response.status;
@@ -671,11 +1126,12 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       res.end('Internal Server Error');
     }
   });
-  
+
   let actualPort = port;
   let running = false;
+  let stopPromise: Promise<void> | null = null;
   const eventEmitter = new EventEmitter();
-  
+
   const server: LiveDocServer = {
     on(event: string, listener: (...args: any[]) => void): void {
       eventEmitter.on(event, listener);
@@ -683,13 +1139,13 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     async listen(listenPort?: number): Promise<number> {
       // Use listenPort if explicitly provided (including 0 for ephemeral port), otherwise use default port
       const targetPort = listenPort !== undefined ? listenPort : port;
-      
+
       // Initialize store
       await store.initialize();
-      
+
       // Initialize WebSocket manager
       wsManager = new WebSocketManager(httpServer);
-      
+
       return new Promise((resolve, reject) => {
         httpServer.listen(targetPort, host, () => {
           // Get the actual assigned port (important when using port 0 for ephemeral port)
@@ -717,76 +1173,89 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
           console.log(`🍵 LiveDoc Server running on http://${host}:${actualPort}`);
           resolve(actualPort);
         });
-        
+
         httpServer.on('error', (err) => {
           reject(err);
         });
       });
     },
-    
+
     async stop(): Promise<void> {
-      running = false;
-      
-      // Delete port file
-      try {
-        const portFile = getPortFilePath();
-        if (fs.existsSync(portFile)) {
-          // Only delete if it's our file (check PID)
-          const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
-          if (info.pid === process.pid) {
-            fs.unlinkSync(portFile);
+      if (stopPromise) {
+        return stopPromise;
+      }
+
+      if (!running) {
+        return;
+      }
+
+      stopPromise = (async () => {
+        running = false;
+
+        // Delete port file
+        try {
+          const portFile = getPortFilePath();
+          if (fs.existsSync(portFile)) {
+            // Only delete if it's our file (check PID)
+            const info = JSON.parse(fs.readFileSync(portFile, 'utf-8'));
+            if (info.pid === process.pid) {
+              fs.unlinkSync(portFile);
+            }
           }
+        } catch (err) {
+          // Ignore errors during cleanup
         }
-      } catch (err) {
-        // Ignore errors during cleanup
-      }
-      
-      // 1. Close inbound traffic first (HTTP stops accepting new connections)
-      await new Promise<void>((resolve, reject) => {
-        httpServer.close((err) => {
-          if (err) reject(err);
-          else resolve();
+
+        // 1. Close WebSocket connections before HTTP shutdown so upgraded
+        // connections do not keep httpServer.close() waiting forever.
+        if (wsManager) {
+          await wsManager.close();
+          wsManager = null;
+        }
+
+        // 2. Close inbound traffic (HTTP stops accepting new connections)
+        await new Promise<void>((resolve, reject) => {
+          httpServer.close((err) => {
+            if (err) reject(err);
+            else resolve();
+          });
         });
-      });
-      
-      // 2. Close WebSocket connections
-      if (wsManager) {
-        wsManager.close();
-        wsManager = null;
+
+        // 3. Flush pending saves (no new traffic can arrive now)
+        await store.flush();
+      })();
+
+      try {
+        await stopPromise;
+      } finally {
+        stopPromise = null;
       }
-      
-      // 3. Clear pending seal/grace timers in SessionManager
-      const { sessionManager: sm } = await import('./session-manager.js');
-      sm.clearTimers();
-      
-      // 4. Flush pending saves (no new traffic can arrive now)
-      await store.flush();
     },
-    
+
     getPort(): number {
       return actualPort;
     },
-    
+
     getApp(): Hono {
       return app;
     },
-    
+
     getWebSocketManager(): WebSocketManager {
       if (!wsManager) {
         throw new Error('WebSocket manager not initialized. Call listen() first.');
       }
       return wsManager;
     },
-    
+
     getRunStore(): RunStore {
       return store;
     },
-    
+
     isRunning(): boolean {
       return running;
     }
   };
-  
+
   return server;
 }
 
@@ -797,22 +1266,30 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
 export async function startServer(options: ServerOptions = {}): Promise<LiveDocServer> {
   const server = createServer(options);
   await server.listen(options.port);
-  
+
   if (options.open) {
     const open = await import('open');
     await open.default(`http://${options.host || 'localhost'}:${server.getPort()}`);
   }
-  
+
   // Graceful shutdown handler
+  let shuttingDown = false;
   const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log(`\n${signal} received, shutting down gracefully...`);
-    await server.stop();
-    console.log('Data saved. Goodbye! 👋');
-    process.exit(0);
+    try {
+      await server.stop();
+      console.log('Data saved. Goodbye! 👋');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during shutdown:', error);
+      process.exit(1);
+    }
   };
-  
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  
+
+  process.once('SIGINT', () => void shutdown('SIGINT'));
+  process.once('SIGTERM', () => void shutdown('SIGTERM'));
+
   return server;
 }

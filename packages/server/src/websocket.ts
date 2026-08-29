@@ -8,6 +8,12 @@ interface ClientSubscription {
   projectFilters: Set<string>; // "project/environment"
 }
 
+export interface BroadcastResult {
+  matched: number;
+  sent: number;
+  failed: number;
+}
+
 /**
  * WebSocket manager for real-time updates
  */
@@ -88,12 +94,11 @@ export class WebSocketManager {
   /**
    * Broadcast an event to all subscribed clients
    */
-  broadcast(event: V1WebSocketEvent, runId: string, project?: string, environment?: string): void {
+  broadcast(event: V1WebSocketEvent, runId: string, project?: string, environment?: string): BroadcastResult {
     const projectKey = project && environment ? `${project}/${environment}` : undefined;
+    const result: BroadcastResult = { matched: 0, sent: 0, failed: 0 };
     
     for (const [ws, client] of this.clients.entries()) {
-      if (ws.readyState !== WebSocket.OPEN) continue;
-      
       // Check if client is subscribed
       const isSubscribed = 
         client.runIds.has(runId) ||
@@ -101,9 +106,23 @@ export class WebSocketManager {
         (projectKey && client.projectFilters.has(projectKey));
       
       if (isSubscribed) {
-        ws.send(JSON.stringify(event));
+        result.matched++;
+        if (ws.readyState !== WebSocket.OPEN) {
+          result.failed++;
+          continue;
+        }
+
+        try {
+          ws.send(JSON.stringify(event));
+          result.sent++;
+        } catch (error) {
+          result.failed++;
+          console.error('WebSocket broadcast failed:', error);
+        }
       }
     }
+
+    return result;
   }
   
   /**
@@ -114,13 +133,50 @@ export class WebSocketManager {
   }
   
   /**
-   * Close all connections
+   * Close all connections.
    */
-  close(): void {
-    for (const ws of this.clients.keys()) {
-      ws.close();
-    }
+  async close(): Promise<void> {
+    const clients = Array.from(this.clients.keys());
+    await Promise.all(clients.map((ws) => this.closeClient(ws)));
     this.clients.clear();
-    this.wss.close();
+
+    await new Promise<void>((resolve, reject) => {
+      this.wss.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+  }
+
+  private closeClient(ws: WebSocket): Promise<void> {
+    if (ws.readyState === WebSocket.CLOSED) {
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolve();
+      };
+
+      const timeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.CLOSED) {
+          ws.terminate();
+        }
+        finish();
+      }, 1000);
+      timeout.unref();
+
+      ws.once('close', finish);
+
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close(1001, 'Server shutting down');
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        ws.terminate();
+      }
+    });
   }
 }

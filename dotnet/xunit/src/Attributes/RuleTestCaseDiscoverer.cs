@@ -30,8 +30,7 @@ public class RuleTestCaseDiscoverer : IXunitTestCaseDiscoverer
             yield break;
         }
 
-        // Valid - create normal test case
-        yield return new XunitTestCase(
+        yield return new LiveDocRuleTestCase(
             _diagnosticMessageSink,
             discoveryOptions.MethodDisplayOrDefault(),
             discoveryOptions.MethodDisplayOptionsOrDefault(),

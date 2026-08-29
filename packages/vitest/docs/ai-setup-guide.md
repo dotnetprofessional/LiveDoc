@@ -221,7 +221,7 @@ export default defineConfig({
         detailLevel: 'spec+summary+headers',
         postReporters: [
           new LiveDocViewerReporter({
-            server: 'http://localhost:3000',
+            server: 'http://localhost:3100',
             project: 'my-project',
             environment: 'local',
           })

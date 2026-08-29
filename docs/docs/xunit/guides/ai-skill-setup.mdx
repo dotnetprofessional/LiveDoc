@@ -1,15 +1,16 @@
 ---
 sidebar_position: 2
-title: "AI Skill Setup"
-description: "Install the LiveDoc AI coding skill so your AI assistant writes correct BDD and Specification tests with proper patterns and value extraction."
+title: "Manage AI Skills"
+description: "Refresh version-matched LiveDoc xUnit guidance or add repository-local support for another AI coding tool."
 ---
 
-# AI Skill Setup
+# Manage AI Skills
 
 <p className="intro">
-LiveDoc ships with AI coding skills that teach your AI assistant how to write
-correct BDD and Specification tests. The skill files are bundled with the NuGet
-package — no extra tools to install.
+AI-led project setup installs durable, version-matched LiveDoc guidance
+automatically. Use this page when installing manually, refreshing skills after a
+package update, or adding another AI tool. Skills stay inside the repository so
+they can be reviewed, committed, and shared without affecting other projects.
 </p>
 
 ## One Command
@@ -20,39 +21,33 @@ From your test project directory, run:
 dotnet msbuild -t:LiveDocInstallSkills
 ```
 
-This installs skill files for **all supported AI tools** into your project. Commit them to share with your team.
+This installs skill files for **all supported AI tools** into your repository.
+Commit them to share with your team.
 
 ### Options
 
-Install for a specific tool only:
+Install for selected tools only:
 
 ```bash
-dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot
-```
-
-Install to your home directory (personal, all projects):
-
-```bash
-dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocScope=user
+dotnet msbuild -t:LiveDocInstallSkills -p:LiveDocAITool=copilot,codex,claude
 ```
 
 ---
 
 ## Supported AI Tools
 
-| AI Tool                      | Project Scope | User Scope |
-| ---------------------------- | :-----------: | :--------: |
-| GitHub Copilot (VS Code/CLI) | ✅            | ✅          |
-| Claude Code                  | ✅            | ✅          |
-| Roo Code                     | ✅            | ✅          |
-| Cursor                       | ✅            | —          |
-| Windsurf                     | ✅            | —          |
+| AI Tool                      | Repository Scope |
+| ---------------------------- | :--------------: |
+| GitHub Copilot (VS Code/CLI) | ✅               |
+| OpenAI Codex                 | ✅               |
+| Claude Code                  | ✅               |
+| Roo Code                     | ✅               |
+| Cursor                       | ✅               |
+| Windsurf                     | ✅               |
 
 :::tip
-**Project scope** installs skill files in your repository. Commit them and
-every developer on the team benefits automatically.
-
-**User scope** installs to your home directory — available across all your projects.
+Repository scope keeps the installed skill aligned with this project's LiveDoc
+version. Commit the files and every developer on the team benefits automatically.
 :::
 
 ---
@@ -61,13 +56,14 @@ every developer on the team benefits automatically.
 
 The installer places skill instruction files in tool-specific locations:
 
-| AI Tool         | Project Scope Location                      | User Scope Location              |
-| --------------- | ------------------------------------------- | -------------------------------- |
-| GitHub Copilot  | `.github/skills/livedoc-xunit/`             | `~/.copilot/skills/livedoc-xunit/` |
-| Claude Code     | `.claude/skills/livedoc-xunit/`             | `~/.claude/skills/livedoc-xunit/`  |
-| Roo Code        | `.roo/skills/livedoc-xunit/`                | `~/.roo/skills/livedoc-xunit/`     |
-| Cursor          | `.cursor/rules/livedoc-xunit/`              | —                                |
-| Windsurf        | `.windsurf/rules/livedoc-xunit/`            | —                                |
+| AI Tool         | Repository Location                         |
+| --------------- | ------------------------------------------- |
+| GitHub Copilot  | `.github/skills/livedoc-xunit/`             |
+| OpenAI Codex    | `.agents/skills/livedoc-xunit/`             |
+| Claude Code     | `.claude/skills/livedoc-xunit/`             |
+| Roo Code        | `.roo/skills/livedoc-xunit/`                |
+| Cursor          | `.cursor/rules/livedoc-xunit/`              |
+| Windsurf        | `.windsurf/rules/livedoc-xunit/`            |
 
 ### Manual Fallback
 
@@ -82,7 +78,7 @@ NuGet cache:
 %USERPROFILE%\.nuget\packages\swedevtools.livedoc.xunit\<version>\tools\skills\
 ```
 
-Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`) to the appropriate directory
+Copy the contents (`SKILL.md`, `VALIDATION.md`, `examples/`, and `resources/`) to the appropriate directory
 from the table above.
 
 ---
@@ -97,6 +93,41 @@ Once installed, your AI assistant will:
 - **Extract values correctly** — using `ctx.Step.Values`, `Rule.Values`, `Rule.Params`, or method parameters
 - **Include descriptions** — adding `Description` to container attributes for context
 - **Organize namespaces** — structuring tests for clean viewer hierarchy
+- **Configure coverage** — choosing Microsoft or XPlat collection, installing
+  only required dependencies, preserving custom runsettings, and diagnosing
+  `LD-COV-*` messages
+
+## Ask AI to Configure Coverage
+
+The installed skill includes the complete coverage decision path. A useful
+project-setup prompt is:
+
+> Configure this LiveDoc xUnit solution for full solution coverage with line and
+> branch data in the Viewer. Prefer Microsoft Code Coverage. Explain every
+> dependency and preserve existing runsettings.
+
+The assistant should:
+
+1. Verify `SweDevTools.LiveDoc.xUnit`, `Microsoft.NET.Test.Sdk`, xUnit, and the
+   Visual Studio runner are referenced.
+2. Prefer:
+
+   ```powershell
+   dotnet test .\MySolution.sln --collect:"Code Coverage;Format=Cobertura"
+   ```
+
+3. Avoid adding Coverlet for the Microsoft collector because LiveDoc already
+   ships `LiveDocCoverage`.
+4. Install `dotnet-coverage` only when Visual Studio produces binary `.coverage`
+   files or a `dotnet-coverage-missing` diagnostic appears.
+5. Preserve custom runsettings and merge the `LiveDocCoverage` collector entry
+   instead of replacing the file.
+6. Confirm the Viewer receives line and branch metrics for every expected module.
+
+If you explicitly request XPlat, the assistant should install
+`coverlet.collector` in every test project, explain that it supports branch
+coverage, and explain its narrower default scope and per-testhost artifacts.
+See [Code Coverage](../../viewer/guides/code-coverage.mdx) for the full matrix.
 
 ### Example: Before and After
 
@@ -163,4 +194,5 @@ were installed to the correct location for your tool.
 
 - [Getting Started](../learn/getting-started.mdx) — install LiveDoc and write your first test
 - [Best Practices](./best-practices.mdx) — patterns the AI skill enforces
+- [Code Coverage](../../viewer/guides/code-coverage.mdx) — collector selection and dependencies
 - [`[Feature]` Attribute](../reference/attributes.mdx#feature) — attribute reference

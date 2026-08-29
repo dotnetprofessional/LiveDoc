@@ -11,6 +11,10 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+- **Capability-first reporting output taxonomy (2026-05-13)**: Public reporter behavior specs should live under `packages/vitest/_src/test/ReportingOutput/`. The specification tag regression now lives at `ReportingOutput/SpecificationTags.Spec.ts` and uses `specification`/`rule` style because it asserts technical reporter transformations.
+
+- **Specification tag rendering parity (2026-05-13)**: `LiveDocSpec` console details now render tags for `Specification`, `Rule`, and `RuleOutline` with the same `formatTags()` path used by Feature/Scenario output. Regression coverage lives in `packages/vitest/_src/test/ReportingOutput/SpecificationTags.Spec.ts` and validates slash tags like `@name/name` through render and V1 serialization.
+
 - **StepContext ↔ StepDefinition shared-array pattern**: StepContext receives a reference to StepDefinition's `attachments` array via constructor. When users call `ctx.attach()` inside a step, it pushes directly to the StepDefinition's array — no post-step copy needed. This same pattern could be reused for any future step-level collection APIs.
 - **Attachment type lives in `@swedevtools/livedoc-schema` (reporter-v3.ts)**: The canonical `Attachment` interface is in the schema package, re-exported via index. Both `ExecutionResult.attachments` and the Zod wire schema (`V3AttachmentSchema`) already exist — the plumbing from server to viewer was already done before the SDK-side API existed.
 - **Pre-existing test failure**: `beautiful-tea-shipping-costs.Spec.ts` fails independently — not related to framework changes. 1 failed / 629 passed baseline as of this change.
@@ -119,3 +123,37 @@
 - **sv-9 (shutdown ordering)**: `server.stop()` flushed pending saves BEFORE closing inbound traffic, so new requests could race during flush. Also didn't clear SessionManager's seal/grace timers. Fix: reordered to close HTTP → close WebSocket → clear timers → flush. Added `clearTimers()` method to SessionManager.
 - **sv-2 (dynamic specification support)**: The wrapped import for dynamic execution omitted `specification`, `rule`, and `ruleOutline` exports — specs couldn't run in dynamic mode. `reconstructSpecification()` lost outline tables and example payloads during deserialization. Fix: added all 3 exports to the import line; added `outline.tables` reconstruction (matching ScenarioOutline pattern) and `example.example`/`exampleRaw`/`sequence` fields to RuleExample reconstruction.
 - **sv-3 (livedoc.options not reset)**: `resetDynamicState()` missed `livedoc.options` and `displayedViolations`. Filters/rules could leak across dynamic runs, and violation deduplication could suppress legitimate violations in subsequent runs. Fix: reset `livedoc.options` to fresh `new LiveDocOptions()` and clear `displayedViolations` object.
+
+### Team Updates (2026-05-13 — Test Quality & Organization Assessment)
+
+**Cross-Agent Findings:**
+- **Zoe** identified critical value drift and weak living-doc structure in test files; will convert priority files to embedded-value format.
+- **Mal** analyzing implementation-centric hierarchy; recommending capability-first taxonomy (GettingStarted, WritingFeatures, WritingSpecifications, ... ShowcaseExamples).
+- **Your focus area:** Framework feature coverage clarity. Curate public test model (showcase tier with living-doc integrity) and quarantine regressions/internals under `_Internal/`.
+
+**Next Priority:** Model public test tier layer while Mal leads org sprint and Zoe converts test files.
+
+- **Internal/regression taxonomy migration (2026-05-13)**: Regression/internal Vitest specs are grouped under `FrameworkInternals`; public reporter contracts under `ReportingOutput`; public Playwright behavior under `BrowserTesting`; plain Vitest interop under `VitestCompatibility`. BrowserTesting specs should use the public package entrypoints so the self-referencing Playwright entrypoint shares scenario hook state with the same LiveDoc module instance.
+
+### Viewer Integration Wiring (2026-05-13)
+
+- **Port file discovery issue**: The `discoverServer()` function in `@swedevtools/livedoc-server` expects a port file at `$TEMP/livedoc-server.json` written by `server.listen()`. When the viewer is started via `dev:all` (the menu's "Dev All" option), the server runs on port 3100 but the port file was missing, causing auto-discovery to fail silently.
+- **Menu command fix**: Updated `livedoc.ps1` test menu items to explicitly set `$env:LIVEDOC_SERVER_URL = 'http://localhost:3100'` so the reporter bypasses auto-discovery and connects directly. This ensures test results flow to the viewer regardless of how the server was started.
+- **Reporter behavior**: `LiveDocSpecReporter.onInit()` checks `LIVEDOC_SERVER_URL` env var first (line 96), then falls back to `discoverServer()`. When env var is set, publishing is enabled immediately and the "LiveDoc Viewer: Connecting to..." message appears at test start.
+- **Key insight**: For local dev workflows where the viewer is started via npm scripts (not the standalone server CLI), explicit env var configuration is more reliable than port file auto-discovery.
+
+### VSTest Coverage Rejection Revision (2026-07-18)
+
+- **Automatic activation**: The package no longer sets `VSTestLogger`. The collector runsettings are selected only for coverage requests or Visual Studio execution; plain CLI `dotnet test` stays quiet, while custom runsettings remain untouched with `LD-COV-001` guidance.
+- **Collector correlation**: One order-independent invocation directory now backs both initialization and testhost environment injection. The attachment processor returns all input sets, scans every current marker, rejects stale disk fallback markers, and targets every matched metadata directory.
+- **Upload contract**: Coverage parsing remains shared. Per-run atomic accepted sentinels are written only after HTTP 2xx; `LD-COV-081` is the honest idempotent skip and failed requests remain retryable.
+- **Server/viewer evidence**: Coverage HTTP 2xx now follows awaited disk persistence and reports websocket matched/sent/failed counts plus REST hydration availability. Unknown-run viewer events hydrate by REST; only store-confirmed application emits `LD-COV-090`, and failures emit `LD-COV-091`.
+- **VSTest 18.6 caveat**: CLI artifact processing logs `Non incremental attachment processors are not supported` when `SupportsIncrementalProcessing=false`. The binding contract requires `false`; explicit `--logger LiveDocCoverage` remains the proven CLI fallback and completed conversion, HTTP 200, persistence, and REST retrieval.
+
+### VSTest Incremental Attachment Processor Correction (2026-07-18)
+
+- **VSTest requires incremental processors**: VSTest 18.6 skips attachment processors that return `SupportsIncrementalProcessing=false`. LiveDoc must return `true`; the earlier `false` contract is superseded.
+- **Cross-round truth is durable**: Processor instances are recreated between rounds. Invocation markers, run metadata, and per-run accepted sentinels on disk are the only correlation and idempotency state.
+- **Marker freshness has two authorities**: Attachment-delivered markers are trusted regardless of age. Disk fallback markers are selected by fresh marker-file mtime, never by `InitializedAtUtc`, which may legitimately predate a long test run by hours.
+- **Associativity requires unchanged returns plus sentinels**: Every attachment set is returned unchanged. A 2xx response writes the accepted sentinel; failures write none and remain retryable. Fresh-instance re-feed is therefore safe and does not double-post.
+- **Automatic path proven headlessly**: Packaged runsettings and collector processed Microsoft `.coverage` without `LiveDocCoverage` logger fallback, reached `LD-COV-080`, persisted run `mrr2a03n-pap1opnmz` with 43 files at 21.3% line coverage, and returned the same coverage through REST.

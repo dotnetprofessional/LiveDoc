@@ -145,6 +145,8 @@ public class LoginTests : FeatureTest { ... }
 
 - Comma-separated tags parsed into `string[]`
 - Tags from class and method are merged with deduplication
+- Every tag is exposed as an xUnit `Category` trait for `dotnet test --filter "Category=<tag>"`
+- For incremental Viewer updates, read `resources/partial-testing.md`
 
 ---
 
@@ -199,6 +201,22 @@ public async Task Async_shipping_test()
 ```
 
 ---
+
+### Gherkin Structure and Rule Violations
+
+Every Scenario and Scenario Outline should contain:
+
+1. One primary `Given`
+2. One primary `When`
+3. One primary `Then`
+
+Use `And` or `But` for additional preconditions, actions, and outcomes. Do not
+repeat `Given`, `When`, or `Then` as separate primary steps.
+
+LiveDoc reports structural issues as non-fatal `ruleViolations` in the Viewer,
+including repeated primary steps, missing Given/When/Then steps, untitled steps,
+and `And`/`But` used before a primary step. These warnings do not change test
+pass/fail status, but generated and modified tests should resolve them.
 
 ## Value Extraction
 
@@ -434,6 +452,15 @@ All exceptions include the step title and available values/params for easy debug
 
 ---
 
+## Attachments and Evidence
+
+Feature scenarios can call `Attach`, `AttachScreenshot`, `AttachFile`, or
+`AttachJson` after asserting the behavior. Read `resources/evidence.md` for the
+supported APIs and redaction rules. Evidence supplements an assertion; it never
+replaces one.
+
+---
+
 ## Features NOT Supported (by design)
 
 | Gherkin Feature | C# Alternative                              |
@@ -450,9 +477,11 @@ All exceptions include the step title and available values/params for easy debug
 - [ ] `Description` provided on `[Feature]` attribute
 - [ ] Constructor accepts `ITestOutputHelper` and passes to `base(output)`
 - [ ] Each scenario method has `[Scenario]` or `[ScenarioOutline]` attribute
+- [ ] Each scenario has one primary Given, When, and Then; additional steps use And/But
 - [ ] All test data appears in step title strings (self-documenting)
 - [ ] Values extracted via `ctx.Step!.Values` or `ctx.Step!.Params`, never hardcoded
 - [ ] `[Example]` parameter count matches method parameter count
 - [ ] `<Placeholder>` names in step titles match method parameter names (case-insensitive)
 - [ ] Async steps use `await` and the method returns `async Task`
+- [ ] Attachments are redacted and support an explicit assertion
 - [ ] Tests pass: `dotnet test`

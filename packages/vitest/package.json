@@ -1,6 +1,6 @@
 {
   "name": "@swedevtools/livedoc-vitest",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Garry McGlennon",
   "license": "MIT",
   "description": "BDD extensions for Vitest that support LiveDoc reporting with Gherkin syntax and MSpec-style specifications.",
@@ -20,41 +20,42 @@
   "bin": {
     "livedoc-vitest-setup": "./tools/livedoc-setup.mjs"
   },
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "default": "./dist/index.js"
     },
     "./reporter": {
       "types": "./dist/reporter/index.d.ts",
       "import": "./dist/reporter/index.js",
-      "require": "./dist/reporter/index.cjs"
+      "default": "./dist/reporter/index.js"
     },
     "./setup": {
       "types": "./dist/setup.d.ts",
       "import": "./dist/setup.js",
-      "require": "./dist/setup.cjs"
+      "default": "./dist/setup.js"
     },
     "./globals": {
       "types": "./dist/globals.d.ts",
       "import": "./dist/globals.js",
-      "require": "./dist/globals.cjs"
+      "default": "./dist/globals.js"
     },
     "./playwright": {
       "types": "./dist/playwright/index.d.ts",
       "import": "./dist/playwright/index.js",
-      "require": "./dist/playwright/index.cjs"
+      "default": "./dist/playwright/index.js"
     }
   },
   "files": [
     "dist",
     "tools",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "livedoc",
@@ -103,6 +104,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^20.19.27",
     "@types/wordwrap": "^1.0.3",
+    "@vitest/coverage-v8": "4.1.0",
     "@vitest/runner": "^4.0.16",
     "@vitest/ui": "^4.0.16",
     "chai": "^6.2.1",
@@ -114,9 +116,9 @@
     "vitest": "^4.0.16"
   },
   "peerDependencies": {
-    "@swedevtools/livedoc-server": ">=1.0.0",
+    "@swedevtools/livedoc-server": ">=0.3.0",
     "playwright": ">=1.50.0",
-    "vitest": ">=1.0.0"
+    "vitest": ">=4.0.16 <5"
   },
   "peerDependenciesMeta": {
     "@swedevtools/livedoc-server": {

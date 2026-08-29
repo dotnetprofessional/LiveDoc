@@ -54,8 +54,17 @@ jobs:
         run: npx vitest run --config vitest.config.ci.ts
         working-directory: packages/vitest
 
-      # Server tests skipped — test suite needs rewrite (see issue)
-      # Store API and route paths changed but tests weren't updated.
+      - name: Test server package
+        run: pnpm --filter @swedevtools/livedoc-server test
+
+      - name: Test viewer package
+        run: pnpm --filter @swedevtools/livedoc-viewer test
+
+      - name: Test consumer examples
+        run: |
+          pnpm --dir packages/vitest/examples/vitest-sample test
+          pnpm --dir packages/vitest/examples/custom-reporter test
+          pnpm --dir packages/vitest/examples/local-consumer test
 
       - name: Typecheck schema
         run: pnpm --filter @swedevtools/livedoc-schema typecheck
@@ -63,8 +72,8 @@ jobs:
       - name: Typecheck viewer
         run: pnpm --filter @swedevtools/livedoc-viewer typecheck
 
-      - name: Build VS Code extension
-        run: pnpm --filter livedoc-vscode compile
+      - name: Test and build VS Code extension
+        run: pnpm --filter livedoc-vscode test
 
       - name: Build documentation site
         run: pnpm --filter livedoc-docs build

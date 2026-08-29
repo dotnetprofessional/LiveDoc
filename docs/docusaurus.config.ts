@@ -98,14 +98,14 @@ const config: Config = {
         {
           title: 'SDKs',
           items: [
-            { label: 'Vitest (TypeScript)', to: '/vitest/learn/getting-started' },
-            { label: 'xUnit (.NET)', to: '/xunit/learn/getting-started' },
+            { label: 'Vitest (TypeScript)', to: '/vitest/' },
+            { label: 'xUnit (.NET)', to: '/xunit/' },
           ],
         },
         {
           title: 'Tools',
           items: [
-            { label: 'LiveDoc Viewer', to: '/viewer/learn/getting-started' },
+            { label: 'LiveDoc Viewer', to: '/viewer/' },
             { label: 'VS Code Extension', to: '/vscode/overview' },
           ],
         },

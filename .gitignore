@@ -31,5 +31,6 @@ _temp
 
 # Playwright CLI local data (screenshots, sessions)
 .playwright-cli/
+.playwright-mcp/
 
 reports/

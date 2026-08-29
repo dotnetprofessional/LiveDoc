@@ -41,36 +41,20 @@ from unit-level specifications to full end-to-end API journeys.
 
 ---
 
-## Quick Start
+## Start Here
 
-```bash
-dotnet add package SweDevTools.LiveDoc.xUnit
-```
+The [Getting Started guide](./learn/getting-started) is the single setup path
+for the xUnit SDK. Choose **AI Agent** or **.NET CLI** there, then create and run
+your first living specification.
 
-```csharp
-[Feature("Shopping Cart")]
-public class CartTests : FeatureTest
-{
-    public CartTests(ITestOutputHelper output) : base(output) { }
+<div className="nav-grid">
 
-    [Scenario("Adding an item increases the count")]
-    public void AddItem()
-    {
-        var cart = new Cart();
+<a className="nav-card" href="./learn/getting-started">
+<strong>🚀 Get Started with xUnit</strong>
+<span>Install LiveDoc manually or with an AI agent, then run your first documented test.</span>
+</a>
 
-        Given("an empty cart", () => { });
-        When("I add '1' item", () => cart.Add("Widget"));
-        Then("the cart contains '1' item", () =>
-            Assert.Equal(1, cart.Count));
-    }
-}
-```
-
-```bash
-dotnet test --logger LiveDoc
-```
-
-**[Full getting started guide →](./learn/getting-started)**
+</div>
 
 ---
 

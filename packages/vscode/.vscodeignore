@@ -2,6 +2,7 @@
 .vscode-test/**
 out/test/**
 out/**/*.map
+.test-out/**
 src/**
 images/**/*.gif
 *.zip

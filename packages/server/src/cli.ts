@@ -5,14 +5,18 @@
  */
 
 import { Command } from 'commander';
+import { readFileSync } from 'node:fs';
 import { startServer } from './index.js';
+
+const packageJsonUrl = new URL('../package.json', import.meta.url);
+const packageJson = JSON.parse(readFileSync(packageJsonUrl, 'utf8')) as { version: string };
 
 const program = new Command();
 
 program
   .name('livedoc-server')
   .description('LiveDoc Server - Receive and view test results')
-  .version('1.0.0');
+  .version(packageJson.version);
 
 program
   .option('-p, --port <port>', 'Port to listen on', '3100')

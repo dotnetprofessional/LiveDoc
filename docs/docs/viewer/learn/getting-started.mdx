@@ -35,7 +35,28 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 <Tabs>
-  <TabItem value="global" label="Global (recommended)" default>
+  <TabItem value="ai-agent" label="AI Agent" default>
+
+Give GitHub Copilot, OpenAI Codex, Claude Code, Cursor, Roo Code, Windsurf, or
+another repository-aware agent this prompt:
+
+```text
+Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
+for LiveDoc. Inspect the project first, then ask me one configuration question
+at a time. Summarize the proposed setup and wait for my approval before editing
+files or installing packages.
+```
+
+The agent will ask whether to install the Viewer globally, add it as a
+development dependency, use an existing installation, or skip it. It will also
+confirm publishing, project identity, coverage, validation, and the AI tools
+that should receive version-matched repository skills before making changes.
+
+No LiveDoc package or reusable skill needs to be installed before using this
+path.
+
+  </TabItem>
+  <TabItem value="global" label="Global">
     ```bash
     npm install -g @swedevtools/livedoc-viewer
     ```
@@ -122,11 +143,12 @@ reporters: [
   </TabItem>
   <TabItem value="xunit" label="xUnit (.NET)">
 
-Add the `[LiveDocViewerReporter]` attribute to your assembly:
+Install `SweDevTools.LiveDoc.xUnit`. Its reporter auto-discovers a Viewer running
+on `localhost:3100`; no assembly attribute is required.
 
-```csharp
-// In your test project (e.g., AssemblyInfo.cs)
-[assembly: LiveDocViewerReporter("http://localhost:3100")]
+```powershell
+dotnet add package SweDevTools.LiveDoc.xUnit
+dotnet test
 ```
 
 See the [xUnit Getting Started](/xunit/learn/getting-started) guide for full details.
@@ -173,10 +195,12 @@ graph LR
 - **Start** with `livedoc-viewer` (opens at `http://localhost:3100`)
 - **Connect** via `LiveDocSpecReporter` (auto-discovers the viewer) or `LiveDocViewerReporter` (explicit URL)
 - **Run tests** and watch results stream into the browser
+- **Share the current view** by copying its contextual browser URL
 
 :::tip See it live
 Want to see what the viewer looks like with real test data? Browse LiveDoc's own published test results:
-**[Vitest →](/reports/vitest/)** · **[xUnit →](/reports/dotnet/)**
+**[Vitest →](https://livedoc.swedevtools.com/reports/vitest/)** ·
+**[xUnit →](https://livedoc.swedevtools.com/reports/dotnet/)**
 :::
 
 ---
@@ -184,5 +208,6 @@ Want to see what the viewer looks like with real test data? Browse LiveDoc's own
 ## Next Steps
 
 - **Explore the UI**: [Understanding the UI](./understanding-the-ui.mdx) — learn what each panel shows
+- **Collect coverage**: [Code Coverage](../guides/code-coverage.mdx) — configure Vitest, xUnit, and Visual Studio
 - **CLI flags**: [CLI Options](../reference/cli-options.mdx) — all command-line options
 - **CI pipelines**: [CI/CD Dashboards](../guides/ci-cd-dashboards.mdx) — run the viewer in CI

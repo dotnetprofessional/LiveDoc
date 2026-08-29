@@ -24,6 +24,9 @@ export default defineConfig({
     include: ['_src/test/**/*.Spec.ts'],
     exclude: [
       ...configDefaults.exclude,
+      // Browser tests require a running viewer web server on port 3100.
+      '_src/test/BrowserTesting/playwright-integration.Spec.ts',
+      '_src/test/BrowserTesting/fresh-context-per-scenario.Spec.ts',
     ],
     testTimeout: 30_000, // Dynamic tests spawn child vitest processes
     setupFiles: ['./_src/app/setup.ts'],

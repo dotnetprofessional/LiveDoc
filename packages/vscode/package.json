@@ -2,7 +2,7 @@
     "name": "livedoc-vscode",
     "displayName": "livedoc",
     "description": "Tools and snippets for working with LiveDoc BDD testing (Vitest)",
-    "version": "0.0.2",
+    "version": "0.3.0",
     "publisher": "dotnetprofessional",
     "icon": "images/icon.png",
     "repository": {
@@ -170,10 +170,11 @@
     },
     "scripts": {
         "vscode:prepublish": "pnpm run compile",
-        "compile": "tsc -p ./ && node copy-viewer.js",
+        "compile": "rimraf out && tsc -p ./ --noEmit && esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node18 --external:vscode --sourcemap --outfile=out/extension.js && node copy-viewer.js",
         "watch": "tsc -watch -p ./",
         "package": "vsce package --no-dependencies",
-        "test": "pnpm run compile",
+        "test": "pnpm run compile && pnpm run test:unit",
+        "test:unit": "esbuild src/test/tableFormatter.test.js --bundle --platform=node --format=cjs --outfile=.test-out/tableFormatter.test.cjs && node --test .test-out/tableFormatter.test.cjs && rimraf .test-out",
         "link-livedoc": "node scripts/link-livedoc.js",
         "clean": "rimraf out \"*.vsix\" -g"
     },
@@ -197,6 +198,6 @@
         "aphrodite": "^2.4.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
-        "ws": "^8.18.3"
+        "ws": "^8.21.0"
     }
 }

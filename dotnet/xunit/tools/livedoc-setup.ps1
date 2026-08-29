@@ -2,8 +2,8 @@
 .SYNOPSIS
     LiveDoc AI Skill Installer -- install AI coding skills for your team.
 .PARAMETER Tool
-    Skip the menu and install for a specific tool (or 'all').
-    Valid values: copilot, claude, roo, cursor, windsurf, all
+    Skip the menu and install for one or more comma-separated tools (or 'all').
+    Valid values: copilot, codex, claude, roo, cursor, windsurf, all
 #>
 param(
     [string]$Tool
@@ -31,10 +31,11 @@ if (-not $gitRoot) { $gitRoot = Get-Location }
 
 $tools = [ordered]@{
     "1" = @{ Key = "copilot";  Name = "GitHub Copilot"; Dest = ".github/skills/livedoc-xunit" }
-    "2" = @{ Key = "claude";   Name = "Claude Code";    Dest = ".claude/skills/livedoc-xunit" }
-    "3" = @{ Key = "roo";      Name = "Roo Code";       Dest = ".roo/skills/livedoc-xunit" }
-    "4" = @{ Key = "cursor";   Name = "Cursor";         Dest = ".cursor/rules/livedoc-xunit" }
-    "5" = @{ Key = "windsurf"; Name = "Windsurf";       Dest = ".windsurf/rules/livedoc-xunit" }
+    "2" = @{ Key = "codex";    Name = "OpenAI Codex";   Dest = ".agents/skills/livedoc-xunit" }
+    "3" = @{ Key = "claude";   Name = "Claude Code";    Dest = ".claude/skills/livedoc-xunit" }
+    "4" = @{ Key = "roo";      Name = "Roo Code";       Dest = ".roo/skills/livedoc-xunit" }
+    "5" = @{ Key = "cursor";   Name = "Cursor";         Dest = ".cursor/rules/livedoc-xunit" }
+    "6" = @{ Key = "windsurf"; Name = "Windsurf";       Dest = ".windsurf/rules/livedoc-xunit" }
 }
 
 # Non-interactive mode (CI)
@@ -43,15 +44,22 @@ if ($Tool) {
     if ($Tool -eq "all") {
         $selected = $tools.Keys
     } else {
-        $match = $null
-        foreach ($k in $tools.Keys) {
-            if ($tools[$k].Key -eq $Tool) { $match = $k; break }
+        $selected = @()
+        $requestedTools = $Tool -split '[,\s]+' |
+            Where-Object { $_ } |
+            ForEach-Object { $_.Trim() } |
+            Select-Object -Unique
+        foreach ($requestedTool in $requestedTools) {
+            $match = $null
+            foreach ($k in $tools.Keys) {
+                if ($tools[$k].Key -eq $requestedTool) { $match = $k; break }
+            }
+            if (-not $match) {
+                Write-Host "  Unknown tool: $requestedTool. Use: copilot, codex, claude, roo, cursor, windsurf, all" -ForegroundColor Red
+                exit 1
+            }
+            $selected += $match
         }
-        if (-not $match) {
-            Write-Host "  Unknown tool: $Tool. Use: copilot, claude, roo, cursor, windsurf, all" -ForegroundColor Red
-            exit 1
-        }
-        $selected = @($match)
     }
 } else {
     # Interactive menu
@@ -64,17 +72,25 @@ if ($Tool) {
         Write-Host "    $key. $($tools[$key].Name)"
     }
     Write-Host "    A. All of the above"
+    Write-Host "    Use commas to select multiple tools, for example: 1,2,3"
     Write-Host ""
-    $choice = Read-Host "  Choice [A]"
+    $choice = Read-Host "  Choice(s) [A]"
     if (-not $choice) { $choice = "A" }
 
     if ($choice -eq "A" -or $choice -eq "a") {
         $selected = $tools.Keys
-    } elseif ($tools.Contains($choice)) {
-        $selected = @($choice)
     } else {
-        Write-Host "  Invalid choice: $choice" -ForegroundColor Red
-        exit 1
+        $selected = @()
+        $choices = $choice.Split(',', [StringSplitOptions]::RemoveEmptyEntries) |
+            ForEach-Object { $_.Trim() } |
+            Select-Object -Unique
+        foreach ($selectedChoice in $choices) {
+            if (-not $tools.Contains($selectedChoice)) {
+                Write-Host "  Invalid choice: $selectedChoice" -ForegroundColor Red
+                exit 1
+            }
+            $selected += $selectedChoice
+        }
     }
 }
 

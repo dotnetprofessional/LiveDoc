@@ -20,6 +20,26 @@ The following SVG screenshots were auto-generated from real vitest output using 
 
 To regenerate: `node scripts/generate-terminal-svgs.mjs`
 
+## ✅ Viewer Screenshots (CURRENT)
+
+The following screenshots were refreshed from the current Viewer:
+
+| Filename | Content |
+| -------- | ------- |
+| `viewer-dashboard-full.png` | Quality Signals dashboard with coverage and rule violations |
+| `viewer-dashboard-hero.png` | Landing-page dashboard image |
+| `viewer-populated.png` | Populated getting-started dashboard |
+| `viewer-sidebar-tree.png` | Current project/environment/run sidebar |
+| `viewer-failed-step.png` | xUnit failed step with assertion details |
+| `viewer-scenario-detail.png` | Current xUnit scenario detail |
+| `viewer-scenario-steps.png` | Current Given/When/Then result view |
+| `viewer-code-coverage-summary.png` | Dashboard module coverage section |
+| `viewer-code-coverage.png` | Coverage explorer with line and branch metrics |
+| `viewer-rule-violations.png` | Rule-violation dashboard section |
+| `viewer-settings.png` | Grouping and latest-run preferences |
+| `viewer-multi-project.png` | Project selector with logical groups |
+| `viewer-live-update.png` | Global live-update banner while a historical run remains selected |
+
 ## Naming Convention
 
 All files use kebab-case with descriptive names: `{area}-{description}.png`

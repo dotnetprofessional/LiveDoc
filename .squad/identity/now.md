@@ -1,9 +1,11 @@
 ---
-updated_at: 2026-03-22T01:36:00Z
-focus_area: Team hired — ready for work
+updated_at: 2026-07-18T18:57:19Z
+focus_area: Automatic xUnit coverage attachment in Visual Studio Test Explorer
 active_issues: []
 ---
 
 # What We're Focused On
 
-Full team hired. 6 specialists covering TypeScript framework, React frontend, VS Code extension, .NET/C#, and testing. Ready for tasks.
+The xUnit reporter now detects Visual Studio coverage and writes run metadata, but Test Explorer is not activating the post-run `LiveDocCoverage` logger. Coverage therefore remains pending instead of being attached to the completed LiveDoc run and rendered in the viewer.
+
+Reasoning-heavy agent work uses `gpt-5.6-sol` or `claude-opus-4.8`; lightweight models are reserved for mechanical tasks.

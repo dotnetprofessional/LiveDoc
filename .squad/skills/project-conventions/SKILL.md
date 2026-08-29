@@ -12,9 +12,15 @@ source: "template"
 
 ## Patterns
 
-### [Pattern Name]
+### UI Controls
 
-Describe a key convention or practice used in this codebase. Be specific about what to do and why.
+For `packages/viewer` and `packages/vscode`, use shadcn/ui-style components backed by Radix primitives for common controls before building custom UI behavior.
+
+- Use existing local wrappers in `packages/viewer/src/client/components/ui/` for buttons, dialogs, dropdowns, tabs, progress, cards, badges, separators, and similar primitives.
+- If a matching shadcn component exists but is missing locally, add the wrapper following the shadcn pattern instead of hand-rolling spans/divs with ARIA.
+- If no shadcn/Radix primitive fits a bespoke surface, use native semantic elements first (`button`, `a`, `input`) and document why a custom implementation is necessary.
+- Do not hand-roll checkboxes, switches, tabs, menus, dialogs, buttons, selects, sliders, or inputs when a shadcn/Radix component exists. This keeps styling, keyboard behavior, focus rings, disabled states, and accessibility consistent.
+- Raw Radix primitives are acceptable for specialized layouts only when the shadcn wrapper is too opinionated; follow the existing attachment viewer decision pattern and record the rationale.
 
 ### Error Handling
 
@@ -52,5 +58,4 @@ Describe a key convention or practice used in this codebase. Be specific about w
 
 ## Anti-Patterns
 
-<!-- List things to avoid in this codebase -->
-- **[Anti-pattern]** — Explanation of what not to do and why.
+- **Hand-rolled common controls** — Avoid custom `span`/`div` controls for standard UI primitives such as checkboxes, switches, buttons, dialogs, dropdowns, tabs, inputs, and selects. Use or add the shadcn/Radix wrapper instead to reduce visual drift and interaction bugs.

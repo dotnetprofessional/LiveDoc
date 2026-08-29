@@ -126,9 +126,25 @@ Feature: Order Discounts
 
 </div>
 
-The AI doesn't just produce syntactically correct tests — it produces **well-structured living documentation** with values in titles, edge cases covered, and clear business language. The built-in skills teach it LiveDoc's patterns, value extraction, and self-documenting conventions.
+The AI doesn't just produce syntactically correct tests — it produces **well-structured living documentation** with values in titles, edge cases covered, and clear business language. The bundled skills teach it LiveDoc's patterns, value extraction, Viewer setup, and coverage configuration.
 
-This works with any AI coding tool — **GitHub Copilot**, **Cursor**, **Claude Code**, and others. The skills are installed alongside the SDK, so there's nothing extra to set up.
+### Fastest Setup: Point Your AI at One URL
+
+LiveDoc does not need to be installed first. Give your AI assistant this prompt:
+
+> Read https://livedoc.swedevtools.com/ai/setup.md and configure this repository
+> for LiveDoc. Inspect the project first, ask me one configuration question at a
+> time, and wait for approval before making changes.
+
+The bootstrap page teaches the agent how to detect Vitest, xUnit, or a mixed
+monorepo; interview you about project identity, Viewer publishing, coverage,
+thresholds, and partial testing; install the approved packages; and validate the
+result.
+
+**[See how AI project setup works →](/guides/ai-project-setup)**
+
+AI setup also installs version-matched LiveDoc skills inside the repository for
+every selected tool, including Copilot, Codex, and Claude Code.
 
 ---
 
@@ -200,7 +216,7 @@ Want to see what LiveDoc produces? These reports are generated automatically by 
 
 <div className="sdk-grid">
 
-<a className="sdk-card sdk-card--ts" href="/reports/vitest/" target="_blank" rel="noopener">
+<a className="sdk-card sdk-card--ts" href="https://livedoc.swedevtools.com/reports/vitest/" target="_blank" rel="noopener">
 
 ### Vitest Test Results
 
@@ -210,7 +226,7 @@ Browse the full LiveDoc Vitest test suite — features, specifications, and scen
 
 </a>
 
-<a className="sdk-card sdk-card--dotnet" href="/reports/dotnet/" target="_blank" rel="noopener">
+<a className="sdk-card sdk-card--dotnet" href="https://livedoc.swedevtools.com/reports/dotnet/" target="_blank" rel="noopener">
 
 ### xUnit Test Results
 
@@ -235,10 +251,10 @@ Browse the LiveDoc xUnit test suite — BDD features, journey tests, and .NET sp
 BDD and specification patterns for Vitest with zero boilerplate.
 
 ```bash
-npm install -D @swedevtools/livedoc-vitest
+npm install -D vitest@^4.0.16 @swedevtools/livedoc-vitest
 ```
 
-**[Get Started →](/vitest/learn/getting-started)**
+**[Get Started →](/vitest/learn/getting-started)** · [Set up with AI →](/guides/ai-project-setup)
 
 </div>
 
@@ -253,7 +269,7 @@ Includes **Journey Testing** — end-to-end API flows in `.http` files with auto
 dotnet add package SweDevTools.LiveDoc.xUnit
 ```
 
-**[Get Started →](/xunit/learn/getting-started)** · [Journey Testing →](/xunit/guides/journey-testing)
+**[Get Started →](/xunit/learn/getting-started)** · [Set up with AI →](/guides/ai-project-setup) · [Journey Testing →](/xunit/guides/journey-testing)
 
 </div>
 
@@ -308,17 +324,17 @@ GET {{baseUrl}}/api/users/{{createUser.id}}
 <span>BDD, specifications, data-driven tests, and the reporting model.</span>
 </a>
 
-<a className="nav-card" href="/vitest/learn/getting-started">
+<a className="nav-card" href="/vitest/">
 <strong>⚡ Vitest SDK</strong>
 <span>TypeScript API reference, tutorials, and guides.</span>
 </a>
 
-<a className="nav-card" href="/xunit/learn/getting-started">
+<a className="nav-card" href="/xunit/">
 <strong>🔷 xUnit SDK</strong>
 <span>.NET API reference, tutorials, and guides.</span>
 </a>
 
-<a className="nav-card" href="/viewer/learn/getting-started">
+<a className="nav-card" href="/viewer/">
 <strong>🖥️ Viewer</strong>
 <span>Real-time test result visualizer and dashboard.</span>
 </a>

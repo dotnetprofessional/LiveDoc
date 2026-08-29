@@ -3,7 +3,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = "Journey generator emits LiveDoc test code with configurable namespace and fixture types.")]
+[Specification("Journey Generator", Description = "Journey generator emits LiveDoc test code with configurable namespace and fixture types.")]
 public class Journey_Generator_Spec : SpecificationTest
 {
     public Journey_Generator_Spec(ITestOutputHelper output) : base(output)

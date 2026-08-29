@@ -87,3 +87,49 @@ These changes ensure files with backgrounds render correctly — the coordinator
 
 **vx-9 — Session summary sums all runs but documents are last-writer-wins**: `getCurrentViewData` now passes `session.runs` through to `RunLike.run.runs`. SummaryView picks the latest run's summary (by timestamp) when `runs[]` is present, so the displayed totals match the visible last-writer-wins documents.
 
+### Lastrun Viewer Diagnostics (2025-07-25)
+
+**Root cause diagnosis**: Analyzed lastrun.json rendering failure where valid xUnit test data (protocolVersion: "1.0", runId, documents with RuleOutline tests) was not appearing in the viewer. The data structure is valid TestRunV1 format per schema.
+
+**Key findings**:
+1. **Static data hydration path**: `useStaticData` hook loads data via `window.__LIVEDOC_DATA__`, calls `makeRunState()`, and selects the run — all working correctly
+2. **No protocol filtering issues**: Static mode doesn't filter by protocolVersion (unlike WebSocket path which filters for '1.0')
+3. **MainContent empty state logic**: Shows "No test results yet" when `getCurrentViewData()` returns undefined, but doesn't distinguish between:
+   - No data loaded (legitimate empty state)
+   - Data loaded but rendering failed (silent failure)
+   - Data loaded but invalid/corrupt (undiagnosed)
+4. **Missing diagnostics**: Viewer has no console logging, error boundaries, or UI feedback when:
+   - `makeRunState()` builds an empty/invalid itemById index
+   - Documents array is malformed
+   - Protocol version mismatch in future schema changes
+   - Data fails to deserialize from `window.__LIVEDOC_DATA__`
+
+**Viewer robustness gaps**:
+- **No data validation**: Export tool validates protocolVersion at export time, but viewer never re-validates at load time
+- **No error surfacing**: If static data is corrupt, viewer shows generic "No test results yet" message (same as true empty state)
+- **No schema version diagnostics**: If protocol version becomes incompatible in future (e.g., viewer expects 2.0, file is 1.0), user gets no actionable feedback
+- **No dev mode logging**: Even in development, no console logs show data hydration success/failure or itemById index size
+
+**Recommended fixes** (NOT implemented — diagnosis-only session):
+1. Add `useEffect` console logging in `useStaticData` showing data load success/failure, document count, and itemById size
+2. Create a diagnostics panel (dev-mode only) showing: loaded runId, protocol version, document count, test count, itemById keys
+3. Enhance MainContent empty state to detect and display distinct messages:
+   - "Loading..." (data not yet loaded)
+   - "No test results yet" (runs/sessions arrays empty)
+   - "⚠️ Data loaded but invalid" (run selected but getCurrentViewData returns undefined)
+4. Add error boundary around viewer root to catch render exceptions and show user-friendly "Something went wrong" message with actionable steps
+5. Implement protocol version compatibility check with clear upgrade prompt if mismatch detected
+
+**File paths for future work**:
+- `packages/viewer/src/client/hooks/useStaticData.ts` — add validation + logging
+- `packages/viewer/src/client/components/MainContent.tsx` — enhance empty state detection
+- `packages/viewer/src/client/store.ts` — add validation helpers in `makeRunState()`
+
+### Team Updates (2026-05-15 — lastrun-viewer-diagnostics investigation)
+
+**Kaylee's diagnostics proposal**: Reviewed viewer hydration issues with valid xUnit lastrun data. Identified lack of diagnostic empty states for silent failures. Proposed framework: static data validation + console logging, enhanced empty state detection (Connecting/No results/Failed to render), dev-mode diagnostics panel, React error boundary, and protocol version compatibility checks. Decision documented in decisions.md: "Add Viewer Data Diagnostics for Silent Failures". Awaiting architecture review and priority confirmation.
+
+**Simon's payload compatibility audit**: xUnit lastrun conforms to Reporter v1 schema with identified fragilities (sessionId field mismatch, enum serialization as type=object). No render blocker — requires server/viewer guardrails. Decision documented: "xUnit Reporter v1 Payload Shape Compatibility".
+
+**Zoe's regression test proposal**: Four BDD test scenarios proposed for ServerV1API.Spec.ts: valid RuleOutline hydration, corrupted JSON diagnostics, old-schema diagnostics, empty session coexistence. Guards against silent failures and UX regressions. Decision documented: "lastrun.json Hydration Regression Tests".
+

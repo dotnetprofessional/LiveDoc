@@ -60,6 +60,7 @@ As of v0.1.6, `LiveDocSpecReporter` handles both console output **and** server a
 | `json-output`      | `string`           | `undefined`                | File path for JSON output (used with `JsonReporter`).    |
 | `publish`          | `object`           | `undefined`                | Explicit server publish configuration (see below).       |
 | `export`           | `object`           | `undefined`                | Write a TestRunV1 JSON file to disk (see [Export Options](#export-options)). |
+| `coverage`         | `object`           | `undefined`                | Attach coverage evidence and optional thresholds. Requires a Vitest coverage provider. |
 
 #### Auto-Discovery {#auto-discovery}
 
@@ -68,8 +69,10 @@ When `LiveDocSpecReporter` initializes, it automatically attempts to find a runn
 1. **Environment variables** — `LIVEDOC_SERVER_URL` or `LIVEDOC_PUBLISH_SERVER`
 2. **Explicit `publish` config** — `livedoc.options.publish` in your vitest config
 3. **`discoverServer()` fallback** — dynamically imports `@swedevtools/livedoc-server` to probe for a running server
+4. **Default local viewer** — probes `http://localhost:3100/api/health`
 
 If no server is found, the reporter silently continues with console-only output — your tests always run normally.
+Use `LIVEDOC_PROJECT` and `LIVEDOC_ENVIRONMENT` to control where the run appears in the viewer.
 
 #### Publish Options {#publish-options}
 
@@ -80,7 +83,7 @@ new LiveDocSpecReporter({
   detailLevel: "spec+summary+headers",
   publish: {
     enabled: true,
-    server: "http://localhost:3000",
+    server: "http://localhost:3100",
     project: "my-project",
     environment: "local",
   },
@@ -91,8 +94,35 @@ new LiveDocSpecReporter({
 | --------------------- | --------- | -------------- | ---------------------------------- |
 | `publish.enabled`     | `boolean` | `false`        | Enable server publishing           |
 | `publish.server`      | `string`  | `undefined`    | Server URL                         |
-| `publish.project`     | `string`  | `"default"`    | Project name for grouping results  |
+| `publish.project`     | `string`  | `"livedoc"`    | Project name for grouping results  |
 | `publish.environment` | `string`  | `"local"`      | Environment label                  |
+| `publish.runType`     | `"full" \| "partial"` | `"full"` | Publish a complete baseline or focused partial update |
+
+#### Coverage Options {#coverage-options}
+
+Install `@vitest/coverage-v8` at the same version as Vitest, enable Vitest
+coverage, and set `coverage.enabled` on the reporter:
+
+```typescript
+new LiveDocSpecReporter({
+  coverage: {
+    enabled: true,
+    thresholds: {
+      lines: 80,
+      branches: 75,
+    },
+  },
+})
+```
+
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `coverage.enabled` | `boolean` | `false` | Expect and publish coverage evidence |
+| `coverage.path` / `coverage.artifactPath` | `string` | Auto-detect | Custom JSON summary or LCOV artifact |
+| `coverage.thresholds` | `Partial<Record<"lines" \| "branches" \| "functions" \| "statements", number>>` | None | Non-fatal Viewer warnings |
+
+See [Code Coverage](../../viewer/guides/code-coverage.mdx) for the complete
+runner configuration and dependency matrix.
 
 #### Export Options {#export-options}
 
@@ -110,7 +140,7 @@ new LiveDocSpecReporter({
 | Option               | Type     | Default       | Description                                                                |
 | -------------------- | -------- | ------------- | -------------------------------------------------------------------------- |
 | `export.output`      | `string` | `"./test-results/livedoc-report.json"` | File path for the JSON output. Directories are created automatically. |
-| `export.project`     | `string` | Publish config or `"default"` | Project name embedded in the JSON. Falls back to `publish.project`. |
+| `export.project`     | `string` | Publish config or `"livedoc"` | Project name embedded in the JSON. Falls back to `publish.project`. |
 | `export.environment` | `string` | Auto-detected  | Environment label. Falls back to `publish.environment`, then auto-detects (`"ci"` when `CI` env var is set, `"local"` otherwise). |
 
 :::info Export runs alongside publishing
@@ -230,7 +260,7 @@ new LiveDocViewerReporter(options?: LiveDocViewerOptions)
 | Option        | Type      | Default                      | Description                                      |
 | ------------- | --------- | ---------------------------- | ------------------------------------------------ |
 | `server`      | `string`  | `"http://localhost:3100"`    | Viewer server URL                                |
-| `project`     | `string`  | `"default"`                  | Project name for grouping results                |
+| `project`     | `string`  | `"livedoc"`                  | Project name for grouping results                |
 | `environment` | `string`  | `"local"`                    | Environment label (e.g., `"local"`, `"ci"`)      |
 | `timeout`     | `number`  | `5000`                       | HTTP request timeout in milliseconds             |
 | `silent`      | `boolean` | `true`                       | If `true`, fails silently when server is unavailable |

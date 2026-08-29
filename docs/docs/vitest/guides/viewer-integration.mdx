@@ -83,6 +83,51 @@ npx vitest run
 Results appear in the viewer automatically. If running in watch mode
 (`npx vitest`), the viewer updates on every test re-run.
 
+## Add Code Coverage
+
+Install the coverage provider that matches your Vitest version:
+
+```bash
+npm install --save-dev @vitest/coverage-v8
+```
+
+Enable both Vitest coverage and LiveDoc coverage evidence:
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { LiveDocSpecReporter } from '@swedevtools/livedoc-vitest/reporter';
+
+export default defineConfig({
+  test: {
+    reporters: [
+      new LiveDocSpecReporter({
+        coverage: {
+          enabled: true,
+          thresholds: {
+            lines: 80,
+            branches: 75,
+          },
+        },
+      }),
+    ],
+    coverage: {
+      enabled: true,
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+    },
+  },
+});
+```
+
+```bash
+npx vitest run --coverage
+```
+
+LiveDoc reads the in-memory coverage map and displays line, branch, function,
+and statement metrics. See the shared [Code Coverage guide](../../viewer/guides/code-coverage.mdx)
+for artifact fallbacks and troubleshooting.
+
 ## Complete Example
 
 ```typescript
@@ -163,7 +208,7 @@ export default defineConfig({
 | Option | Default | Description |
 | ------ | ------- | ----------- |
 | `server` | `'http://localhost:3100'` | Viewer server URL |
-| `project` | `'default'` | Project name for grouping results |
+| `project` | `'livedoc'` | Project name for grouping results |
 | `environment` | `'local'` | Environment label (e.g., `'ci'`, `'staging'`) |
 | `timeout` | `5000` | HTTP request timeout in milliseconds |
 | `silent` | `true` | Fail silently if the viewer is unavailable |
@@ -228,6 +273,7 @@ export default defineConfig({
 | Port conflict on 3100 | Another process using the port | Use `./scripts/start-viewer.ps1 -KillStale` or change the viewer port |
 | No output in VS Code | Custom reporter conflicts | Use the VS Code environment detection pattern above |
 | Want explicit control | Auto-discovery not desired | Use `LiveDocViewerReporter` as a post-reporter with explicit server URL |
+| Coverage is absent | Provider missing or coverage not enabled | Install `@vitest/coverage-v8` and run with `--coverage` |
 
 ## Related
 
@@ -235,3 +281,4 @@ export default defineConfig({
 - [CI/CD Integration](./ci-cd.mdx) — viewer in CI pipelines
 - [Reporters Reference](../reference/reporters.mdx) — full reporter API
 - [Configuration](../reference/configuration.mdx) — all configuration options
+- [Code Coverage](../../viewer/guides/code-coverage.mdx) — coverage providers, thresholds, and Viewer behavior

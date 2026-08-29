@@ -3,8 +3,11 @@ import { randomUUID } from 'node:crypto';
 import type { IPostReporter } from './IPostReporter';
 import type {
   AnyTest,
+  CoverageMetricName,
+  CoverageReport,
   ExecutionResult,
   Framework,
+  RunType,
   Statistics,
   Status,
   StepKeyword,
@@ -26,6 +29,7 @@ import {
   RuleOutline as SDKRuleOutline,
   VitestSuite as SDKVitestSuite,
 } from '../model/index';
+import { collectCoverageReport, type CoverageCollectionOptions } from './CoverageCollector';
 
 interface V1StartRunResponse {
   protocolVersion: '1.0';
@@ -37,26 +41,37 @@ interface V1CompleteRunRequest {
   status: Status;
   duration: number;
   summary?: Statistics;
+  coverage?: CoverageReport;
 }
 
 export interface LiveDocViewerOptions {
   server?: string;
   project?: string;
   environment?: string;
+  runType?: RunType;
   timeout?: number;
   silent?: boolean;
+  coverage?: {
+    enabled?: boolean;
+    path?: string;
+    thresholds?: Partial<Record<CoverageMetricName, number>>;
+  };
 }
 
 export class LiveDocViewerReporter implements IPostReporter {
   private options: Required<LiveDocViewerOptions>;
+  private readonly hasExplicitRunType: boolean;
 
   constructor(options?: LiveDocViewerOptions) {
+    this.hasExplicitRunType = options?.runType !== undefined;
     this.options = {
       server: options?.server || 'http://localhost:3100',
-      project: options?.project || 'default',
+      project: options?.project || 'livedoc',
       environment: options?.environment || 'local',
+      runType: this.parseRunType(options?.runType ?? process.env.LIVEDOC_RUN_TYPE),
       timeout: options?.timeout || 10000,
       silent: options?.silent ?? true,
+      coverage: options?.coverage || {},
     };
   }
 
@@ -89,7 +104,7 @@ export class LiveDocViewerReporter implements IPostReporter {
         await this.upsertTestCase(runId, testCase);
       }
 
-      await this.completeRun(runId, results);
+      await this.completeRun(runId, results, rawOptions);
     } catch (error) {
       if (!this.options.silent) {
         console.error('LiveDocViewerReporter error:', error);
@@ -103,6 +118,11 @@ export class LiveDocViewerReporter implements IPostReporter {
    */
   public buildTestRun(results: ExecutionResults, rawOptions?: any): TestRunV1 {
     this.applyRawOptions(rawOptions);
+    if (this.options.runType === 'partial') {
+      throw new Error(
+        'partial-export-unsupported: Partial runs require server history and cannot be exported directly.'
+      );
+    }
 
     const pathContext = this.buildPathContext(results);
     const documents: TestCase[] = [];
@@ -122,6 +142,7 @@ export class LiveDocViewerReporter implements IPostReporter {
     const { summary, duration } = this.calculateSummary(results);
     const status = this.calculateOverallStatus(results);
 
+    const coverage = this.collectCoverage(rawOptions);
     return {
       protocolVersion: '1.0',
       runId: randomUUID(),
@@ -133,6 +154,7 @@ export class LiveDocViewerReporter implements IPostReporter {
       status,
       summary,
       documents,
+      ...(coverage ? { coverage } : {}),
     };
   }
 
@@ -179,11 +201,26 @@ export class LiveDocViewerReporter implements IPostReporter {
     if (rawOptions?.['viewer-environment']) {
       this.options.environment = rawOptions['viewer-environment'];
     }
+    if (!this.hasExplicitRunType && rawOptions?.['viewer-run-type']) {
+      this.options.runType = this.parseRunType(rawOptions['viewer-run-type']);
+    }
     if (rawOptions?.['viewer-timeout'] !== undefined) {
       const parsed = Number(rawOptions['viewer-timeout']);
       if (Number.isFinite(parsed) && parsed > 0) {
         this.options.timeout = parsed;
       }
+    }
+    const coverage = rawOptions?.coverage;
+    if (coverage && typeof coverage === 'object') {
+      this.options.coverage = {
+        ...this.options.coverage,
+        enabled: coverage.enabled ?? this.options.coverage.enabled,
+        path: coverage.path ?? coverage.artifactPath ?? this.options.coverage.path,
+        thresholds: coverage.thresholds ?? this.options.coverage.thresholds,
+      };
+    }
+    if (rawOptions?.['coverage-path']) {
+      this.options.coverage.path = String(rawOptions['coverage-path']);
     }
   }
 
@@ -192,10 +229,18 @@ export class LiveDocViewerReporter implements IPostReporter {
       project: this.options.project,
       environment: this.options.environment,
       framework: 'vitest' as Framework,
+      runType: this.options.runType,
     };
 
     const response = await this.post<V1StartRunResponse>('/api/v1/runs/start', request);
     return response?.runId || null;
+  }
+
+  private parseRunType(value: unknown): RunType {
+    if (value === undefined || value === null || value === '') return 'full';
+    const normalized = typeof value === 'string' ? value.trim().toLowerCase() : value;
+    if (normalized === 'full' || normalized === 'partial') return normalized;
+    throw new Error(`Invalid LiveDoc run type '${String(value)}'. Expected 'full' or 'partial'.`);
   }
 
   private async upsertTestCase(runId: string, testCase: TestCase): Promise<void> {
@@ -972,17 +1017,33 @@ export class LiveDocViewerReporter implements IPostReporter {
     return { value, type: 'object' };
   }
 
-  private async completeRun(runId: string, results: ExecutionResults): Promise<void> {
+  private async completeRun(runId: string, results: ExecutionResults, rawOptions?: any): Promise<void> {
     const { summary, duration } = this.calculateSummary(results);
     const overallStatus = this.calculateOverallStatus(results);
+    const coverage = this.collectCoverage(rawOptions);
 
     const request: V1CompleteRunRequest = {
       status: overallStatus,
       duration,
       summary,
+      ...(coverage ? { coverage } : {}),
     };
 
     await this.post(`/api/v1/runs/${runId}/complete`, request);
+  }
+
+  private collectCoverage(rawOptions?: any): CoverageReport | undefined {
+    const context = rawOptions?.coverageContext ?? {};
+    const options: CoverageCollectionOptions = {
+      enabled: this.options.coverage.enabled ?? context.enabled,
+      coverageMap: context.coverageMap,
+      artifactPath: this.options.coverage.path ?? context.artifactPath,
+      rootDir: context.rootDir,
+      reportsDirectory: context.reportsDirectory,
+      runStartedAt: context.runStartedAt,
+      thresholds: this.options.coverage.thresholds ?? context.thresholds,
+    };
+    return collectCoverageReport(options);
   }
 
   private mapStatus(status: SpecStatus): Status {

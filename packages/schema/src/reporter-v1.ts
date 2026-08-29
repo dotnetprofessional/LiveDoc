@@ -99,6 +99,70 @@ export interface Statistics {
 }
 
 // =============================================================================
+// Coverage
+// =============================================================================
+
+export type CoverageMetricName = 'lines' | 'branches' | 'functions' | 'statements';
+
+export interface CoverageMetric {
+  covered: number;
+  total: number;
+  skipped?: number;
+  pct: number | null;
+}
+
+export type CoverageSummary = Partial<Record<CoverageMetricName, CoverageMetric>>;
+
+export interface CoverageProvenance {
+  tool?: string;
+  format: 'istanbul-json-summary' | 'lcov' | 'cobertura' | string;
+  path?: string;
+  detected: 'auto' | 'configured';
+  generatedAt?: string;
+}
+
+export interface CoverageFile {
+  path: string;
+  module?: string;
+  summary: CoverageSummary;
+  detailRef?: string;
+}
+
+export type CoverageDiagnosticCode =
+  | 'not-configured'
+  | 'artifact-missing'
+  | 'parse-failed'
+  | 'unsupported-format'
+  | 'stale'
+  | 'threshold-warning'
+  | 'dotnet-coverage-missing'
+  | 'dotnet-coverage-conversion-failed';
+
+export interface CoverageDiagnostic {
+  severity: 'info' | 'warning' | 'error';
+  code: CoverageDiagnosticCode | string;
+  message: string;
+  path?: string;
+  details?: string[];
+}
+
+export interface CoverageThreshold {
+  metric: CoverageMetricName;
+  minimum: number;
+  actual: number | null;
+  status: 'passed' | 'warning';
+}
+
+export interface CoverageReport {
+  status: 'available' | 'not-collected' | 'partial' | 'invalid';
+  summary?: CoverageSummary;
+  files?: CoverageFile[];
+  diagnostics?: CoverageDiagnostic[];
+  provenance?: CoverageProvenance;
+  thresholds?: CoverageThreshold[];
+}
+
+// =============================================================================
 // Kinds / Styles
 // =============================================================================
 
@@ -256,12 +320,14 @@ export type TestCase = FeatureTestCase | SpecificationTestCase | ContainerTestCa
 // =============================================================================
 
 export type Framework = 'vitest' | 'xunit' | 'mocha' | 'jest' | string;
+export type RunType = 'full' | 'partial';
 
 export interface TestRunV1 {
   protocolVersion: '1.0';
 
   runId: string;
-  sessionId?: string; // Server-assigned, read-only for clients
+  runType?: RunType;
+  baselineRunId?: string;
   project: string;
   environment: string;
   framework: Framework;
@@ -273,30 +339,6 @@ export interface TestRunV1 {
   summary: Statistics;
 
   documents: TestCase[];
-}
 
-// =============================================================================
-// Session Aggregation
-// =============================================================================
-
-export interface SessionRunInfo {
-  runId: string;
-  framework: string;
-  status: Status;
-  timestamp: string;
-  duration: number;
-  summary: Statistics;
-  documentCount: number;
-}
-
-export interface SessionV1 {
-  sessionId: string;
-  project: string;
-  environment: string;
-  status: Status; // Worst-of all member runs
-  timestamp: string; // Earliest member run timestamp
-  duration: number; // Wall-clock: latest end - earliest start
-  summary: Statistics; // Aggregated across all runs
-  runs: SessionRunInfo[]; // Info about each member run
-  documents: TestCase[]; // Union of all documents, last-writer-wins
+  coverage?: CoverageReport;
 }

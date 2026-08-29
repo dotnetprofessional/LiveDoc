@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # LiveDoc AI Skill Installer -- install AI coding skills for your team.
-# Usage: livedoc-setup.sh [--tool copilot|claude|roo|cursor|windsurf|all]
+# Usage: livedoc-setup.sh [--tool copilot,codex,claude|all]
 
 set -euo pipefail
 
@@ -19,6 +19,7 @@ GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 # Tool definitions: key|name|dest
 TOOLS=(
     "copilot|GitHub Copilot|.github/skills/livedoc-xunit"
+    "codex|OpenAI Codex|.agents/skills/livedoc-xunit"
     "claude|Claude Code|.claude/skills/livedoc-xunit"
     "roo|Roo Code|.roo/skills/livedoc-xunit"
     "cursor|Cursor|.cursor/rules/livedoc-xunit"
@@ -40,19 +41,33 @@ if [ -n "$TOOL_ARG" ]; then
     if [ "$TOOL_ARG" = "all" ]; then
         selected=("${!TOOLS[@]}")
     else
-        found=false
-        for i in "${!TOOLS[@]}"; do
-            key="${TOOLS[$i]%%|*}"
-            if [ "$key" = "$TOOL_ARG" ]; then
-                selected=("$i")
-                found=true
-                break
+        selected=()
+        IFS=',' read -ra requested <<< "$TOOL_ARG"
+        for requested_tool in "${requested[@]}"; do
+            requested_tool="$(echo "$requested_tool" | xargs)"
+            found=false
+            for i in "${!TOOLS[@]}"; do
+                key="${TOOLS[$i]%%|*}"
+                if [ "$key" = "$requested_tool" ]; then
+                    already_selected=false
+                    for selected_index in "${selected[@]+"${selected[@]}"}"; do
+                        if [ "$selected_index" = "$i" ]; then
+                            already_selected=true
+                            break
+                        fi
+                    done
+                    if [ "$already_selected" = false ]; then
+                        selected+=("$i")
+                    fi
+                    found=true
+                    break
+                fi
+            done
+            if [ "$found" = false ]; then
+                echo "  Unknown tool: $requested_tool. Use: copilot, codex, claude, roo, cursor, windsurf, all" >&2
+                exit 1
             fi
         done
-        if [ "$found" = false ]; then
-            echo "  Unknown tool: $TOOL_ARG. Use: copilot, claude, roo, cursor, windsurf, all" >&2
-            exit 1
-        fi
     fi
 else
     # Interactive menu
@@ -66,8 +81,9 @@ else
         echo "    $((i+1)). $name"
     done
     echo "    A. All of the above"
+    echo "    Use commas to select multiple tools, for example: 1,2,3"
     echo ""
-    printf "  Choice [A]: "
+    printf "  Choice(s) [A]: "
     # Reconnect stdin to terminal if redirected (e.g. running under MSBuild)
     if [ ! -t 0 ] && [ -e /dev/tty ]; then
         read -r choice < /dev/tty
@@ -78,11 +94,32 @@ else
 
     if [[ "$choice" =~ ^[Aa]$ ]]; then
         selected=("${!TOOLS[@]}")
-    elif [[ "$choice" =~ ^[1-5]$ ]]; then
-        selected=("$((choice-1))")
     else
-        echo "  Invalid choice: $choice" >&2
-        exit 1
+        selected=()
+        IFS=',' read -ra choices <<< "$choice"
+        for selected_choice in "${choices[@]}"; do
+            selected_choice="$(echo "$selected_choice" | xargs)"
+            if [[ ! "$selected_choice" =~ ^[0-9]+$ ]]; then
+                echo "  Invalid choice: $selected_choice" >&2
+                exit 1
+            fi
+            choice_number="$((10#$selected_choice))"
+            if (( choice_number < 1 || choice_number > ${#TOOLS[@]} )); then
+                echo "  Invalid choice: $selected_choice" >&2
+                exit 1
+            fi
+            index="$((choice_number-1))"
+            already_selected=false
+            for selected_index in "${selected[@]+"${selected[@]}"}"; do
+                if [ "$selected_index" = "$index" ]; then
+                    already_selected=true
+                    break
+                fi
+            done
+            if [ "$already_selected" = false ]; then
+                selected+=("$index")
+            fi
+        done
     fi
 fi
 

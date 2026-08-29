@@ -1,0 +1,44 @@
+using SweDevTools.LiveDoc.xUnit;
+using Xunit.Abstractions;
+
+namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
+
+/// <summary>
+/// Specification: Async Rules
+/// 
+/// Tests for async support in Specification-style rules.
+/// </summary>
+[Specification("Async Rules", Description = @"
+    Specification-style [Rule] and [RuleOutline] methods support async/await,
+    allowing asynchronous assertions and data-driven async tests.")]
+public class Async_Rules_Spec : SpecificationTest
+{
+    public Async_Rules_Spec(ITestOutputHelper output) : base(output)
+    {
+    }
+
+    [Rule("Async rule doubles '5' to '10'")]
+    public async Task Async_rule_executes_correctly()
+    {
+        var (input, expected) = Rule.Values.As<int, int>();
+        await Task.Delay(1);
+        var result = await ComputeAsync(input);
+        Assert.Equal(expected, result);
+    }
+
+    [RuleOutline("Async rule doubles '<input>' to '<expected>'")]
+    [Example(2, 4)]
+    [Example(5, 10)]
+    [Example(10, 20)]
+    public async Task Async_rule_outline(int input, int expected)
+    {
+        var result = await ComputeAsync(input);
+        Assert.Equal(expected, result);
+    }
+
+    private static async Task<int> ComputeAsync(int value)
+    {
+        await Task.Delay(1);
+        return value * 2;
+    }
+}

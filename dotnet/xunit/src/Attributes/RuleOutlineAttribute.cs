@@ -46,12 +46,23 @@ public class RuleOutlineAttribute : TheoryAttribute
     public string? Description { get; }
 
     /// <summary>
-    /// Creates a rule outline that uses the method name as description template.
+    /// Creates a rule outline that derives its narrative from the method name.
     /// _ALLCAPS segments in the method name are treated as placeholders.
     /// </summary>
-    /// <param name="testMethodName">Auto-populated with the method name.</param>
-    public RuleOutlineAttribute([CallerMemberName] string testMethodName = "") : this(null, testMethodName)
+    public RuleOutlineAttribute()
     {
+    }
+
+    /// <summary>
+    /// Creates a rule outline with a positional authored description.
+    /// </summary>
+    /// <param name="testMethodName">
+    /// The authored description. The parameter name is retained for source and binary compatibility.
+    /// </param>
+    public RuleOutlineAttribute(string testMethodName)
+    {
+        Description = testMethodName;
+        DisplayName = "Rule Outline: " + testMethodName.Replace("_", " ");
     }
 
     /// <summary>
@@ -72,18 +83,18 @@ public class RuleOutlineAttribute : TheoryAttribute
     /// </summary>
     public string GetDisplayName(MethodInfo method, IReadOnlyDictionary<string, object?> paramValues)
     {
-        if (!string.IsNullOrEmpty(Description))
+        var template = GetTitleTemplate(method);
+        if (!string.IsNullOrEmpty(template))
         {
-            // Replace <paramName> with actual values
             return System.Text.RegularExpressions.Regex.Replace(
-                Description, 
+                template,
                 @"<([^>]+)>", 
                 match =>
                 {
                     var paramName = match.Groups[1].Value;
                     if (paramValues.TryGetValue(paramName, out var value))
                     {
-                        return value?.ToString() ?? "";
+                        return OutlineDisplayNameFormatter.FormatValue(value);
                     }
                     return match.Value;
                 });
@@ -91,5 +102,42 @@ public class RuleOutlineAttribute : TheoryAttribute
 
         // Use method name with _ALLCAPS placeholder replacement
         return SweDevTools.LiveDoc.xUnit.Core.ValueParser.FormatMethodNameWithValues(method.Name, paramValues);
+    }
+
+    /// <summary>
+    /// Gets the user-configured title template from DisplayName or Description.
+    /// </summary>
+    public string? GetTitleTemplate(MethodInfo method)
+    {
+        var defaultDisplayName = "Rule Outline: " + method.Name.Replace("_", " ");
+        var generatedFromDescription = HasExplicitDescription(method) &&
+            string.Equals(
+                DisplayName,
+                "Rule Outline: " + Description!.Replace("_", " "),
+                StringComparison.Ordinal);
+        if (!string.IsNullOrEmpty(DisplayName) &&
+            !string.Equals(DisplayName, defaultDisplayName, StringComparison.Ordinal) &&
+            !generatedFromDescription)
+        {
+            return DisplayName.StartsWith("Rule Outline: ", StringComparison.OrdinalIgnoreCase)
+                ? DisplayName.Substring("Rule Outline: ".Length)
+                : DisplayName;
+        }
+
+        return GetDescription(method);
+    }
+
+    /// <summary>
+    /// Gets the user-authored description, excluding CallerMemberName values.
+    /// </summary>
+    public string? GetDescription(MethodInfo method)
+    {
+        return HasExplicitDescription(method) ? Description : null;
+    }
+
+    private bool HasExplicitDescription(MethodInfo method)
+    {
+        return !string.IsNullOrEmpty(Description) &&
+               !string.Equals(Description, method.Name, StringComparison.Ordinal);
     }
 }

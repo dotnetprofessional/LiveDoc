@@ -8,7 +8,7 @@ export default defineConfig({
     globals: "_src/app/globals.ts",
     "playwright/index": "_src/app/playwright/index.ts"
   },
-  format: ["cjs", "esm"],
+  format: ["esm"],
   dts: true,
   splitting: false,
   sourcemap: false,

@@ -23,6 +23,16 @@ public enum Status
 }
 
 /// <summary>
+/// Identifies whether an invocation reports the complete test inventory or a focused subset.
+/// </summary>
+[JsonConverter(typeof(LowercaseEnumConverter<RunType>))]
+public enum RunType
+{
+    Full,
+    Partial
+}
+
+/// <summary>
 /// Step keyword in BDD/Gherkin scenarios.
 /// </summary>
 [JsonConverter(typeof(LowercaseEnumConverter<StepKeyword>))]
@@ -217,6 +227,26 @@ public class ExecutionResult
 }
 
 /// <summary>
+/// A non-fatal structural issue in a living specification.
+/// </summary>
+public class RuleViolation
+{
+    [JsonPropertyName("rule")]
+    public string Rule { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("errorId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ErrorId { get; set; }
+}
+
+/// <summary>
 /// Statistics for a test case or run.
 /// </summary>
 public class Statistics
@@ -235,6 +265,144 @@ public class Statistics
 
     [JsonPropertyName("skipped")]
     public int Skipped { get; set; }
+}
+
+// =============================================================================
+// Coverage
+// =============================================================================
+
+public class CoverageMetric
+{
+    [JsonPropertyName("covered")]
+    public double Covered { get; set; }
+
+    [JsonPropertyName("total")]
+    public double Total { get; set; }
+
+    [JsonPropertyName("skipped")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Skipped { get; set; }
+
+    [JsonPropertyName("pct")]
+    public double? Pct { get; set; }
+}
+
+public class CoverageSummary
+{
+    [JsonPropertyName("lines")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageMetric? Lines { get; set; }
+
+    [JsonPropertyName("branches")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageMetric? Branches { get; set; }
+
+    [JsonPropertyName("functions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageMetric? Functions { get; set; }
+
+    [JsonPropertyName("statements")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageMetric? Statements { get; set; }
+}
+
+public class CoverageProvenance
+{
+    [JsonPropertyName("tool")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Tool { get; set; }
+
+    [JsonPropertyName("format")]
+    public string Format { get; set; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Path { get; set; }
+
+    [JsonPropertyName("detected")]
+    public string Detected { get; set; } = "auto";
+
+    [JsonPropertyName("generatedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? GeneratedAt { get; set; }
+}
+
+public class CoverageFile
+{
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("module")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Module { get; set; }
+
+    [JsonPropertyName("summary")]
+    public CoverageSummary Summary { get; set; } = new();
+
+    [JsonPropertyName("detailRef")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DetailRef { get; set; }
+}
+
+public class CoverageDiagnostic
+{
+    [JsonPropertyName("severity")]
+    public string Severity { get; set; } = "warning";
+
+    [JsonPropertyName("code")]
+    public string Code { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Path { get; set; }
+
+    [JsonPropertyName("details")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? Details { get; set; }
+}
+
+public class CoverageThreshold
+{
+    [JsonPropertyName("metric")]
+    public string Metric { get; set; } = string.Empty;
+
+    [JsonPropertyName("minimum")]
+    public double Minimum { get; set; }
+
+    [JsonPropertyName("actual")]
+    public double? Actual { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "passed";
+}
+
+public class CoverageReport
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "available";
+
+    [JsonPropertyName("summary")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageSummary? Summary { get; set; }
+
+    [JsonPropertyName("files")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<CoverageFile>? Files { get; set; }
+
+    [JsonPropertyName("diagnostics")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<CoverageDiagnostic>? Diagnostics { get; set; }
+
+    [JsonPropertyName("provenance")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageProvenance? Provenance { get; set; }
+
+    [JsonPropertyName("thresholds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<CoverageThreshold>? Thresholds { get; set; }
 }
 
 // =============================================================================
@@ -274,6 +442,10 @@ public class BaseTest
 
     [JsonPropertyName("execution")]
     public ExecutionResult Execution { get; set; } = new();
+
+    [JsonPropertyName("ruleViolations")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<RuleViolation>? RuleViolations { get; set; }
 }
 
 /// <summary>
@@ -437,6 +609,14 @@ public class TestRunV1
     [JsonPropertyName("runId")]
     public string RunId { get; set; } = string.Empty;
 
+    [JsonPropertyName("runType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public RunType RunType { get; set; } = RunType.Full;
+
+    [JsonPropertyName("baselineRunId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BaselineRunId { get; set; }
+
     [JsonPropertyName("project")]
     public string Project { get; set; } = string.Empty;
 
@@ -460,6 +640,10 @@ public class TestRunV1
 
     [JsonPropertyName("documents")]
     public List<TestCase> Documents { get; set; } = new();
+
+    [JsonPropertyName("coverage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageReport? Coverage { get; set; }
 }
 
 // =============================================================================
@@ -479,6 +663,10 @@ public class StartRunRequest
 
     [JsonPropertyName("framework")]
     public string Framework { get; set; } = "xunit";
+
+    [JsonPropertyName("runType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public RunType RunType { get; set; } = RunType.Full;
 
     [JsonPropertyName("timestamp")]
     public string Timestamp { get; set; } = DateTime.UtcNow.ToString("O");
@@ -558,4 +746,8 @@ public class CompleteRunRequest
 
     [JsonPropertyName("summary")]
     public Statistics Summary { get; set; } = new();
+
+    [JsonPropertyName("coverage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CoverageReport? Coverage { get; set; }
 }

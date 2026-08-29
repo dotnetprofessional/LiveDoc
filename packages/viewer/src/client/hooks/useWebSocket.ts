@@ -1,31 +1,98 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { makeRunState, makeSessionState, useStore, Run, Session } from '../store';
+import { makeRunState, useStore, type DataDiagnostic, type Run } from '../store';
 import { getApiBaseUrl, getWsBaseUrl } from '../config';
-import type { V1WebSocketEvent, TestRunV1, SessionV1 } from '@swedevtools/livedoc-schema';
+import type { CoverageReport, V1WebSocketEvent, TestRunV1 } from '@swedevtools/livedoc-schema';
+
+function hasRunDocuments(run: Run | undefined): boolean {
+  return (run?.run.documents?.length ?? 0) > 0;
+}
+
+function timestampMs(value: string | undefined): number {
+  const ms = Date.parse(value ?? '');
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function latestRun(runs: Run[]): Run | undefined {
+  return runs
+    .slice()
+    .sort((a, b) => timestampMs(b.run.timestamp) - timestampMs(a.run.timestamp))[0];
+}
+
+export interface CoverageEventDependencies {
+  fetchRunById: (runId: string) => Promise<Run | null>;
+  addRun: (run: Run) => void;
+  attachCoverage: (runId: string, coverage: CoverageReport) => void;
+  getRun: (runId: string) => Run | undefined;
+  logInfo?: (message: string) => void;
+  logError?: (message: string) => void;
+}
+
+export async function applyCoverageEvent(
+  runId: string,
+  coverage: CoverageReport,
+  dependencies: CoverageEventDependencies
+): Promise<boolean> {
+  const logInfo = dependencies.logInfo ?? console.info;
+  const logError = dependencies.logError ?? console.error;
+
+  if (!dependencies.getRun(runId)) {
+    const hydrated = await dependencies.fetchRunById(runId);
+    if (!hydrated) {
+      logError(
+        `[LiveDoc] LD-COV-091 viewer-coverage-application-failed: runId=${runId}; ` +
+        'stage=rest-hydration; reason=run-unavailable'
+      );
+      return false;
+    }
+    dependencies.addRun(hydrated);
+  }
+
+  dependencies.attachCoverage(runId, coverage);
+  const storedCoverage = dependencies.getRun(runId)?.run.coverage;
+  if (!storedCoverage) {
+    logError(
+      `[LiveDoc] LD-COV-091 viewer-coverage-application-failed: runId=${runId}; ` +
+      'stage=store-application; reason=coverage-not-present'
+    );
+    return false;
+  }
+
+  logInfo(
+    `[LiveDoc] LD-COV-090 viewer-coverage-applied: runId=${runId}; ` +
+    `status=${storedCoverage.status ?? 'unknown'}`
+  );
+  return true;
+}
 
 export function useWebSocket(skip = false) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasConnectedRef = useRef(false);
-  
-  const { 
-    setConnectionStatus, 
-    addRun, 
-    updateRun, 
+
+  const {
+    setConnectionStatus,
+    addRun,
+    updateRun,
+    removeRun,
     selectRun,
-    addSession,
-    updateSession,
-    selectSession,
+    selectRunGroup,
+    followRunIfEnabled,
+    upsertPhysicalRun,
+    removePhysicalRun,
     setProjectHierarchy,
+    setDiagnostics,
+    addDiagnostic,
     upsertTestCase,
     upsertTest,
     patchTestExecution,
-    upsertOutlineExampleResults
+    upsertOutlineExampleResults,
+    attachCoverage
   } = useStore();
 
-  const fetchRunById = useCallback(async (runId: string): Promise<Run | null> => {
+  const fetchRunById = useCallback(async (runId: string, view?: 'combined' | 'physical'): Promise<Run | null> => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/runs/${runId}`, {
+      const query = view ? `?view=${view}` : '';
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/runs/${runId}${query}`, {
         cache: 'no-store'
       });
       if (!response.ok) return null;
@@ -37,25 +104,46 @@ export function useWebSocket(skip = false) {
     }
   }, []);
 
-  const fetchSessionById = useCallback(async (sessionId: string): Promise<Session | null> => {
+  const fetchActiveRuns = useCallback(async () => {
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/sessions/${sessionId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/runs`, { cache: 'no-store' });
+      if (!response.ok) return;
+      const entries = await response.json();
+      const activeEntries = Array.isArray(entries)
+        ? entries.filter((entry: any) => entry?.status === 'running')
+        : [];
+      const activeRuns = await Promise.all(
+        activeEntries.map((entry: any) => fetchRunById(String(entry.runId), 'physical'))
+      );
+      for (const run of activeRuns) {
+        if (!run) continue;
+        if ((run.run.runType ?? 'full') === 'partial') {
+          upsertPhysicalRun(run.run.runId, run);
+        } else {
+          addRun(run);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to hydrate active runs:', error);
+    }
+  }, [addRun, fetchRunById, upsertPhysicalRun]);
+
+  const fetchDiagnostics = useCallback(async () => {
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/diagnostics`, {
         cache: 'no-store'
       });
-      if (!response.ok) {
-        // Session endpoint might not exist on old servers - graceful degradation
-        if (response.status === 404) {
-          console.debug(`Session endpoint not available (404) - server may not support sessions yet`);
-        }
-        return null;
-      }
-      const fullSession = (await response.json()) as SessionV1;
-      return makeSessionState(fullSession);
-    } catch (e) {
-      console.debug(`Failed to fetch session ${sessionId}:`, e);
-      return null;
+      if (!response.ok) return;
+
+      const payload = await response.json();
+      const diagnostics = Array.isArray(payload?.diagnostics)
+        ? (payload.diagnostics as DataDiagnostic[])
+        : [];
+      setDiagnostics(diagnostics);
+    } catch {
+      // Older servers do not expose diagnostics; absence of the endpoint is not itself a viewer error.
     }
-  }, []);
+  }, [setDiagnostics]);
 
   // Fetch project hierarchy for navigation
   const fetchProjectHierarchy = useCallback(async () => {
@@ -63,8 +151,8 @@ export function useWebSocket(skip = false) {
       const response = await fetch(`${getApiBaseUrl()}/api/v1/hierarchy`, {
         cache: 'no-store'
       });
-      if (!response.ok) return;
-      
+      if (!response.ok) return [] as ReturnType<typeof useStore.getState>['projectHierarchy'];
+
       const data = await response.json();
       if (data.projects) {
         const hierarchy = data.projects.map((project: any) => ({
@@ -74,98 +162,70 @@ export function useWebSocket(skip = false) {
             latestRun: (env.latestRun && String(env.latestRun.protocolVersion ?? '') === '1.0')
               ? makeRunState(env.latestRun as TestRunV1)
               : undefined,
-            latestSession: (env.latestSession && env.latestSession.sessionId)
-              ? makeSessionState(env.latestSession as SessionV1)
-              : undefined,
             historyCount: env.historyCount,
             history: env.history || [],
           })),
         }));
         setProjectHierarchy(hierarchy);
+        return hierarchy;
       }
+      return [] as ReturnType<typeof useStore.getState>['projectHierarchy'];
     } catch (error) {
       console.error('Failed to fetch project hierarchy:', error);
+      return [] as ReturnType<typeof useStore.getState>['projectHierarchy'];
     }
   }, [setProjectHierarchy]);
+
+  const selectBestAvailableView = useCallback(() => {
+    const state = useStore.getState();
+    const groups = state.getRunGroups();
+    if (state.projectGrouping.enabled && groups.length > 0) {
+      if (state.selectedRunGroupId && groups.some((group) => group.group.id === state.selectedRunGroupId)) {
+        return;
+      }
+
+      if (state.selectedRunId) {
+        const containingGroup = groups.find((group) =>
+          group.group.runs.some((run) => run.runId === state.selectedRunId)
+        );
+        if (containingGroup) selectRunGroup(containingGroup.group.id);
+        return;
+      }
+
+      selectRunGroup(groups[0].group.id);
+      return;
+    }
+
+    const newestRun = latestRun(state.runs.filter(hasRunDocuments));
+    if (!state.selectedRunId && newestRun) selectRun(newestRun.run.runId);
+  }, [selectRun, selectRunGroup]);
 
   // Fetch initial data via REST API
   const fetchInitialData = useCallback(async () => {
     try {
-      await fetchProjectHierarchy();
-      
-      // Try to load session data from hierarchy first (Bug 1 fix: don't call /sessions without params)
-      const state = useStore.getState();
-      const hierarchy = state.projectHierarchy;
-      
+      await fetchDiagnostics();
+      const hierarchy = await fetchProjectHierarchy();
+      await fetchActiveRuns();
+
       if (hierarchy.length > 0) {
-        // vx-4: Find project/environment with most recent activity instead of index[0]
-        let bestProject = hierarchy[0];
-        let bestEnv = bestProject?.environments?.[0];
-        let bestTime = '';
         for (const proj of hierarchy) {
           for (const env of proj.environments) {
-            const sessionTime = env.latestSession?.session?.timestamp || '';
-            const runTime = env.latestRun?.run?.timestamp || '';
-            const t = sessionTime > runTime ? sessionTime : runTime;
-            if (t > bestTime) {
-              bestTime = t;
-              bestProject = proj;
-              bestEnv = env;
-            }
+            if (env.latestRun && hasRunDocuments(env.latestRun)) addRun(env.latestRun);
           }
         }
 
-        // Check if hierarchy already includes a latestSession (from Wash's server-side fix)
-        const latestSession = bestEnv?.latestSession;
-        if (latestSession?.session?.sessionId) {
-          // vx-3: upsert instead of replacing entire array
-          addSession(latestSession);
-          selectSession(latestSession.session.sessionId);
-          return; // Session loaded from hierarchy - done
-        }
-
-        // Fallback: fetch sessions with required project/environment params
-        const defaultProject = bestProject?.name;
-        const defaultEnv = bestEnv?.name || 'local';
-        try {
-          const sessionsListResponse = await fetch(
-            `${getApiBaseUrl()}/api/v1/sessions?project=${encodeURIComponent(defaultProject)}&environment=${encodeURIComponent(defaultEnv)}`,
-            { cache: 'no-store' }
-          );
-
-          if (sessionsListResponse.ok) {
-            const payload = await sessionsListResponse.json();
-            // Bug 2 fix: unwrap { sessions } envelope
-            const sessionsList = payload.sessions || [];
-            const validSessions = Array.isArray(sessionsList)
-              ? sessionsList.filter((s: any) => s?.sessionId)
-              : [];
-
-            // Bug 3 fix: hydrate ALL sessions, not just the first
-            if (validSessions.length > 0) {
-              const fullSessions = await Promise.all(
-                validSessions.map((s: any) => fetchSessionById(s.sessionId))
-              );
-              const valid = fullSessions.filter((s): s is Session => s !== null);
-              if (valid.length > 0) {
-                // vx-3: upsert each session instead of replacing entire array
-                valid.forEach(s => addSession(s));
-                selectSession(valid[0].session.sessionId);
-                return; // Session mode - don't load individual runs
-              }
-            }
-          }
-        } catch (e) {
-          console.debug('Sessions endpoint not available, falling back to runs:', e);
+        if (useStore.getState().runs.length > 0) {
+          selectBestAvailableView();
+          return;
         }
       }
-      
+
       // Fallback: load runs (backward compatibility)
       const runsListResponse = await fetch(`${getApiBaseUrl()}/api/v1/runs`, {
         cache: 'no-store'
       });
       if (!runsListResponse.ok) return;
-      
+
       const runsList = await runsListResponse.json();
       const v1RunsList = Array.isArray(runsList)
         ? runsList.filter((r: any) => String(r?.protocolVersion ?? '') === '1.0')
@@ -174,98 +234,131 @@ export function useWebSocket(skip = false) {
       if (v1RunsList.length === 0) {
         return;
       }
-      
+
       const fullRuns = await Promise.all(
         v1RunsList.map(async (run: any) => {
-          return fetchRunById(run.runId);
+          return fetchRunById(run.runId, 'combined');
         })
       );
-      
+
       const validRuns = fullRuns.filter((r): r is Run => r !== null);
       // vx-3: upsert each run instead of replacing entire array
       validRuns.forEach(r => addRun(r));
-      
+
       if (validRuns.length > 0) {
-        selectRun(validRuns[0].run.runId);
+        selectBestAvailableView();
       }
     } catch (error) {
       console.error('Failed to fetch initial data:', error);
     }
-  }, [fetchProjectHierarchy, fetchRunById, fetchSessionById, selectRun, selectSession, addRun, addSession]);
+  }, [fetchActiveRuns, fetchDiagnostics, fetchProjectHierarchy, fetchRunById, selectBestAvailableView, addRun]);
 
-  const handleSessionUpdated = useCallback(async (sessionId: string) => {
-    const fullSession = await fetchSessionById(sessionId);
-    if (!fullSession) return;
-
-    // vx-2: Determine current project BEFORE merging
-    const state = useStore.getState();
-    const currentProject = state.sessions.find(
-      (s) => s.session.sessionId === state.selectedSessionId
-    )?.session.project;
-
-    const existing = state.sessions.some((s) => s.session.sessionId === sessionId);
-    if (existing) {
-      updateSession(sessionId, fullSession);
-    } else {
-      addSession(fullSession);
+  const handleRunCompleted = useCallback(async (runId: string, completedStatus?: string) => {
+    if (completedStatus === 'cancelled') {
+      removePhysicalRun(runId);
+      removeRun(runId);
+      if (useStore.getState().selectedRunId === runId) {
+        selectRun(null);
+        selectBestAvailableView();
+      }
+      fetchProjectHierarchy();
+      return;
     }
 
-    // vx-2: Only auto-select if same project or nothing selected
-    if (!state.selectedSessionId || fullSession.session.project === currentProject) {
-      selectSession(sessionId);
+    // Server default (no ?view=) is the physical projection; for full runs physical === combined.
+    let physical = await fetchRunById(runId, 'physical');
+    if (!physical) {
+      addDiagnostic({
+        severity: 'error',
+        code: 'LD-RUN-096',
+        message: `Failed to load the completed run '${runId}'. The server may be unavailable.`,
+        runId,
+      });
+      return;
     }
-    fetchProjectHierarchy();
-  }, [addSession, fetchProjectHierarchy, fetchSessionById, selectSession, updateSession]);
-
-  const handleRunCompleted = useCallback(async (runId: string) => {
-    let full = await fetchRunById(runId);
-    if (!full) return;
 
     // The server told us this run is complete. Ensure the status is terminal
     // so the RunProgressBanner transitions from "running" → "completing" → idle.
     // The server may still store the raw status as 'running'; derive the final
     // status from test results.
-    if (full.run.status === 'running') {
-      const hasFailed = (full.run.documents ?? []).some(
+    if (physical.run.status === 'running') {
+      const hasFailed = (physical.run.documents ?? []).some(
         (d) => (d.tests ?? []).some((t: any) => t.execution?.status === 'failed')
       );
-      full = makeRunState({ ...full.run, status: hasFailed ? 'failed' : 'passed' });
+      physical = makeRunState({ ...physical.run, status: hasFailed ? 'failed' : 'passed' });
     }
 
-    const existing = useStore.getState().runs.some((r) => r.run.runId === runId);
-    if (existing) {
-      updateRun(runId, full);
+    const isPartial = (physical.run.runType ?? 'full') === 'partial';
+
+    // Always refresh the physical cache so the 'This partial' toggle stays accurate post-completion.
+    upsertPhysicalRun(runId, physical);
+
+    if (isPartial) {
+      const combined = await fetchRunById(runId, 'combined');
+      if (!combined) {
+        addDiagnostic({
+          severity: 'error',
+          code: 'LD-RUN-096',
+          message: `Partial run '${runId}' completed, but its combined view could not be loaded.`,
+          runId,
+        });
+        return;
+      }
+
+      const existing = useStore.getState().runs.some((r) => r.run.runId === runId);
+      if (existing) updateRun(runId, combined); else addRun(combined);
+      followRunIfEnabled(runId);
+
     } else {
-      addRun(full);
+      const existing = useStore.getState().runs.some((r) => r.run.runId === runId);
+      if (existing) {
+        updateRun(runId, physical);
+      } else {
+        addRun(physical);
+      }
+      followRunIfEnabled(runId);
+      selectBestAvailableView();
     }
 
-    // Keep the Viewer on the latest run by default (unless a session is selected)
-    const hasSession = useStore.getState().selectedSessionId !== null;
-    if (!hasSession) {
-      selectRun(runId);
-    }
     fetchProjectHierarchy();
-  }, [addRun, fetchProjectHierarchy, fetchRunById, selectRun, updateRun]);
+  }, [addDiagnostic, addRun, fetchProjectHierarchy, fetchRunById, followRunIfEnabled, removePhysicalRun, removeRun, selectBestAvailableView, selectRun, updateRun, upsertPhysicalRun]);
+
+  const reconcileCompletedPartials = useCallback(async () => {
+    const state = useStore.getState();
+    const completedRunIds = new Set(
+      state.projectHierarchy.flatMap((project) =>
+        project.environments.flatMap((environment) =>
+          environment.history.map((entry) => entry.runId)
+        )
+      )
+    );
+
+    const stalePhysicalPartials = Object.values(state.physicalRuns)
+      .filter((run) =>
+        run.run.runType === 'partial' &&
+        run.run.status === 'running' &&
+        completedRunIds.has(run.run.runId)
+      );
+
+    await Promise.all(
+      stalePhysicalPartials.map((run) => handleRunCompleted(run.run.runId))
+    );
+  }, [handleRunCompleted]);
 
   const handleMessage = useCallback((message: any) => {
     const type = String(message?.type ?? '');
 
     switch (type) {
-      case 'session:v1:updated': {
-        const evt = message as V1WebSocketEvent & { type: 'session:v1:updated' };
-        if (evt.sessionId) {
-          void handleSessionUpdated(evt.sessionId);
-        }
-        break;
-      }
-
       case 'run:v1:started': {
         const evt = message as V1WebSocketEvent & { type: 'run:v1:started' };
         if (!evt.runId) return;
 
+        const runType = evt.runType ?? 'full';
         const run: TestRunV1 = {
           protocolVersion: '1.0',
           runId: evt.runId,
+          runType,
+          ...(evt.baselineRunId ? { baselineRunId: evt.baselineRunId } : {}),
           project: evt.project ?? 'Test Results',
           environment: evt.environment ?? 'default',
           framework: evt.framework ?? 'vitest',
@@ -276,12 +369,25 @@ export function useWebSocket(skip = false) {
           documents: [],
         };
 
-        addRun(makeRunState(run));
-        // Only auto-select run if no session is active
-        const hasSession = useStore.getState().selectedSessionId !== null;
-        if (!hasSession) {
-          selectRun(evt.runId);
+        if (runType === 'partial') {
+          // Partial runs never replace the combined 'latest' — track them only in the physical
+          // cache so they never leak into grouping/logical-run inputs (which read `runs`).
+          upsertPhysicalRun(evt.runId, makeRunState(run));
+          followRunIfEnabled(evt.runId, 'physical');
+          const state = useStore.getState();
+          if (!state.selectedRunGroupId && !state.selectedRunId) {
+            selectRun(evt.runId, 'physical');
+          }
+        } else {
+          addRun(makeRunState(run));
+          followRunIfEnabled(evt.runId);
+          const state = useStore.getState();
+          if (!state.selectedRunGroupId && !state.selectedRunId) {
+            selectRun(evt.runId);
+          }
+          selectBestAvailableView();
         }
+
         fetchProjectHierarchy();
         break;
       }
@@ -317,7 +423,32 @@ export function useWebSocket(skip = false) {
       case 'run:v1:completed': {
         const evt = message as V1WebSocketEvent & { type: 'run:v1:completed' };
         if (evt.runId) {
-          void handleRunCompleted(evt.runId);
+          void handleRunCompleted(evt.runId, evt.status);
+        }
+        break;
+      }
+
+      case 'run:v1:coverage': {
+        const evt = message as V1WebSocketEvent & { type: 'run:v1:coverage' };
+        if (evt.runId && evt.coverage) {
+          void applyCoverageEvent(evt.runId, evt.coverage, {
+            fetchRunById,
+            addRun: (run) => {
+              if ((run.run.runType ?? 'full') === 'partial') {
+                upsertPhysicalRun(run.run.runId, run);
+              } else {
+                addRun(run);
+              }
+            },
+            attachCoverage,
+            getRun: (runId) => {
+              const state = useStore.getState();
+              const physical = state.physicalRuns[runId];
+              if (physical) return physical;
+              const combined = state.runs.find((run) => run.run.runId === runId);
+              return combined?.run.runType === 'partial' ? undefined : combined;
+            },
+          });
         }
         break;
       }
@@ -329,16 +460,16 @@ export function useWebSocket(skip = false) {
         // Ignore unknown messages (future-proof)
         break;
     }
-  }, [addRun, fetchProjectHierarchy, handleRunCompleted, handleSessionUpdated, patchTestExecution, selectRun, upsertOutlineExampleResults, upsertTest, upsertTestCase]);
+  }, [addRun, attachCoverage, fetchProjectHierarchy, fetchRunById, followRunIfEnabled, handleRunCompleted, patchTestExecution, selectBestAvailableView, selectRun, upsertOutlineExampleResults, upsertPhysicalRun, upsertTest, upsertTestCase]);
 
   const connect = useCallback(() => {
     const wsUrl = `${getWsBaseUrl()}/ws`;
-    
+
     setConnectionStatus('connecting');
-    
+
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
-    
+
     ws.onopen = () => {
       setConnectionStatus('connected');
 
@@ -350,26 +481,21 @@ export function useWebSocket(skip = false) {
         // ignore
       }
 
-      // vx-1: On reconnect, rehydrate active session to recover missed events
+      // On reconnect, refresh hierarchy so missed run completions are recovered.
       if (hasConnectedRef.current) {
-        const { selectedSessionId } = useStore.getState();
-        if (selectedSessionId) {
-          void fetchSessionById(selectedSessionId).then((freshSession) => {
-            if (freshSession) {
-              useStore.getState().addSession(freshSession);
-            }
-          });
-        }
-        void fetchProjectHierarchy();
+        void (async () => {
+          await fetchProjectHierarchy();
+          await Promise.all([fetchActiveRuns(), reconcileCompletedPartials()]);
+        })();
       }
       hasConnectedRef.current = true;
-      
+
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
     };
-    
+
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
@@ -378,28 +504,28 @@ export function useWebSocket(skip = false) {
         console.error('Failed to parse WebSocket message:', error);
       }
     };
-    
+
     ws.onclose = () => {
       setConnectionStatus('disconnected');
       wsRef.current = null;
-      
+
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
       }, 3000);
     };
-    
+
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
       setConnectionStatus('error');
     };
-  }, [setConnectionStatus, handleMessage, fetchSessionById, fetchProjectHierarchy]);
+  }, [setConnectionStatus, handleMessage, fetchActiveRuns, fetchProjectHierarchy, reconcileCompletedPartials]);
 
   useEffect(() => {
     if (skip) return;
 
     fetchInitialData();
     connect();
-    
+
     return () => {
       if (wsRef.current) {
         wsRef.current.close();

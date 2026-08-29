@@ -23,7 +23,12 @@ import {
     DecorationRangeBehavior,
 } from 'vscode';
 
-import { rawTextToFormattedTable, IFormattedTableResult } from "./formatter";
+import {
+    rawTextToFormattedTable,
+    IFormattedTableResult,
+    isOutlineExamplesTable,
+    shouldUseRowHeaders
+} from "./formatter";
 
 interface ITrackedDocument {
     document: TextDocument;
@@ -208,34 +213,11 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
 
             let headerDecorations: DecorationOptions[] = null;
 
-            if (formatted.table[0].length === 2) {
-                const rowHeadersCheck = { simple: true, extended: true };
-                const columnHeadersCheck = { simple: true, extended: true };
-
-                for (let rowNdx = 0; rowNdx < formatted.table.length; rowNdx++) {
-                    const row = formatted.table[rowNdx];
-                    if (rowNdx === 0) {
-                        for (let colNdx = 0; colNdx < row.length; colNdx++) {
-                            if (!checkHeaderAndShouldContinue(columnHeadersCheck, row[colNdx])) {
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!checkHeaderAndShouldContinue(rowHeadersCheck, row[0])) {
-                        break;
-                    }
-                }
-
-                let useRowHeaders = rowHeadersCheck.simple && !columnHeadersCheck.simple || rowHeadersCheck.extended && !columnHeadersCheck.extended;
-                if (!useRowHeaders && rowHeadersCheck.simple === columnHeadersCheck.simple && rowHeadersCheck.extended === columnHeadersCheck.extended) {
-                    useRowHeaders = true;
-                }
-
-                headerDecorations = useRowHeaders && decorateRowHeaders(formatted.table, raw.startPosition, delta) || decorateColumnHeaders(formatted.table, raw.startPosition, delta)
-            } else {
-                headerDecorations = decorateColumnHeaders(formatted.table, raw.startPosition, delta);
-            }
+            const textBeforeTable = doc.getText(new Range(new Position(0, 0), raw.startPosition));
+            const useRowHeaders = shouldUseRowHeaders(formatted.table, isOutlineExamplesTable(textBeforeTable));
+            headerDecorations = useRowHeaders
+                ? decorateRowHeaders(formatted.table, raw.startPosition, delta)
+                : decorateColumnHeaders(formatted.table, raw.startPosition, delta);
 
             [].push.apply(headerDocDecorations.decorations, headerDecorations);
 
@@ -269,26 +251,6 @@ function formatDataTables(doc: TextDocument): IReplacement[] {
 
     trackedDocument.decorations = docDecorations;
     return docReplacements;
-}
-
-function checkHeaderAndShouldContinue(checkedResult: { simple: boolean, extended: boolean }, value: string): boolean {
-    const valueIsHeader = isHeader(value);
-    checkedResult.simple = checkedResult.simple ? valueIsHeader.simple : checkedResult.simple;
-    checkedResult.extended = checkedResult.extended ? valueIsHeader.extended : checkedResult.extended;
-
-    return checkedResult.simple || checkedResult.extended;
-}
-
-function isHeader(value: string): { simple: boolean, extended: boolean } {
-    const valueTrimmed = value.trim();
-    let isString = isNaN(Number(valueTrimmed));
-    try {
-        JSON.parse(valueTrimmed);
-        isString = false;
-    } catch (e) {
-        isString = true;
-    }
-    return { simple: isString, extended: false }; // write extended logic
 }
 
 function decorateColumnHeaders(table: string[][], basePosition: Position, characterDelta: number): DecorationOptions[] {

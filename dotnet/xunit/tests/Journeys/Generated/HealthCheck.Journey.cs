@@ -28,6 +28,7 @@ public class HealthCheck_Journey : FeatureTest, IClassFixture<SampleApiFixture>
     {
         var run = await _server.RunJourneyAsync("health-check/_health-check.http");
 
+        Given("the sample API is running", ctx => { });
         When("checking the health endpoint", ctx =>
         {
             run.AssertStep("healthCheck", step =>

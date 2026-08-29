@@ -6,16 +6,19 @@
     Publishes one or more packages to npm with support for dry-run, beta tags, and dependency ordering.
 
 .PARAMETER Package
-    Package to publish: vitest, viewer, or all.
+    Package to publish: schema, server, vitest, viewer, or all.
 
 .PARAMETER DryRun
     If set, runs npm publish --dry-run instead of actual publish.
 
 .PARAMETER Tag
-    npm dist-tag: 'latest' (default) or 'beta'.
+    npm dist-tag: 'latest' (default) or 'beta'. Prerelease versions cannot use 'latest'.
 
 .PARAMETER SkipBuild
     Skip the build step (use if already built).
+
+.PARAMETER Registry
+    npm registry URL. Defaults to the public npmjs registry.
 
 .EXAMPLE
     .\publish-package.ps1 -Package vitest -DryRun
@@ -29,7 +32,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('vitest', 'viewer', 'all')]
+    [ValidateSet('schema', 'server', 'vitest', 'viewer', 'all')]
     [string]$Package,
 
     [switch]$DryRun,
@@ -37,7 +40,9 @@ param(
     [ValidateSet('latest', 'beta')]
     [string]$Tag = 'latest',
 
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+
+    [string]$Registry = 'https://registry.npmjs.org/'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,15 +50,25 @@ $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 
 # Package info with dependency order
 $packages = [ordered]@{
+    'schema' = @{
+        Name = '@swedevtools/livedoc-schema'
+        Path = 'packages/schema'
+        DependsOn = @()
+    }
+    'server' = @{
+        Name = '@swedevtools/livedoc-server'
+        Path = 'packages/server'
+        DependsOn = @('schema')
+    }
     'vitest' = @{
         Name = '@swedevtools/livedoc-vitest'
         Path = 'packages/vitest'
-        DependsOn = @()
+        DependsOn = @('schema', 'server')
     }
     'viewer' = @{
         Name = '@swedevtools/livedoc-viewer'
         Path = 'packages/viewer'
-        DependsOn = @()
+        DependsOn = @('schema', 'server')
         ExtraPublishArgs = @('--config.node-linker=hoisted')
     }
 }
@@ -72,6 +87,9 @@ function Publish-Package {
 
     $pkgPath = Join-Path $repoRoot $Info.Path
     $version = Get-PackageVersion -PackagePath $Info.Path
+    if ($Tag -eq 'latest' -and $version.Contains('-')) {
+        throw "Refusing to publish prerelease $($Info.Name)@$version with the 'latest' dist-tag."
+    }
 
     Write-Host ""
     Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
@@ -117,6 +135,8 @@ function Publish-Package {
         }
         $publishArgs += '--access'
         $publishArgs += 'public'
+        $publishArgs += '--registry'
+        $publishArgs += $Registry
 
         Write-Host "`n→ Running: pnpm $($publishArgs -join ' ')" -ForegroundColor White
         & pnpm @publishArgs 2>&1 | ForEach-Object {
@@ -153,6 +173,7 @@ Write-Host "╚═════════════════════�
 Write-Host ""
 Write-Host "Packages to publish: $($toPublish -join ', ')" -ForegroundColor White
 Write-Host "Tag: $Tag" -ForegroundColor White
+Write-Host "Registry: $Registry" -ForegroundColor White
 if ($DryRun) {
     Write-Host "Mode: DRY RUN (no actual publish)" -ForegroundColor Yellow
 }

@@ -4,7 +4,7 @@ using Xunit.Abstractions;
 
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
-[Specification(Description = "JourneyResult.Parse() reads httpYac CLI output into per-step results, detecting step boundaries, HTTP status codes, failed assertions, ANSI codes, and step name normalization.")]
+[Specification("JourneyResult Parse", Description = "JourneyResult.Parse() reads httpYac CLI output into per-step results, detecting step boundaries, HTTP status codes, failed assertions, ANSI codes, and step name normalization.")]
 public class JourneyResult_Parse_Spec : SpecificationTest
 {
     public JourneyResult_Parse_Spec(ITestOutputHelper output) : base(output)
@@ -128,7 +128,7 @@ public class JourneyResult_Parse_Spec : SpecificationTest
     {
         var result = JourneyResult.Parse(0, "");
 
-        Assert.Equal(0, result.Steps.Count);
+        Assert.Empty(result.Steps);
     }
 
     [Rule("Step name is normalized to first token with quotes stripped")]

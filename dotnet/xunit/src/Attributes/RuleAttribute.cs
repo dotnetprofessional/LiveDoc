@@ -45,8 +45,9 @@ public class RuleAttribute : FactAttribute
     /// </summary>
     /// <param name="testMethodName">Auto-populated with the method name.</param>
     public RuleAttribute([System.Runtime.CompilerServices.CallerMemberName] string testMethodName = "") 
-        : this(null, testMethodName)
     {
+        Description = testMethodName;
+        DisplayName = "Rule: " + testMethodName;
     }
 
     /// <summary>
@@ -57,8 +58,7 @@ public class RuleAttribute : FactAttribute
     public RuleAttribute(string? description, [System.Runtime.CompilerServices.CallerMemberName] string testMethodName = "")
     {
         Description = description;
-        // Set DisplayName so Test Explorer shows "Rule: <readable name>"
-        DisplayName = "Rule: " + (description ?? testMethodName.Replace("_", " "));
+        DisplayName = "Rule: " + (description ?? testMethodName);
     }
 
     /// <summary>
@@ -66,9 +66,9 @@ public class RuleAttribute : FactAttribute
     /// </summary>
     public string GetDisplayName(MethodInfo method, IReadOnlyDictionary<string, object?>? paramValues = null)
     {
-        if (!string.IsNullOrEmpty(Description))
+        if (HasExplicitDescription(method))
         {
-            return Description;
+            return Description!;
         }
 
         // Use method name, applying _ALLCAPS placeholder replacement if values provided
@@ -81,5 +81,19 @@ public class RuleAttribute : FactAttribute
 
         // Simple underscore to space conversion
         return methodName.Replace('_', ' ');
+    }
+
+    /// <summary>
+    /// Gets the user-authored description, excluding CallerMemberName values.
+    /// </summary>
+    public string? GetDescription(MethodInfo method)
+    {
+        return HasExplicitDescription(method) ? Description : null;
+    }
+
+    private bool HasExplicitDescription(MethodInfo method)
+    {
+        return !string.IsNullOrEmpty(Description) &&
+               !string.Equals(Description, method.Name, StringComparison.Ordinal);
     }
 }

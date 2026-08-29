@@ -5,6 +5,7 @@ import { LiveDocOptions } from "./LiveDocOptions";
 import { RuleViolations } from "./model/RuleViolations";
 import { LiveDocRuleOption } from "./LiveDocRuleOption";
 import { LiveDocRuleViolation } from "./model/LiveDocRuleViolation";
+import { AsyncLocalStorage } from "node:async_hooks";
 import chalk from "chalk";
 import { featureRegistry, suiteRegistry } from "./LiveDocRegistry";
 import SilentReporter from "./reporter/SilentReporter";
@@ -68,6 +69,16 @@ function materializePlaceholders(template: string, values: Record<string, unknow
     });
 }
 
+type FilterOmissionReason = "exclude" | "include-miss" | "parent-filtered";
+
+interface FilterDecision {
+    filteredOut: boolean;
+    included: boolean;
+    pendingConflict: boolean;
+    reason?: FilterOmissionReason;
+}
+
+
 // Global state for current execution context
 let currentFeature: model.Feature | null = null;
 let currentScenario: model.Scenario | null = null;
@@ -79,6 +90,27 @@ let scenarioId = 0;
 // Specification pattern state
 let currentSpecification: model.Specification | null = null;
 let ruleCount = 0;
+
+type DeclarationType =
+    | "Feature"
+    | "Scenario"
+    | "Scenario Outline"
+    | "Background"
+    | "Specification"
+    | "Rule"
+    | "Rule Outline"
+    | "Given"
+    | "When"
+    | "Then"
+    | "And"
+    | "But";
+
+interface DeclarationContext {
+    type: DeclarationType;
+    title: string;
+}
+
+const declarationContextStorage = new AsyncLocalStorage<DeclarationContext>();
 
 // Registry for specifications (parallels featureRegistry)
 const specificationRegistry: model.Specification[] = [];
@@ -102,6 +134,8 @@ let isPendingContext = false;
 // Track whether we're inside a filtered-out context (excluded via tags)
 // This is separate from isPendingContext because filtered scenarios should have
 // status 'unknown' (not executed) rather than 'pending' (explicitly skipped)
+let currentFilterOmissionReason: FilterOmissionReason | undefined;
+let isIncludedContext = false;
 let isFilteredContext = false;
 
 // Flag to indicate if we're in dynamic execution mode
@@ -134,17 +168,103 @@ function resetDynamicState(): void {
     scenarioStartHooks.length = 0;
     scenarioEndHooks.length = 0;
     isPendingContext = false;
+    currentFilterOmissionReason = undefined;
+    isIncludedContext = false;
     isFilteredContext = false;
     isDynamicExecution = false;
     capturedThrownException = null;
     resultsFileWritten = false;
 
-    // Reset options to prevent filter/rule leakage across dynamic runs
-    livedoc.options = new LiveDocOptions();
+    // Reset options to prevent filter/rule leakage across dynamic runs.
+    livedoc.options = createDefaultOptions();
 
     // Clear violation tracking to prevent cross-run deduplication
     for (const key in displayedViolations) {
         delete displayedViolations[key];
+    }
+
+}
+
+function createDefaultOptions(): LiveDocOptions {
+    const options = new LiveDocOptions();
+    options.rules.singleGivenWhenThen = LiveDocRuleOption.enabled;
+    options.rules.backgroundMustOnlyIncludeGiven = LiveDocRuleOption.enabled;
+    options.rules.enforceTitle = LiveDocRuleOption.enabled;
+    options.rules.enforceUsingGivenOverBefore = LiveDocRuleOption.warning;
+    options.rules.mustIncludeGiven = LiveDocRuleOption.warning;
+    options.rules.mustIncludeWhen = LiveDocRuleOption.warning;
+    options.rules.mustIncludeThen = LiveDocRuleOption.warning;
+    return options;
+}
+
+function assertDeclarationParent(
+    type: DeclarationType,
+    title: string,
+    expectedParent: DeclarationType | null,
+    missingParentMessage: string,
+    filename: string
+): void {
+    const declarationTitle = title.trim().split(/\r?\n/, 1)[0].trim();
+    const currentDeclarationContext = declarationContextStorage.getStore();
+
+    if (currentDeclarationContext?.type === expectedParent) {
+        return;
+    }
+
+    if (currentDeclarationContext) {
+        throw new model.ParserException(
+            `Invalid nesting: ${type} "${declarationTitle}" cannot be declared within ${currentDeclarationContext.type} "${currentDeclarationContext.title}".`,
+            declarationTitle,
+            filename
+        );
+    }
+
+    if (expectedParent !== null) {
+        throw new model.ParserException(missingParentMessage, title, filename);
+    }
+}
+
+function captureParserException(error: unknown): void {
+    if (!isDynamicExecution || !(error instanceof model.ParserException)) {
+        return;
+    }
+
+    capturedThrownException = {
+        type: "ParserException",
+        message: error.description,
+        data: {
+            description: error.description,
+            title: error.title,
+            filename: error.filename,
+        },
+    };
+}
+
+function withDeclarationContext<T>(context: DeclarationContext, fn: () => T): T {
+    return declarationContextStorage.run(context, fn);
+}
+
+async function withDeclarationContextAsync<T>(
+    context: DeclarationContext,
+    fn: () => T | Promise<T>
+): Promise<T> {
+    return await declarationContextStorage.run(context, fn);
+}
+
+function getStepDeclarationType(stepType: string): DeclarationType {
+    switch (stepType) {
+        case "given":
+            return "Given";
+        case "when":
+            return "When";
+        case "then":
+            return "Then";
+        case "and":
+            return "And";
+        case "but":
+            return "But";
+        default:
+            throw new Error(`Unsupported LiveDoc step type: ${stepType}`);
     }
 }
 
@@ -168,11 +288,13 @@ if (dynamicResultsFile) {
         }
         
         try {
+            const outputFeatures = pruneFilteredFeatures(featureRegistry);
+            const outputSpecifications = pruneFilteredSpecifications(specificationRegistry);
             const fs = require('fs');
             const results: any = {
-                features: featureRegistry.map(f => f.toJSON()),
+                features: outputFeatures.map(f => f.toJSON()),
                 suites: suiteRegistry.map(s => s.toJSON()),
-                specifications: specificationRegistry.map(s => s.toJSON())
+                specifications: outputSpecifications.map(s => s.toJSON())
             };
             
             // Include any captured exception
@@ -199,17 +321,8 @@ if (dynamicResultsFile) {
 
 // Global options
 export const livedoc = {
-    options: new LiveDocOptions(),
+    options: createDefaultOptions(),
 };
-
-// Initialize with recommended rules
-livedoc.options.rules.singleGivenWhenThen = LiveDocRuleOption.enabled;
-livedoc.options.rules.backgroundMustOnlyIncludeGiven = LiveDocRuleOption.enabled;
-livedoc.options.rules.enforceTitle = LiveDocRuleOption.enabled;
-livedoc.options.rules.enforceUsingGivenOverBefore = LiveDocRuleOption.warning;
-livedoc.options.rules.mustIncludeGiven = LiveDocRuleOption.warning;
-livedoc.options.rules.mustIncludeWhen = LiveDocRuleOption.warning;
-livedoc.options.rules.mustIncludeThen = LiveDocRuleOption.warning;
 
 // Tracking displayed violations to avoid duplicates
 const displayedViolations: Record<string, boolean> = {};
@@ -250,24 +363,249 @@ function markedAsIncluded(tags: string[]): boolean {
     return false;
 }
 
-/**
- * Check if tags should mark test as pending (excluded)
- * Returns true only if excluded AND NOT included (unless showFilterConflicts is true)
- */
-function shouldMarkAsPending(tags: string[]): boolean {
-    return markedAsExcluded(tags) && (!markedAsIncluded(tags) || !!livedoc.options.filters.showFilterConflicts);
+function hasIncludeFilter(): boolean {
+    return (livedoc.options.filters.include?.length ?? 0) > 0;
 }
 
-/**
- * Check if tags should mark test as only to run (included)
- * Returns true only if included AND NOT excluded (unless showFilterConflicts is true)
- */
-function shouldInclude(tags: string[]): boolean {
-    if (tags.length === 0) {
-        return false;
+function decideFilter(
+    tags: string[],
+    inheritedIncluded: boolean,
+    inheritedFilteredOut: boolean,
+    allowIncludeMiss: boolean
+): FilterDecision {
+    const directlyIncluded = markedAsIncluded(tags);
+    const directlyExcluded = markedAsExcluded(tags);
+    const included = inheritedIncluded || directlyIncluded;
+    const isConflict = directlyIncluded && directlyExcluded;
+
+    if (inheritedFilteredOut) {
+        return {
+            filteredOut: true,
+            included,
+            pendingConflict: false,
+            reason: "parent-filtered",
+        };
     }
 
-    return markedAsIncluded(tags) && (!markedAsExcluded(tags) || !!livedoc.options.filters.showFilterConflicts);
+    if (isConflict && !!livedoc.options.filters.showFilterConflicts) {
+        return {
+            filteredOut: false,
+            included: true,
+            pendingConflict: true,
+        };
+    }
+
+    if (directlyExcluded) {
+        return {
+            filteredOut: true,
+            included,
+            pendingConflict: false,
+            reason: "exclude",
+        };
+    }
+
+    if (allowIncludeMiss && hasIncludeFilter() && !included) {
+        return {
+            filteredOut: true,
+            included: false,
+            pendingConflict: false,
+            reason: "include-miss",
+        };
+    }
+
+    return {
+        filteredOut: false,
+        included,
+        pendingConflict: false,
+    };
+}
+
+function markFilteredOut(target: unknown, decision: FilterDecision): void {
+    if (!decision.filteredOut) {
+        return;
+    }
+
+    const mutable = target as { filteredOut?: boolean; filterOmissionReason?: FilterOmissionReason };
+    mutable.filteredOut = true;
+    mutable.filterOmissionReason = decision.reason ?? "parent-filtered";
+}
+
+function shouldSkipForFilterDecision(
+    decision: FilterDecision,
+    explicitPending: boolean | undefined,
+    inheritedPending = false
+): boolean {
+    return !!explicitPending || inheritedPending || decision.filteredOut || decision.pendingConflict;
+}
+
+function filterMeta(reason: FilterOmissionReason | undefined): { filteredOut: true; reason: FilterOmissionReason } | undefined {
+    if (!reason) {
+        return undefined;
+    }
+
+    return {
+        filteredOut: true,
+        reason,
+    };
+}
+
+function isFilteredOutModel(value: unknown): boolean {
+    return !!(value as { filteredOut?: boolean } | undefined)?.filteredOut;
+}
+
+function pruneFilteredFeatures(features: model.Feature[]): model.Feature[] {
+    return features
+        .map(feature => pruneFeatureForOutput(feature))
+        .filter((feature): feature is model.Feature => feature !== null);
+}
+
+function pruneFeatureForOutput(feature: model.Feature): model.Feature | null {
+    if (isFilteredOutModel(feature)) {
+        return null;
+    }
+
+    feature.scenarios = feature.scenarios
+        .map(scenario => pruneScenarioForOutput(scenario))
+        .filter((scenario): scenario is model.Scenario => scenario !== null);
+
+    if (feature.scenarios.length === 0) {
+        return null;
+    }
+
+    recalculateFeatureStatistics(feature);
+    return feature;
+}
+
+function pruneScenarioForOutput(scenario: model.Scenario): model.Scenario | null {
+    if (isFilteredOutModel(scenario)) {
+        return null;
+    }
+
+    if (scenario instanceof model.ScenarioOutline) {
+        scenario.examples = scenario.examples
+            .filter(example => !isFilteredOutModel(example));
+
+        if (scenario.examples.length === 0) {
+            return null;
+        }
+    }
+
+    return scenario;
+}
+
+function pruneFilteredSpecifications(specifications: model.Specification[]): model.Specification[] {
+    return specifications
+        .map(specification => pruneSpecificationForOutput(specification))
+        .filter((specification): specification is model.Specification => specification !== null);
+}
+
+function pruneSpecificationForOutput(specification: model.Specification): model.Specification | null {
+    if (isFilteredOutModel(specification)) {
+        return null;
+    }
+
+    specification.rules = specification.rules
+        .map(rule => pruneRuleForOutput(rule))
+        .filter((rule): rule is model.Rule => rule !== null);
+
+    if (specification.rules.length === 0) {
+        return null;
+    }
+
+    recalculateSpecificationStatistics(specification);
+    return specification;
+}
+
+function pruneRuleForOutput(rule: model.Rule): model.Rule | null {
+    if (isFilteredOutModel(rule)) {
+        return null;
+    }
+
+    if (rule instanceof model.RuleOutline) {
+        rule.examples = rule.examples
+            .filter(example => !isFilteredOutModel(example));
+
+        if (rule.examples.length === 0) {
+            return null;
+        }
+    }
+
+    return rule;
+}
+
+function resetStatistics(suite: { statistics: model.Statistics<any> }): void {
+    suite.statistics = new model.Statistics(suite);
+}
+
+function recalculateFeatureStatistics(feature: model.Feature): void {
+    resetStatistics(feature);
+
+    if (feature.background && !isFilteredOutModel(feature.background)) {
+        resetStatistics(feature.background);
+        for (const step of feature.background.steps) {
+            if (!isFilteredOutModel(step)) {
+                feature.background.statistics.updateStats(step.status, step.duration);
+            }
+        }
+    }
+
+    for (const scenario of feature.scenarios) {
+        recalculateScenarioStatistics(scenario);
+    }
+}
+
+function recalculateScenarioStatistics(scenario: model.Scenario): void {
+    resetStatistics(scenario);
+
+    if (scenario instanceof model.ScenarioOutline) {
+        for (const example of scenario.examples) {
+            resetStatistics(example);
+            for (const step of example.steps) {
+                if (!isFilteredOutModel(step)) {
+                    example.statistics.updateStats(step.status, step.duration);
+                }
+            }
+        }
+        return;
+    }
+
+    for (const step of scenario.steps) {
+        if (!isFilteredOutModel(step)) {
+            scenario.statistics.updateStats(step.status, step.duration);
+        }
+    }
+}
+
+function recalculateSpecificationStatistics(specification: model.Specification): void {
+    resetStatistics(specification);
+
+    for (const rule of specification.rules) {
+        if (rule instanceof model.RuleOutline) {
+            recalculateRuleOutlineStatus(rule);
+            for (const example of rule.examples) {
+                specification.statistics.updateStats(example.status, example.executionTime);
+            }
+        } else {
+            specification.statistics.updateStats(rule.status, rule.executionTime);
+        }
+    }
+}
+
+function recalculateRuleOutlineStatus(ruleOutline: model.RuleOutline): void {
+    if (ruleOutline.examples.length === 0) {
+        ruleOutline.status = model.SpecStatus.unknown;
+        return;
+    }
+
+    if (ruleOutline.examples.some(example => example.status === model.SpecStatus.fail)) {
+        ruleOutline.status = model.SpecStatus.fail;
+    } else if (ruleOutline.examples.every(example => example.status === model.SpecStatus.pass)) {
+        ruleOutline.status = model.SpecStatus.pass;
+    } else if (ruleOutline.examples.every(example => example.status === model.SpecStatus.pending)) {
+        ruleOutline.status = model.SpecStatus.pending;
+    } else {
+        ruleOutline.status = model.SpecStatus.pass;
+    }
 }
 
 function displayRuleViolation(violation: LiveDocRuleViolation, filename: string) {
@@ -312,6 +650,7 @@ function displayWarnings(filename: string) {
  */
 function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
     const filename = getFilenameFromStack(3); // Extra stack frame due to wrapper
+    assertDeclarationParent("Feature", title, null, "", filename);
 
     // Check if callback is async BEFORE calling vitest's describe
     // This ensures the exception is thrown before vitest gets control
@@ -336,9 +675,13 @@ function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts
     (thisFeature as any).validateIdUniqueness(thisFeature.id, featureRegistry);
     featureRegistry.push(thisFeature);
 
+    const filterDecision = decideFilter(thisFeature.tags, false, false, false);
+    markFilteredOut(thisFeature, filterDecision);
+
+
     // Check if feature should be skipped based on tags or explicit skip
-    const shouldSkip = opts.pending || shouldMarkAsPending(thisFeature.tags);
-    const shouldOnlyRun = opts.isOnly || shouldInclude(thisFeature.tags);
+    const shouldSkip = shouldSkipForFilterDecision(filterDecision, opts.pending);
+    const shouldOnlyRun = opts.isOnly;
 
     const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
 
@@ -350,14 +693,19 @@ function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts
         // Track pending context for steps
         const previousPendingContext = isPendingContext;
         const previousFilteredContext = isFilteredContext;
+        const previousFilterOmissionReason = currentFilterOmissionReason;
+        const previousIncludedContext = isIncludedContext;
+
+        if (filterDecision.included) {
+            isIncludedContext = true;
+        }
         
-        // When we skip, we need to track WHY we're skipping:
-        // - If skipping due to exclude filter (shouldMarkAsPending=true), steps should be 'pending'
-        // - If skipping due to parent being in a filter conflict state, steps should stay 'unknown'
-        // - If explicit .skip(), steps should be 'pending'
         if (shouldSkip) {
             isPendingContext = true;
-            // Inherit filter context from parent (already captured before describeFunc)
+            if (filterDecision.filteredOut) {
+                isFilteredContext = true;
+                currentFilterOmissionReason = filterDecision.reason ?? "parent-filtered";
+            }
         }
         
         const ctx = {
@@ -366,10 +714,15 @@ function featureImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Feature", title: thisFeature.title },
+            () => fn(ctx)
+        );
         
         // Restore contexts
         isPendingContext = previousPendingContext;
+        currentFilterOmissionReason = previousFilterOmissionReason;
+        isIncludedContext = previousIncludedContext;
         isFilteredContext = previousFilteredContext;
     });
 }
@@ -395,11 +748,11 @@ export const feature = Object.assign(
  * Internal scenario implementation
  */
 function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
-    if (!currentFeature) {
-        throw new model.ParserException("Scenario must be within a feature.", title, "");
-    }
-
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Scenario", title, "Feature", "Scenario must be within a feature.", filename);
+    if (!currentFeature) {
+        throw new model.ParserException("Scenario must be within a feature.", title, filename);
+    }
     
     // Check if callback is async BEFORE calling vitest's describe
     if (fn.constructor.name === 'AsyncFunction') {
@@ -409,14 +762,17 @@ function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opt
     const scenarioModel = parser.addScenario(currentFeature, title);
     scenarioCount++;
     const thisScenarioId = scenarioCount;
+    const filterDecision = decideFilter(scenarioModel.tags, isIncludedContext, isFilteredContext, true);
+    markFilteredOut(scenarioModel, filterDecision);
+
 
     // Check if scenario should be skipped based on tags or explicit skip
-    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(scenarioModel.tags);
-    const shouldOnlyRun = opts.isOnly || shouldInclude(scenarioModel.tags);
+    const shouldSkip = shouldSkipForFilterDecision(filterDecision, opts.pending, isPendingContext);
+    const shouldOnlyRun = opts.isOnly;
     
     // Capture parent's filter context BEFORE describe callback is queued
     // This is needed because parent will restore its context after this returns
-    const isInheritedFilter = isFilteredContext;
+    const inheritedFilterOmissionReason = currentFilterOmissionReason;
 
     const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
 
@@ -427,16 +783,20 @@ function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opt
         
         // Track pending context for steps
         const previousPendingContext = isPendingContext;
+        const previousFilterOmissionReason = currentFilterOmissionReason;
+        const previousIncludedContext = isIncludedContext;
+
+        if (filterDecision.included) {
+            isIncludedContext = true;
+        }
         const previousFilteredContext = isFilteredContext;
         
-        // Set isPendingContext for skipped scenarios
-        // Only propagate isFilteredContext if inherited from parent (not if this scenario is excluded)
-        // When a scenario is excluded by filter, steps should be 'pending', not 'unknown'
         if (shouldSkip) {
             isPendingContext = true;
-            // Only inherit filter context from parent - don't set it just because we're excluded
-            if (isInheritedFilter) {
+            if (filterDecision.filteredOut) {
                 isFilteredContext = true;
+                currentFilterOmissionReason =
+                    filterDecision.reason ?? inheritedFilterOmissionReason ?? "parent-filtered";
             }
         }
 
@@ -488,10 +848,15 @@ function scenarioImpl(title: string, fn: (ctx: any) => void | Promise<void>, opt
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Scenario", title: scenarioModel.title },
+            () => fn(ctx)
+        );
 
         // Restore contexts
         isPendingContext = previousPendingContext;
+        currentFilterOmissionReason = previousFilterOmissionReason;
+        isIncludedContext = previousIncludedContext;
         isFilteredContext = previousFilteredContext;
         
         // Restore previous scenario after registration
@@ -520,11 +885,11 @@ export const scenario = Object.assign(
  * Internal background implementation
  */
 function backgroundImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
-    if (!currentFeature) {
-        throw new model.ParserException("Background must be within a feature.", title, "");
-    }
-
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Background", title, "Feature", "Background must be within a feature.", filename);
+    if (!currentFeature) {
+        throw new model.ParserException("Background must be within a feature.", title, filename);
+    }
     
     // Check if callback is async BEFORE calling vitest's describe
     if (fn.constructor.name === 'AsyncFunction') {
@@ -565,7 +930,10 @@ function backgroundImpl(title: string, fn: (ctx: any) => void | Promise<void>, o
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Background", title: backgroundModel.title },
+            () => fn(ctx)
+        );
 
         // Restore previous background
         currentBackground = previousBackground;
@@ -620,11 +988,17 @@ export function onScenarioEnd(fn: () => Promise<void>): void {
  * Internal scenario outline implementation
  */
 function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
-    if (!currentFeature) {
-        throw new model.ParserException("Scenario Outline must be within a feature.", title, "");
-    }
-
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent(
+        "Scenario Outline",
+        title,
+        "Feature",
+        "Scenario Outline must be within a feature.",
+        filename
+    );
+    if (!currentFeature) {
+        throw new model.ParserException("Scenario Outline must be within a feature.", title, filename);
+    }
     
     // Check if callback is async BEFORE calling vitest's describe
     if (fn.constructor.name === 'AsyncFunction') {
@@ -632,14 +1006,17 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
     }
 
     const scenarioOutlineModel = parser.addScenarioOutline(currentFeature, title);
+    const filterDecision = decideFilter(scenarioOutlineModel.tags, isIncludedContext, isFilteredContext, true);
+    markFilteredOut(scenarioOutlineModel, filterDecision);
+
 
     // Check if scenario outline should be skipped based on tags or explicit skip
-    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(scenarioOutlineModel.tags);
-    const shouldOnlyRun = opts.isOnly || shouldInclude(scenarioOutlineModel.tags);
+    const shouldSkip = shouldSkipForFilterDecision(filterDecision, opts.pending, isPendingContext);
+    const shouldOnlyRun = opts.isOnly;
     
     // Capture parent's filter context BEFORE describe callback is queued
     // This is needed because parent will restore its context after this returns
-    const isInheritedFilter = isFilteredContext;
+    const inheritedFilterOmissionReason = currentFilterOmissionReason;
 
     // Determine the describe function for the parent outline suite
     const outlineDescribeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
@@ -651,6 +1028,7 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
         for (const example of scenarioOutlineModel.examples) {
             scenarioCount++;
             const thisScenarioId = scenarioCount;
+            markFilteredOut(example, filterDecision);
 
             // Each example is a child describe with example values
             // Use "Example N:" prefix to distinguish from regular scenarios
@@ -665,16 +1043,20 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
                 
                 // Track pending context for steps
                 const previousPendingContext = isPendingContext;
+                const previousFilterOmissionReason = currentFilterOmissionReason;
+                const previousIncludedContext = isIncludedContext;
+
+                if (filterDecision.included) {
+                    isIncludedContext = true;
+                }
                 const previousFilteredContext = isFilteredContext;
                 
-                // Set isPendingContext for skipped scenarios
-                // Only propagate isFilteredContext if inherited from parent (not if this scenario is excluded)
-                // When a scenario is excluded by filter, steps should be 'pending', not 'unknown'
                 if (shouldSkip) {
                     isPendingContext = true;
-                    // Only inherit filter context from parent - don't set it just because we're excluded
-                    if (isInheritedFilter) {
+                    if (filterDecision.filteredOut) {
                         isFilteredContext = true;
+                        currentFilterOmissionReason =
+                            filterDecision.reason ?? inheritedFilterOmissionReason ?? "parent-filtered";
                     }
                 }
 
@@ -730,10 +1112,15 @@ function scenarioOutlineImpl(title: string, fn: (ctx: any) => void | Promise<voi
                     },
                 };
 
-                fn(ctx);
+                withDeclarationContext(
+                    { type: "Scenario Outline", title: scenarioOutlineModel.title },
+                    () => fn(ctx)
+                );
 
                 // Restore contexts
                 isPendingContext = previousPendingContext;
+                currentFilterOmissionReason = previousFilterOmissionReason;
+                isIncludedContext = previousIncludedContext;
                 isFilteredContext = previousFilteredContext;
                 
                 // Restore previous scenario after registration
@@ -769,6 +1156,7 @@ export const scenarioOutline = Object.assign(
  */
 function specificationImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
     const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Specification", title, null, "", filename);
 
     // Create specification immediately during registration phase
     const thisSpecification = parser.createSpecification(title, filename);
@@ -781,10 +1169,13 @@ function specificationImpl(title: string, fn: (ctx: any) => void | Promise<void>
     // Register specification and validate uniqueness
     (thisSpecification as any).validateIdUniqueness(thisSpecification.id, specificationRegistry);
     specificationRegistry.push(thisSpecification);
+    const filterDecision = decideFilter(thisSpecification.tags, false, false, false);
+    markFilteredOut(thisSpecification, filterDecision);
+
 
     // Check if specification should be skipped based on tags or explicit skip
-    const shouldSkip = opts.pending || shouldMarkAsPending(thisSpecification.tags);
-    const shouldOnlyRun = opts.isOnly || shouldInclude(thisSpecification.tags);
+    const shouldSkip = shouldSkipForFilterDecision(filterDecision, opts.pending);
+    const shouldOnlyRun = opts.isOnly;
 
     const describeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
 
@@ -795,8 +1186,18 @@ function specificationImpl(title: string, fn: (ctx: any) => void | Promise<void>
         // Track pending context for rules
         const previousPendingContext = isPendingContext;
         const previousFilteredContext = isFilteredContext;
+        const previousFilterOmissionReason = currentFilterOmissionReason;
+        const previousIncludedContext = isIncludedContext;
+
+        if (filterDecision.included) {
+            isIncludedContext = true;
+        }
         
         if (shouldSkip) {
+            if (filterDecision.filteredOut) {
+                isFilteredContext = true;
+                currentFilterOmissionReason = filterDecision.reason ?? "parent-filtered";
+            }
             isPendingContext = true;
         }
         
@@ -806,10 +1207,15 @@ function specificationImpl(title: string, fn: (ctx: any) => void | Promise<void>
             },
         };
 
-        fn(ctx);
+        withDeclarationContext(
+            { type: "Specification", title: thisSpecification.title },
+            () => fn(ctx)
+        );
         
         // Restore contexts
         isPendingContext = previousPendingContext;
+        currentFilterOmissionReason = previousFilterOmissionReason;
+        isIncludedContext = previousIncludedContext;
         isFilteredContext = previousFilteredContext;
     });
 }
@@ -835,8 +1241,10 @@ export const specification = Object.assign(
  * Internal rule implementation
  */
 function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    const filename = getFilenameFromStack(3);
+    assertDeclarationParent("Rule", title, "Specification", "Rule must be within a specification.", filename);
     if (!currentSpecification) {
-        throw new model.ParserException("Rule must be within a specification.", title, "");
+        throw new model.ParserException("Rule must be within a specification.", title, filename);
     }
 
     const ruleModel = parser.addRule(currentSpecification, title);
@@ -844,10 +1252,16 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
 
     // Capture the specification at registration time (not execution time)
     const specificationModel = currentSpecification;
+    const filterDecision = decideFilter(ruleModel.tags, isIncludedContext, isFilteredContext, true);
+    markFilteredOut(ruleModel, filterDecision);
+
 
     // Check if rule should be skipped based on tags or explicit skip
-    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(ruleModel.tags);
-    const shouldOnlyRun = opts.isOnly || shouldInclude(ruleModel.tags);
+    const shouldSkip = shouldSkipForFilterDecision(filterDecision, opts.pending, isPendingContext);
+    const shouldOnlyRun = opts.isOnly;
+    if (shouldSkip && !filterDecision.filteredOut) {
+        ruleModel.status = model.SpecStatus.pending;
+    }
 
     const ruleMeta = {
         livedoc: {
@@ -857,6 +1271,9 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
                 description: ruleModel.description ?? "",
                 tags: ruleModel.tags ?? [],
             },
+            ...(filterDecision.filteredOut
+                ? { filter: filterMeta(filterDecision.reason ?? currentFilterOmissionReason ?? "parent-filtered") }
+                : {}),
         },
     };
 
@@ -873,10 +1290,14 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
 
         const startTime = Date.now();
         try {
-            await fn(ctx);
+            await withDeclarationContextAsync(
+                { type: "Rule", title: ruleModel.title },
+                () => fn(ctx)
+            );
             ruleModel.status = model.SpecStatus.pass;
             ruleModel.executionTime = Date.now() - startTime;
         } catch (error: any) {
+            captureParserException(error);
             ruleModel.status = model.SpecStatus.fail;
             ruleModel.executionTime = Date.now() - startTime;
             ruleModel.error = error;
@@ -921,15 +1342,29 @@ export const rule = Object.assign(
  * Internal rule outline implementation
  */
 function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+    const filename = getFilenameFromStack(3);
+    assertDeclarationParent(
+        "Rule Outline",
+        title,
+        "Specification",
+        "Rule Outline must be within a specification.",
+        filename
+    );
     if (!currentSpecification) {
-        throw new model.ParserException("Rule Outline must be within a specification.", title, "");
+        throw new model.ParserException("Rule Outline must be within a specification.", title, filename);
     }
 
     const ruleOutlineModel = parser.addRuleOutline(currentSpecification, title);
+    const filterDecision = decideFilter(ruleOutlineModel.tags, isIncludedContext, isFilteredContext, true);
+    markFilteredOut(ruleOutlineModel, filterDecision);
+
 
     // Check if rule outline should be skipped based on tags or explicit skip
-    const shouldSkip = opts.pending || isPendingContext || shouldMarkAsPending(ruleOutlineModel.tags);
-    const shouldOnlyRun = opts.isOnly || shouldInclude(ruleOutlineModel.tags);
+    const shouldSkip = shouldSkipForFilterDecision(filterDecision, opts.pending, isPendingContext);
+    const shouldOnlyRun = opts.isOnly;
+    if (shouldSkip && !filterDecision.filteredOut) {
+        ruleOutlineModel.status = model.SpecStatus.pending;
+    }
 
     // Determine the describe function for the parent outline suite
     const outlineDescribeFunc = shouldSkip ? vitestDescribe.skip : shouldOnlyRun ? vitestDescribe.only : vitestDescribe;
@@ -952,6 +1387,10 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
 
             // Child test name is an Example leaf
             const exampleName = `Example ${example.sequence}: ${materializedRuleTitle}`;
+            markFilteredOut(example, filterDecision);
+            if (shouldSkip && !filterDecision.filteredOut) {
+                example.status = model.SpecStatus.pending;
+            }
 
             const exampleMeta = {
                 livedoc: {
@@ -967,6 +1406,9 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
                             valuesRaw: (example.exampleRaw ?? {}) as Record<string, unknown>,
                         },
                     },
+                    ...(filterDecision.filteredOut
+                        ? { filter: filterMeta(filterDecision.reason ?? currentFilterOmissionReason ?? "parent-filtered") }
+                        : {}),
                 },
             };
 
@@ -985,10 +1427,14 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
 
                 const startTime = Date.now();
                 try {
-                    await fn(ctx);
+                    await withDeclarationContextAsync(
+                        { type: "Rule Outline", title: ruleOutlineModel.title },
+                        () => fn(ctx)
+                    );
                     example.status = model.SpecStatus.pass;
                     example.executionTime = Date.now() - startTime;
                 } catch (error: any) {
+                    captureParserException(error);
                     example.status = model.SpecStatus.fail;
                     example.executionTime = Date.now() - startTime;
                     example.error = error;
@@ -1006,6 +1452,7 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
 
             currentSuite.task(exampleName, {
                 meta: exampleMeta,
+                skip: shouldSkip,
                 handler: exampleHandler as any,
             });
         }
@@ -1046,6 +1493,10 @@ function createStepFunction(stepType: string) {
         }
 
         const stepDefinition = parser.createStep(stepType, title, passedParam);
+        if (isFilteredContext) {
+            (stepDefinition as any).filteredOut = true;
+            (stepDefinition as any).filterOmissionReason = currentFilterOmissionReason ?? "parent-filtered";
+        }
         
         // Apply passed params during registration so they are available for discovery/metadata
         // For Scenario Outlines, this ensures the example metadata is available to the reporter immediately.
@@ -1166,6 +1617,9 @@ function createStepFunction(stepType: string) {
                           },
                       }
                     : {}),
+                ...(isFilteredContext
+                    ? { filter: filterMeta(currentFilterOmissionReason ?? "parent-filtered") }
+                    : {}),
             },
         };
 
@@ -1199,10 +1653,10 @@ function createStepFunction(stepType: string) {
                                 return stepDefinition.getStepContext();
                             },
                         };
-                        const result = fn(ctx);
-                        if (result && typeof result.then === "function") {
-                            await result;
-                        }
+                        await withDeclarationContextAsync(
+                            { type: getStepDeclarationType(stepDefinition.type), title: stepDefinition.title },
+                            () => fn(ctx)
+                        );
                     }
                 } else if (capturedScenario) {
                     // For scenario steps: Re-execute stored background steps before first step
@@ -1220,20 +1674,23 @@ function createStepFunction(stepType: string) {
                             parser.applyPassedParams(stepDetail.stepDefinition);
                             const bgStartTime = Date.now();
                             try {
-                                const result = stepDetail.func({
-                                    get feature() {
-                                        return capturedFeature?.getFeatureContext();
+                                await withDeclarationContextAsync(
+                                    {
+                                        type: getStepDeclarationType(stepDetail.stepDefinition.type),
+                                        title: stepDetail.stepDefinition.title,
                                     },
-                                    get background() {
-                                        return capturedFeature?.getBackgroundContext();
-                                    },
-                                    get step() {
-                                        return stepDetail.stepDefinition.getStepContext();
-                                    },
-                                });
-                                if (result && typeof result.then === "function") {
-                                    await result;
-                                }
+                                    () => stepDetail.func({
+                                        get feature() {
+                                            return capturedFeature?.getFeatureContext();
+                                        },
+                                        get background() {
+                                            return capturedFeature?.getBackgroundContext();
+                                        },
+                                        get step() {
+                                            return stepDetail.stepDefinition.getStepContext();
+                                        },
+                                    })
+                                );
                                 // Mark background step as passed
                                 stepDetail.stepDefinition.setStatus(model.SpecStatus.pass, Date.now() - bgStartTime);
                             } catch (error: any) {
@@ -1274,10 +1731,10 @@ function createStepFunction(stepType: string) {
                             },
                         };
 
-                        const result = fn(ctx);
-                        if (result && typeof result.then === "function") {
-                            await result;
-                        }
+                        await withDeclarationContextAsync(
+                            { type: getStepDeclarationType(stepDefinition.type), title: stepDefinition.title },
+                            () => fn(ctx)
+                        );
                     }
                 }
                 
@@ -1291,6 +1748,7 @@ function createStepFunction(stepType: string) {
                     (taskMeta as any).livedoc.step.attachments = stepDefinition.attachments;
                 }
             } catch (error: any) {
+                captureParserException(error);
                 // Mark step as failed and capture exception details
                 const duration = Date.now() - startTime;
                 stepDefinition.setStatus(model.SpecStatus.fail, duration);
@@ -1326,6 +1784,7 @@ function createStepFunction(stepType: string) {
         currentSuite.task(testName, {
             meta: taskMeta,
             handler: stepHandler as any,
+            skip: isFilteredContext || undefined,
         });
     };
 }
@@ -1867,6 +2326,12 @@ ${strippedFeature.split('\n').map((line: string) => '        ' + line).join('\n'
                 
                 if (results.thrownException.type === 'LiveDocRuleViolation' && results.thrownException.data) {
                     throw this.reconstructRuleViolation(results.thrownException.data);
+                } else if (results.thrownException.type === 'ParserException' && results.thrownException.data) {
+                    throw new model.ParserException(
+                        results.thrownException.data.description,
+                        results.thrownException.data.title,
+                        results.thrownException.data.filename
+                    );
                 } else {
                     throw new Error(results.thrownException.message);
                 }
