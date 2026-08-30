@@ -6,6 +6,8 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+- Updated esbuild build tooling to address GHSA-g7r4-m6w7-qqqr.
+
 ## [0.3.0] - 2026-08-29
 
 - Updated the embedded Viewer with the redesigned dashboard, grouped Full/Partial run history, failure diagnostics, rule-violation cards, contextual deep links, responsive navigation, and module-based code coverage.

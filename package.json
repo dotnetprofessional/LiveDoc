@@ -19,6 +19,7 @@
   "pnpm": {
     "overrides": {
       "dompurify@<3.4.13": "3.4.13",
+      "esbuild@>=0.27.3 <0.28.1": "0.28.1",
       "mermaid@>=11.0.0-alpha.1 <11.16.1": "11.16.1",
       "shell-quote@<=1.8.4": "1.9.0",
       "websocket-driver@<0.7.5": "0.7.5",
