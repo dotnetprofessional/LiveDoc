@@ -357,7 +357,46 @@ if (-not $SkipVitest) {
             Record-Fail "vitest/declaration-imports" ($externalDeclarationImports -join '; ')
         }
 
-        # ── Test 3: Strict TypeScript consumer ──
+        # ── Test 3: Private Server runtime remains external ──
+        Write-Check "Checking that the private Server runtime is not bundled..."
+        $serverImportPattern = "import\(['""]@swedevtools/livedoc-server['""]\)"
+        $bundledServerMarkers = @(
+            'var HonoRequest',
+            'class _Hono',
+            'WebSocketServer2 = class'
+        )
+        $runtimeEntryPaths = @(
+            (Join-Path $installedVitestDir 'dist\index.js'),
+            (Join-Path $installedVitestDir 'dist\reporter\index.js')
+        )
+        $runtimeFailures = @()
+        foreach ($runtimeEntryPath in $runtimeEntryPaths) {
+            $relativePath = [System.IO.Path]::GetRelativePath($installedVitestDir, $runtimeEntryPath)
+            if (-not (Test-Path $runtimeEntryPath)) {
+                $runtimeFailures += "$relativePath is missing"
+                continue
+            }
+
+            $runtimeContent = Get-Content $runtimeEntryPath -Raw
+            if ($runtimeContent -notmatch $serverImportPattern) {
+                $runtimeFailures += "$relativePath does not preserve the external Server dynamic import"
+            }
+            foreach ($marker in $bundledServerMarkers) {
+                if ($runtimeContent.Contains($marker)) {
+                    $runtimeFailures += "$relativePath contains bundled Server marker '$marker'"
+                }
+            }
+        }
+
+        if ($runtimeFailures.Count -eq 0) {
+            Write-Pass "Server discovery stays external with no bundled Server/Hono/ws implementation"
+            Record-Pass "vitest/server-external"
+        } else {
+            Write-Fail "Private Server runtime was bundled or its dynamic import was removed"
+            Record-Fail "vitest/server-external" ($runtimeFailures -join '; ')
+        }
+
+        # ── Test 4: Strict TypeScript consumer ──
         Write-Check "Type-checking a strict clean consumer..."
         $consumerSource = @"
 import {
@@ -423,7 +462,7 @@ specification('Published specification API', () => {
             Record-Fail "vitest/strict-consumer" ($typecheckOutput.Trim())
         }
 
-        # ── Test 4: Basic import ──
+        # ── Test 5: Basic import ──
         Write-Check "Testing package import..."
         $nodeScript = @"
 import { createRequire } from 'module';
@@ -455,7 +494,7 @@ console.log('pkg-loaded:' + pkg.version);
             Record-Fail "vitest/import" "Import failed"
         }
 
-        # ── Test 5: Core exports available ──
+        # ── Test 6: Core exports available ──
         Write-Check "Checking core exports..."
         $nodeScript2 = @"
 const livedoc = await import('@swedevtools/livedoc-vitest');
@@ -488,7 +527,7 @@ if (missing.length > 0) {
             Record-Fail "vitest/exports" "Verification failed"
         }
 
-        # ── Test 6: Execute the packaged DSL under the installed Vitest peer ──
+        # ── Test 7: Execute the packaged DSL under the installed Vitest peer ──
         Write-Check "Executing a packaged LiveDoc specification..."
         $smokeSpec = @"
 import { expect } from 'vitest';
