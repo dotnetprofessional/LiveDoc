@@ -29,6 +29,10 @@ No LiveDoc package or skill needs to be installed first.
 | [livedoc-vscode](packages/vscode) | VS Code extension with snippets & formatting | ✅ Active |
 | [SweDevTools.LiveDoc.xUnit](dotnet/xunit) | BDD syntax for xUnit (.NET) | ✅ Active |
 
+`@swedevtools/livedoc-schema` and `@swedevtools/livedoc-server` are private
+workspace packages embedded in the Viewer distribution. They are not published
+or installed independently.
+
 ## Quick Start — TypeScript (Vitest)
 
 ```bash

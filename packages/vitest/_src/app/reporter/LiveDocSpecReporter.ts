@@ -188,7 +188,7 @@ export default class LiveDocSpecReporter implements Reporter {
 
     private async discoverLiveDocServer(): Promise<{ url: string; port: number } | null> {
         try {
-            // @ts-ignore — optional peer dependency
+            // @ts-ignore — optional runtime dependency embedded by the Viewer
             const { discoverServer } = await import('@swedevtools/livedoc-server');
             const serverInfo = await discoverServer();
             if (serverInfo) return serverInfo;

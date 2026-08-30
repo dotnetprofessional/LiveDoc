@@ -9,11 +9,18 @@ export default defineConfig({
     "playwright/index": "_src/app/playwright/index.ts"
   },
   format: ["esm"],
-  dts: true,
+  dts: {
+    resolve: ["@swedevtools/livedoc-schema"]
+  },
   splitting: false,
   sourcemap: false,
   clean: true,
   treeshake: true,
-  external: ["vitest", "playwright", "@swedevtools/livedoc-vitest"],
+  external: [
+    "vitest",
+    "playwright",
+    "@swedevtools/livedoc-vitest",
+    "@swedevtools/livedoc-server"
+  ],
   noExternal: ["@swedevtools/livedoc-schema"]
 });
