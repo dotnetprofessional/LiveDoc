@@ -6,6 +6,10 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+### Changed
+
+- Updated `@hono/node-server` to 1.19.17 to address GHSA-92pp-h63x-v22m and GHSA-frvp-7c67-39w9.
+
 ## [0.3.0] - 2026-08-29
 
 - Added full/partial run lifecycles, raw physical history, server-composed historical views, active-run fencing, and completed-only latest snapshots.
