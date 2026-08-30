@@ -27,7 +27,8 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 - Fixed invalid nested LiveDoc declarations so feature, scenario, outline, background, specification, and rule nesting fails explicitly instead of silently dropping executable coverage.
 - Fixed dynamic execution resets so each run retains LiveDoc's recommended default rule configuration without leaking caller overrides.
-- Fixed the optional `@swedevtools/livedoc-server` peer range so the Vitest SDK accepts the companion `0.3.0` server release.
+- Removed the optional `@swedevtools/livedoc-server` peer contract because Server is embedded in Viewer rather than installed independently.
+- Bundled private Schema types into published declarations so strict TypeScript consumers do not need unpublished workspace packages.
 - Corrected the Vitest peer range to the tested `>=4.0.16 <5` contract instead of claiming unsupported Vitest 1-3 compatibility.
 - Fixed specification tag rendering and serialization, including slash-style tags such as `@name/name`.
 - Fixed LiveDoc filtering output so filtered tests are omitted from viewer/export results instead of appearing as pending or skipped.

@@ -9,7 +9,9 @@ export default defineConfig({
     "playwright/index": "_src/app/playwright/index.ts"
   },
   format: ["esm"],
-  dts: true,
+  dts: {
+    resolve: ["@swedevtools/livedoc-schema"]
+  },
   splitting: false,
   sourcemap: false,
   clean: true,
