@@ -8,6 +8,7 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ### Changed
 
+- Updated the bundled `@hono/node-server` runtime to 1.19.17 to address GHSA-92pp-h63x-v22m and GHSA-frvp-7c67-39w9.
 - Updated Vite to 6.4.3 to address development-server path traversal and file access advisories.
 
 ## [0.3.0] - 2026-08-29
