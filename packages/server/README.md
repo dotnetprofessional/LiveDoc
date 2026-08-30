@@ -2,6 +2,10 @@
 
 Shared server infrastructure for the LiveDoc ecosystem. This package provides the core server functionality used by both the LiveDoc Viewer and VS Code extension.
 
+> **Distribution:** This is a private workspace package embedded in
+> `@swedevtools/livedoc-viewer`. It is not published to npm or supported as an
+> independent installation.
+
 ## Features
 
 - **REST API** for test run management (Hono framework)
@@ -12,15 +16,7 @@ Shared server infrastructure for the LiveDoc ecosystem. This package provides th
 - **BDD schema** types (Feature, Scenario, Step)
 - **Non-BDD support** (TestSuite, Test)
 
-## Installation
-
-```bash
-npm install @swedevtools/livedoc-server
-# or
-pnpm add @swedevtools/livedoc-server
-```
-
-## Usage
+## Workspace Usage
 
 ### Embedded Mode (Library)
 
@@ -40,12 +36,6 @@ console.log(`Server running on port ${server.getPort()}`);
 
 // Later, gracefully shutdown
 await server.close();
-```
-
-### Standalone Mode (CLI)
-
-```bash
-npx @swedevtools/livedoc-server --port 3100 --host localhost
 ```
 
 ### Using Types

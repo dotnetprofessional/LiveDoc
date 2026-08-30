@@ -8,6 +8,7 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ### Changed
 
+- Marked the server as a private workspace package embedded in the Viewer distribution instead of publishing it independently.
 - Updated `@hono/node-server` to 1.19.17 to address GHSA-92pp-h63x-v22m and GHSA-frvp-7c67-39w9.
 
 ## [0.3.0] - 2026-08-29

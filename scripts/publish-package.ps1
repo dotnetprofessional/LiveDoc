@@ -1,12 +1,18 @@
 <#
 .SYNOPSIS
-    Publishes LiveDoc packages to npm.
+    Publishes independently distributed LiveDoc packages to npm.
 
 .DESCRIPTION
-    Publishes one or more packages to npm with support for dry-run, beta tags, and dependency ordering.
+    Publishes Vitest, Viewer, or all independently published npm packages with
+    support for dry-run and beta tags.
+
+    @swedevtools/livedoc-schema and @swedevtools/livedoc-server are private
+    workspace packages. pack-viewer.ps1 embeds them into Viewer; they are never
+    published independently.
 
 .PARAMETER Package
-    Package to publish: schema, server, vitest, viewer, or all.
+    Package to publish: vitest, viewer, or all. "all" includes every
+    independently published npm package.
 
 .PARAMETER DryRun
     If set, runs npm publish --dry-run instead of actual publish.
@@ -25,14 +31,14 @@
     Dry-run publish of vitest package.
 
 .EXAMPLE
-    .\publish-package.ps1 -Package all -Tag beta
-    Publish all packages with beta tag.
+    .\publish-package.ps1 -Package all -DryRun -SkipBuild
+    Dry-run every independently published npm package without rebuilding.
 #>
 
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('schema', 'server', 'vitest', 'viewer', 'all')]
+    [ValidateSet('vitest', 'viewer', 'all')]
     [string]$Package,
 
     [switch]$DryRun,
@@ -48,27 +54,16 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 
-# Package info with dependency order
+# Only independently published npm packages belong in this map. Schema and
+# Server are private workspace packages embedded by pack-viewer.ps1.
 $packages = [ordered]@{
-    'schema' = @{
-        Name = '@swedevtools/livedoc-schema'
-        Path = 'packages/schema'
-        DependsOn = @()
-    }
-    'server' = @{
-        Name = '@swedevtools/livedoc-server'
-        Path = 'packages/server'
-        DependsOn = @('schema')
-    }
     'vitest' = @{
         Name = '@swedevtools/livedoc-vitest'
         Path = 'packages/vitest'
-        DependsOn = @('schema', 'server')
     }
     'viewer' = @{
         Name = '@swedevtools/livedoc-viewer'
         Path = 'packages/viewer'
-        DependsOn = @('schema', 'server')
         ExtraPublishArgs = @('--config.node-linker=hoisted')
     }
 }
@@ -188,7 +183,7 @@ if (-not $DryRun) {
     }
 }
 
-# Publish in dependency order
+# Publish the selected independently distributed packages.
 foreach ($key in $toPublish) {
     $info = $packages[$key]
     Publish-Package -Key $key -Info $info

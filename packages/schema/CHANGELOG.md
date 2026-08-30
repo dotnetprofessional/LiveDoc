@@ -6,6 +6,10 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+### Changed
+
+- Marked the schema as a private workspace package embedded in the Viewer distribution instead of publishing it independently.
+
 ## [0.3.0] - 2026-08-29
 
 - Added optional `runType` and `baselineRunId` metadata for full and partial test-run history.

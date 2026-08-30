@@ -339,6 +339,8 @@ $items.Add((New-MenuItem -Label 'Test' -HotKey 't' -Children @(
 ) -Description 'Run tests across packages'))
 
 # --- Publish submenu ---
+# Schema and Server are private workspace packages embedded into Viewer by
+# pack-viewer.ps1, so they are intentionally absent from publish options.
 $publishScriptsDir = Join-Path $repoRoot 'scripts'
 
 $vitestPkgDir = Join-Path $repoRoot 'packages\vitest'
@@ -358,10 +360,10 @@ $items.Add((New-MenuItem -Label 'Publish' -HotKey 'n' -Children @(
                 Sync-Releases
             }.GetNewClosure() `
             -Description 'Build and pack to releases/ for local testing')
-        (New-MenuItem -Label 'Publish to npm (dry-run)' -HotKey '2' `
+        (New-MenuItem -Label 'npm: Vitest - Dry run' -HotKey '2' `
             -Action { & "$publishScriptsDir\publish-package.ps1" -Package vitest -DryRun }.GetNewClosure() `
             -Description 'Dry-run publish to verify package contents')
-        (New-MenuItem -Label 'Publish to npm' -HotKey '3' `
+        (New-MenuItem -Label 'npm: Vitest - Publish' -HotKey '3' `
             -Action { & "$publishScriptsDir\publish-package.ps1" -Package vitest }.GetNewClosure() `
             -Description 'Build, confirm, and publish to npm registry')
     ) -Description 'Vitest BDD testing framework')
@@ -369,10 +371,10 @@ $items.Add((New-MenuItem -Label 'Publish' -HotKey 'n' -Children @(
         (New-MenuItem -Label 'Local release (pack .tgz)' -HotKey '1' `
             -Action { & "$publishScriptsDir\pack-viewer.ps1" }.GetNewClosure() `
             -Description 'Build and pack to releases/ for local testing')
-        (New-MenuItem -Label 'Publish to npm (dry-run)' -HotKey '2' `
+        (New-MenuItem -Label 'npm: Viewer - Dry run' -HotKey '2' `
             -Action { & "$publishScriptsDir\publish-package.ps1" -Package viewer -DryRun }.GetNewClosure() `
             -Description 'Dry-run publish to verify package contents')
-        (New-MenuItem -Label 'Publish to npm' -HotKey '3' `
+        (New-MenuItem -Label 'npm: Viewer - Publish' -HotKey '3' `
             -Action { & "$publishScriptsDir\publish-package.ps1" -Package viewer }.GetNewClosure() `
             -Description 'Build, confirm, and publish to npm registry')
     ) -Description 'Real-time test result viewer')
@@ -384,14 +386,14 @@ $items.Add((New-MenuItem -Label 'Publish' -HotKey 'n' -Children @(
                 & "$publishScriptsDir\pack-nuget.ps1"
             }.GetNewClosure() `
             -Description 'dotnet pack to releases/ for local testing')
-        (New-MenuItem -Label 'Publish to NuGet (dry-run)' -HotKey '2' `
+        (New-MenuItem -Label 'NuGet: xUnit - Dry run' -HotKey '2' `
             -Action { & "$publishScriptsDir\publish-nuget.ps1" -DryRun }.GetNewClosure() `
             -Description 'Dry-run NuGet publish to validate package')
-        (New-MenuItem -Label 'Publish to NuGet' -HotKey '3' `
+        (New-MenuItem -Label 'NuGet: xUnit - Publish' -HotKey '3' `
             -Action { & "$publishScriptsDir\publish-nuget.ps1" }.GetNewClosure() `
             -Description 'Pack, confirm, and publish to nuget.org')
     ) -Description 'xUnit BDD testing framework (.NET)')
-) -Description 'Local releases and registry publishing'))
+) -Description 'Publish Vitest, Viewer, and xUnit; Schema/Server are embedded in Viewer'))
 
 # --- Update global viewer ---
 $items.Add((New-MenuItem -Label 'Update Global Viewer' -HotKey 'u' `
@@ -416,7 +418,8 @@ $packageHotkeys = @{
     '@swedevtools/livedoc-viewer' = 'w'; 'livedoc-vscode' = 'c'
 }
 
-# Bundled packages (not released independently, skip from menus)
+# Schema and Server are embedded into Viewer and intentionally omitted from
+# package/publish menus because they are never released independently.
 $bundledPackages = @('@swedevtools/livedoc-server', '@swedevtools/livedoc-schema')
 
 $packagesDir = Join-Path $repoRoot 'packages'
