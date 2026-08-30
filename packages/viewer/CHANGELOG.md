@@ -6,6 +6,10 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+### Changed
+
+- Updated Vite to 6.4.3 to address development-server path traversal and file access advisories.
+
 ## [0.3.0] - 2026-08-29
 
 ### Added
