@@ -6,6 +6,16 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+- Show attachments recorded directly on Rules and on the selected Rule Outline example, including image, JSON, text, and file previews without mixing evidence from other rows.
+- Added attachment indicators to test listings, with direct access to Rule evidence and counts for Scenarios and Rule Outlines.
+- Added collapsible, syntax-highlighted JSON attachment previews and Mermaid diagram previews with source, download, fit, zoom, and scroll controls for large sequence diagrams.
+- Reduced the npm package footprint by keeping Vite-bundled browser libraries out of the embedded production `node_modules`; only the Viewer CLI and private Server/Schema runtime closure is packaged.
+- Fixed JSON and text attachment headers so the supplied attachment title appears beside its MIME type.
+- Fixed RuleOutline and ScenarioOutline descriptions so placeholders bind only to actual selected example-row values for both Vitest and xUnit reports, without rewriting Markdown autolinks.
+- Added regression coverage for inline step Markdown, formatted JSON code blocks, and escaped script-like response text.
+- Fixed Markdown preprocessing so fenced JSON, HTML, and other code blocks preserve their exact source text.
+- Fixed inline Markdown code so short values remain inline instead of rendering as full-width fenced blocks.
+
 ## [0.3.0] - 2026-08-29
 
 ### Added

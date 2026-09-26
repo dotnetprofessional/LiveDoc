@@ -12,6 +12,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Scenario;
     Scenarios are isolated from each other and do not share state.
     All step types (Given, When, Then, And, But) execute in
     declaration order within a scenario.")]
+[Tag("scenarios")]
 public class Scenario_Execution_Spec : FeatureTest
 {
     public Scenario_Execution_Spec(ITestOutputHelper output) : base(output)

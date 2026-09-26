@@ -148,6 +148,11 @@ export const V1ScenarioTestSchema = V1BaseTestSchema.extend({
   steps: z.array(V1StepTestSchema),
 });
 
+export const V1BackgroundTestSchema = V1BaseTestSchema.extend({
+  kind: z.literal('Background'),
+  steps: z.array(V1StepTestSchema),
+});
+
 export const V1RuleTestSchema = V1BaseTestSchema.extend({
   kind: z.literal('Rule'),
 });
@@ -171,6 +176,11 @@ export const V1ScenarioOutlineTestSchema = V1BaseTestSchema.extend({
 
 export const V1RuleOutlineTestSchema = V1BaseTestSchema.extend({
   kind: z.literal('RuleOutline'),
+  steps: z.array(V1StepTestSchema).optional(),
+  template: z.object({
+    children: z.array(V1StepTestSchema).optional(),
+    steps: z.array(V1StepTestSchema).optional(),
+  }).optional(),
   examples: z.array(V1DataTableSchema),
   exampleResults: z.array(V1ExampleResultSchema),
   statistics: V1StatisticsSchema,
@@ -179,6 +189,7 @@ export const V1RuleOutlineTestSchema = V1BaseTestSchema.extend({
 export const V1AnyTestSchema: z.ZodType<any> = z.union([
   V1StepTestSchema,
   V1ScenarioTestSchema,
+  V1BackgroundTestSchema,
   V1ScenarioOutlineTestSchema,
   V1RuleOutlineTestSchema,
   V1RuleTestSchema,

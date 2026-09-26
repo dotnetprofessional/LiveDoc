@@ -32,6 +32,7 @@ export {
     rule,
     ruleOutline,
 } from "./livedoc";
+export type { RuleTestContext, RuleOutlineTestContext } from "./livedoc";
 
 // Export options and rules
 export { LiveDocOptions } from "./LiveDocOptions";

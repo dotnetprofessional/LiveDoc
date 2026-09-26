@@ -9,6 +9,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
     Covers value matching, structural checks, array handling, property rules,
     assertion rules, and error reporting for JSON contract validation.
 ")]
+[Tag("journeys")]
 public class JsonAssertions_Spec : SpecificationTest
 {
     public JsonAssertions_Spec(ITestOutputHelper output) : base(output) { }

@@ -21,11 +21,16 @@ public class LiveDocContext : IDisposable
     private readonly LiveDocTestRunReporter? _runReporter;
     
     private readonly List<StepExecution> _steps = new();
+    private readonly List<StepExecution> _backgroundSteps = new();
     private readonly System.Diagnostics.Stopwatch _scenarioStopwatch;
     private string _currentStepType = "";
     private bool _hasGiven;
     private bool _hasWhen;
     private bool _hasThen;
+    private bool _inBackground;
+    private bool _backgroundHasGiven;
+    private Exception? _lifecycleFailure;
+    private Exception? _backgroundFailure;
     private ExampleData? _currentExample;
     private StepContext? _currentStep;
     private string? _testCaseId;
@@ -40,6 +45,7 @@ public class LiveDocContext : IDisposable
     
     private readonly bool _isSpecification;
     private List<Reporter.Models.Attachment>? _currentStepAttachments;
+    private List<Reporter.Models.Attachment>? _ruleAttachments;
 
     /// <summary>
     /// The current feature context (for BDD/Gherkin tests).
@@ -76,13 +82,41 @@ public class LiveDocContext : IDisposable
     /// </summary>
     public StepContext? Step => _currentStep;
 
+    internal void BeginBackground() => _inBackground = true;
+
+    internal void EndBackground()
+    {
+        _inBackground = false;
+        _backgroundHasGiven = _hasGiven;
+        _hasGiven = false;
+    }
+
+    internal void RecordBackgroundFailure(Exception exception)
+    {
+        _backgroundFailure = exception;
+        RecordLifecycleFailure(exception);
+    }
+
+    internal void RecordLifecycleFailure(Exception exception) =>
+        _lifecycleFailure = _lifecycleFailure is null
+            ? exception
+            : new AggregateException(_lifecycleFailure, exception);
+
     /// <summary>
-    /// Adds an attachment to the currently executing step.
+    /// Adds an attachment to the current rule or scenario step.
     /// </summary>
     internal void AddAttachment(Reporter.Models.Attachment attachment)
     {
-        _currentStepAttachments ??= new List<Reporter.Models.Attachment>();
-        _currentStepAttachments.Add(attachment);
+        if (_isSpecification && _currentStep == null)
+        {
+            _ruleAttachments ??= new List<Reporter.Models.Attachment>();
+            _ruleAttachments.Add(attachment);
+        }
+        else
+        {
+            _currentStepAttachments ??= new List<Reporter.Models.Attachment>();
+            _currentStepAttachments.Add(attachment);
+        }
     }
 
     internal LiveDocContext(
@@ -288,7 +322,7 @@ public class LiveDocContext : IDisposable
         return new RuleContext
         {
             Name = name,
-            Description = ruleAttr?.GetDescription(_testMethod) ?? ruleOutlineAttr?.GetDescription(_testMethod),
+            Description = ruleAttr?.Description ?? ruleOutlineAttr?.Description,
             Tags = TagAttribute.GetTags(_testClassType, _testMethod),
             ValuesRaw = valuesRaw,
             ParamsRaw = paramsRaw,
@@ -504,11 +538,15 @@ public class LiveDocContext : IDisposable
         return ValueParser.FormatMethodNameAsTemplate(testMethod.Name, paramNames);
     }
 
-    public void ExecuteStep(string type, string description, Action step)
+    public void ExecuteStep(string type, string title, Action step, string? description = null)
     {
         // Create step context with extracted values
-        var displayTitle = ProcessDescription(description);
-        _currentStep = CreateStepContext(type, description, displayTitle);
+        var displayTitle = ProcessDescription(title);
+        _currentStep = CreateStepContext(
+            type,
+            title,
+            displayTitle,
+            ProcessStepDescription(description));
         _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
@@ -517,9 +555,10 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
-            OriginalDescription = description,
-            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
-            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            MarkdownDescription = description,
+            OriginalDescription = title,
+            TemplateDescription = _isOutline ? ReconstructTemplate(title) : title,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(title),
             StartTime = DateTime.UtcNow,
             RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
@@ -533,7 +572,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result (fire and forget)
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -544,7 +583,7 @@ public class LiveDocContext : IDisposable
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result (fire and forget)
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -562,11 +601,15 @@ public class LiveDocContext : IDisposable
     /// <summary>
     /// Executes a step with context access for value extraction.
     /// </summary>
-    public void ExecuteStep(string type, string description, Action<LiveDocContext> step)
+    public void ExecuteStep(string type, string title, Action<LiveDocContext> step, string? description = null)
     {
         // Create step context with extracted values
-        var displayTitle = ProcessDescription(description);
-        _currentStep = CreateStepContext(type, description, displayTitle);
+        var displayTitle = ProcessDescription(title);
+        _currentStep = CreateStepContext(
+            type,
+            title,
+            displayTitle,
+            ProcessStepDescription(description));
         _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
@@ -575,9 +618,10 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
-            OriginalDescription = description,
-            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
-            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            MarkdownDescription = description,
+            OriginalDescription = title,
+            TemplateDescription = _isOutline ? ReconstructTemplate(title) : title,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(title),
             StartTime = DateTime.UtcNow,
             RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
@@ -590,7 +634,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result (fire and forget)
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -601,7 +645,7 @@ public class LiveDocContext : IDisposable
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result (fire and forget)
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -615,10 +659,14 @@ public class LiveDocContext : IDisposable
         }
     }
 
-    public async Task ExecuteStepAsync(string type, string description, Func<Task> step)
+    public async Task ExecuteStepAsync(string type, string title, Func<Task> step, string? description = null)
     {
-        var displayTitle = ProcessDescription(description);
-        _currentStep = CreateStepContext(type, description, displayTitle);
+        var displayTitle = ProcessDescription(title);
+        _currentStep = CreateStepContext(
+            type,
+            title,
+            displayTitle,
+            ProcessStepDescription(description));
         _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
@@ -627,9 +675,10 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
-            OriginalDescription = description,
-            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
-            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            MarkdownDescription = description,
+            OriginalDescription = title,
+            TemplateDescription = _isOutline ? ReconstructTemplate(title) : title,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(title),
             StartTime = DateTime.UtcNow,
             RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
@@ -641,7 +690,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -652,7 +701,7 @@ public class LiveDocContext : IDisposable
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -669,10 +718,14 @@ public class LiveDocContext : IDisposable
     /// <summary>
     /// Executes an async step with context access for value extraction.
     /// </summary>
-    public async Task ExecuteStepAsync(string type, string description, Func<LiveDocContext, Task> step)
+    public async Task ExecuteStepAsync(string type, string title, Func<LiveDocContext, Task> step, string? description = null)
     {
-        var displayTitle = ProcessDescription(description);
-        _currentStep = CreateStepContext(type, description, displayTitle);
+        var displayTitle = ProcessDescription(title);
+        _currentStep = CreateStepContext(
+            type,
+            title,
+            displayTitle,
+            ProcessStepDescription(description));
         _currentStepAttachments = null;
         _stepIndex++;
         var currentStepIndex = _stepIndex;
@@ -681,9 +734,10 @@ public class LiveDocContext : IDisposable
         {
             Type = type,
             Description = displayTitle,
-            OriginalDescription = description,
-            TemplateDescription = _isOutline ? ReconstructTemplate(description) : description,
-            QuotedParameterCandidates = GetQuotedParameterCandidates(description),
+            MarkdownDescription = description,
+            OriginalDescription = title,
+            TemplateDescription = _isOutline ? ReconstructTemplate(title) : title,
+            QuotedParameterCandidates = GetQuotedParameterCandidates(title),
             StartTime = DateTime.UtcNow,
             RuleViolations = TrackStepRuleViolations(type, displayTitle)
         };
@@ -695,7 +749,7 @@ public class LiveDocContext : IDisposable
             execution.Status = StepStatus.Passed;
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -706,7 +760,7 @@ public class LiveDocContext : IDisposable
             execution.Duration = DateTime.UtcNow - execution.StartTime;
             execution.Exception = ex;
             execution.Attachments = _currentStepAttachments;
-            _steps.Add(execution);
+            RecordStep(execution);
             
             // Report step result
             ReportStepAsync(currentStepIndex, type, displayTitle, execution);
@@ -726,12 +780,17 @@ public class LiveDocContext : IDisposable
         // final status is captured in scenario completion
     }
 
+    private void RecordStep(StepExecution execution) =>
+        (_inBackground ? _backgroundSteps : _steps).Add(execution);
+
     private List<Reporter.Models.RuleViolation>? TrackStepRuleViolations(string type, string title)
     {
         if (_isSpecification)
             return null;
 
         var normalizedType = type.ToLowerInvariant();
+        if (_inBackground && normalizedType is not ("given" or "and"))
+            throw new InvalidOperationException($"Backgrounds only support Given and And steps, not {type}.");
         var violations = new List<Reporter.Models.RuleViolation>();
 
         if (string.IsNullOrWhiteSpace(title))
@@ -751,7 +810,7 @@ public class LiveDocContext : IDisposable
                 break;
 
             case "when":
-                if (!_hasGiven)
+                if (!_hasGiven && !_backgroundHasGiven)
                 {
                     violations.Add(CreateRuleViolation(
                         "mustIncludeGiven",
@@ -817,7 +876,7 @@ public class LiveDocContext : IDisposable
             .SelectMany(step => step.RuleViolations ?? Enumerable.Empty<Reporter.Models.RuleViolation>())
             .ToList();
 
-        if (!_hasGiven && stepViolations.All(violation => violation.Rule != "mustIncludeGiven"))
+        if (!_hasGiven && !_backgroundHasGiven && stepViolations.All(violation => violation.Rule != "mustIncludeGiven"))
             violations.Add(CreateRuleViolation("mustIncludeGiven", "scenario does not have a given."));
 
         if (!_hasWhen && stepViolations.All(violation => violation.Rule != "mustIncludeWhen"))
@@ -837,17 +896,22 @@ public class LiveDocContext : IDisposable
         return violations;
     }
 
-    private StepContext CreateStepContext(string type, string originalDescription, string displayTitle)
+    private StepContext CreateStepContext(
+        string type,
+        string originalTitle,
+        string displayTitle,
+        string? description)
     {
-        var valuesRaw = ValueParser.ExtractQuotedValues(originalDescription);
-        var paramsRaw = ValueParser.ExtractNamedParams(originalDescription);
+        var valuesRaw = ValueParser.ExtractQuotedValues(originalTitle);
+        var paramsRaw = ValueParser.ExtractNamedParams(originalTitle);
         
         return new StepContext(
-            title: originalDescription,
+            title: originalTitle,
             displayTitle: displayTitle,
             type: type,
             valuesRaw: valuesRaw,
-            paramsRaw: paramsRaw);
+            paramsRaw: paramsRaw,
+            description: description);
     }
 
     private string ProcessDescription(string description)
@@ -861,13 +925,21 @@ public class LiveDocContext : IDisposable
         return processed;
     }
 
+    private string? ProcessStepDescription(string? description)
+    {
+        if (description == null || _currentExample == null)
+            return description;
+
+        return ReplacePlaceholders(description);
+    }
+
     private string ReplacePlaceholders(string description)
     {
         if (_currentExample == null)
             return description;
 
         // Replace <PropertyName> with actual values from Example
-        return Regex.Replace(description, @"<([^>]+)>", match =>
+        return Regex.Replace(description, @"<([^<>\r\n]+)>", match =>
         {
             var propName = match.Groups[1].Value.Replace(" ", "");
             var value = _currentExample[propName];
@@ -880,7 +952,7 @@ public class LiveDocContext : IDisposable
         // Output step results with pass/fail indicators
         _output.WriteLine("");
         
-        foreach (var step in _steps)
+        foreach (var step in _backgroundSteps.Concat(_steps))
         {
             var isPassed = step.Status == StepStatus.Passed;
             _output.WriteLine(_formatter.FormatStepWithStatus(step.Type, step.Description, isPassed));
@@ -897,9 +969,10 @@ public class LiveDocContext : IDisposable
         // Output summary
         _output.WriteLine("");
         
-        var passed = _steps.Count(s => s.Status == StepStatus.Passed);
-        var failed = _steps.Count(s => s.Status == StepStatus.Failed);
-        var totalMs = _steps.Sum(s => s.Duration.TotalMilliseconds);
+        var allSteps = _backgroundSteps.Concat(_steps).ToList();
+        var passed = allSteps.Count(s => s.Status == StepStatus.Passed);
+        var failed = allSteps.Count(s => s.Status == StepStatus.Failed);
+        var totalMs = allSteps.Sum(s => s.Duration.TotalMilliseconds);
 
         if (passed > 0)
         {
@@ -914,18 +987,28 @@ public class LiveDocContext : IDisposable
         _output.WriteLine("");
         
         // Update buffered test with final execution result
-        var hasFailed = failed > 0;
+        var hasFailed = failed > 0 || _lifecycleFailure != null;
         if (_runReporter != null)
         {
             _scenarioStopwatch.Stop();
-            var failedStep = _steps.FirstOrDefault(s => s.Status == StepStatus.Failed);
-            var error = CreateErrorInfo(failedStep?.Exception);
+            var failedStep = allSteps.FirstOrDefault(s => s.Status == StepStatus.Failed);
+            var error = CreateErrorInfo(failedStep?.Exception ?? _lifecycleFailure);
 
             var finalStatus = hasFailed ? Reporter.Models.Status.Failed : Reporter.Models.Status.Passed;
             var durationMs = _scenarioStopwatch.ElapsedMilliseconds;
 
             // Build step data for reporting
-            var reportedSteps = BuildStepData();
+            if (!_isSpecification && _testCaseId != null &&
+                (_backgroundSteps.Count > 0 || _backgroundFailure != null))
+            {
+                var backgroundId = LiveDocTestRunReporter.GenerateBackgroundId(_testCaseId);
+                _runReporter.RecordBackground(
+                    _testCaseId,
+                    BuildStepData(_backgroundSteps, backgroundId, isBackground: true),
+                    _backgroundFailure);
+            }
+
+            var reportedSteps = BuildStepData(_steps, _isOutline ? _outlineId! : _scenarioId!);
             var testRuleViolations = BuildScenarioRuleViolations();
 
             if (_isOutline && _outlineId != null)
@@ -937,7 +1020,7 @@ public class LiveDocContext : IDisposable
                     _runReporter.SetOutlineTestSteps(
                         _outlineId,
                         _outlineRowId,
-                        BuildStepData(useTemplate: false),
+                        BuildStepData(_steps, _outlineId, useTemplate: false),
                         reportedSteps,
                         _steps.Select(step => step.QuotedParameterCandidates).ToList());
                 }
@@ -950,7 +1033,14 @@ public class LiveDocContext : IDisposable
                     {
                         _runReporter.AddOutlineExampleResult(
                             _outlineId, _outlineRowId, step.Id,
-                            step.Execution.Status, step.Execution.Duration);
+                            step.Execution.Status, step.Execution.Duration,
+                            step.Execution.Error, step.Execution.Attachments);
+                    }
+                    if (_lifecycleFailure != null)
+                    {
+                        _runReporter.AddOutlineExampleResult(
+                            _outlineId, _outlineRowId, _outlineId,
+                            Reporter.Models.Status.Failed, 0, CreateErrorInfo(_lifecycleFailure));
                     }
                 }
                 else
@@ -958,7 +1048,7 @@ public class LiveDocContext : IDisposable
                     // No steps (e.g., Rules) — use outline ID as fallback
                     _runReporter.AddOutlineExampleResult(
                         _outlineId, _outlineRowId, _outlineId,
-                        finalStatus, durationMs, error);
+                        finalStatus, durationMs, error, _ruleAttachments);
                 }
                 _runReporter.RecordResult(
                     finalStatus,
@@ -972,21 +1062,28 @@ public class LiveDocContext : IDisposable
                 if (reportedSteps.Count > 0)
                     _runReporter.SetTestSteps(_scenarioId, reportedSteps);
 
-                _runReporter.UpdateTestExecution(_scenarioId, finalStatus, durationMs, error);
+                _runReporter.UpdateTestExecution(_scenarioId, finalStatus, durationMs, error, _ruleAttachments);
                 _runReporter.RecordResult(finalStatus, _testCaseId, _scenarioId);
             }
         }
     }
 
-    private List<StepTest> BuildStepData(bool useTemplate = true)
+    private List<StepTest> BuildStepData(
+        IReadOnlyList<StepExecution> steps,
+        string parentId,
+        bool useTemplate = true,
+        bool isBackground = false)
     {
-        var parentId = _isOutline ? _outlineId! : _scenarioId!;
         var result = new List<StepTest>();
-        for (int i = 0; i < _steps.Count; i++)
+        for (int i = 0; i < steps.Count; i++)
         {
-            var step = _steps[i];
+            var step = steps[i];
             var stepId = LiveDocTestRunReporter.GenerateStepId(parentId, step.Type, i + 1);
-            var title = _isOutline
+            var title = isBackground
+                ? _isOutline
+                    ? ValueParser.ReplaceNamedParams(step.OriginalDescription ?? step.Description)
+                    : step.Description
+                : _isOutline
                 ? useTemplate
                     ? step.TemplateDescription ?? step.OriginalDescription ?? step.Description
                     : step.OriginalDescription ?? step.Description
@@ -995,6 +1092,7 @@ public class LiveDocContext : IDisposable
             {
                 Id = stepId,
                 Title = title,
+                Description = step.MarkdownDescription,
                 Keyword = step.Type.ToStepKeyword(),
                 Execution = new ExecutionResult
                 {

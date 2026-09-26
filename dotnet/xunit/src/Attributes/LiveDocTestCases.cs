@@ -160,6 +160,35 @@ public class LiveDocRuleTestCase : XunitTestCase
 }
 
 /// <summary>
+/// Runs a Scenario through the same per-invocation lifecycle as Scenario Outlines.
+/// </summary>
+public class LiveDocScenarioTestCase : XunitTestCase
+{
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("Called by the deserializer; should only be called by deriving classes for de-serialization purposes")]
+    public LiveDocScenarioTestCase() { }
+
+    public LiveDocScenarioTestCase(
+        IMessageSink diagnosticMessageSink,
+        TestMethodDisplay defaultMethodDisplay,
+        TestMethodDisplayOptions defaultMethodDisplayOptions,
+        ITestMethod testMethod)
+        : base(diagnosticMessageSink, defaultMethodDisplay, defaultMethodDisplayOptions, testMethod) { }
+
+    public override Task<RunSummary> RunAsync(
+        IMessageSink diagnosticMessageSink,
+        IMessageBus messageBus,
+        object[] constructorArguments,
+        ExceptionAggregator aggregator,
+        CancellationTokenSource cancellationTokenSource)
+    {
+        return new LiveDocTestCaseRunner(
+            this, DisplayName, SkipReason, constructorArguments, TestMethodArguments,
+            messageBus, aggregator, cancellationTokenSource).RunAsync();
+    }
+}
+
+/// <summary>
 /// Custom test case for RuleOutline that automatically injects example data.
 /// </summary>
 public class LiveDocRuleOutlineTestCase : XunitTestCase
@@ -532,5 +561,24 @@ internal class LiveDocTestInvoker : XunitTestInvoker
         }
         
         return testClassInstance;
+    }
+
+    protected override async Task<decimal> InvokeTestMethodAsync(object testClassInstance)
+    {
+        if (testClassInstance is not FeatureTest feature)
+            return await base.InvokeTestMethodAsync(testClassInstance);
+
+        try
+        {
+            await Aggregator.RunAsync(() =>
+                feature.RunBackgroundAsync(_testMethodInfo, _testMethodArguments, _outlineRowId));
+            if (!Aggregator.HasExceptions)
+                return await base.InvokeTestMethodAsync(testClassInstance);
+            return 0;
+        }
+        finally
+        {
+            await Aggregator.RunAsync(feature.RunAfterBackgroundAsync);
+        }
     }
 }

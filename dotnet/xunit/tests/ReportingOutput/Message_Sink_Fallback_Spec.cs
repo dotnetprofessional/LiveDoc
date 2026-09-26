@@ -23,6 +23,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     Tests use isolated model instances to avoid polluting the singleton
     LiveDocTestRunReporter payload.
 ")]
+[Tag("reporting")]
 public class Message_Sink_Fallback_Spec : SpecificationTest
 {
     private static readonly MethodInfo FinalizeOutlineStatsMethod = typeof(LiveDocTestRunReporter)

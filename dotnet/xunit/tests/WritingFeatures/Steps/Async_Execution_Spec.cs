@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Steps;
     Steps in LiveDoc scenarios support async/await. Given, When, and Then
     steps can each be asynchronous, and async works with context access
     and scenario outlines.")]
+[Tag("steps")]
 public class Async_Execution_Spec : FeatureTest
 {
     public Async_Execution_Spec(ITestOutputHelper output) : base(output)

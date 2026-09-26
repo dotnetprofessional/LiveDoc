@@ -90,7 +90,7 @@
 
 ### Not Yet Implemented (Future Enhancements)
 - 🔮 Tags/Labels for filtering tests
-- 🔮 Background steps (setup shared across scenarios)
+- ✅ Per-scenario Background execution and `AfterBackgroundAsync` cleanup, with a Feature-level Background section in the Viewer
 - 🔮 Hooks (BeforeScenario/AfterScenario/BeforeStep/AfterStep)
 - 🔮 HTML reporter output (standalone, without Viewer)
 
@@ -187,7 +187,7 @@ dotnet test
 
 1. Publish to NuGet as `SweDevTools.LiveDoc.xUnit`
 2. Add more samples showing different use cases
-3. Consider implementing Background steps
+3. Consider dedicated feature-level Background presentation in the Viewer
 4. Add tag/label support for test filtering
 5. Create standalone HTML reporter
 6. Implement hooks (Before/After)

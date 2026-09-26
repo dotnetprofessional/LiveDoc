@@ -6,6 +6,9 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+- Added optional Rule Outline template steps to the reporter model and wire schema so per-example step results and attachments can be associated with their template steps.
+- Recognized Background nodes with steps in Feature reports, retaining their shared Given/And steps through wire validation.
+
 ## [0.3.0] - 2026-08-29
 
 - Added optional `runType` and `baselineRunId` metadata for full and partial test-run history.

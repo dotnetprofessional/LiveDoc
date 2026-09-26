@@ -9,9 +9,17 @@ import { promises as fs } from "fs";
 // Helpers — reusable payload builders
 // ---------------------------------------------------------------------------
 
-function makeStep(id: string, keyword: string, title: string, status = "passed", duration = 10) {
+function makeStep(
+    id: string,
+    keyword: string,
+    title: string,
+    status = "passed",
+    duration = 10,
+    description?: string
+) {
     return {
         id, kind: "Step", keyword, title,
+        ...(description ? { description } : {}),
         execution: { status, duration },
     };
 }
@@ -194,7 +202,13 @@ feature(`V1 API — Run Lifecycle
         when("upserting a test case containing '2' Scenario tests with steps", async (ctx) => {
             const testCase = makeTestCase("tc-1", "User Login", [
                 makeScenario("sc-1", "Valid credentials", [
-                    makeStep("sc-1:step0", "given", "a registered user"),
+                    makeStep(
+                        "sc-1:step0",
+                        "given",
+                        "a registered user",
+                        "passed",
+                        10,
+                        "```json\n{\"role\":\"customer\"}\n```"),
                     makeStep("sc-1:step1", "when", "they enter valid credentials"),
                     makeStep("sc-1:step2", "then", "they are logged in"),
                 ]),
@@ -235,6 +249,11 @@ feature(`V1 API — Run Lifecycle
             expect(steps[0].keyword).toBe("given");
             expect(steps[0].execution.status).toBe("passed");
             expect(steps[2].keyword).toBe("then");
+        });
+
+        and("the first step preserves inline JSON value 'customer'", (ctx) => {
+            expect(run.documents[0].tests[0].steps[0].description)
+                .toContain(`"${ctx.step.values[0]}"`);
         });
 
         and("the failed scenario preserves error message 'Invalid credentials'", (ctx) => {

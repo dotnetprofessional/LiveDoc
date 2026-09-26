@@ -17,6 +17,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     LiveDocConfig reads server URL, project, and environment settings.
     Reporting is enabled only when a valid server URL is configured.")]
 [Collection(Environment_Sensitive_Collection.Name)]
+[Tag("reporting")]
 public class Reporter_Config_Spec : SpecificationTest
 {
     public Reporter_Config_Spec(ITestOutputHelper output) : base(output)

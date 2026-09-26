@@ -6,6 +6,8 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+- Updated the embedded Viewer webview's module script and content security policy so attachment images and rendered Mermaid diagrams display inside VS Code.
+
 ## [0.3.0] - 2026-08-29
 
 - Updated the embedded Viewer with the redesigned dashboard, grouped Full/Partial run history, failure diagnostics, rule-violation cards, contextual deep links, responsive navigation, and module-based code coverage.

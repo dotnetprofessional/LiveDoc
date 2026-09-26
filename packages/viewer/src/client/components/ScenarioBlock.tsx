@@ -1,4 +1,4 @@
-import type { Status, StepTest } from '@swedevtools/livedoc-schema';
+import type { Attachment, Status, StepTest } from '@swedevtools/livedoc-schema';
 import { Card, CardContent } from './ui/card';
 import { StatusBadge } from './StatusBadge';
 import { Markdown } from './Markdown';
@@ -8,17 +8,21 @@ import { StepList } from './StepList';
 import { Tag, Images, Paperclip, Clock } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { AttachmentViewer } from './AttachmentViewer';
+import { Button } from './ui/button';
 import { collectScenarioAttachments } from '../utils/gallery';
 import { formatDuration } from '../lib/status-utils';
-import type { GalleryItem } from '../utils/gallery';
+import { bindExamplePlaceholdersInText } from '../lib/title-utils';
+import type { AttachmentItem } from './AttachmentViewer';
 
 export interface ScenarioBlockProps {
   label: 'Scenario' | 'Scenario Outline' | 'Background' | 'Rule' | 'Rule Outline';
   title: React.ReactNode;
   status?: Status;
   description?: string;
+  bindValues?: Record<string, string>;
   tags?: string[];
   steps?: StepTest[];
+  attachments?: Attachment[];
   highlightValues?: Record<string, string>;
   showDurations: boolean;
   showErrorStack: boolean;
@@ -32,8 +36,10 @@ export function ScenarioBlock({
   title,
   status,
   description,
+  bindValues,
   tags,
   steps,
+  attachments,
   highlightValues,
   showDurations,
   showErrorStack,
@@ -43,17 +49,21 @@ export function ScenarioBlock({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const bgClass = tone === 'background' ? 'bg-muted/20' : 'bg-card/60';
 
-  // Collect all attachments across steps for the scenario gallery
-  const galleryItems: GalleryItem[] = useMemo(() => {
-    if (!steps || steps.length === 0) return [];
-    return collectScenarioAttachments(steps);
-  }, [steps]);
+  const stepGalleryItems = useMemo(() => collectScenarioAttachments(steps ?? []), [steps]);
+  const galleryItems: AttachmentItem[] = useMemo(
+    () => [...(attachments ?? []), ...stepGalleryItems],
+    [attachments, stepGalleryItems]
+  );
 
   const totalAttachments = galleryItems.length;
   const allAreImages = totalAttachments > 0 && galleryItems.every(
     (item) => item.kind === 'image' || item.kind === 'screenshot'
   );
   const GalleryIcon = allAreImages ? Images : Paperclip;
+  const boundDescription =
+    description && bindValues && Object.keys(bindValues).length > 0
+      ? bindExamplePlaceholdersInText(description, bindValues)
+      : description;
 
   // Find first failed step for smart default opening
   const firstFailedStepIndex = useMemo(() => {
@@ -64,13 +74,20 @@ export function ScenarioBlock({
 
   const initialGalleryIndex = useMemo(() => {
     if (totalAttachments === 0) return 0;
-    let count = 0;
+    let count = attachments?.length ?? 0;
     for (let i = 0; i < firstFailedStepIndex && i < (steps?.length ?? 0); i++) {
       const stepAttachments = steps![i].execution?.attachments?.length ?? 0;
       count += stepAttachments;
     }
     return count;
-  }, [firstFailedStepIndex, steps, totalAttachments]);
+  }, [attachments, firstFailedStepIndex, steps, totalAttachments]);
+
+  const attachmentScope = label === 'Rule Outline'
+    ? 'this example'
+    : label === 'Rule'
+      ? 'this rule'
+      : 'this scenario';
+  const attachmentTitle = `View all ${totalAttachments} attachment${totalAttachments === 1 ? '' : 's'} for ${attachmentScope}`;
 
   return (
     <Card className={`border-none shadow-none ${bgClass}`}>
@@ -83,14 +100,18 @@ export function ScenarioBlock({
             </h2>
             <div className="flex items-center gap-2">
               {totalAttachments > 0 && (
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setGalleryOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground group"
-                  title={`View all ${totalAttachments} attachment${totalAttachments > 1 ? 's' : ''} across this scenario`}
+                  className="shrink-0 gap-1.5 bg-muted/60 px-2.5 text-muted-foreground hover:text-foreground"
+                  title={attachmentTitle}
+                  aria-label={attachmentTitle}
                 >
-                  <GalleryIcon className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                  <GalleryIcon className="w-3.5 h-3.5" />
                   <span className="text-xs font-bold">{totalAttachments}</span>
-                </button>
+                </Button>
               )}
               {showDurations && duration !== undefined && duration > 0 && (
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-muted-foreground/50">
@@ -102,8 +123,8 @@ export function ScenarioBlock({
             </div>
           </div>
 
-          {description && (
-            <Markdown content={description} className="text-sm text-muted-foreground mb-4" />
+          {boundDescription && (
+            <Markdown content={boundDescription} className="text-sm text-muted-foreground mb-4" />
           )}
 
           {tags && tags.length > 0 && (
@@ -123,7 +144,7 @@ export function ScenarioBlock({
               highlightValues={highlightValues}
               showDurations={showDurations}
               showErrorStack={showErrorStack}
-              galleryItems={galleryItems}
+              galleryItems={stepGalleryItems}
             />
           )}
         </div>

@@ -43,6 +43,7 @@ export function collectScenarioAttachments(steps: StepTest[]): GalleryItem[] {
       items.push({
         ...att,
         stepIndex,
+        stepCount: steps.length,
         stepKeyword: keyword,
         stepTitle: title,
         stepStatus: status,

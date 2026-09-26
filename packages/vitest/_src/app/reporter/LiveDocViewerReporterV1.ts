@@ -656,7 +656,10 @@ export class LiveDocViewerReporter implements IPostReporter {
       title: sdkRule.title,
       description: sdkRule.description,
       tags: sdkRule.tags,
-      execution: { status, duration, error },
+      execution: {
+        status, duration, error,
+        attachments: sdkRule.attachments.length > 0 ? sdkRule.attachments : undefined,
+      },
       ruleViolations: this.mapRuleViolations(sdkRule),
     } as any;
   }
@@ -967,10 +970,13 @@ export class LiveDocViewerReporter implements IPostReporter {
       const error = ex?.error?.message
         ? ({ message: String(ex.error.message), stack: typeof ex.error.stack === 'string' ? String(ex.error.stack) : undefined } as any)
         : undefined;
+      const attachments = Array.isArray(ex?.attachments) && ex.attachments.length > 0
+        ? ex.attachments
+        : undefined;
 
       results.push({
         testId: outlineId,
-        result: { status, duration, error, rowId } as ExecutionResult,
+        result: { status, duration, error, rowId, attachments },
       });
     }
 

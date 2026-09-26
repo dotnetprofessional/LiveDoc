@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Xunit;
 using Xunit.Sdk;
 
@@ -51,9 +52,11 @@ public class SpecificationAttribute : Attribute, ITraitAttribute
     /// Creates a specification with the given title.
     /// </summary>
     /// <param name="title">The specification title.</param>
-    public SpecificationAttribute(string title)
+    public SpecificationAttribute(
+        string title,
+        [CallerArgumentExpression(nameof(title))] string? titleExpression = null)
     {
-        Title = title;
+        Title = AttributeTitleFormatter.FormatExplicitName(title, titleExpression);
     }
 
     /// <summary>

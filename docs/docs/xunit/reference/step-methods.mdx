@@ -34,20 +34,25 @@ Then("shipping is 'Free'", ctx =>
 
 ### Method Signatures {#signatures}
 
-All five keywords share the same four overloads:
+All five keywords support four callback shapes, each with a concise
+`title, step` overload and a `title, description, step` overload:
 
 ```csharp
 // 1. Sync — no context
-void Given(string title, Action action);
+void Given(string title, Action step);
+void Given(string title, string? description, Action step);
 
 // 2. Sync — with context (for value extraction)
-void Given(string title, Action<LiveDocContext> action);
+void Given(string title, Action<LiveDocContext> step);
+void Given(string title, string? description, Action<LiveDocContext> step);
 
 // 3. Async — no context
-Task Given(string title, Func<Task> action);
+Task Given(string title, Func<Task> step);
+Task Given(string title, string? description, Func<Task> step);
 
 // 4. Async — with context
-Task Given(string title, Func<LiveDocContext, Task> action);
+Task Given(string title, Func<LiveDocContext, Task> step);
+Task Given(string title, string? description, Func<LiveDocContext, Task> step);
 ```
 
 Replace `Given` with `When`, `Then`, `And`, or `But` — the signatures are identical.
@@ -59,12 +64,50 @@ Replace `Given` with `When`, `Then`, `And`, or `But` — the signatures are iden
   - **Named parameters**: `<name:value>` — extracted via `ctx.Step.Params`
   - **Outline placeholders**: `<paramName>` — replaced with example data in output
 
-- **`action`**: `Action` | `Action<LiveDocContext>` | `Func<Task>` | `Func<LiveDocContext, Task>` — The step implementation. Use the `LiveDocContext` overloads when you need to extract values from the title.
+- **`description`**: `string?` — Optional Markdown rendered beneath the title. In the three-argument overload it comes immediately after `title`, so the specification reads before the executable callback. Use fenced code blocks for inline JSON, text, or HTML source. For outlines, `<parameter>` placeholders bind to the selected example row.
+- **`step`**: `Action` | `Action<LiveDocContext>` | `Func<Task>` | `Func<LiveDocContext, Task>` — The step implementation. Use the `LiveDocContext` overloads when you need to extract values from the title or read the bound inline description.
 
 #### Returns {#returns}
 
 - Sync overloads: `void`
 - Async overloads: `Task` — must be `await`ed in the test method
+
+---
+
+## Inline Markdown and JSON {#inline-content}
+
+Use the optional description when defining data must remain visible in the
+scenario narrative. Keep the title concise and pass exact raw JSON without
+serializing it again:
+
+````csharp
+var request = new { value = 11 };
+var myJsonVariable = JsonSerializer.Serialize(request);
+
+Given(
+    title: "the increment request",
+    description: $"""
+        ### Input
+
+        ```json
+        {myJsonVariable}
+        ```
+        """,
+    step: ctx =>
+    {
+        Assert.Contains(myJsonVariable, ctx.Step!.Description);
+        input = request.value;
+    });
+````
+
+The interpolated variable must be available before the step declaration is
+evaluated. A value produced inside the callback can be attached as evidence or
+shown by a later step, but cannot retroactively change this description.
+
+Markdown and fenced code are rendered inline in Business and Developer views.
+HTML or script-like text is escaped rather than executed. Use attachments for
+downloadable artifacts and supplementary diagnostics, not as a replacement for
+defining request or expected-response content.
 
 ---
 

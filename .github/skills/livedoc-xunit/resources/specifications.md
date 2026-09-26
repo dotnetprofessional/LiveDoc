@@ -36,6 +36,14 @@ public class CalculatorSpec : SpecificationTest
 
 **Key difference from BDD**: No step methods (Given/When/Then). Rules contain direct assertions.
 
+Specification, Rule, and RuleOutline titles supplied through `nameof(...)`
+replace identifier underscores with spaces. Literal strings preserve underscores:
+
+```csharp
+[Specification(nameof(Calculator_operations))] // "Calculator operations"
+[Rule("LIVEDOC_RUN_TYPE")]                     // "LIVEDOC_RUN_TYPE"
+```
+
 ---
 
 ## Attributes
@@ -75,8 +83,10 @@ public void Adding_positive_numbers_works()
     Assert.Equal(8, Add(5, 3));
 }
 
-// Explicit description with embedded values
-[Rule("Adding '5' and '3' returns '8'")]
+// Explicit title with embedded values and optional supporting prose
+[Rule(
+    "Adding '5' and '3' returns '8'",
+    Description = "Arithmetic is evaluated using integer operands.")]
 public void Add_with_values()
 {
     var (a, b, expected) = Rule.Values.As<int, int, int>();
@@ -96,8 +106,8 @@ public void Subtract_with_named_params()
 
 | Parameter       | Type     | Required | Description                                |
 | --------------- | -------- | -------- | ------------------------------------------ |
-| `description`   | `string` | No       | Rule description with optional `'value'` or `<name:value>` |
-| `testMethodName`| `string` | No       | Auto-populated via `[CallerMemberName]`     |
+| `title`         | `string` | No       | Rule title with optional `'value'` or `<name:value>` |
+| `Description`   | `string` | No       | Secondary Markdown prose                    |
 
 **Supports `async`:**
 ```csharp
@@ -114,8 +124,10 @@ public async Task Async_rule()
 Inherits from xUnit's `[Theory]`. Runs once per `[Example]` row.
 
 ```csharp
-// With explicit description — <placeholder> replaced in output
-[RuleOutline("Adding '<a>' and '<b>' returns '<result>'")]
+// Title and description templates bind to the selected example row
+[RuleOutline(
+    "Adding '<a>' and '<b>' returns '<result>'",
+    Description = "Adds <a> and <b> for this example.")]
 [Example(1, 2, 3)]
 [Example(5, 5, 10)]
 [Example(-5, 5, 0)]
@@ -124,7 +136,7 @@ public void Addition_examples(int a, int b, int result)
     Assert.Equal(result, Add(a, b));
 }
 
-// Without description — method name placeholders used
+// Without a title — method name placeholders used
 [RuleOutline]
 [Example(10, 2, 5)]
 [Example(100, 10, 10)]
@@ -137,12 +149,12 @@ public void Dividing_A_by_B_returns_RESULT(int a, int b, int result)
 
 | Parameter       | Type     | Required | Description                                  |
 | --------------- | -------- | -------- | -------------------------------------------- |
-| `description`   | `string` | No       | Template with `<paramName>` placeholders      |
-| `testMethodName`| `string` | No       | Auto-populated via `[CallerMemberName]`       |
+| `title`         | `string` | No       | Positional title template with `<paramName>` placeholders |
+| `Description`   | `string` | No       | Optional secondary Markdown prose (also binds placeholders) |
 
 ### Method Name Placeholders
 
-When `[RuleOutline]` has no explicit description, the method name serves as the template:
+When `[RuleOutline]` has no explicit title, the method name serves as the template:
 
 ```csharp
 // Method name: Converting_INPUT_to_uppercase_returns_EXPECTED
@@ -191,7 +203,7 @@ public class CalculatorSpec : SpecificationTest { ... }
 
 ### Rule.Values — Quoted Values
 
-Extracted from the `[Rule]` description string. Use single quotes:
+Extracted from the `[Rule]` title string, not its optional `Description`. Use single quotes:
 
 ```csharp
 [Rule("Adding '5' and '3' returns '8'")]
@@ -243,7 +255,7 @@ public void Subtract_named()
 
 | Property    | Type                      | Description                              |
 | ----------- | ------------------------- | ---------------------------------------- |
-| `Name`      | `string`                  | Rule name (from method or description)   |
+| `Name`      | `string`                  | Rule name (from method or title)         |
 | `Description` | `string?`              | Rule description text                    |
 | `Tags`      | `string[]`                | Merged class + method tags               |
 | `Values`    | `LiveDocValueArray`       | Quoted values from description           |
@@ -351,9 +363,9 @@ public class EmailValidationSpec : SpecificationTest
 
 | Exception                     | Cause                                          | Fix                                          |
 | ----------------------------- | ---------------------------------------------- | -------------------------------------------- |
-| `LiveDocConversionException`  | Invalid type conversion (e.g., `'abc'.AsInt()`) | Check quoted value format in `[Rule]` description |
-| `LiveDocValueIndexException`  | `Rule.Values[n]` beyond available count         | Verify quoted value count in description     |
-| `LiveDocParamNotFoundException` | `Rule.Params["x"]` for non-existent parameter | Check `<name:value>` syntax in description   |
+| `LiveDocConversionException`  | Invalid type conversion (e.g., `'abc'.AsInt()`) | Check quoted value format in `[Rule]` title |
+| `LiveDocValueIndexException`  | `Rule.Values[n]` beyond available count         | Verify quoted value count in title     |
+| `LiveDocParamNotFoundException` | `Rule.Params["x"]` for non-existent parameter | Check `<name:value>` syntax in title   |
 | Test not in Test Explorer     | Missing `[Rule]` attribute                      | Add `[Rule]` — it inherits from `[Fact]`     |
 | Placeholder not replaced      | `_PARAM_` doesn't match parameter name          | Match case-insensitively in method name      |
 
@@ -373,10 +385,10 @@ supported APIs and redaction rules.
 - [ ] `Description` provided on `[Specification]` attribute
 - [ ] Constructor accepts `ITestOutputHelper` and passes to `base(output)`
 - [ ] Each rule method has `[Rule]` or `[RuleOutline]` attribute
-- [ ] Quoted values in `[Rule]` descriptions are extracted via `Rule.Values`, never hardcoded
+- [ ] Quoted values in `[Rule]` titles are extracted via `Rule.Values`, never hardcoded
 - [ ] Named parameters use `<name:value>` syntax and `Rule.Params["name"]`
 - [ ] `[Example]` parameter count matches method parameter count
-- [ ] `<Placeholder>` names in descriptions match method parameter names
+- [ ] `<Placeholder>` names in RuleOutline titles and descriptions match method parameter names
 - [ ] Method name placeholders use `_ALLCAPS_` segments matching parameter names
 - [ ] Attachments are redacted and support an explicit assertion
 - [ ] Tests pass: `dotnet test`

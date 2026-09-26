@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Feature;
     The [Feature] attribute marks a test class as a BDD feature container.
     It supports explicit names, descriptions, and tags. The Feature context
     exposes this metadata for inspection within scenarios.")]
+[Tag("features")]
 public class Feature_Statement_Spec : SpecificationTest
 {
     public Feature_Statement_Spec(ITestOutputHelper output) : base(output)

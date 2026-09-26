@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     The packaged LiveDoc data collector activates the post-run attachment processor,
     injects an invocation-scoped metadata directory, and emits coded lifecycle diagnostics.")]
 [Collection(Environment_Sensitive_Collection.Name)]
+[Tag("coverage")]
 public class Coverage_Collector_Spec : SpecificationTest
 {
     public Coverage_Collector_Spec(ITestOutputHelper output) : base(output)

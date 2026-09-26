@@ -197,6 +197,48 @@ public class DiscountSpec : SpecificationTest
 }
 ```
 
+### Attach evidence to a rule {#rule-attachments}
+
+When a rule needs supporting evidence, use the inherited `Attach`, `AttachScreenshot`,
+`AttachFile`, or `AttachJson` methods. All four accept an optional title. Evidence
+belongs to the rule that created it: a `[Rule]` exports it in
+`execution.attachments`; each `[RuleOutline]` example exports its own list in
+`exampleResults[].result.attachments` (identified by `testId` and `rowId`).
+The outline's aggregate execution does not combine evidence from different rows.
+
+```csharp
+[Rule("The response contains 'approved'")]
+public void Approval_response()
+{
+    var expected = Rule.Values[0].AsString();
+    var response = GetApprovalResponse();
+    AttachJson(response, "Approval response");
+    Assert.Contains(expected, response);
+}
+
+[RuleOutline("The response for '<input>' is '<expected>'")]
+[Example("valid", "approved")]
+[Example("invalid", "rejected")]
+public void Approval_examples(string input, string expected)
+{
+    var response = GetResponse(input);
+    AttachJson(response, $"Response for {input}");
+    Assert.Equal(expected, response);
+}
+```
+
+`Attach(base64Data, mimeType, title, kind)` accepts encoded content and a kind of
+`"file"`, `"image"`, or `"screenshot"`. `AttachScreenshot(base64Data, title)`
+uses PNG/screenshot defaults. `AttachFile(filePath, title)` reads the file and
+detects supported image types. Files ending in `.mmd` or `.mermaid` use
+`text/vnd.mermaid` and kind `"file"`, so the Viewer can preview a diagram even
+when its attachment title omits the extension. `AttachJson(data, title)`
+serializes objects or accepts an existing JSON string. Calls can be repeated
+within a rule. Evidence added **before** an assertion is retained if that
+assertion fails; calls after a failing assertion are never reached. Avoid
+attaching secrets or personal data.
+Feature scenarios continue to associate attachments with their individual steps.
+
 ### Method name placeholders {#method-name-placeholders}
 
 When no explicit title is provided, `_ALLCAPS` segments in the method name become placeholders:

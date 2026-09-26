@@ -3,6 +3,7 @@ import { Specification } from "./Specification";
 import { SpecStatus } from "./SpecStatus";
 import { RuleContext } from "./RuleContext";
 import { Exception } from "./Exception";
+import type { Attachment } from "@swedevtools/livedoc-schema";
 
 /**
  * Rule is a simple specification assertion.
@@ -16,6 +17,7 @@ export class Rule extends LiveDocSuite {
     public error?: Error;
     public code: string = "";
     public exception: Exception = new Exception();
+    public attachments: Attachment[] = [];
 
     // Value extraction from rule title
     public valuesRaw: string[] = [];
@@ -35,7 +37,7 @@ export class Rule extends LiveDocSuite {
     }
 
     public getRuleContext(): RuleContext {
-        const context = new RuleContext();
+        const context = new RuleContext(this.attachments);
         context.title = this.title;
         context.description = this.description;
         context.tags = this.tags;
@@ -52,6 +54,7 @@ export class Rule extends LiveDocSuite {
             ...super.toJSON(),
             executionTime: this.executionTime,
             status: this.status,
+            attachments: this.attachments.length > 0 ? this.attachments : undefined,
             error: this.error ? { message: this.error.message, stack: this.error.stack } : undefined
         };
     }

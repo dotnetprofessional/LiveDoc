@@ -15,6 +15,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.FrameworkInternals.Values;
     from step descriptions. It handles both 'quoted values' and
     <name:value> named parameters.
 ")]
+[Tag("values")]
 public class Value_Parser_Spec : SpecificationTest
 {
     public Value_Parser_Spec(ITestOutputHelper output) : base(output)

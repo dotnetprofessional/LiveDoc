@@ -10,6 +10,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.FilteringAndTags;
     LiveDoc tags are exposed as xUnit Category traits so focused test runs can
     select stable behavior tags and publish them as partial Viewer updates.")]
 [Collection(Environment_Sensitive_Collection.Name)]
+[Tag("tags")]
 public class Tag_Filtering_Spec : SpecificationTest
 {
     public Tag_Filtering_Spec(ITestOutputHelper output) : base(output) { }

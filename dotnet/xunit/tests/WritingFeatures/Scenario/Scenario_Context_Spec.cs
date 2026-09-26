@@ -12,6 +12,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Scenario;
     Scenario context (name, metadata) is accessible within steps via
     this.Scenario. Steps execute in declaration order and can inspect
     the running scenario's properties.")]
+[Tag("scenarios")]
 public class Scenario_Context_Spec : FeatureTest
 {
     public Scenario_Context_Spec(ITestOutputHelper output) : base(output)

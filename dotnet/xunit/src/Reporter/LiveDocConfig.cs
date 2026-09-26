@@ -68,7 +68,7 @@ public class LiveDocConfig
     public const string DefaultServerUrl = "http://localhost:3100";
 
     private static readonly TimeSpan DiscoveryTimeout = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan DiscoveryRetryInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan DiscoveryRetryInterval = TimeSpan.FromSeconds(30);
     private static readonly string[] DiscoveryServerUrls =
     [
         "http://127.0.0.1:3100",
@@ -274,27 +274,38 @@ public class LiveDocConfig
     /// </summary>
     private static string? TryDiscoverServer()
     {
-        foreach (var serverUrl in DiscoveryServerUrls)
+        var discoveredServers = new System.Collections.Concurrent.ConcurrentDictionary<int, string>();
+        Parallel.ForEach(
+            DiscoveryServerUrls.Select((url, index) => (url, index)),
+            candidate =>
+            {
+                try
+                {
+                    using var handler = new SocketsHttpHandler
+                    {
+                        ConnectTimeout = DiscoveryTimeout,
+                        UseProxy = false
+                    };
+                    using var client = new HttpClient(handler)
+                    {
+                        Timeout = DiscoveryTimeout
+                    };
+                    using var request = new HttpRequestMessage(
+                        HttpMethod.Get,
+                        $"{candidate.url}/api/health");
+                    using var response = client.Send(request);
+                    if (response.IsSuccessStatusCode)
+                        discoveredServers.TryAdd(candidate.index, candidate.url);
+                }
+                catch
+                {
+                    // Server not running on this endpoint.
+                }
+            });
+
+        foreach (var candidate in discoveredServers.OrderBy(item => item.Key))
         {
-            try
-            {
-                using var handler = new SocketsHttpHandler
-                {
-                    ConnectTimeout = DiscoveryTimeout
-                };
-                using var client = new HttpClient(handler)
-                {
-                    Timeout = DiscoveryTimeout
-                };
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"{serverUrl}/api/health");
-                using var response = client.Send(request);
-                if (response.IsSuccessStatusCode)
-                    return serverUrl;
-            }
-            catch
-            {
-                // Server not running on this endpoint; try the next candidate.
-            }
+            return candidate.Value;
         }
 
         return null;

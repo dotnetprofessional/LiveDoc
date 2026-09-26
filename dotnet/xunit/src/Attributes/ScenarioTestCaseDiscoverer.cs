@@ -30,8 +30,7 @@ public class ScenarioTestCaseDiscoverer : IXunitTestCaseDiscoverer
             yield break;
         }
 
-        // Valid - create normal test case
-        yield return new XunitTestCase(
+        yield return new LiveDocScenarioTestCase(
             _diagnosticMessageSink,
             discoveryOptions.MethodDisplayOrDefault(),
             discoveryOptions.MethodDisplayOptionsOrDefault(),

@@ -21,6 +21,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
     - Underscores are converted to spaces after placeholder replacement
     - Unmatched placeholders remain as-is
 ")]
+[Tag("rules")]
 public class Method_Name_Placeholders_Spec : SpecificationTest
 {
     public Method_Name_Placeholders_Spec(ITestOutputHelper output) : base(output)
@@ -171,6 +172,7 @@ public class Method_Name_Placeholders_Spec : SpecificationTest
 /// Additional placeholder edge cases.
 /// </summary>
 [Specification]
+[Tag("rules")]
 public class Placeholder_Edge_Cases_Spec : SpecificationTest
 {
     public Placeholder_Edge_Cases_Spec(ITestOutputHelper output) : base(output)

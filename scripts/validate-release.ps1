@@ -161,16 +161,68 @@ if (-not $SkipViewer) {
             Record-Pass "viewer/tar-archive-workspace"
         }
 
-        # ── Test 1: npm install (no errors) ──
-        Write-Check "Installing tarball..."
-        $installLog = & npm install --prefix $stageDir $ViewerTgz 2>&1 | Out-String
+        $archivePackage = $archivePkgContent | ConvertFrom-Json
+        $semVerPattern = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$'
+        if ($archivePackage.version -notmatch $semVerPattern) {
+            Write-Fail "Archive version '$($archivePackage.version)' is not valid npm SemVer"
+            Record-Fail "viewer/npm-semver" "Invalid version: $($archivePackage.version)"
+        } else {
+            Write-Pass "Archive version '$($archivePackage.version)' is valid npm SemVer"
+            Record-Pass "viewer/npm-semver"
+        }
 
-        # Check for TAR_ENTRY_ERROR (../paths)
-        if ($installLog -match 'TAR_ENTRY_ERROR') {
+        # 0d: Vite-bundled browser libraries must not be embedded again as source packages
+        $browserOnlyPackages = @(
+            'lucide-react',
+            'react',
+            'react-dom',
+            'framer-motion',
+            'motion-dom',
+            '@radix-ui',
+            'react-markdown',
+            'remark-gfm',
+            'tailwind-merge',
+            'tailwindcss-animate',
+            'zustand'
+        )
+        $bundledBrowserPackages = @()
+        foreach ($browserPackage in $browserOnlyPackages) {
+            if ($tarEntries -match [regex]::Escape("package/node_modules/$browserPackage/")) {
+                $bundledBrowserPackages += $browserPackage
+            }
+        }
+        if ($bundledBrowserPackages.Count -gt 0) {
+            Write-Fail "Archive duplicates Vite-bundled browser packages: $($bundledBrowserPackages -join ', ')"
+            Record-Fail "viewer/tar-browser-dependencies" ($bundledBrowserPackages -join ', ')
+        } else {
+            Write-Pass "No Vite-bundled browser source packages in archive"
+            Record-Pass "viewer/tar-browser-dependencies"
+        }
+
+        # ── Test 1: offline npm install from an empty cache ──
+        # The Viewer embeds its private Server/Schema runtime closure and must not
+        # rely on registry downloads after the tarball is acquired.
+        Write-Check "Installing tarball offline from an empty npm cache..."
+        $offlineCache = Join-Path $stageDir '.npm-cache'
+        New-Item -ItemType Directory -Path $offlineCache -Force | Out-Null
+        $installLog = & npm install `
+            --offline `
+            --cache $offlineCache `
+            --prefix $stageDir `
+            --ignore-scripts `
+            --no-audit `
+            --fund=false `
+            $ViewerTgz 2>&1 | Out-String
+        $installExitCode = $LASTEXITCODE
+
+        if ($installExitCode -ne 0) {
+            Write-Fail "npm install failed with exit code $installExitCode"
+            Record-Fail "viewer/install" "npm install exited $installExitCode"
+        } elseif ($installLog -match 'TAR_ENTRY_ERROR') {
             Write-Fail "Tarball contains '../' relative paths (TAR_ENTRY_ERROR)"
             Record-Fail "viewer/tar-paths" "Tarball has '../' entries blocked by npm"
         } else {
-            Write-Pass "No TAR_ENTRY_ERROR warnings"
+            Write-Pass "Offline npm install completed without tar errors"
             Record-Pass "viewer/tar-paths"
         }
 
@@ -260,35 +312,108 @@ if (-not $SkipViewer) {
             Record-Fail "viewer/pkg-workspace" "package.json not found"
         }
 
-        # ── Test 5: Quick server start test (start + shutdown) ──
-        Write-Check "Testing server startup (3-second probe)..."
-        $nodeScript = @"
-import { createRequire } from 'module';
-const r = createRequire(import.meta.url);
-const viewerPkg = r('@swedevtools/livedoc-viewer/package.json');
-console.log('pkg-loaded:' + viewerPkg.version);
-process.exit(0);
-"@
-        $testFile = Join-Path $stageDir 'test-import.mjs'
-        Set-Content -Path $testFile -Value $nodeScript -Encoding utf8
-        $importOutput = $null
-        $importError = $null
+        # ── Test 5: Start the installed CLI and verify its health endpoint ──
+        Write-Check "Starting installed Viewer CLI and checking health..."
+        $listener = [System.Net.Sockets.TcpListener]::new(
+            [System.Net.IPAddress]::Loopback,
+            0)
+        $listener.Start()
+        $viewerPort = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+        $listener.Stop()
+
+        $installedCli = Join-Path $stageDir 'node_modules\@swedevtools\livedoc-viewer\dist\cli.js'
+        $stdoutPath = Join-Path $stageDir 'viewer.stdout.log'
+        $stderrPath = Join-Path $stageDir 'viewer.stderr.log'
+        $viewerProcess = $null
+        $healthy = $false
         try {
-            $importOutput = & node $testFile 2>&1 | Out-String
-            if ($LASTEXITCODE -ne 0) { $importError = $importOutput }
-        } catch {
-            $importError = $_.Exception.Message
+            $viewerProcess = Start-Process `
+                -FilePath 'node' `
+                -ArgumentList @(
+                    $installedCli,
+                    '--host', '127.0.0.1',
+                    '--port', $viewerPort.ToString(),
+                    '--no-open'
+                ) `
+                -RedirectStandardOutput $stdoutPath `
+                -RedirectStandardError $stderrPath `
+                -PassThru `
+                -NoNewWindow
+
+            $deadline = (Get-Date).AddSeconds(10)
+            do {
+                if ($viewerProcess.HasExited) {
+                    break
+                }
+
+                try {
+                    $health = Invoke-RestMethod `
+                        -Uri "http://127.0.0.1:$viewerPort/api/health" `
+                        -TimeoutSec 1
+                    $healthy = $health.status -eq 'ok'
+                } catch {
+                    Start-Sleep -Milliseconds 200
+                }
+            } while (-not $healthy -and (Get-Date) -lt $deadline)
+        } finally {
+            if ($viewerProcess -and -not $viewerProcess.HasExited) {
+                $viewerProcess.Kill()
+                $viewerProcess.WaitForExit()
+            }
+            if ($viewerProcess) {
+                $viewerProcess.Dispose()
+            }
         }
 
-        if ($importError) {
-            Write-Fail "Server import test failed"
-            Record-Fail "viewer/import" "Cannot import viewer package"
-        } elseif ($importOutput -match 'pkg-loaded:(.+)') {
-            Write-Pass "Package loads successfully (v$($Matches[1].Trim()))"
-            Record-Pass "viewer/import"
+        if ($healthy) {
+            Write-Pass "Installed Viewer CLI served a healthy endpoint"
+            Record-Pass "viewer/server-health"
         } else {
-            Write-Fail "Unexpected import output: $importOutput"
-            Record-Fail "viewer/import" "Unexpected output"
+            $serverError = if (Test-Path $stderrPath) {
+                (Get-Content $stderrPath -Raw -ErrorAction SilentlyContinue).Trim()
+            } else {
+                ""
+            }
+            Write-Fail "Installed Viewer CLI did not become healthy"
+            Record-Fail "viewer/server-health" $serverError
+        }
+
+        # ── Test 6: Static export from the installed CLI ──
+        Write-Check "Running static HTML export..."
+        $exportInput = Join-Path $stageDir 'viewer-input.json'
+        $exportOutput = Join-Path $stageDir 'viewer-output.html'
+        $minimalRun = @{
+            protocolVersion = '1.0'
+            runId = 'release-validation'
+            project = 'ReleaseValidation'
+            environment = 'local'
+            framework = 'xunit'
+            timestamp = '2026-01-01T00:00:00.000Z'
+            status = 'passed'
+            duration = 1
+            summary = @{
+                total = 0
+                passed = 0
+                failed = 0
+                pending = 0
+                skipped = 0
+            }
+            documents = @()
+        } | ConvertTo-Json -Depth 20
+        Set-Content -Path $exportInput -Value $minimalRun -Encoding utf8
+
+        $exportLog = & node $installedCli export `
+            --input $exportInput `
+            --output $exportOutput `
+            --title 'Release Validation' 2>&1 | Out-String
+        if ($LASTEXITCODE -eq 0 -and
+            (Test-Path $exportOutput) -and
+            (Get-Item $exportOutput).Length -gt 0) {
+            Write-Pass "Installed Viewer CLI produced static HTML"
+            Record-Pass "viewer/static-export"
+        } else {
+            Write-Fail "Static export failed"
+            Record-Fail "viewer/static-export" $exportLog.Trim()
         }
 
     } finally {

@@ -15,6 +15,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Steps;
     They are extracted and accessible via ctx.Step.Params dictionary.
     The display title shows only the value (name is removed).
 ")]
+[Tag("steps")]
 public class Step_Named_Values_Spec : FeatureTest
 {
     public Step_Named_Values_Spec(ITestOutputHelper output) : base(output)

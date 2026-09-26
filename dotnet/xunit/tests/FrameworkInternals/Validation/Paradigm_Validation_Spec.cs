@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.FrameworkInternals.Validation;
     LiveDoc enforces paradigm rules: [Scenario] must be inside [Feature],
     [Rule] must be inside [Specification], and a class cannot mix both.
     Violations produce actionable error messages with fix suggestions.")]
+[Tag("validation")]
 public class Paradigm_Validation_Spec : SpecificationTest
 {
     public Paradigm_Validation_Spec(ITestOutputHelper output) : base(output)

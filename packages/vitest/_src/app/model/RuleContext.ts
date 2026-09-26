@@ -1,4 +1,6 @@
 import { SpecificationContext } from "./SpecificationContext";
+import { AttachmentContext } from "./AttachmentContext";
+import type { Attachment } from "@swedevtools/livedoc-schema";
 
 /**
  * Framework metadata about the rule.
@@ -16,7 +18,11 @@ import { SpecificationContext } from "./SpecificationContext";
  * });
  * ```
  */
-export class RuleContext {
+export class RuleContext extends AttachmentContext {
+    constructor(attachments?: Attachment[]) {
+        super(attachments);
+    }
+
     title: string = "";
     description: string = "";
     tags: string[] = [];

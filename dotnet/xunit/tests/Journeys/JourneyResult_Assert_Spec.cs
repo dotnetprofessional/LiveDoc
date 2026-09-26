@@ -5,6 +5,7 @@ using Xunit.Abstractions;
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
 [Specification("JourneyResult Assert", Description = "JourneyResult.AssertStep verifies individual journey steps passed, providing clear diagnostics on failure.")]
+[Tag("journeys")]
 public class JourneyResult_Assert_Spec : SpecificationTest
 {
     public JourneyResult_Assert_Spec(ITestOutputHelper output) : base(output) { }

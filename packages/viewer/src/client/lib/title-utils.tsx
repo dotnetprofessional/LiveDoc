@@ -51,10 +51,22 @@ function resolvePlaceholderValue(placeholder: string, values?: Record<string, st
 export function bindPlaceholdersInText(text: string, values?: Record<string, string>): string {
   const hasValues = !!values && Object.keys(values).length > 0;
 
-  return text.replace(/<([^>\n]+)>/g, (match, inner: string) => {
+  return text.replace(/<([^<>\n]+)>/g, (match, inner: string) => {
     const rawKey = String(inner ?? '').trim();
     const value = resolvePlaceholderValue(rawKey, hasValues ? values : undefined);
 
+    return value !== undefined ? String(value) : match;
+  });
+}
+
+export function bindExamplePlaceholdersInText(
+  text: string,
+  values?: Record<string, string>,
+): string {
+  if (!values || Object.keys(values).length === 0) return text;
+
+  return text.replace(/<([^<>\n]+)>/g, (match, inner: string) => {
+    const value = findMatchingValue(String(inner ?? '').trim(), values);
     return value !== undefined ? String(value) : match;
   });
 }
@@ -68,7 +80,7 @@ const HighlightSpan = ({ children }: { children: React.ReactNode }) => (
 
 // Highlight placeholders like <Customer's Country> in titles
 export function highlightPlaceholders(text: string, values?: Record<string, string>): React.ReactNode {
-  const parts = text.split(/(<[^>]+>)/g);
+  const parts = text.split(/(<[^<>\n]+>)/g);
   
   return parts.map((part, index) => {
     if (part.startsWith('<') && part.endsWith('>')) {

@@ -36,6 +36,50 @@ public abstract class FeatureTest : LiveDocTestBase
     {
     }
 
+    /// <summary>
+    /// Runs before each Scenario or Scenario Outline example. Use Given/And steps
+    /// to describe shared preconditions; each invocation has its own test instance.
+    /// </summary>
+    protected virtual Task BackgroundAsync() => Task.CompletedTask;
+
+    /// <summary>
+    /// Runs after each Scenario or Scenario Outline example, including failures
+    /// in the background or scenario. Runs before the LiveDoc result is finalized.
+    /// </summary>
+    protected virtual Task AfterBackgroundAsync() => Task.CompletedTask;
+
+    internal async Task RunBackgroundAsync(System.Reflection.MethodInfo method, object?[]? args, int? rowId)
+    {
+        _context ??= new LiveDocContext(_output, GetType(), method, args, rowId);
+        _context.BeginBackground();
+        try
+        {
+            await BackgroundAsync();
+        }
+        catch (Exception ex)
+        {
+            _context.RecordBackgroundFailure(ex);
+            throw;
+        }
+        finally
+        {
+            _context.EndBackground();
+        }
+    }
+
+    internal async Task RunAfterBackgroundAsync()
+    {
+        try
+        {
+            await AfterBackgroundAsync();
+        }
+        catch (Exception ex)
+        {
+            _context?.RecordLifecycleFailure(ex);
+            throw;
+        }
+    }
+
     #region Context Properties
 
     /// <summary>
@@ -82,37 +126,69 @@ public abstract class FeatureTest : LiveDocTestBase
     /// <summary>
     /// Defines a Given step (precondition).
     /// </summary>
-    protected void Given(string description, Action step)
+    protected void Given(string title, Action step)
+    {
+        Given(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a Given step with inline Markdown content.
+    /// </summary>
+    protected void Given(string title, string? description, Action step)
     {
         EnsureContext();
-        _context!.ExecuteStep("Given", description, step);
+        _context!.ExecuteStep("Given", title, step, description);
     }
 
     /// <summary>
     /// Defines a Given step with context access for value extraction.
     /// </summary>
-    protected void Given(string description, Action<LiveDocContext> step)
+    protected void Given(string title, Action<LiveDocContext> step)
+    {
+        Given(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a Given step with context access and inline Markdown content.
+    /// </summary>
+    protected void Given(string title, string? description, Action<LiveDocContext> step)
     {
         EnsureContext();
-        _context!.ExecuteStep("Given", description, step);
+        _context!.ExecuteStep("Given", title, step, description);
     }
 
     /// <summary>
     /// Defines a Given step with async support.
     /// </summary>
-    protected async Task Given(string description, Func<Task> step)
+    protected Task Given(string title, Func<Task> step)
+    {
+        return Given(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async Given step with inline Markdown content.
+    /// </summary>
+    protected async Task Given(string title, string? description, Func<Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("Given", description, step);
+        await _context!.ExecuteStepAsync("Given", title, step, description);
     }
 
     /// <summary>
     /// Defines an async Given step with context access.
     /// </summary>
-    protected async Task Given(string description, Func<LiveDocContext, Task> step)
+    protected Task Given(string title, Func<LiveDocContext, Task> step)
+    {
+        return Given(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async Given step with context access and inline Markdown content.
+    /// </summary>
+    protected async Task Given(string title, string? description, Func<LiveDocContext, Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("Given", description, step);
+        await _context!.ExecuteStepAsync("Given", title, step, description);
     }
 
     #endregion
@@ -122,37 +198,69 @@ public abstract class FeatureTest : LiveDocTestBase
     /// <summary>
     /// Defines a When step (action/event).
     /// </summary>
-    protected void When(string description, Action step)
+    protected void When(string title, Action step)
+    {
+        When(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a When step with inline Markdown content.
+    /// </summary>
+    protected void When(string title, string? description, Action step)
     {
         EnsureContext();
-        _context!.ExecuteStep("When", description, step);
+        _context!.ExecuteStep("When", title, step, description);
     }
 
     /// <summary>
     /// Defines a When step with context access for value extraction.
     /// </summary>
-    protected void When(string description, Action<LiveDocContext> step)
+    protected void When(string title, Action<LiveDocContext> step)
+    {
+        When(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a When step with context access and inline Markdown content.
+    /// </summary>
+    protected void When(string title, string? description, Action<LiveDocContext> step)
     {
         EnsureContext();
-        _context!.ExecuteStep("When", description, step);
+        _context!.ExecuteStep("When", title, step, description);
     }
 
     /// <summary>
     /// Defines a When step with async support.
     /// </summary>
-    protected async Task When(string description, Func<Task> step)
+    protected Task When(string title, Func<Task> step)
+    {
+        return When(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async When step with inline Markdown content.
+    /// </summary>
+    protected async Task When(string title, string? description, Func<Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("When", description, step);
+        await _context!.ExecuteStepAsync("When", title, step, description);
     }
 
     /// <summary>
     /// Defines an async When step with context access.
     /// </summary>
-    protected async Task When(string description, Func<LiveDocContext, Task> step)
+    protected Task When(string title, Func<LiveDocContext, Task> step)
+    {
+        return When(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async When step with context access and inline Markdown content.
+    /// </summary>
+    protected async Task When(string title, string? description, Func<LiveDocContext, Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("When", description, step);
+        await _context!.ExecuteStepAsync("When", title, step, description);
     }
 
     #endregion
@@ -162,37 +270,69 @@ public abstract class FeatureTest : LiveDocTestBase
     /// <summary>
     /// Defines a Then step (assertion/expected outcome).
     /// </summary>
-    protected void Then(string description, Action step)
+    protected void Then(string title, Action step)
+    {
+        Then(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a Then step with inline Markdown content.
+    /// </summary>
+    protected void Then(string title, string? description, Action step)
     {
         EnsureContext();
-        _context!.ExecuteStep("Then", description, step);
+        _context!.ExecuteStep("Then", title, step, description);
     }
 
     /// <summary>
     /// Defines a Then step with context access for value extraction.
     /// </summary>
-    protected void Then(string description, Action<LiveDocContext> step)
+    protected void Then(string title, Action<LiveDocContext> step)
+    {
+        Then(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a Then step with context access and inline Markdown content.
+    /// </summary>
+    protected void Then(string title, string? description, Action<LiveDocContext> step)
     {
         EnsureContext();
-        _context!.ExecuteStep("Then", description, step);
+        _context!.ExecuteStep("Then", title, step, description);
     }
 
     /// <summary>
     /// Defines a Then step with async support.
     /// </summary>
-    protected async Task Then(string description, Func<Task> step)
+    protected Task Then(string title, Func<Task> step)
+    {
+        return Then(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async Then step with inline Markdown content.
+    /// </summary>
+    protected async Task Then(string title, string? description, Func<Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("Then", description, step);
+        await _context!.ExecuteStepAsync("Then", title, step, description);
     }
 
     /// <summary>
     /// Defines an async Then step with context access.
     /// </summary>
-    protected async Task Then(string description, Func<LiveDocContext, Task> step)
+    protected Task Then(string title, Func<LiveDocContext, Task> step)
+    {
+        return Then(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async Then step with context access and inline Markdown content.
+    /// </summary>
+    protected async Task Then(string title, string? description, Func<LiveDocContext, Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("Then", description, step);
+        await _context!.ExecuteStepAsync("Then", title, step, description);
     }
 
     #endregion
@@ -202,37 +342,69 @@ public abstract class FeatureTest : LiveDocTestBase
     /// <summary>
     /// Defines an And step (continuation of previous step type).
     /// </summary>
-    protected void And(string description, Action step)
+    protected void And(string title, Action step)
+    {
+        And(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an And step with inline Markdown content.
+    /// </summary>
+    protected void And(string title, string? description, Action step)
     {
         EnsureContext();
-        _context!.ExecuteStep("and", description, step);
+        _context!.ExecuteStep("and", title, step, description);
     }
 
     /// <summary>
     /// Defines an And step with context access for value extraction.
     /// </summary>
-    protected void And(string description, Action<LiveDocContext> step)
+    protected void And(string title, Action<LiveDocContext> step)
+    {
+        And(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an And step with context access and inline Markdown content.
+    /// </summary>
+    protected void And(string title, string? description, Action<LiveDocContext> step)
     {
         EnsureContext();
-        _context!.ExecuteStep("and", description, step);
+        _context!.ExecuteStep("and", title, step, description);
     }
 
     /// <summary>
     /// Defines an And step with async support.
     /// </summary>
-    protected async Task And(string description, Func<Task> step)
+    protected Task And(string title, Func<Task> step)
+    {
+        return And(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async And step with inline Markdown content.
+    /// </summary>
+    protected async Task And(string title, string? description, Func<Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("and", description, step);
+        await _context!.ExecuteStepAsync("and", title, step, description);
     }
 
     /// <summary>
     /// Defines an async And step with context access.
     /// </summary>
-    protected async Task And(string description, Func<LiveDocContext, Task> step)
+    protected Task And(string title, Func<LiveDocContext, Task> step)
+    {
+        return And(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async And step with context access and inline Markdown content.
+    /// </summary>
+    protected async Task And(string title, string? description, Func<LiveDocContext, Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("and", description, step);
+        await _context!.ExecuteStepAsync("and", title, step, description);
     }
 
     #endregion
@@ -242,37 +414,69 @@ public abstract class FeatureTest : LiveDocTestBase
     /// <summary>
     /// Defines a But step (continuation with contrast).
     /// </summary>
-    protected void But(string description, Action step)
+    protected void But(string title, Action step)
+    {
+        But(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a But step with inline Markdown content.
+    /// </summary>
+    protected void But(string title, string? description, Action step)
     {
         EnsureContext();
-        _context!.ExecuteStep("but", description, step);
+        _context!.ExecuteStep("but", title, step, description);
     }
 
     /// <summary>
     /// Defines a But step with context access for value extraction.
     /// </summary>
-    protected void But(string description, Action<LiveDocContext> step)
+    protected void But(string title, Action<LiveDocContext> step)
+    {
+        But(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines a But step with context access and inline Markdown content.
+    /// </summary>
+    protected void But(string title, string? description, Action<LiveDocContext> step)
     {
         EnsureContext();
-        _context!.ExecuteStep("but", description, step);
+        _context!.ExecuteStep("but", title, step, description);
     }
 
     /// <summary>
     /// Defines a But step with async support.
     /// </summary>
-    protected async Task But(string description, Func<Task> step)
+    protected Task But(string title, Func<Task> step)
+    {
+        return But(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async But step with inline Markdown content.
+    /// </summary>
+    protected async Task But(string title, string? description, Func<Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("but", description, step);
+        await _context!.ExecuteStepAsync("but", title, step, description);
     }
 
     /// <summary>
     /// Defines an async But step with context access.
     /// </summary>
-    protected async Task But(string description, Func<LiveDocContext, Task> step)
+    protected Task But(string title, Func<LiveDocContext, Task> step)
+    {
+        return But(title, null, step);
+    }
+
+    /// <summary>
+    /// Defines an async But step with context access and inline Markdown content.
+    /// </summary>
+    protected async Task But(string title, string? description, Func<LiveDocContext, Task> step)
     {
         EnsureContext();
-        await _context!.ExecuteStepAsync("but", description, step);
+        await _context!.ExecuteStepAsync("but", title, step, description);
     }
 
     #endregion

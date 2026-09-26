@@ -175,7 +175,7 @@ Integrate with xUnit's trait system for filtering.
 ### What's Different
 ⚠️ **No per-step test nodes** - VS Test Explorer shows scenarios, not individual steps
 ⚠️ **No dynamic test execution** - C# requires compile-time test discovery
-⚠️ **No Background keyword** - use class constructor or `IClassFixture` instead
+✅ **Per-scenario Background and cleanup** - `FeatureTest.BackgroundAsync` and `AfterBackgroundAsync` run on each test instance; the Viewer groups the Background steps under the Feature while preserving each scenario/example's result
 ✅ **Better debugging** - C# debugger is more mature than JS debuggers
 ✅ **Compile-time safety** - C# type system catches errors at compile time
 
@@ -202,7 +202,6 @@ Integrate with xUnit's trait system for filtering.
 
 ### Phase 2 (Planned)
 - Tag-based filtering via xUnit traits
-- Background step support
 - Custom formatters
 - HTML reporter
 - JSON export

@@ -12,6 +12,15 @@ import SilentReporter from "./reporter/SilentReporter";
 
 const parser = new LiveDocGrammarParser();
 
+export interface RuleTestContext {
+    specification: model.SpecificationContext;
+    rule: model.RuleContext;
+}
+
+export interface RuleOutlineTestContext extends RuleTestContext {
+    example: Record<string, any>;
+}
+
 /**
  * Extract filename from Error stack trace, handling different formats
  * @param skipFrames Number of stack frames to skip (caller's caller = 2)
@@ -1240,7 +1249,7 @@ export const specification = Object.assign(
 /**
  * Internal rule implementation
  */
-function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+function ruleImpl(title: string, fn: (ctx: RuleTestContext) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
     const filename = getFilenameFromStack(3);
     assertDeclarationParent("Rule", title, "Specification", "Rule must be within a specification.", filename);
     if (!currentSpecification) {
@@ -1303,6 +1312,10 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
             ruleModel.error = error;
             (error as any).code = fn.toString();
             throw error;
+        } finally {
+            if (ruleModel.attachments.length > 0) {
+                Object.assign(ruleMeta.livedoc.rule, { attachments: ruleModel.attachments });
+            }
         }
     };
 
@@ -1325,14 +1338,14 @@ function ruleImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: {
  * Rule keyword - creates a simple specification rule
  */
 export const rule = Object.assign(
-    function rule(title: string, fn: (ctx: any) => void | Promise<void>) {
+    function rule(title: string, fn: (ctx: RuleTestContext) => void | Promise<void>) {
         ruleImpl(title, fn);
     },
     {
-        skip: function skip(title: string, fn: (ctx: any) => void | Promise<void>) {
+        skip: function skip(title: string, fn: (ctx: RuleTestContext) => void | Promise<void>) {
             ruleImpl(title, fn, { pending: true });
         },
-        only: function only(title: string, fn: (ctx: any) => void | Promise<void>) {
+        only: function only(title: string, fn: (ctx: RuleTestContext) => void | Promise<void>) {
             ruleImpl(title, fn, { isOnly: true });
         }
     }
@@ -1341,7 +1354,7 @@ export const rule = Object.assign(
 /**
  * Internal rule outline implementation
  */
-function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
+function ruleOutlineImpl(title: string, fn: (ctx: RuleOutlineTestContext) => void | Promise<void>, opts: { pending?: boolean; isOnly?: boolean } = {}) {
     const filename = getFilenameFromStack(3);
     assertDeclarationParent(
         "Rule Outline",
@@ -1421,7 +1434,7 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
                         return example.getRuleContext();
                     },
                     get example() {
-                        return example.example;
+                        return example.example as Record<string, any>;
                     },
                 };
 
@@ -1440,6 +1453,10 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
                     example.error = error;
                     (error as any).code = fn.toString();
                     throw error;
+                } finally {
+                    if (example.attachments.length > 0) {
+                        Object.assign(exampleMeta.livedoc.ruleOutline.example, { attachments: example.attachments });
+                    }
                 }
             };
 
@@ -1463,14 +1480,14 @@ function ruleOutlineImpl(title: string, fn: (ctx: any) => void | Promise<void>, 
  * Rule Outline keyword - creates data-driven rules
  */
 export const ruleOutline = Object.assign(
-    function ruleOutline(title: string, fn: (ctx: any) => void | Promise<void>) {
+    function ruleOutline(title: string, fn: (ctx: RuleOutlineTestContext) => void | Promise<void>) {
         ruleOutlineImpl(title, fn);
     },
     {
-        skip: function skip(title: string, fn: (ctx: any) => void | Promise<void>) {
+        skip: function skip(title: string, fn: (ctx: RuleOutlineTestContext) => void | Promise<void>) {
             ruleOutlineImpl(title, fn, { pending: true });
         },
-        only: function only(title: string, fn: (ctx: any) => void | Promise<void>) {
+        only: function only(title: string, fn: (ctx: RuleOutlineTestContext) => void | Promise<void>) {
             ruleOutlineImpl(title, fn, { isOnly: true });
         }
     }

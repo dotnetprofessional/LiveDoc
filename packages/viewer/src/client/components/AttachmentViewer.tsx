@@ -5,11 +5,13 @@ import {
   X, ChevronLeft, ChevronRight, Copy, Check,
   FileText, FileCode, FileJson, Download, AlertTriangle,
   Play, Pause, CheckCircle2, XCircle, AlertCircle, HelpCircle,
-  Maximize2, Minimize2,
+  Maximize2, Minimize2, Workflow, Plus, Minus, MoreHorizontal,
 } from 'lucide-react';
 import type { Status } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { groupByStep, findGroupAtIndex, jumpToAdjacentGroup } from '../utils/gallery';
 import type { GalleryItem, StepGroup } from '../utils/gallery';
 
@@ -28,6 +30,7 @@ export interface AttachmentItem {
   stepKeyword?: string;
   stepStatus?: Status;
   stepIndex?: number;
+  stepCount?: number;
 }
 
 export interface AttachmentViewerProps {
@@ -35,6 +38,27 @@ export interface AttachmentViewerProps {
   initialIndex?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+export function AttachmentContentMetadata({
+  item,
+  fallbackMimeType,
+}: {
+  item: AttachmentItem;
+  fallbackMimeType: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {item.title && (
+        <span className="truncate text-xs font-semibold text-white/90">
+          {item.title}
+        </span>
+      )}
+      <span className="hidden shrink-0 text-xs font-medium text-white/70 sm:inline">
+        {item.mimeType || fallbackMimeType}
+      </span>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -53,10 +77,17 @@ function isTextMime(mime: string): boolean {
   return mime.startsWith('text/');
 }
 
-type ContentCategory = 'image' | 'json' | 'text' | 'binary';
+function isMermaid(item: AttachmentItem): boolean {
+  const mime = (item.mimeType || '').split(';', 1)[0].trim().toLowerCase();
+  return ['text/vnd.mermaid', 'text/x-mermaid', 'text/mermaid', 'application/vnd.mermaid'].includes(mime)
+    || [item.title, item.uri].some((name) => /\.(?:mmd|mermaid)$/i.test((name || '').split(/[?#]/, 1)[0]));
+}
+
+type ContentCategory = 'image' | 'json' | 'text' | 'mermaid' | 'binary';
 
 function categorize(item: AttachmentItem): ContentCategory {
-  const mime = (item.mimeType || '').toLowerCase();
+  if (isMermaid(item)) return 'mermaid';
+  const mime = (item.mimeType || '').split(';', 1)[0].trim().toLowerCase();
   if (isImageMime(mime)) return 'image';
   if (isJsonMime(mime)) return 'json';
   if (isTextMime(mime)) return 'text';
@@ -66,10 +97,15 @@ function categorize(item: AttachmentItem): ContentCategory {
 /** Short label for a MIME type (shown in badges). */
 function mimeLabel(mime: string | undefined): string {
   if (!mime) return 'file';
-  if (isImageMime(mime)) return mime.replace('image/', '').toUpperCase();
-  if (isJsonMime(mime)) return 'JSON';
-  if (isTextMime(mime)) return mime.replace('text/', '').toUpperCase() || 'TEXT';
-  return mime.split('/').pop()?.toUpperCase() || 'FILE';
+  const type = mime.split(';', 1)[0].trim().toLowerCase();
+  if (isImageMime(type)) return type.replace('image/', '').toUpperCase();
+  if (isJsonMime(type)) return 'JSON';
+  if (isTextMime(type)) return type.replace('text/', '').toUpperCase() || 'TEXT';
+  return type.split('/').pop()?.toUpperCase() || 'FILE';
+}
+
+function attachmentLabel(item: AttachmentItem): string {
+  return isMermaid(item) ? 'MERMAID' : mimeLabel(item.mimeType);
 }
 
 /** Decode a base64 string into UTF-8 text. */
@@ -95,15 +131,22 @@ function estimateSize(b64: string | undefined): string {
 // Copy-to-clipboard hook
 // ---------------------------------------------------------------------------
 
-function useCopyToClipboard() {
+function useCopyToClipboard(resetKey?: number) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  useEffect(() => {
+    setCopied(false);
+    setCopyError(null);
+  }, [resetKey]);
 
   const copy = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      setCopyError(null);
     } catch {
       setCopied(false);
+      setCopyError('Could not copy to clipboard. Check browser permissions.');
     }
   }, []);
 
@@ -113,7 +156,7 @@ function useCopyToClipboard() {
     return () => clearTimeout(t);
   }, [copied]);
 
-  return { copied, copy };
+  return { copied, copy, copyError };
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +165,18 @@ function useCopyToClipboard() {
 
 interface JsonHighlightProps {
   text: string;
+}
+
+interface PreviewSize {
+  width: number;
+  height: number;
+}
+
+interface ScalablePreviewProps {
+  size?: PreviewSize;
+  scale: number;
+  onSizeChange: (size: PreviewSize | undefined) => void;
+  onViewportChange: (size: PreviewSize | undefined) => void;
 }
 
 function JsonHighlight({ text }: JsonHighlightProps) {
@@ -176,6 +231,97 @@ function tokenizeJson(json: string): Token[] {
   return tokens;
 }
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+function JsonNode({
+  value,
+  path,
+  label,
+  isArrayIndex = false,
+  depth = 0,
+  trailingComma = false,
+}: {
+  value: JsonValue;
+  path: string;
+  label?: string;
+  isArrayIndex?: boolean;
+  depth?: number;
+  trailingComma?: boolean;
+}) {
+  const prefix = label === undefined ? null : (
+    <>
+      <span className={isArrayIndex ? 'text-zinc-400' : 'text-sky-300'}>
+        {isArrayIndex ? label : JSON.stringify(label)}
+      </span>
+      <span className="text-zinc-400">: </span>
+    </>
+  );
+
+  if (value === null || typeof value !== 'object') {
+    return (
+      <div className="min-w-max leading-6">
+        {prefix}<JsonHighlight text={JSON.stringify(value)} />
+        {trailingComma && <span className="text-zinc-400">,</span>}
+      </div>
+    );
+  }
+
+  return <JsonCollection value={value} path={path} prefix={prefix} depth={depth} trailingComma={trailingComma} />;
+}
+
+function JsonCollection({
+  value,
+  path,
+  prefix,
+  depth,
+  trailingComma,
+}: {
+  value: JsonValue[] | { [key: string]: JsonValue };
+  path: string;
+  prefix: React.ReactNode;
+  depth: number;
+  trailingComma: boolean;
+}) {
+  const [expanded, setExpanded] = useState(depth === 0);
+  const array = Array.isArray(value);
+  const entries: [string, JsonValue][] = array
+    ? value.map((entry, index) => [String(index), entry])
+    : Object.entries(value);
+  const kind = array ? 'array' : 'object';
+  const close = array ? ']' : '}';
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm"
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${path} ${kind}`}
+          className="h-7 min-w-max justify-start gap-1.5 px-1 font-mono text-[13px] text-zinc-200 hover:bg-white/[0.08] hover:text-white focus-visible:ring-sky-400">
+          <ChevronRight className={cn('size-3.5 text-zinc-400 transition-transform', expanded && 'rotate-90')} aria-hidden="true" />
+          {prefix}
+          <span className="text-zinc-200">{array ? '[' : '{'}</span>
+          {!expanded && (
+            <span className="text-zinc-400">… {entries.length} {array ? 'items' : 'properties'} {close}{trailingComma ? ',' : ''}</span>
+          )}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="ml-2 border-l border-white/10 pl-4">
+        {entries.map(([key, entry], index) => (
+          <JsonNode
+            key={key}
+            label={key}
+            isArrayIndex={array}
+            path={array ? `${path}[${key}]` : `${path}.${key}`}
+            value={entry}
+            depth={depth + 1}
+            trailingComma={index < entries.length - 1}
+          />
+        ))}
+      </CollapsibleContent>
+      {expanded && <div className="leading-6 text-zinc-200">{close}{trailingComma ? ',' : ''}</div>}
+    </Collapsible>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Slide animation variants (direction-aware)
 // ---------------------------------------------------------------------------
@@ -219,27 +365,16 @@ const stepCrossFadeVariants = {
 const stepCrossFadeTransition = { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const };
 
 // ---------------------------------------------------------------------------
-// Step Context Bar (for scenario galleries)
+// Step context (shown in the shared gallery header)
 // ---------------------------------------------------------------------------
 
-interface StepContextBarProps {
-  item: AttachmentItem;
-  currentIndex: number;
-  total: number;
-  groups?: StepGroup[];
+function stepPosition(stepIndex: number, stepCount?: number): string {
+  return `Step ${stepIndex + 1}${stepCount !== undefined && stepCount > stepIndex
+    ? ` of ${stepCount}` : ''}`;
 }
 
-function StepContextBar({ item, currentIndex, total: _total, groups }: StepContextBarProps) {
-  const stepTitle = item.stepTitle;
-  const stepKeyword = item.stepKeyword;
-  const stepStatus = item.stepStatus;
-  const stepIndex = item.stepIndex;
-
-  if (!stepTitle || !stepKeyword || stepIndex === undefined) return null;
-
-  const currentGroup = groups ? findGroupAtIndex(groups, currentIndex) : null;
-  const totalSteps = groups?.length ?? 1;
-  const displayStepNumber = (currentGroup?.stepIndex ?? stepIndex) + 1;
+function StepContext({ item }: { item: AttachmentItem }) {
+  if (item.stepIndex === undefined) return null;
 
   const keywordColors: Record<string, string> = {
     given: 'text-sky-400',
@@ -250,44 +385,32 @@ function StepContextBar({ item, currentIndex, total: _total, groups }: StepConte
   };
 
   const statusIcons: Record<Status, React.ReactElement> = {
-    passed: <CheckCircle2 className="w-3.5 h-3.5 text-pass" />,
-    failed: <XCircle className="w-3.5 h-3.5 text-fail" />,
-    pending: <AlertCircle className="w-3.5 h-3.5 text-pending" />,
-    running: <AlertCircle className="w-3.5 h-3.5 text-sky-400 animate-pulse" />,
-    skipped: <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/40" />,
-    timedOut: <XCircle className="w-3.5 h-3.5 text-fail" />,
-    cancelled: <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/40" />,
+    passed: <CheckCircle2 className="h-4 w-4 text-pass" aria-label="Passed" />,
+    failed: <XCircle className="h-4 w-4 text-fail" aria-label="Failed" />,
+    pending: <AlertCircle className="h-4 w-4 text-pending" aria-label="Pending" />,
+    running: <AlertCircle className="h-4 w-4 animate-pulse text-sky-400" aria-label="Running" />,
+    skipped: <HelpCircle className="h-4 w-4 text-muted-foreground" aria-label="Skipped" />,
+    timedOut: <XCircle className="h-4 w-4 text-fail" aria-label="Timed out" />,
+    cancelled: <HelpCircle className="h-4 w-4 text-muted-foreground" aria-label="Cancelled" />,
   };
 
   return (
-    <motion.div
-      className={cn(
-        "mx-auto mb-2 px-4 py-2.5 rounded-lg",
-        "bg-white/[0.03] backdrop-blur-md border border-white/[0.08]",
-        "flex items-center gap-3 max-w-4xl"
+    <div className="flex min-w-0 items-center gap-2" aria-live="polite"
+      title={`Step ${item.stepIndex + 1}: ${item.stepKeyword || ''} ${item.stepTitle || ''} · ${item.title || 'Attachment'} · ${item.mimeType || 'Unknown type'}`}>
+      <span className="shrink-0 text-xs font-medium tabular-nums text-white/75">
+        {stepPosition(item.stepIndex, item.stepCount)}
+      </span>
+      {item.stepKeyword && (
+        <span className={cn('hidden shrink-0 text-sm font-semibold capitalize min-[480px]:inline',
+          keywordColors[item.stepKeyword.toLowerCase()] || 'text-white/75')}>
+          {item.stepKeyword}
+        </span>
       )}
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.25 }}
-      key={`step-context-${stepIndex}`}
-    >
-      <span className="text-xs font-medium text-white/40 tabular-nums shrink-0">
-        Step {displayStepNumber} of {totalSteps}
-      </span>
-      <div className="h-4 w-px bg-white/10" />
-      <span className={cn('text-sm font-semibold capitalize shrink-0', keywordColors[stepKeyword.toLowerCase()] || 'text-white/50')}>
-        {stepKeyword}
-      </span>
-      <span className="text-sm text-white/70 truncate flex-1 min-w-0">
-        {stepTitle}
-      </span>
-      {stepStatus && (
-        <div className="shrink-0">
-          {statusIcons[stepStatus]}
-        </div>
-      )}
-    </motion.div>
+      {item.stepTitle && <span className="hidden min-w-0 truncate text-sm text-white/75 sm:inline">
+        {item.stepTitle}
+      </span>}
+      {item.stepStatus && <span className="shrink-0">{statusIcons[item.stepStatus]}</span>}
+    </div>
   );
 }
 
@@ -300,13 +423,15 @@ function ImageRenderer({
   index, 
   direction,
   crossingStepBoundary,
-  onImageClick,
+  maximized,
+  preview,
 }: { 
   item: AttachmentItem; 
   index: number; 
   direction: number;
   crossingStepBoundary: boolean;
-  onImageClick?: () => void;
+  maximized: boolean;
+  preview: ScalablePreviewProps;
 }) {
   const src = item.base64
     ? `data:${item.mimeType || 'image/png'};base64,${item.base64}`
@@ -316,40 +441,151 @@ function ImageRenderer({
   const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
 
   return (
-    <motion.img
-      key={`img-${index}`}
-      src={src}
-      alt={item.title || `Image ${index + 1}`}
-      className={cn(
-        "max-w-full max-h-full object-contain rounded-lg",
-        "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]",
-        onImageClick && "cursor-pointer"
-      )}
+    <motion.div
+      className={cn("h-full min-h-0 w-full overflow-hidden rounded-lg shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]",
+        !maximized && "max-w-5xl")}
       custom={direction}
       variants={variants}
       initial="enter"
       animate="center"
       exit="exit"
       transition={transition}
-      draggable={false}
-      onClick={onImageClick}
-    />
+    >
+      <ScalablePreview src={src} alt={item.title || `Image ${index + 1}`} kind="image" {...preview} />
+    </motion.div>
   );
 }
 
-function JsonRenderer({ item, direction, crossingStepBoundary }: { item: AttachmentItem; direction: number; crossingStepBoundary: boolean }) {
-  const { copied, copy } = useCopyToClipboard();
+function ScalablePreview({
+  src, alt, kind, intrinsicSize, onImageError, size, scale, onSizeChange, onViewportChange,
+}: {
+  src: string;
+  alt: string;
+  kind: 'image' | 'diagram';
+  intrinsicSize?: PreviewSize;
+  onImageError?: () => void;
+} & ScalablePreviewProps) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const pointerRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [canPan, setCanPan] = useState(false);
 
-  const { formatted, error } = useMemo(() => {
-    if (!item.base64) return { formatted: '', error: 'No data available' };
-    const raw = decodeBase64(item.base64);
-    try {
-      const obj = JSON.parse(raw);
-      return { formatted: JSON.stringify(obj, null, 2), error: null };
-    } catch {
-      return { formatted: raw, error: 'Invalid JSON — showing raw content' };
+  useEffect(() => {
+    return () => onSizeChange(undefined);
+  }, [onSizeChange]);
+
+  useEffect(() => {
+    if (intrinsicSize) onSizeChange(intrinsicSize);
+  }, [intrinsicSize, onSizeChange]);
+
+  useEffect(() => {
+    if (intrinsicSize) return;
+    const image = imageRef.current;
+    if (!image) return;
+    const measureImage = () => {
+      if (image.naturalWidth && image.naturalHeight) {
+        onSizeChange({ width: image.naturalWidth, height: image.naturalHeight });
+      }
+    };
+    image.addEventListener('load', measureImage);
+    if (image.complete) measureImage();
+    return () => image.removeEventListener('load', measureImage);
+  }, [src, intrinsicSize, onSizeChange]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const measure = () => {
+      onViewportChange({ width: viewport.clientWidth, height: viewport.clientHeight });
+      setCanPan(viewport.scrollWidth > viewport.clientWidth + 1 || viewport.scrollHeight > viewport.clientHeight + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    const image = viewport.querySelector('img');
+    if (image) observer.observe(image);
+    return () => {
+      observer.disconnect();
+      onViewportChange(undefined);
+    };
+  }, [onViewportChange]);
+
+  const stopPanning = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pointerRef.current?.id !== event.pointerId) return;
+    pointerRef.current = null;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
     }
-  }, [item.base64]);
+  };
+
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col">
+      <div ref={viewportRef} role="region" aria-label={`${kind === 'diagram' ? 'Mermaid diagram' : 'Image'} viewport`}
+        aria-description="Drag to pan when zoomed; use arrow keys to scroll."
+        title={canPan ? 'Drag to pan' : undefined}
+        tabIndex={0}
+        className={cn(
+          "min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain bg-zinc-900/95",
+          canPan && "cursor-grab",
+          dragging && "cursor-grabbing select-none"
+        )}
+        onPointerDown={(event) => {
+          if (event.pointerType === 'touch' || event.button !== 0 || !canPan) return;
+          const viewport = event.currentTarget;
+          viewport.focus({ preventScroll: true });
+          pointerRef.current = {
+            id: event.pointerId, x: event.clientX, y: event.clientY,
+            left: viewport.scrollLeft, top: viewport.scrollTop,
+          };
+          viewport.setPointerCapture(event.pointerId);
+          setDragging(true);
+          event.preventDefault();
+        }}
+        onPointerMove={(event) => {
+          const origin = pointerRef.current;
+          if (!origin || origin.id !== event.pointerId) return;
+          event.currentTarget.scrollLeft = origin.left + origin.x - event.clientX;
+          event.currentTarget.scrollTop = origin.top + origin.y - event.clientY;
+          event.preventDefault();
+        }}
+        onPointerUp={stopPanning}
+        onPointerCancel={stopPanning}
+        onLostPointerCapture={stopPanning}
+        onDragStart={(event) => event.preventDefault()}>
+        <div className="inline-flex h-max min-h-full w-max min-w-full items-center justify-center p-4">
+          <img ref={imageRef} src={src} alt={alt} draggable={false} className="block max-w-none shrink-0 rounded-lg"
+            style={size || intrinsicSize ? {
+              width: (intrinsicSize ?? size)!.width * scale,
+              height: (intrinsicSize ?? size)!.height * scale,
+            } : undefined}
+            onError={onImageError} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface JsonContent {
+  formatted: string;
+  parsed: JsonValue | null;
+  error: string | null;
+}
+
+function readJsonContent(base64: string | undefined): JsonContent {
+  if (!base64) return { formatted: '', parsed: null, error: 'No data available' };
+  const raw = decodeBase64(base64);
+  try {
+    const parsed = JSON.parse(raw) as JsonValue;
+    return { formatted: JSON.stringify(parsed, null, 2), parsed, error: null };
+  } catch {
+    return { formatted: raw, parsed: null, error: 'Invalid JSON — showing raw content' };
+  }
+}
+
+function JsonRenderer({ content, direction, crossingStepBoundary, maximized }: { content: JsonContent; direction: number; crossingStepBoundary: boolean; maximized: boolean }) {
+  const { formatted, parsed, error } = content;
 
   const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
   const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
@@ -357,8 +593,8 @@ function JsonRenderer({ item, direction, crossingStepBoundary }: { item: Attachm
   return (
     <motion.div
       className={cn(
-        "relative w-full max-w-4xl flex flex-col rounded-xl overflow-hidden",
-        "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]",
+        "relative w-full min-h-0 flex flex-col overflow-hidden",
+        !maximized && "max-w-4xl",
         "max-h-full"
       )}
       custom={direction}
@@ -368,60 +604,27 @@ function JsonRenderer({ item, direction, crossingStepBoundary }: { item: Attachm
       exit="exit"
       transition={transition}
     >
-      <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-800/95 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2">
-          <FileJson className="w-4 h-4 text-sky-400" />
-          <span className="text-xs font-medium text-white/50">
-            {item.mimeType || 'application/json'}
-          </span>
-          {error && (
-            <span className="flex items-center gap-1 text-[10px] text-amber-400/90 font-medium">
-              <AlertTriangle className="w-3 h-3" />
-              {error}
-            </span>
-          )}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => copy(formatted)}
-          className="h-7 px-2.5 text-white/50 hover:text-white hover:bg-white/10"
-        >
-          {copied
-            ? <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-[11px]">Copied</span></>
-            : <><Copy className="w-3.5 h-3.5" /><span className="text-[11px]">Copy</span></>
-          }
-        </Button>
-      </div>
-
-      <div className="flex-1 overflow-auto bg-zinc-900/95 p-4">
-        <pre className="text-[13px] leading-relaxed font-mono whitespace-pre">
-          {error && !formatted.startsWith('{') && !formatted.startsWith('[')
-            ? <span className="text-zinc-300">{formatted}</span>
-            : <JsonHighlight text={formatted} />
-          }
-        </pre>
+      <div role="region" className="flex-1 overflow-auto bg-zinc-900/95 p-4 text-[13px] font-mono" aria-label="JSON preview">
+        {error && <p role="alert" className="mb-3 flex items-center gap-2 text-xs text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />{error}
+        </p>}
+        {error
+          ? <pre className="leading-relaxed whitespace-pre text-zinc-300">{formatted}</pre>
+          : <JsonNode value={parsed!} path="$" />}
       </div>
     </motion.div>
   );
 }
 
-function TextRenderer({ item, direction, crossingStepBoundary }: { item: AttachmentItem; direction: number; crossingStepBoundary: boolean }) {
-  const { copied, copy } = useCopyToClipboard();
-
-  const text = useMemo(() => {
-    if (!item.base64) return '';
-    return decodeBase64(item.base64);
-  }, [item.base64]);
-
+function TextRenderer({ text, direction, crossingStepBoundary, maximized }: { text: string; direction: number; crossingStepBoundary: boolean; maximized: boolean }) {
   const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
   const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
 
   return (
     <motion.div
       className={cn(
-        "relative w-full max-w-4xl flex flex-col rounded-xl overflow-hidden",
-        "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]",
+        "relative w-full min-h-0 flex flex-col overflow-hidden",
+        !maximized && "max-w-4xl",
         "max-h-full"
       )}
       custom={direction}
@@ -431,30 +634,7 @@ function TextRenderer({ item, direction, crossingStepBoundary }: { item: Attachm
       exit="exit"
       transition={transition}
     >
-      <div className="flex items-center justify-between px-4 py-2.5 bg-zinc-800/95 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-zinc-400" />
-          <span className="text-xs font-medium text-white/50">
-            {item.mimeType || 'text/plain'}
-          </span>
-          <span className="text-[10px] text-white/30">
-            {estimateSize(item.base64)}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => copy(text)}
-          className="h-7 px-2.5 text-white/50 hover:text-white hover:bg-white/10"
-        >
-          {copied
-            ? <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-[11px]">Copied</span></>
-            : <><Copy className="w-3.5 h-3.5" /><span className="text-[11px]">Copy</span></>
-          }
-        </Button>
-      </div>
-
-      <div className="flex-1 overflow-auto bg-zinc-900/95 p-4">
+      <div role="region" aria-label="Text preview" className="flex-1 overflow-auto bg-zinc-900/95 p-4">
         <pre className="text-[13px] leading-relaxed font-mono text-zinc-300 whitespace-pre">
           {text}
         </pre>
@@ -463,27 +643,121 @@ function TextRenderer({ item, direction, crossingStepBoundary }: { item: Attachm
   );
 }
 
-function BinaryFallback({ item, direction, crossingStepBoundary }: { item: AttachmentItem; direction: number; crossingStepBoundary: boolean }) {
-  const { copied, copy } = useCopyToClipboard();
+let mermaidRenderId = 0;
+let mermaidLoader: Promise<typeof import('mermaid')['default']> | undefined;
 
-  const handleDownload = useCallback(() => {
-    if (!item.base64) return;
-    const mime = item.mimeType || 'application/octet-stream';
-    const link = document.createElement('a');
-    link.href = `data:${mime};base64,${item.base64}`;
-    link.download = item.title || 'attachment';
-    link.click();
-  }, [item]);
+function loadMermaid() {
+  mermaidLoader ??= import('mermaid').then(({ default: mermaid }) => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: 'dark',
+      flowchart: { htmlLabels: false },
+      suppressErrorRendering: true,
+      maxTextSize: 100_000,
+    });
+    return mermaid;
+  }).catch((error: unknown) => {
+    mermaidLoader = undefined;
+    throw error;
+  });
+  return mermaidLoader;
+}
+
+function decodeMermaidSource(base64: string | undefined): string | null {
+  if (!base64) return null;
+  try {
+    const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function MermaidRenderer({ item, direction, crossingStepBoundary, maximized, preview, source, showSource }: {
+  item: AttachmentItem; direction: number; crossingStepBoundary: boolean; maximized: boolean;
+  preview: ScalablePreviewProps; source: string | null; showSource: boolean;
+}) {
+  const [imageUrl, setImageUrl] = useState<string>();
+  const [diagramSize, setDiagramSize] = useState<{ width: number; height: number }>();
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    let url: string | undefined;
+    setImageUrl(undefined);
+    setDiagramSize(undefined);
+    setError(false);
+
+    if (!source?.trim()) {
+      setError(true);
+    } else {
+      void loadMermaid()
+        .then((mermaid) => mermaid.render(`attachment-mermaid-${++mermaidRenderId}`, source))
+        .then(({ svg }) => {
+          if (cancelled) return;
+          // SVG remains an image resource: never insert an attachment's SVG into the document DOM.
+          const viewBox = svg.match(/\bviewBox="([^"]+)"/)?.[1].trim().split(/[\s,]+/).map(Number);
+          if (viewBox?.length === 4 && viewBox[2] > 0 && viewBox[3] > 0
+              && Number.isFinite(viewBox[2]) && Number.isFinite(viewBox[3])) {
+            setDiagramSize({ width: viewBox[2], height: viewBox[3] });
+          }
+          url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+          setImageUrl(url);
+        })
+        .catch(() => {
+          if (!cancelled) setError(true);
+        });
+    }
+
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [source]);
 
   const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
   const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
 
   return (
     <motion.div
-      className={cn(
-        "w-full max-w-md rounded-xl overflow-hidden bg-zinc-800/95",
-        "shadow-[0_8px_40px_rgb(0,0,0,0.5)] ring-1 ring-white/[0.08]"
+      className={cn("relative w-full h-full max-h-full min-h-0 flex flex-col overflow-hidden bg-zinc-900/95",
+        !maximized && "max-w-5xl")}
+      custom={direction}
+      variants={variants}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      transition={transition}
+    >
+      {error && (
+        <p role="alert" className="flex shrink-0 items-center gap-2 px-4 py-2 text-sm text-amber-300 bg-amber-950/30">
+          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          Could not render this Mermaid diagram. Check the source below.
+        </p>
       )}
+      {error || showSource ? (
+        <pre className="min-h-0 flex-1 overflow-auto p-4 text-[13px] leading-relaxed font-mono text-zinc-200 whitespace-pre" aria-label="Mermaid source">
+          {source ?? (item.base64 || 'No diagram source available')}
+        </pre>
+      ) : imageUrl ? (
+        <div className="min-h-0 flex-1">
+          <ScalablePreview src={imageUrl} alt={`Mermaid diagram: ${item.title || 'attachment'}`}
+            kind="diagram" intrinsicSize={diagramSize} onImageError={() => setError(true)} {...preview} />
+        </div>
+      ) : (
+        <p role="status" className="p-6 text-center text-sm text-zinc-300">Rendering Mermaid diagram…</p>
+      )}
+    </motion.div>
+  );
+}
+
+function BinaryFallback({ item, direction, crossingStepBoundary }: { item: AttachmentItem; direction: number; crossingStepBoundary: boolean }) {
+  const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
+  const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
+
+  return (
+    <motion.div
+      className="w-full max-w-md"
       custom={direction}
       variants={variants}
       initial="enter"
@@ -492,44 +766,15 @@ function BinaryFallback({ item, direction, crossingStepBoundary }: { item: Attac
       transition={transition}
     >
       <div className="p-8 flex flex-col items-center gap-5 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-700/40 flex items-center justify-center ring-1 ring-white/[0.06]">
+        <div className="flex h-16 w-16 items-center justify-center">
           <FileText className="w-8 h-8 text-zinc-500" />
         </div>
 
         <div className="space-y-1.5">
-          {item.title && (
-            <h3 className="text-sm font-semibold text-white/90">{item.title}</h3>
-          )}
-          <p className="text-xs text-white/40">
+          <p className="text-sm font-semibold text-white/90">Preview unavailable</p>
+          <p className="text-xs text-white/65">
             {item.mimeType || 'Unknown type'} · {estimateSize(item.base64)}
           </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {item.base64 && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => copy(item.base64!)}
-                className="h-8 px-3 text-white/50 hover:text-white hover:bg-white/10"
-              >
-                {copied
-                  ? <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs">Copied</span></>
-                  : <><Copy className="w-3.5 h-3.5" /><span className="text-xs">Copy Base64</span></>
-                }
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDownload}
-                className="h-8 px-3 text-white/50 hover:text-white hover:bg-white/10"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="text-xs">Download</span>
-              </Button>
-            </>
-          )}
         </div>
       </div>
     </motion.div>
@@ -560,11 +805,12 @@ function ThumbnailIcon({ item }: { item: AttachmentItem }) {
   const iconMap = {
     json: { Icon: FileJson, color: 'text-sky-400' },
     text: { Icon: FileCode, color: 'text-zinc-400' },
+    mermaid: { Icon: Workflow, color: 'text-sky-400' },
     binary: { Icon: FileText, color: 'text-zinc-500' },
   } as const;
 
   const { Icon, color } = iconMap[cat];
-  const label = mimeLabel(item.mimeType);
+  const label = attachmentLabel(item);
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-zinc-800">
@@ -666,112 +912,191 @@ function FilmStrip({
 // Header bar (with auto-play controls for galleries)
 // ---------------------------------------------------------------------------
 
+function ZoomControls({
+  kind, scale, zoom, onZoomChange,
+}: {
+  kind: 'image' | 'diagram';
+  scale: number;
+  zoom: number | null;
+  onZoomChange: (value: number | null) => void;
+}) {
+  const buttonClass = "h-11 w-11 shrink-0 rounded-md p-0 text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-sky-400";
+  const selectedClass = "bg-sky-400/15 text-sky-200";
+  return (
+    <div role="toolbar" aria-label={`${kind === 'diagram' ? 'Diagram' : 'Image'} zoom`}
+      className="flex min-w-0 items-center gap-0.5">
+      <Button variant="ghost" size="sm" aria-label={`Fit ${kind}`} title={`Fit ${kind}`}
+        aria-pressed={zoom === null} onClick={() => onZoomChange(null)}
+        className={cn(buttonClass, zoom === null && selectedClass)}>Fit</Button>
+      <Button variant="ghost" size="icon" aria-label="Zoom out" title="Zoom out"
+        disabled={scale <= 0.05} onClick={() => onZoomChange(Math.max(0.05, scale / 1.5))}
+        className={buttonClass}>
+        <Minus aria-hidden="true" />
+      </Button>
+      <span role="status" aria-live="polite" className="w-10 shrink-0 text-center text-xs font-semibold tabular-nums text-white/85">
+        {Math.round(scale * 100)}%
+      </span>
+      <Button variant="ghost" size="icon" aria-label="Zoom in" title="Zoom in"
+        disabled={scale >= 4} onClick={() => onZoomChange(Math.min(4, Math.max(0.05, scale * 1.5)))}
+        className={buttonClass}>
+        <Plus aria-hidden="true" />
+      </Button>
+      <Button variant="ghost" size="sm" aria-label="Actual size" title="Actual size"
+        aria-pressed={zoom === 1} onClick={() => onZoomChange(1)}
+        className={cn(buttonClass, "text-xs", zoom === 1 && selectedClass)}>100%</Button>
+    </div>
+  );
+}
+
+interface HeaderAction {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  pressed?: boolean;
+}
+
+function HeaderActions({ actions, compact }: { actions: HeaderAction[]; compact: boolean }) {
+  if (!actions.length) return null;
+  if (compact) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="Attachment actions" title="Attachment actions"
+            className="h-11 w-11 shrink-0 text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-sky-400">
+            <MoreHorizontal aria-hidden="true" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" sideOffset={4} className="border-white/10 bg-zinc-900 text-white">
+          {actions.map(({ label, icon, onClick }) => (
+            <DropdownMenuItem key={label} onSelect={onClick} className="min-h-11 gap-2">
+              {icon}{label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+  return (
+    <div className="flex shrink-0 items-center gap-0.5" aria-label="Attachment actions">
+      {actions.map(({ label, icon, onClick, pressed }) => (
+        <Button key={label} variant="ghost" size="icon" onClick={onClick}
+          aria-label={label} title={label} aria-pressed={pressed}
+          className="h-11 w-11 text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-sky-400">
+          {icon}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function downloadAttachment(item: AttachmentItem) {
+  if (!item.base64) return;
+  const link = document.createElement('a');
+  link.href = `data:${item.mimeType || 'application/octet-stream'};base64,${item.base64}`;
+  link.download = item.title || 'attachment';
+  link.click();
+}
+
 function HeaderBar({
-  item,
-  currentIndex,
-  total,
-  onClose,
-  isPlaying,
-  onTogglePlay,
-  hasStepContext,
-  isFullscreen,
-  onToggleFullscreen,
+  item, category, currentIndex, total, onClose, isPlaying, onTogglePlay, hasStepContext,
+  maximized, onToggleMaximize, zoomControls, copyText, copyLabel, showSource, onToggleSource,
 }: {
   item: AttachmentItem;
+  category: ContentCategory;
   currentIndex: number;
   total: number;
   onClose: () => void;
-  isPlaying?: boolean;
-  onTogglePlay?: () => void;
-  hasStepContext?: boolean;
-  isFullscreen?: boolean;
-  onToggleFullscreen?: () => void;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+  hasStepContext: boolean;
+  maximized: boolean;
+  onToggleMaximize: () => void;
+  zoomControls?: React.ComponentProps<typeof ZoomControls>;
+  copyText: string | null;
+  copyLabel: string;
+  showSource: boolean;
+  onToggleSource: () => void;
 }) {
-  const hasMultiple = total > 1;
-  const label = mimeLabel(item.mimeType);
+  const { copied, copy, copyError } = useCopyToClipboard(currentIndex);
+  const actions: HeaderAction[] = [];
+  if (category === 'mermaid') {
+    actions.push({
+      label: showSource ? 'Show diagram' : 'View source',
+      icon: <FileCode className="h-4 w-4" aria-hidden="true" />,
+      onClick: onToggleSource,
+      pressed: showSource,
+    });
+  }
+  if (copyText !== null) {
+    actions.push({
+      label: copied ? 'Copied' : copyLabel,
+      icon: copied ? <Check className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+        : <Copy className="h-4 w-4" aria-hidden="true" />,
+      onClick: () => { void copy(copyText); },
+    });
+  }
+  if (item.base64) {
+    actions.push({
+      label: 'Download',
+      icon: <Download className="h-4 w-4" aria-hidden="true" />,
+      onClick: () => downloadAttachment(item),
+    });
+  }
+  if (hasStepContext && total > 1) {
+    actions.push({
+      label: isPlaying ? 'Pause slideshow' : 'Play slideshow',
+      icon: isPlaying ? <Pause className="h-4 w-4" aria-hidden="true" />
+        : <Play className="h-4 w-4" aria-hidden="true" />,
+      onClick: onTogglePlay,
+    });
+  }
 
   return (
-    <motion.div
-      className={cn(
-        "shrink-0 z-10",
-        "flex items-center justify-between",
-        "px-4 py-3",
-        "bg-gradient-to-b from-black/60 via-black/30 to-transparent"
-      )}
+    <motion.header
+      className="relative z-10 grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 gap-y-1 border-b border-white/10 bg-zinc-950/95 px-2 py-1.5 sm:gap-x-2 sm:px-3"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.08, duration: 0.25 }}
     >
-      {/* Left: title + badge */}
-      <div className="flex items-center gap-3 min-w-0">
-        {item.title && (
-          <span className="text-sm font-medium text-white/90 truncate max-w-[30vw]">
-            {item.title}
+      <div className="flex min-w-0 items-center gap-2" title={item.title}>
+        {item.stepIndex !== undefined
+          ? <StepContext item={item} />
+          : <AttachmentContentMetadata item={item} fallbackMimeType="application/octet-stream" />}
+        {item.stepIndex === undefined && total > 1 && (
+          <span className="shrink-0 text-xs font-medium tabular-nums text-white/70">
+            {currentIndex + 1} / {total}
           </span>
-        )}
-        <span className={cn(
-          "shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider",
-          "bg-white/[0.08] text-white/50 ring-1 ring-white/[0.06]"
-        )}>
-          {label}
-        </span>
-        {hasMultiple && (
-          <span className={cn(
-            "shrink-0 tabular-nums text-xs font-medium",
-            "text-white/40"
-          )}>
-            {currentIndex + 1} <span className="text-white/20">/</span> {total}
-          </span>
-        )}
-        {hasStepContext && hasMultiple && onTogglePlay && (
-          <button
-            onClick={onTogglePlay}
-            className={cn(
-              "shrink-0 h-7 px-2.5 rounded-lg flex items-center gap-1.5",
-              "text-white/50 hover:text-white hover:bg-white/10",
-              "transition-colors duration-150 text-xs font-medium",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-            )}
-            aria-label={isPlaying ? 'Pause slideshow' : 'Play slideshow'}
-          >
-            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            {isPlaying ? 'Pause' : 'Play'}
-          </button>
         )}
       </div>
 
-      {/* Right: fullscreen toggle + close */}
-      <div className="flex items-center gap-2">
-        {onToggleFullscreen && (
-          <button
-            onClick={onToggleFullscreen}
-            className={cn(
-              "h-8 w-8 rounded-lg flex items-center justify-center",
-              "text-white/50 hover:text-white hover:bg-white/10",
-              "transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-            )}
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-        )}
+      <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-0.5">
+        <div className="hidden items-center gap-0.5 sm:flex">
+          {zoomControls && <ZoomControls {...zoomControls} />}
+          <HeaderActions actions={actions} compact={false} />
+        </div>
+        {!zoomControls && <div className="sm:hidden"><HeaderActions actions={actions} compact /></div>}
+        <Button variant="ghost" size="icon" onClick={onToggleMaximize}
+          className="h-11 w-11 rounded-lg text-white/80 hover:text-white hover:bg-white/10 focus-visible:ring-sky-400"
+          aria-label={maximized ? 'Restore viewer' : 'Maximize viewer'} aria-pressed={maximized}
+          title={maximized ? 'Restore viewer' : 'Maximize viewer'}>
+          {maximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+        </Button>
         <DialogPrimitive.Close asChild>
-          <button
-            className={cn(
-              "h-8 w-8 rounded-lg flex items-center justify-center",
-              "text-white/50 hover:text-white hover:bg-white/10",
-              "transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-            )}
-            aria-label="Close viewer"
+          <Button variant="ghost" size="icon" aria-label="Close viewer" title="Close viewer"
             onClick={onClose}
-          >
-            <X className="w-4.5 h-4.5" />
-          </button>
+            className="h-11 w-11 rounded-lg text-white/80 hover:text-white hover:bg-white/10 focus-visible:ring-sky-400">
+            <X aria-hidden="true" />
+          </Button>
         </DialogPrimitive.Close>
       </div>
-    </motion.div>
+      {zoomControls && (
+        <div className="col-span-2 row-start-2 flex items-center justify-center gap-1 sm:hidden">
+          <ZoomControls {...zoomControls} />
+          <HeaderActions actions={actions} compact />
+        </div>
+      )}
+      {copyError && <p role="alert" className="col-span-2 text-xs text-amber-300">{copyError}</p>}
+    </motion.header>
   );
 }
 
@@ -826,8 +1151,12 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
   const [direction, setDirection] = useState(0); // +1 = forward, -1 = backward
   const [isPlaying, setIsPlaying] = useState(false);
   const [prevStepIndex, setPrevStepIndex] = useState<number | undefined>();
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [maximized, setMaximized] = useState(false);
+  const [previewSize, setPreviewSize] = useState<PreviewSize>();
+  const [previewViewportSize, setPreviewViewportSize] = useState<PreviewSize>();
+  const [previewZoom, setPreviewZoom] = useState<number | null>(null);
+  const [showMermaidSource, setShowMermaidSource] = useState(false);
+  const openerRef = useRef<HTMLElement | null>(null);
   const hasMultiple = attachments.length > 1;
 
   // Detect step context
@@ -843,37 +1172,29 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
       setDirection(0);
       setIsPlaying(false);
       setPrevStepIndex(attachments[initialIndex]?.stepIndex);
-      setIsFullscreen(false);
+      setMaximized(false);
+      setPreviewSize(undefined);
+      setPreviewViewportSize(undefined);
+      setPreviewZoom(null);
+      setShowMermaidSource(false);
     }
   }, [open, initialIndex, attachments]);
 
-  // Sync fullscreen state with browser fullscreen changes
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isCurrentlyFullscreen = Boolean(
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
-      setIsFullscreen(isCurrentlyFullscreen);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-    };
-  }, []);
-
   // Check if we're crossing step boundary
   const current = attachments[currentIndex] ?? attachments[0];
+  const category = current ? categorize(current) : 'binary';
+  const mermaidSource = useMemo(
+    () => category === 'mermaid' ? decodeMermaidSource(current.base64) : null,
+    [category, current?.base64]
+  );
+  const jsonContent = useMemo(
+    () => category === 'json' ? readJsonContent(current.base64) : undefined,
+    [category, current?.base64]
+  );
+  const textContent = useMemo(
+    () => category === 'text' && current.base64 ? decodeBase64(current.base64) : '',
+    [category, current?.base64]
+  );
   const currentStepIndex = current?.stepIndex;
   const crossingStepBoundary = hasStepContext && 
     prevStepIndex !== undefined && 
@@ -881,18 +1202,30 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
     prevStepIndex !== currentStepIndex;
 
   const goNext = useCallback(() => {
+    setShowMermaidSource(false);
+    setPreviewSize(undefined);
+    setPreviewViewportSize(undefined);
+    setPreviewZoom(null);
     setPrevStepIndex(attachments[currentIndex]?.stepIndex);
     setDirection(1);
     setCurrentIndex((i) => (i + 1) % attachments.length);
   }, [attachments, currentIndex]);
 
   const goPrev = useCallback(() => {
+    setShowMermaidSource(false);
+    setPreviewSize(undefined);
+    setPreviewViewportSize(undefined);
+    setPreviewZoom(null);
     setPrevStepIndex(attachments[currentIndex]?.stepIndex);
     setDirection(-1);
     setCurrentIndex((i) => (i - 1 + attachments.length) % attachments.length);
   }, [attachments, currentIndex]);
 
   const goTo = useCallback((idx: number) => {
+    setShowMermaidSource(false);
+    setPreviewSize(undefined);
+    setPreviewViewportSize(undefined);
+    setPreviewZoom(null);
     setPrevStepIndex(attachments[currentIndex]?.stepIndex);
     setDirection(idx > currentIndex ? 1 : -1);
     setCurrentIndex(idx);
@@ -922,56 +1255,6 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
     setIsPlaying(p => !p);
   }, []);
 
-  // Fullscreen management
-  const enterFullscreen = useCallback(async () => {
-    if (!contentRef.current) return;
-    
-    try {
-      if (contentRef.current.requestFullscreen) {
-        await contentRef.current.requestFullscreen();
-      } else if ((contentRef.current as any).webkitRequestFullscreen) {
-        await (contentRef.current as any).webkitRequestFullscreen();
-      } else if ((contentRef.current as any).mozRequestFullScreen) {
-        await (contentRef.current as any).mozRequestFullScreen();
-      } else if ((contentRef.current as any).msRequestFullscreen) {
-        await (contentRef.current as any).msRequestFullscreen();
-      } else {
-        // Fallback: CSS-only fullscreen
-        setIsFullscreen(true);
-      }
-    } catch (err) {
-      // Fallback: CSS-only fullscreen
-      setIsFullscreen(true);
-    }
-  }, []);
-
-  const exitFullscreen = useCallback(async () => {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else if ((document as any).webkitFullscreenElement) {
-        await (document as any).webkitExitFullscreen();
-      } else if ((document as any).mozFullScreenElement) {
-        await (document as any).mozCancelFullScreen();
-      } else if ((document as any).msFullscreenElement) {
-        await (document as any).msExitFullscreen();
-      } else {
-        // CSS-only fallback
-        setIsFullscreen(false);
-      }
-    } catch {
-      setIsFullscreen(false);
-    }
-  }, []);
-
-  const toggleFullscreen = useCallback(() => {
-    if (isFullscreen) {
-      exitFullscreen();
-    } else {
-      enterFullscreen();
-    }
-  }, [isFullscreen, enterFullscreen, exitFullscreen]);
-
   // Auto-play logic
   useEffect(() => {
     if (!isPlaying || !open) return;
@@ -1000,24 +1283,51 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
+      if (e.key.startsWith('Arrow') && e.target instanceof HTMLElement
+          && e.target.closest('[aria-label="Mermaid diagram viewport"], [aria-label="Image viewport"]')) return;
       if (e.key === 'ArrowRight' && hasMultiple) { e.preventDefault(); goNext(); }
       if (e.key === 'ArrowLeft' && hasMultiple) { e.preventDefault(); goPrev(); }
       if (e.key === '[' && hasStepContext) { e.preventDefault(); jumpToPrevStep(); }
       if (e.key === ']' && hasStepContext) { e.preventDefault(); jumpToNextStep(); }
-      if (e.key === ' ' && hasStepContext) { e.preventDefault(); togglePlay(); }
+      if (e.key === ' ' && hasStepContext
+        && !(e.target instanceof HTMLElement && e.target.closest('button, input, textarea, select, [contenteditable="true"]'))) {
+        e.preventDefault();
+        togglePlay();
+      }
       if (e.key === 'Home') { e.preventDefault(); goToStart(); }
       if (e.key === 'End') { e.preventDefault(); goToEnd(); }
-      if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }
+      if ((e.key === 'f' || e.key === 'F') && !(e.target instanceof HTMLElement
+        && e.target.closest('input, textarea, select, [contenteditable="true"]'))) {
+        e.preventDefault();
+        setMaximized((value) => !value);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, hasMultiple, hasStepContext, goNext, goPrev, jumpToPrevStep, jumpToNextStep, togglePlay, goToStart, goToEnd, toggleFullscreen]);
+  }, [open, hasMultiple, hasStepContext, goNext, goPrev, jumpToPrevStep, jumpToNextStep, togglePlay, goToStart, goToEnd]);
 
   if (attachments.length === 0) return null;
 
-  const category = categorize(current);
   const navLabel = category === 'image' ? 'image' : 'attachment';
-  const isImageContent = category === 'image';
+  const copyText = category === 'mermaid' ? mermaidSource
+    : category === 'json' && current.base64 && jsonContent ? jsonContent.formatted
+    : category === 'text' && current.base64 ? textContent
+    : category === 'binary' ? current.base64 ?? null : null;
+  const copyLabel = category === 'mermaid' ? 'Copy source'
+    : category === 'binary' ? 'Copy Base64'
+    : category === 'text' ? 'Copy text' : 'Copy';
+  const fitScale = previewSize && previewViewportSize
+    ? Math.min(category === 'mermaid' ? 3 : 1,
+      (previewViewportSize.width - 32) / previewSize.width,
+      (previewViewportSize.height - 32) / previewSize.height)
+    : 1;
+  const previewScale = previewZoom ?? Math.max(0.01, fitScale);
+  const preview: ScalablePreviewProps = {
+    size: previewSize,
+    scale: previewScale,
+    onSizeChange: setPreviewSize,
+    onViewportChange: setPreviewViewportSize,
+  };
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -1030,7 +1340,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                 <motion.div
                   className={cn(
                     "fixed inset-0 z-50 backdrop-blur-sm",
-                    isFullscreen ? "bg-black" : "bg-black/85"
+                    maximized ? "bg-black" : "bg-black/85"
                   )}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -1043,14 +1353,27 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
               <DialogPrimitive.Content
                 asChild
                 forceMount
-                onOpenAutoFocus={(e) => e.preventDefault()}
-                onInteractOutside={(e) => e.preventDefault()}
+                onOpenAutoFocus={() => {
+                  if (document.activeElement instanceof HTMLElement) openerRef.current = document.activeElement;
+                }}
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  openerRef.current?.focus();
+                  openerRef.current = null;
+                }}
+                onEscapeKeyDown={(event) => {
+                  if (maximized) {
+                    event.preventDefault();
+                    setMaximized(false);
+                  }
+                }}
               >
                 <motion.div
-                  ref={contentRef}
                   className={cn(
-                    "fixed inset-0 z-50 flex flex-col",
-                    isFullscreen && "bg-black"
+                    "fixed z-50 flex min-h-0 flex-col overflow-hidden bg-zinc-950 text-white",
+                    maximized
+                      ? "inset-0 h-dvh w-screen"
+                      : "inset-4 m-auto h-[calc(100dvh-2rem)] max-h-[900px] w-[calc(100vw-2rem)] max-w-6xl rounded-xl shadow-2xl ring-1 ring-white/10"
                   )}
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -1064,40 +1387,40 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                   <DialogPrimitive.Title className="sr-only">
                     {current.title || 'Attachment preview'}
                   </DialogPrimitive.Title>
+                  <DialogPrimitive.Description className="sr-only">
+                    {current.stepIndex !== undefined &&
+                      `${stepPosition(current.stepIndex, current.stepCount)}: ${current.stepKeyword || ''} ${current.stepTitle || ''}. `}
+                    {current.stepStatus && `Status: ${current.stepStatus}. `}
+                    {current.mimeType || 'Unknown file type'}.
+                  </DialogPrimitive.Description>
 
                   {/* Header bar */}
                   <HeaderBar
                     item={current}
+                    category={category}
                     currentIndex={currentIndex}
                     total={attachments.length}
                     onClose={() => onOpenChange(false)}
                     isPlaying={isPlaying}
                     onTogglePlay={togglePlay}
                     hasStepContext={hasStepContext}
-                    isFullscreen={isFullscreen}
-                    onToggleFullscreen={toggleFullscreen}
+                    maximized={maximized}
+                    onToggleMaximize={() => setMaximized((value) => !value)}
+                    copyText={copyText}
+                    copyLabel={copyLabel}
+                    showSource={showMermaidSource}
+                    onToggleSource={() => setShowMermaidSource((value) => !value)}
+                    zoomControls={(category === 'image' || category === 'mermaid') && previewSize && previewViewportSize
+                      ? { kind: category === 'mermaid' ? 'diagram' : 'image',
+                          scale: previewScale, zoom: previewZoom, onZoomChange: setPreviewZoom }
+                      : undefined}
                   />
-
-                  {/* Step context bar — in-flow, never shrinks */}
-                  <div className="shrink-0">
-                    <AnimatePresence mode="wait">
-                      {hasStepContext && (
-                        <StepContextBar 
-                          key={`context-${currentIndex}`}
-                          item={current} 
-                          currentIndex={currentIndex}
-                          total={attachments.length}
-                          groups={groups}
-                        />
-                      )}
-                    </AnimatePresence>
-                  </div>
 
                   {/* Content area — takes remaining space, content constrained to fit */}
                   <div
                     className={cn(
                       "flex-1 min-h-0 relative flex items-center justify-center overflow-hidden",
-                      isFullscreen ? "px-8" : "px-16"
+                      maximized ? "px-3 sm:px-14" : "px-2 sm:px-14"
                     )}
                     onClick={(e) => {
                       if (e.target === e.currentTarget) onOpenChange(false);
@@ -1120,23 +1443,38 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                           index={currentIndex} 
                           direction={direction}
                           crossingStepBoundary={crossingStepBoundary}
-                          onImageClick={isImageContent ? toggleFullscreen : undefined}
+                          maximized={maximized}
+                          preview={preview}
                         />
                       )}
-                      {category === 'json' && (
+                      {category === 'json' && jsonContent && (
                         <JsonRenderer 
                           key={`json-${currentIndex}`} 
-                          item={current} 
+                          content={jsonContent}
                           direction={direction}
                           crossingStepBoundary={crossingStepBoundary}
+                          maximized={maximized}
                         />
                       )}
                       {category === 'text' && (
                         <TextRenderer 
                           key={`text-${currentIndex}`} 
-                          item={current} 
+                          text={textContent}
                           direction={direction}
                           crossingStepBoundary={crossingStepBoundary}
+                          maximized={maximized}
+                        />
+                      )}
+                      {category === 'mermaid' && (
+                        <MermaidRenderer
+                          key={`mermaid-${currentIndex}`}
+                          item={current}
+                          direction={direction}
+                          crossingStepBoundary={crossingStepBoundary}
+                          maximized={maximized}
+                          preview={preview}
+                          source={mermaidSource}
+                          showSource={showMermaidSource}
                         />
                       )}
                       {category === 'binary' && (
@@ -1177,7 +1515,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                     <div
                       className={cn(
                         "shrink-0 flex justify-center px-4",
-                        isFullscreen ? "pb-3 pt-1" : "pb-4 pt-2"
+                        maximized ? "pb-3 pt-1" : "pb-4 pt-2"
                       )}
                       onClick={(e) => e.stopPropagation()}
                     >
