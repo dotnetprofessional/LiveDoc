@@ -1,10 +1,10 @@
 import type { AnyTest, Status } from '@swedevtools/livedoc-schema';
-import { ChevronRight, FileText } from 'lucide-react';
-import { StatusBadge } from '../StatusBadge';
+import { FileText } from 'lucide-react';
 import { subtreeHasMatch } from '../../lib/filter-utils';
 import { Badge } from '../ui/badge';
+import { shouldAllowDrillDown } from '../../lib/status-utils';
+import { ListRowMetadata } from '../ListRowMetadata';
 import { cn } from '../../lib/utils';
-import { shouldAllowDrillDown, formatDuration } from '../../lib/status-utils';
 
 export interface ChildrenListProps {
   children: AnyTest[] | undefined;
@@ -57,47 +57,55 @@ export function ChildrenList({
         </span>
       </div>
       <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="divide-y">
+        <div className="divide-y" role="list">
           {visibleChildren.map((child: any) => {
             const kind = String(child.kind ?? '');
             const status = child.execution?.status as Status | undefined;
             const canDrillDown = shouldAllowDrillDown(kind, status);
+            const content = (
+              <>
+                <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium transition-colors group-hover:text-primary">
+                  {child.title}
+                </span>
+
+                {(child?.kind === 'ScenarioOutline' || child?.kind === 'RuleOutline') && (
+                  <Badge variant="secondary" className="shrink-0 text-[10px] font-semibold">
+                    Outline{(() => {
+                      const count = getOutlineCount(child);
+                      return typeof count === 'number' ? ` (${count})` : '';
+                    })()}
+                  </Badge>
+                )}
+
+              </>
+            );
             return (
-            <div
-              key={child.id}
-              onClick={canDrillDown ? () => navigate('node', child.id) : undefined}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 transition-colors text-left group",
-                canDrillDown && "hover:bg-muted/50 cursor-pointer",
-                !canDrillDown && "cursor-default"
+            <div key={child.id} role="listitem" className={cn(
+              'relative flex items-center gap-2 px-4 py-3 group',
+              canDrillDown && 'transition-colors hover:bg-muted/50',
+            )}>
+              {canDrillDown ? (
+                <button
+                  type="button"
+                  onClick={() => navigate('node', child.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left before:absolute before:inset-0 focus-visible:outline-none focus-visible:before:ring-2 focus-visible:before:ring-inset focus-visible:before:ring-ring"
+                >
+                  {content}
+                </button>
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  {content}
+                </div>
               )}
-              role={canDrillDown ? "button" : undefined}
-              tabIndex={canDrillDown ? 0 : undefined}
-              onKeyDown={canDrillDown ? (e) => { if (e.key === 'Enter' || e.key === ' ') navigate('node', child.id); } : undefined}
-            >
-              <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="flex-1 text-sm font-medium truncate group-hover:text-primary transition-colors">
-                {child.title}
-              </span>
-
-              {(child?.kind === 'ScenarioOutline' || child?.kind === 'RuleOutline') && (
-                <Badge variant="secondary" className="shrink-0 text-[10px] font-semibold">
-                  Outline{(() => {
-                    const count = getOutlineCount(child);
-                    return typeof count === 'number' ? ` (${count})` : '';
-                  })()}
-                </Badge>
-              )}
-
-              <span className="text-xs text-muted-foreground font-mono shrink-0">
-                {child.execution?.duration !== undefined
-                  ? formatDuration(child.execution.duration)
-                  : ''}
-              </span>
-              <StatusBadge status={child.execution?.status} size="sm" />
-              {canDrillDown && (
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-              )}
+              <ListRowMetadata
+                node={child}
+                duration={child.execution?.duration}
+                status={status}
+                canDrillDown={canDrillDown}
+                showAttachmentSlot
+                statusSize="sm"
+              />
             </div>
           );
           })}

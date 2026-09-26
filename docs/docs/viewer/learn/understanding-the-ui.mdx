@@ -151,6 +151,48 @@ Each step (`Given`, `When`, `Then`, `And`, `But`) is listed with:
 | **Status icon**  | ✅ passed, ❌ failed, ⏭️ skipped                   |
 | **Duration**     | How long the step took to execute                   |
 
+### Exploring JSON Attachments
+
+JSON evidence opens as a structured tree. The top level starts expanded so
+you can scan its fields; nested objects and arrays start collapsed to keep
+large responses readable. Select a disclosure button to inspect a branch,
+including indexed array entries. The buttons work with Enter and Space.
+
+> **Example: Inspecting an API Response**
+>
+> Open `order.json`, expand `items`, then expand item `0` to inspect its
+> properties. **Copy** still copies the complete formatted JSON, even when
+> branches are collapsed. An invalid JSON attachment displays a warning and
+> its raw text instead of an empty tree.
+
+### Viewing Mermaid Attachments
+
+An attached diagram can show the relationship between steps more clearly than
+an assertion log. Open the attachment gallery from a step's evidence button,
+then select the diagram in the filmstrip. For example, a test can attach
+`checkout.mmd` to show the checkout paths it exercised; the viewer displays the
+rendered diagram, while **View source**, **Copy source**, and **Download** keep
+the original definition available.
+
+For a long or wide sequence diagram, **Fit** initially shows the whole diagram
+without shrinking the gallery's controls. Use **+** and **−** to zoom, or
+**100%** to read labels at the diagram's rendered size; scroll inside the
+diagram viewport to inspect the rest. The viewport can be focused for keyboard
+scrolling, and the gallery's fullscreen button gives the diagram more room.
+On a phone, fit is an overview rather than a readable text size—zoom in and
+scroll to read individual exchanges. The passing **Attachment API → A large
+document-sync sequence diagram is attached as evidence** scenario includes a
+representative multi-participant example.
+
+The viewer renders base64-encoded attachments as Mermaid when their MIME type
+is `text/vnd.mermaid`, `text/x-mermaid`, `text/mermaid`, or
+`application/vnd.mermaid` (case and charset parameters do not matter), or
+their filename ends in `.mmd` or `.mermaid`. A regular Markdown or text
+attachment containing a Mermaid code fence remains plain text. If a diagram
+is invalid or cannot render, the gallery shows an error and its source instead
+of a blank image. Diagrams render in a non-interactive image preview; embedded
+scripts and links are not activated.
+
 ### Failure Details
 
 When a step fails, the detail panel expands to show:

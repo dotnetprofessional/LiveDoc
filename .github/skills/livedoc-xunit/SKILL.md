@@ -1,7 +1,7 @@
 ---
 name: livedoc-xunit
 description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the SweDevTools.LiveDoc.xUnit framework for C# and .NET. Generates self-documenting xUnit specs with correct attribute usage, value extraction, and living documentation patterns. Also covers Journey testing via annotated .http files.
-sdk_version: 0.3.0
+sdk_version: 0.3.0.3
 ---
 
 # LiveDoc xUnit Test Author
@@ -10,13 +10,18 @@ sdk_version: 0.3.0
 
 ## Version Check
 
-This skill targets **SweDevTools.LiveDoc.xUnit v0.3.0**. Before writing tests, verify the installed version matches:
+This skill targets **SweDevTools.LiveDoc.xUnit v0.3.0.3**. Before writing tests, verify the installed version matches:
 
-```bash
-dotnet list package | grep -i livedoc
+```text
+dotnet list package
 ```
 
-If the installed version differs from `0.3.0`, tell the developer: *"Your LiveDoc skill files target v0.3.0 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
+If the installed version differs from `0.3.0.3`, tell the developer: *"Your LiveDoc skill files target v0.3.0.3 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
+
+This repository's `[next release]` changes are not guaranteed to exist in an
+installed `0.3.0.3` package. Before using a next-release API such as
+`BackgroundAsync`, check that the referenced assembly actually contains it;
+use a build containing that API rather than assuming a matching version does.
 
 ## Use this skill when
 - Creating or modifying C# test classes using `SweDevTools.LiveDoc.xUnit`
@@ -102,7 +107,7 @@ public class ShippingTests : FeatureTest
 }
 ```
 
-**Key concepts**: `FeatureTest` base class, `[Feature]`, `[Scenario]`, `[ScenarioOutline]`, `[Example]`, Given/When/Then/And/But steps, `ctx.Step!.Values`, `ctx.Step!.Params`, async steps.
+**Key concepts**: `FeatureTest` base class, `[Feature]`, `[Scenario]`, `[ScenarioOutline]`, `[Example]`, per-invocation `BackgroundAsync`/`AfterBackgroundAsync` hooks, Given/When/Then/And/But steps, optional inline Markdown/JSON descriptions, `ctx.Step!.Values`, `ctx.Step!.Params`, async steps.
 
 → **Read `resources/features.md`** for complete attribute reference, all step method overloads, value extraction API, tuple deconstruction, named parameters, async patterns, error handling, and validation checklist.
 
@@ -173,6 +178,14 @@ GET {{baseUrl}}/api/widgets/test-widget
 **Key concepts**: BDD comment annotations (`# Feature:`, `# Scenario:`, `# Given/When/Then`, `# @name`), `.Response.json` contract files, `property-rules.txt` for dynamic fields, capture mode, MSBuild configuration, generated `.Journey.cs` test classes.
 
 **Library-provided infrastructure** (`SweDevTools.LiveDoc.xUnit.Journeys` namespace): `JourneyFixtureBase` (server lifecycle + httpYac runner), `JourneyResult` / `StepResult` (output parser), `JsonAssertions` / `PropertyRules` (JSON comparison engine). Users create a minimal fixture subclass specifying their server path — all heavy lifting is built-in.
+
+**Journey lifecycle and performance**:
+- Configure one `LiveDocJourneyFixtureType` per application server. The generator creates `{FixtureType}Collection.cs` and places every generated Journey in that shared xUnit collection.
+- Generated and custom Journey classes must use `[Collection({FixtureType}Collection.Name)]`. Do not add `IClassFixture<T>` to each class; that starts and stops the server once per class.
+- Put any hand-written integration tests that use the same server in the same collection. Tests in the collection run sequentially, preventing shared-server state races.
+- Repeated `[LiveDoc Journey] Starting server` banners mean a class is outside the shared collection. Run `dotnet build -p:LiveDocJourneyMode=validate` to find lifecycle drift.
+- Use a separate fixture type and collection only for a genuinely independent server. Do not create a process-global static server.
+- If one startup remains but the run is still slow, measure server startup, `RunJourneyAsync`, and Viewer reporting separately; do not add sleeps or per-test restart logic.
 
 → **Read `resources/journey-testing.md`** for complete .http format reference, BDD annotation table, CRUD example, contract pattern, capture mode CLI/MSBuild, property-rules syntax, fixture setup, and validation checklist.
 
@@ -307,7 +320,7 @@ LiveDoc rule violations are validation failures even when xUnit exits successful
 
 1. Run the affected tests with LiveDoc reporting enabled and inspect the report/export, not only the xUnit exit code.
 2. Enumerate every document-, test-, and step-level `ruleViolations` entry and its owning title.
-3. Fix the test structure named by the violation. Use one meaningful Given, When, and Then in Features; use And/But for continuations; use Specifications for technical assertions that do not describe a behavioral journey.
+3. Fix the test structure named by the violation. Use a meaningful Given in the scenario or its Background, plus When and Then in the scenario; use And/But for continuations. Use Specifications for technical assertions that do not describe a behavioral journey.
 4. Do not silence violations with filler/no-op steps, blanket suppression, or weaker rules. Each step must communicate and observe real behavior.
 5. Keep deliberate malformed-Gherkin tests in an isolated probe project excluded from the main report. The probe should assert the violation while the normal suite remains clean.
 6. Rerun the affected tests and normal report until unintended rule violations equal zero.
@@ -352,6 +365,7 @@ If authentication, permissions, or network access prevents submission, preserve 
 ### Positive routing examples
 - "Create a BDD test for shipping costs" → Read `resources/features.md`, write `FeatureTest`
 - "Add data-driven tests for tax calculation" → Read `resources/features.md`, use `[ScenarioOutline]`
+- "Share setup without serializing independent scenarios" → Read `resources/features.md`, override the per-invocation Background and After hooks
 - "Write unit tests for the email validator" → Read `resources/specifications.md`, write `SpecificationTest`
 - "Fix value drift — step says 500 but code checks 200" → Use `ctx.Step!.Values[0]` extraction
 - "Create HTTP journey tests for Users API" → Read `resources/journey-testing.md`

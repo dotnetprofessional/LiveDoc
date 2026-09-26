@@ -15,13 +15,16 @@ public class ScenarioAttribute : FactAttribute
     /// <summary>
     /// Constructs a new instance of the ScenarioAttribute with an optional test method name.
     /// </summary>
-    /// <param name="testMethodName">
+    /// <param name="title">
     /// The name of the test method. This is optional and defaults to the name of the method that calls the constructor.
-    /// The testMethodName is used in the DisplayName of the test, with underscores replaced by spaces for better readability.
+    /// A title supplied through nameof(...) also has underscores replaced by spaces.
     /// </param>
-    public ScenarioAttribute([CallerMemberName] string testMethodName = "")
+    public ScenarioAttribute(
+        [CallerMemberName] string title = "",
+        [CallerArgumentExpression(nameof(title))] string? titleExpression = null)
     {
-        this.DisplayName = "Scenario: " + testMethodName.Replace("_", " ");
+        DisplayName = "Scenario: " +
+            AttributeTitleFormatter.FormatMemberName(title, titleExpression);
     }
 
     public string? Description { get; set; }

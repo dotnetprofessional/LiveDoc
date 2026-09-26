@@ -362,7 +362,7 @@ Enable journey scaffolding in the test project `.csproj`:
 | `LiveDocJourneysDir` | `$(MSBuildProjectDirectory)\journeys` | Root folder with journey subfolders |
 | `LiveDocJourneyOutputDir` | `$(MSBuildProjectDirectory)\Journeys` | Where `.Journey.cs` files are written |
 | `LiveDocJourneyBaseNamespace` | `$(RootNamespace).Journeys` | Namespace for generated classes |
-| `LiveDocJourneyFixtureType` | `JourneyServerFixture` | The `IClassFixture<T>` type |
+| `LiveDocJourneyFixtureType` | `JourneyServerFixture` | Fixture shared by the generated xUnit Journey collection |
 | `LiveDocJourneyMode` | `scaffold` | `scaffold` (don't overwrite), `validate` (report drift), `force` (overwrite all) |
 | `LiveDocHttpYacEnsure` | `check` | `check` (fail if missing), `auto-install`, `off` |
 
@@ -370,7 +370,12 @@ Enable journey scaffolding in the test project `.csproj`:
 
 ## Generated Test Pattern
 
-The generator produces one `.Journey.cs` per `.http` file. The pattern:
+The generator produces one `.Journey.cs` per `.http` file and one
+`{FixtureType}Collection.cs` support file. All generated Journey classes belong
+to that collection, so xUnit starts the server once for the test assembly and
+stops it after the final Journey class.
+Newly generated source is included in the same build; a second build is not
+needed to discover the tests.
 
 ```csharp
 // Generated from api/widgets/_widgets.http
@@ -383,7 +388,8 @@ using MyProject.Specs.Journeys;
 namespace MyProject.Specs.Journeys.Api;
 
 [Feature("Widget API", Description = "Full CRUD validation")]
-public class Widgets_Journey : FeatureTest, IClassFixture<JourneyServerFixture>
+[Collection(JourneyServerFixtureCollection.Name)]
+public class Widgets_Journey : FeatureTest
 {
     private readonly JourneyServerFixture _server;
     private readonly PropertyRules _propertyRules;
@@ -421,6 +427,27 @@ public class Widgets_Journey : FeatureTest, IClassFixture<JourneyServerFixture>
 }
 ```
 
+The generated collection support file owns the shared lifecycle:
+
+```csharp
+[CollectionDefinition(Name)]
+public sealed class JourneyServerFixtureCollection
+    : ICollectionFixture<JourneyServerFixture>
+{
+    public const string Name = "LiveDoc journeys: JourneyServerFixture";
+}
+```
+
+Existing generated test bodies are developer-owned and are not regenerated in
+`scaffold` mode. When upgrading, the generator replaces only the exact legacy
+`IClassFixture<JourneyServerFixture>` class declaration with the shared
+`[Collection(JourneyServerFixtureCollection.Name)]` attribute and prints a
+`MIGRATE` notice.
+
+Journey classes in the shared collection run sequentially. This avoids
+stateful HTTP journeys racing each other while still removing repeated
+application startup and shutdown.
+
 **Key using statements:**
 - `SweDevTools.LiveDoc.xUnit.Journeys` — provides `JourneyResult`, `StepResult`, `JsonAssertions`, `PropertyRules`, `JourneyFixtureBase`
 - `MyProject.Specs.Journeys` — your concrete `JourneyServerFixture` class
@@ -436,6 +463,7 @@ public class Widgets_Journey : FeatureTest, IClassFixture<JourneyServerFixture>
 
 The library ships `JourneyFixtureBase` in `SweDevTools.LiveDoc.xUnit.Journeys` which handles:
 - Server process management (start/stop/port selection)
+- One shared server lifecycle per generated Journey collection
 - httpYac CLI execution (`RunJourneyAsync()`)
 - Response contract loading (`LoadResponseFile()`)
 - Capture mode (when `JOURNEY_CAPTURE=true`)

@@ -503,6 +503,26 @@ feature(`RunStore Persistence
             store = new RunStore(50, testDataDir);
             await store.initialize();
             store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+            store.upsertTestCase("run-1", {
+                id: "feature-1",
+                kind: "Feature",
+                title: "Inline content",
+                tests: [{
+                    id: "scenario-1",
+                    kind: "Scenario",
+                    title: "JSON remains visible",
+                    steps: [{
+                        id: "step-1",
+                        kind: "Step",
+                        keyword: "given",
+                        title: "the input response",
+                        description: "```json\n{\"value\":11}\n```",
+                        execution: { status: "passed", duration: 1 }
+                    }],
+                    execution: { status: "passed", duration: 1 }
+                }],
+                statistics: { total: 1, passed: 1, failed: 0, pending: 0, skipped: 0 }
+            });
             store.completeRun("run-1", "passed", 1000, {
                 total: 1, passed: 1, failed: 0, pending: 0, skipped: 0, duration: 1000
             });
@@ -524,6 +544,11 @@ feature(`RunStore Persistence
 
         and("the reloaded run should have status 'passed'", (ctx) => {
             expect(reloadedRun?.status).toBe(ctx.step.values[0]);
+        });
+
+        and("the reloaded step preserves inline JSON value '11'", (ctx) => {
+            expect((reloadedRun?.documents[0].tests[0] as any).steps[0].description)
+                .toContain(`"value":${ctx.step.values[0]}`);
         });
     });
 });

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Xunit.Sdk;
 
 namespace SweDevTools.LiveDoc.xUnit;
@@ -10,9 +11,11 @@ namespace SweDevTools.LiveDoc.xUnit;
 [AttributeUsage(AttributeTargets.Class)]
 public class FeatureAttribute : Attribute, ITraitAttribute
 {
-    public FeatureAttribute(string? name = null)
+    public FeatureAttribute(
+        string? name = null,
+        [CallerArgumentExpression(nameof(name))] string? nameExpression = null)
     {
-        this.Name = name;
+        Name = AttributeTitleFormatter.FormatExplicitName(name, nameExpression);
     }
 
     public string? Name { get; set; }

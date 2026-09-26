@@ -73,6 +73,57 @@ dotnet test
 
 Output is beautifully formatted in Gherkin style in the Test Detail Summary panel.
 
+### Share setup across scenarios
+
+Override `BackgroundAsync` on a `FeatureTest` to describe common preconditions
+with `Given` and `And`. It runs on a fresh test instance before **each** Scenario
+and Scenario Outline example. A scenario can supply its own `Given` as well;
+the Background's `Given` also satisfies the precondition when it does not.
+The Viewer shows these steps once in the Feature's **Background** section,
+separate from any Given in the Scenario. The Background display aggregates
+step status and evidence across invocations; each Scenario or example retains
+its own test result and failure.
+
+Override `AfterBackgroundAsync` for per-invocation cleanup. It runs after the
+scenario even if a Background step or scenario step fails; cleanup exceptions
+fail the test without discarding the original failure. Both hooks return `Task`,
+so async setup and cleanup can be awaited. For example:
+
+```csharp
+[Feature("Buffer Operations")]
+public class BufferTests : FeatureTest
+{
+    private MemoryStream? _buffer;
+
+    public BufferTests(ITestOutputHelper output) : base(output) { }
+
+    protected override Task BackgroundAsync()
+    {
+        Given("an empty buffer is available", () => _buffer = new MemoryStream());
+        return Task.CompletedTask;
+    }
+
+    protected override Task AfterBackgroundAsync()
+    {
+        _buffer?.Dispose();
+        return Task.CompletedTask;
+    }
+
+    [Scenario("A byte is written")]
+    public void Write_byte()
+    {
+        When("the byte '42' is written", ctx =>
+            _buffer!.WriteByte(ctx.Step!.Values[0].As<byte>()));
+        Then("the buffer contains '1' byte", ctx =>
+            Assert.Equal(ctx.Step!.Values[0].AsInt(), _buffer!.Length));
+    }
+}
+```
+
+The hooks do not share state across tests or disable xUnit's parallel test
+collections. Continue using xUnit fixtures for expensive shared resources and
+collection isolation when that resource cannot safely run concurrently.
+
 ### 4. Publish a tag-scoped partial run
 
 Use `[Tag]` on stable product capabilities. LiveDoc exposes each tag as an xUnit

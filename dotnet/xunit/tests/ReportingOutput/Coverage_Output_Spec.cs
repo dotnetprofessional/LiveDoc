@@ -9,6 +9,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     Coverage is optional run evidence that complements executable specifications.
     The reporter normalizes standard coverage artifacts without changing test pass/fail status.")]
 [Collection(Environment_Sensitive_Collection.Name)]
+[Tag("coverage")]
 public class Coverage_Output_Spec : SpecificationTest
 {
     private static readonly string[] ProfilerEnvironmentVariables =

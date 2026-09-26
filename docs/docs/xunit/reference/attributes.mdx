@@ -163,9 +163,16 @@ public class RuleAttribute : FactAttribute
 
 #### Parameters {#rule-parameters}
 
-- **`description`** *(optional)*: `string` — The rule title with embedded values. If omitted, the method name is used.
-- **`testMethodName`** *(optional)*: `string` — Internal method name for CallerMemberName.
+- **`title`** *(optional)*: `string` — The rule title with embedded values. If omitted, the method name is used.
 - **`Description`** *(named, optional)*: `string` — Additional description shown in output.
+
+Titles supplied through `nameof(...)` use identifier formatting, so underscores
+become spaces. Authored string literals preserve underscores:
+
+```csharp
+[Rule(nameof(My_rule_name_is_a_description))] // "My rule name is a description"
+[Rule("LIVEDOC_RUN_TYPE")]                    // "LIVEDOC_RUN_TYPE"
+```
 
 ```csharp
 // Title with embedded values
@@ -179,6 +186,11 @@ public void Adding_positive_numbers_increases_the_total() { }
 // With named parameters
 [Rule("Subtracting <b:3> from <a:10> returns <result:7>")]
 public void Subtraction() { }
+
+[Rule(
+    "The selected policy is '<policy>'",
+    Description = "The selected policy is shown with its supporting context.")]
+public void Policy() { }
 ```
 
 ### `[RuleOutline]` {#rule-outline}
@@ -191,8 +203,7 @@ public class RuleOutlineAttribute : TheoryAttribute
 
 #### Parameters {#rule-outline-parameters}
 
-- **`description`** *(optional)*: `string` — Rule title with `<placeholder>` segments for display.
-- **`testMethodName`** *(optional)*: `string` — Internal method name.
+- **`title`** *(optional)*: `string` — Rule title with `<placeholder>` segments for display.
 - **`Description`** *(named, optional)*: `string` — Additional description.
 
 ```csharp
@@ -201,7 +212,16 @@ public class RuleOutlineAttribute : TheoryAttribute
 [Example(5, 5, 10)]
 [Example(-1, 1, 0)]
 public void Addition_examples(int a, int b, int result) { }
+
+[RuleOutline(
+    "Policy '<policy>' is selected",
+    Description = "The <policy> policy applies to this example row.")]
+[Example("express")]
+public void Policy_examples(string policy) { }
 ```
+
+The same `nameof(...)` formatting applies to `[Feature]`, `[Specification]`,
+`[Scenario]`, `[ScenarioOutline]`, and `[RuleOutline]`.
 
 ### `[Example]` {#example-summary}
 

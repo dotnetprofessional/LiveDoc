@@ -11,6 +11,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
 [Specification("Async Rules", Description = @"
     Specification-style [Rule] and [RuleOutline] methods support async/await,
     allowing asynchronous assertions and data-driven async tests.")]
+[Tag("rules")]
 public class Async_Rules_Spec : SpecificationTest
 {
     public Async_Rules_Spec(ITestOutputHelper output) : base(output)

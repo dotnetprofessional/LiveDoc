@@ -9,6 +9,7 @@ import { Markdown } from '../Markdown';
 import { StepList } from '../StepList';
 import { ScenarioBlock } from '../ScenarioBlock';
 import { ErrorDisplay } from '../ErrorDisplay';
+import { Button } from '../ui/button';
 
 export interface OutlineNodeViewProps {
   label: 'Scenario Outline' | 'Rule Outline';
@@ -102,7 +103,8 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
 
     for (const [rowId, entries] of byRow) {
       const nonStep = entries.filter((e) => !stepIdSet.has(String(e.testId ?? '')));
-      const preferred = nonStep.find((e) => String(e.testId ?? '') === outlineId) ?? nonStep[0];
+      const preferred = nonStep.find((e) => String(e.testId ?? '') === outlineId)
+        ?? (kind === 'ruleoutline' ? undefined : nonStep[0]);
       if (preferred?.result) m.set(rowId, preferred.result);
     }
 
@@ -147,7 +149,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
 
         const patchedSteps = (templateSteps as any[]).map((s: any) => {
           const result = resultsByKey.get(`${rowId}|${String(s?.id ?? '')}`);
-          return result ? { ...s, execution: result } : s;
+          return { ...s, execution: result };
         });
 
         const stepExecutions: ExecutionResult[] = (templateSteps as any[])
@@ -169,7 +171,13 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
           : rowResult?.error;
 
         const execution = rowStatus
-          ? ({ status: rowStatus, duration: rowDuration, error: rowError, rowId } as ExecutionResult)
+          ? ({
+            status: rowStatus,
+            duration: rowDuration,
+            error: rowError,
+            rowId,
+            attachments: rowResult?.attachments,
+          } as ExecutionResult)
           : undefined;
 
         return { id, values, execution, steps: patchedSteps };
@@ -195,6 +203,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
   const selectedRow = selectedExampleId ? allRows.find((r) => r.id === selectedExampleId) : undefined;
   const selectedValues = selectedRow?.values;
   const selectedSteps = selectedRow?.steps;
+  const unselectedSteps = templateSteps.map((step: any) => ({ ...step, execution: undefined }));
   const hasSelectedExecution = !!selectedRow?.execution;
   const hasOutlineDescription = typeof node.description === 'string' && node.description.trim().length > 0;
 
@@ -234,8 +243,10 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
         title={renderTitle(stripLeadingKindLabel(String(node.title ?? ''), label), selectedValues)}
         status={(node as any).execution?.status as Status | undefined}
         description={node.description}
+        bindValues={selectedValues}
         tags={node.tags}
         steps={[]}
+        attachments={label === 'Rule Outline' ? selectedRow?.execution?.attachments : undefined}
         showDurations={!isBusiness}
         showErrorStack={!isBusiness}
         tone={tone}
@@ -244,7 +255,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
       <div className={cn(hasOutlineDescription ? 'mt-4 space-y-5' : 'mt-1 space-y-3')}>
         {templateSteps.length > 0 && (
           <StepList
-            steps={hasSelectedExecution && selectedSteps ? (selectedSteps as any) : (templateSteps as any)}
+            steps={selectedSteps ?? unselectedSteps}
             showStatus={hasSelectedExecution}
             highlightValues={selectedValues}
             bindValues={selectedValues}
@@ -274,8 +285,8 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
 
                 {table.description && table.description.trim().length > 0 && <Markdown content={table.description} className="max-w-3xl" />}
 
-                <div className="overflow-hidden rounded-xl border bg-card">
-                  <table className="min-w-full text-xs border-collapse">
+                <div className="overflow-x-auto rounded-xl border bg-card">
+                  <table className="w-full min-w-max text-xs border-collapse">
                     <thead>
                       <tr className="bg-muted/40 border-b border-border/60">
                         <th className="w-10 px-3 py-2 text-center font-bold text-muted-foreground uppercase tracking-widest border-r border-border/50">#</th>
@@ -305,7 +316,18 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
                             )}
                             onClick={() => setSelectedExampleId(isSelected ? null : row.id)}
                           >
-                            <td className="px-3 py-2 text-center font-mono text-[10px] text-muted-foreground border-r border-border/50">{idx + 1}</td>
+                            <td className="px-2 py-1 text-center font-mono text-[10px] text-muted-foreground border-r border-border/50">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label={`Select example ${row.id}`}
+                                aria-pressed={isSelected}
+                              >
+                                {idx + 1}
+                              </Button>
+                            </td>
                             <td className="px-3 py-2 text-center border-r border-border/50">
                               <div className="flex justify-center">
                                 {row.execution?.status ? getStatusIcon(row.execution.status) : getStatusIcon('pending')}

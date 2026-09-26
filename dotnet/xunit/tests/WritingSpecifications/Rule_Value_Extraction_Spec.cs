@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
     Rules support inline value extraction via Rule.Values and Rule.Params,
     using the same parsing and coercion infrastructure as Step.Values.
     Quoted values use single quotes: 'value'. Named params use angle brackets: <name:value>.")]
+[Tag("rules")]
 public class Rule_Value_Extraction_Spec : SpecificationTest
 {
     public Rule_Value_Extraction_Spec(ITestOutputHelper output) : base(output)

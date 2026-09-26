@@ -7,6 +7,7 @@ Use the `[next release]` section for changes that have not yet been promoted int
 ## [next release]
 
 - Updated esbuild build tooling to address GHSA-g7r4-m6w7-qqqr.
+- Updated the embedded Viewer webview's module script and content security policy so attachment images and rendered Mermaid diagrams display inside VS Code.
 
 ## [0.3.0] - 2026-08-29
 

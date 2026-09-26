@@ -16,6 +16,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.FrameworkInternals.Validation;
     Validates that LiveDocParadigmValidator correctly detects every violation
     type when presented with intentionally-invalid test class configurations.
     Uses the public Type-based API for direct, in-process validation.")]
+[Tag("validation")]
 public class Violation_Detection_Spec : SpecificationTest
 {
     public Violation_Detection_Spec(ITestOutputHelper output) : base(output) { }

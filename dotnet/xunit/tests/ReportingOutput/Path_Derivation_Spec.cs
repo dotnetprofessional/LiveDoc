@@ -7,6 +7,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
 [Specification("Path Derivation", Description = @"
     Path derivation trims assembly namespace prefixes so the viewer hierarchy
     stays focused on meaningful folders.")]
+[Tag("reporting")]
 public class Path_Derivation_Spec : SpecificationTest
 {
     public Path_Derivation_Spec(ITestOutputHelper output) : base(output)

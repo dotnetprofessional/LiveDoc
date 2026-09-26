@@ -6,7 +6,9 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 
 [Specification("JourneyFixture Integration", Description = "Validates JourneyFixtureBase infrastructure: port assignment, URL construction, and response file loading.")]
 [Trait("Category", "Integration")]
-public class JourneyFixture_Integration_Spec : SpecificationTest, IClassFixture<SampleApiFixture>
+[Collection(SampleApiFixtureCollection.Name)]
+[Tag("journeys")]
+public class JourneyFixture_Integration_Spec : SpecificationTest
 {
     private readonly SampleApiFixture _server;
 

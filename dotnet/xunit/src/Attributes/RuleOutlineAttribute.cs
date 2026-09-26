@@ -38,12 +38,20 @@ namespace SweDevTools.LiveDoc.xUnit;
 [XunitTestCaseDiscoverer("SweDevTools.LiveDoc.xUnit.RuleOutlineTestCaseDiscoverer", "livedoc-xunit")]
 public class RuleOutlineAttribute : TheoryAttribute
 {
+    private readonly string? _sourceTitle;
+
     /// <summary>
-    /// Optional description with placeholders.
+    /// Optional title with placeholders.
     /// Use &lt;paramName&gt; to reference method parameter names.
     /// If not provided, the method name is used with _ALLCAPS placeholders.
     /// </summary>
-    public string? Description { get; }
+    public string? Title { get; }
+
+    /// <summary>
+    /// Optional secondary description providing additional context.
+    /// Placeholders are preserved for binding to the selected example row.
+    /// </summary>
+    public string? Description { get; set; }
 
     /// <summary>
     /// Creates a rule outline that derives its narrative from the method name.
@@ -54,28 +62,17 @@ public class RuleOutlineAttribute : TheoryAttribute
     }
 
     /// <summary>
-    /// Creates a rule outline with a positional authored description.
+    /// Creates a rule outline with a positional authored title.
     /// </summary>
-    /// <param name="testMethodName">
-    /// The authored description. The parameter name is retained for source and binary compatibility.
-    /// </param>
-    public RuleOutlineAttribute(string testMethodName)
+    /// <param name="title">The title template.</param>
+    public RuleOutlineAttribute(
+        string title,
+        [CallerArgumentExpression(nameof(title))] string? titleExpression = null)
     {
-        Description = testMethodName;
-        DisplayName = "Rule Outline: " + testMethodName.Replace("_", " ");
-    }
-
-    /// <summary>
-    /// Creates a rule outline with an explicit description template.
-    /// </summary>
-    /// <param name="description">The description with &lt;placeholder&gt; for parameter names.</param>
-    /// <param name="testMethodName">Auto-populated with the method name.</param>
-    public RuleOutlineAttribute(string? description, [CallerMemberName] string testMethodName = "")
-    {
-        Description = description;
-        // Use method name for DisplayName (not description with placeholders)
-        // Placeholders are substituted in output, not in Test Explorer
-        DisplayName = "Rule Outline: " + testMethodName.Replace("_", " ");
+        _sourceTitle = title;
+        Title = AttributeTitleFormatter.FormatExplicitName(title, titleExpression);
+        DisplayName = "Rule Outline: " +
+            AttributeTitleFormatter.FormatMemberName(title, titleExpression);
     }
 
     /// <summary>
@@ -88,7 +85,7 @@ public class RuleOutlineAttribute : TheoryAttribute
         {
             return System.Text.RegularExpressions.Regex.Replace(
                 template,
-                @"<([^>]+)>", 
+                @"<([^<>\r\n]+)>",
                 match =>
                 {
                     var paramName = match.Groups[1].Value;
@@ -105,39 +102,31 @@ public class RuleOutlineAttribute : TheoryAttribute
     }
 
     /// <summary>
-    /// Gets the user-configured title template from DisplayName or Description.
+    /// Gets the user-configured title template from DisplayName or Title.
     /// </summary>
     public string? GetTitleTemplate(MethodInfo method)
     {
         var defaultDisplayName = "Rule Outline: " + method.Name.Replace("_", " ");
-        var generatedFromDescription = HasExplicitDescription(method) &&
+        var generatedFromTitle = HasExplicitTitle(method) &&
             string.Equals(
                 DisplayName,
-                "Rule Outline: " + Description!.Replace("_", " "),
+                "Rule Outline: " + Title!.Replace("_", " "),
                 StringComparison.Ordinal);
         if (!string.IsNullOrEmpty(DisplayName) &&
             !string.Equals(DisplayName, defaultDisplayName, StringComparison.Ordinal) &&
-            !generatedFromDescription)
+            !generatedFromTitle)
         {
             return DisplayName.StartsWith("Rule Outline: ", StringComparison.OrdinalIgnoreCase)
                 ? DisplayName.Substring("Rule Outline: ".Length)
                 : DisplayName;
         }
 
-        return GetDescription(method);
+        return HasExplicitTitle(method) ? Title : null;
     }
 
-    /// <summary>
-    /// Gets the user-authored description, excluding CallerMemberName values.
-    /// </summary>
-    public string? GetDescription(MethodInfo method)
+    private bool HasExplicitTitle(MethodInfo method)
     {
-        return HasExplicitDescription(method) ? Description : null;
-    }
-
-    private bool HasExplicitDescription(MethodInfo method)
-    {
-        return !string.IsNullOrEmpty(Description) &&
-               !string.Equals(Description, method.Name, StringComparison.Ordinal);
+        return !string.IsNullOrEmpty(_sourceTitle) &&
+               !string.Equals(_sourceTitle, method.Name, StringComparison.Ordinal);
     }
 }

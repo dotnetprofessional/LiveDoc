@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Attachment, DataTable, StepTest, Status, TypedValue } from '@swedevtools/livedoc-schema';
-import { bindPlaceholdersInText, renderTitle, highlightPlaceholders } from '../lib/title-utils';
+import { bindExamplePlaceholdersInText, renderTitle, highlightPlaceholders } from '../lib/title-utils';
 import { CheckCircle2, XCircle, AlertCircle, HelpCircle, Clock, Camera, Paperclip } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { formatDuration } from '../lib/status-utils';
@@ -154,7 +154,7 @@ function StepItem({ step, stepIndex, showStatus = true, highlightValues, bindVal
   const description = typeof step.description === 'string' ? step.description : undefined;
   const boundDescription =
     description && bindValues && Object.keys(bindValues).length > 0
-      ? bindPlaceholdersInText(description, bindValues)
+      ? bindExamplePlaceholdersInText(description, bindValues)
       : description;
 
   return (

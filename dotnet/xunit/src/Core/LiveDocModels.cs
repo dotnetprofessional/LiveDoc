@@ -19,7 +19,14 @@ public enum StepStatus
 public class StepExecution
 {
     public string Type { get; set; } = "";
+    /// <summary>
+    /// The rendered step title.
+    /// </summary>
     public string Description { get; set; } = "";
+    /// <summary>
+    /// Optional Markdown content displayed beneath the step title.
+    /// </summary>
+    public string? MarkdownDescription { get; set; }
     /// <summary>
     /// The original step description before placeholder substitution.
     /// For outlines, this contains &lt;placeholder&gt; tokens for template display.

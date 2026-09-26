@@ -9,6 +9,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.FrameworkInternals.AttributeDefaults;
 [Specification(Description = @"
     A [Specification] with no explicit title still functions
     correctly, deriving its identity from the class name.")]
+[Tag("attributes")]
 public class Minimal_Specification_Spec : SpecificationTest
 {
     public Minimal_Specification_Spec(ITestOutputHelper output) : base(output)

@@ -413,6 +413,7 @@ public class CoverageReport
 /// Base test information shared by all test types.
 /// </summary>
 [JsonDerivedType(typeof(ScenarioTest))]
+[JsonDerivedType(typeof(BackgroundTest))]
 [JsonDerivedType(typeof(ScenarioOutlineTest))]
 [JsonDerivedType(typeof(RuleTest))]
 [JsonDerivedType(typeof(RuleOutlineTest))]
@@ -470,6 +471,20 @@ public class ScenarioTest : BaseTest
     public ScenarioTest()
     {
         Kind = "Scenario";
+    }
+
+    [JsonPropertyName("steps")]
+    public List<StepTest> Steps { get; set; } = new();
+}
+
+/// <summary>
+/// Shared feature background, aggregated across its independent scenario invocations.
+/// </summary>
+public class BackgroundTest : BaseTest
+{
+    public BackgroundTest()
+    {
+        Kind = "Background";
     }
 
     [JsonPropertyName("steps")]

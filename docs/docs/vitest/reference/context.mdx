@@ -39,7 +39,7 @@ feature("Shopping Cart @ecommerce", (ctx) => {
 | ------------------------ | :-------: | :--------: | :---: | :----------: | :----------------: | :-------------: | :----: | :-----------: |
 | `ctx.feature`            |     ✓     |     ✓      |   ✓   |      ✓       |         ✓          |                 |        |               |
 | `ctx.scenario`           |           |     ✓      |   ✓   |              |         ✓          |                 |        |               |
-| `ctx.step`               |           |            |   ✓   |      ✓ (steps) |       ✓ (steps)    |                 |   ✓    |               |
+| `ctx.step`               |           |            |   ✓   |      ✓ (steps) |       ✓ (steps)    |                 |        |               |
 | `ctx.example`            |           |            |       |              |         ✓          |                 |        |       ✓       |
 | `ctx.background`         |           |            |       |      ✓       |                    |                 |        |               |
 | `ctx.afterBackground(fn)`|           |            |       |      ✓       |                    |                 |        |               |
@@ -112,7 +112,7 @@ scenario(`Process a refund
 
 ### `StepContext` {#step-context}
 
-Available in all step callbacks (`given`, `when`, `then`, `and`, `but`) and in `rule()` callbacks.
+Available in step callbacks (`given`, `when`, `then`, `and`, `but`). Rule callbacks use `ctx.rule` instead.
 
 | Property            | Type                     | Description                                                |
 | ------------------- | ------------------------ | ---------------------------------------------------------- |
@@ -129,6 +129,10 @@ Available in all step callbacks (`given`, `when`, `then`, `and`, `but`) and in `
 | `tableAsEntity`     | `object`                 | Two-column table as key-value object                       |
 | `tableAsSingleList` | `any[]`                  | Single-column table as flat array                          |
 | `dataTable`         | `any[][]`                | Raw 2D array of table data                                 |
+| `attachments`       | `Attachment[]`           | Evidence collected during this step                        |
+| `attach(base64, options?)` | `void`             | Add base64 evidence with optional `mimeType`, `kind`, `title` |
+| `attachScreenshot(base64, title?)` | `void`     | Add a PNG screenshot                                       |
+| `attachJSON(data, title?)` | `void`              | Add JSON data (string input is used as-is)                 |
 
 ```typescript
 given("user has '100' items and active is 'true'", (ctx) => {
@@ -268,6 +272,10 @@ Available in `rule()` and `ruleOutline()` callbacks.
 | `valuesRaw`     | `string[]`               | Raw string values before coercion                    |
 | `params`        | `Record<string, any>`    | Type-coerced named parameters from `<name:value>`    |
 | `paramsRaw`     | `Record<string, string>` | Raw string named parameters                          |
+| `attachments`   | `Attachment[]`           | Evidence collected during the current rule or example |
+| `attach(base64, options?)` | `void`         | Add base64 evidence with optional `mimeType`, `kind`, `title` |
+| `attachScreenshot(base64, title?)` | `void` | Add a PNG screenshot                                 |
+| `attachJSON(data, title?)` | `void`          | Add JSON data (string input is used as-is)           |
 
 ```typescript
 specification("Calculator", () => {

@@ -33,32 +33,33 @@ namespace SweDevTools.LiveDoc.xUnit;
 [XunitTestCaseDiscoverer("SweDevTools.LiveDoc.xUnit.RuleTestCaseDiscoverer", "livedoc-xunit")]
 public class RuleAttribute : FactAttribute
 {
+    private readonly string? _sourceTitle;
+
     /// <summary>
-    /// Optional description with embedded values.
+    /// Optional explicit title with embedded values.
     /// If not provided, the method name is used (with underscores converted to spaces).
     /// Use 'quoted values' or &lt;name:value&gt; for value extraction.
     /// </summary>
-    public string? Description { get; }
+    public string? Title { get; }
 
     /// <summary>
-    /// Creates a rule that uses the method name as description.
+    /// Optional secondary description providing additional context.
     /// </summary>
-    /// <param name="testMethodName">Auto-populated with the method name.</param>
-    public RuleAttribute([System.Runtime.CompilerServices.CallerMemberName] string testMethodName = "") 
-    {
-        Description = testMethodName;
-        DisplayName = "Rule: " + testMethodName;
-    }
+    public string? Description { get; set; }
 
     /// <summary>
-    /// Creates a rule with an explicit description.
+    /// Creates a rule with an optional title.
     /// </summary>
-    /// <param name="description">The rule description with optional embedded values.</param>
-    /// <param name="testMethodName">Auto-populated with the method name.</param>
-    public RuleAttribute(string? description, [System.Runtime.CompilerServices.CallerMemberName] string testMethodName = "")
+    /// <param name="title">The title, or the caller method name when omitted.</param>
+    public RuleAttribute(
+        [System.Runtime.CompilerServices.CallerMemberName] string title = "",
+        [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(title))]
+        string? titleExpression = null)
     {
-        Description = description;
-        DisplayName = "Rule: " + (description ?? testMethodName);
+        _sourceTitle = title;
+        Title = AttributeTitleFormatter.FormatExplicitName(title, titleExpression);
+        DisplayName = "Rule: " +
+            AttributeTitleFormatter.FormatMemberName(title, titleExpression);
     }
 
     /// <summary>
@@ -66,9 +67,9 @@ public class RuleAttribute : FactAttribute
     /// </summary>
     public string GetDisplayName(MethodInfo method, IReadOnlyDictionary<string, object?>? paramValues = null)
     {
-        if (HasExplicitDescription(method))
+        if (HasExplicitTitle(method))
         {
-            return Description!;
+            return Title!;
         }
 
         // Use method name, applying _ALLCAPS placeholder replacement if values provided
@@ -83,17 +84,9 @@ public class RuleAttribute : FactAttribute
         return methodName.Replace('_', ' ');
     }
 
-    /// <summary>
-    /// Gets the user-authored description, excluding CallerMemberName values.
-    /// </summary>
-    public string? GetDescription(MethodInfo method)
+    private bool HasExplicitTitle(MethodInfo method)
     {
-        return HasExplicitDescription(method) ? Description : null;
-    }
-
-    private bool HasExplicitDescription(MethodInfo method)
-    {
-        return !string.IsNullOrEmpty(Description) &&
-               !string.Equals(Description, method.Name, StringComparison.Ordinal);
+        return !string.IsNullOrEmpty(_sourceTitle) &&
+               !string.Equals(_sourceTitle, method.Name, StringComparison.Ordinal);
     }
 }

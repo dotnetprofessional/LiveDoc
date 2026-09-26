@@ -18,6 +18,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.AttachingEvidence;
     The attachment API on LiveDocTestBase provides Attach(), AttachScreenshot(),
     AttachFile(), and AttachJson() methods. Attachments are collected per-step
     and included in the reporter output as base64-encoded data with metadata.")]
+[Tag("attachments")]
 public class Attachment_Api_Spec : FeatureTest
 {
     public Attachment_Api_Spec(ITestOutputHelper output) : base(output) { }
@@ -475,6 +476,75 @@ public class Attachment_Api_Spec : FeatureTest
         {
             File.Delete(tempFile);
         }
+    }
+
+    [Tag("mermaid")]
+    [ScenarioOutline("AttachFile previews Mermaid from '<fileName>' with title '<requestedTitle>'")]
+    [Example("workflow.mmd", "(default)", "workflow.mmd")]
+    [Example("workflow.mermaid", "Workflow", "Workflow")]
+    public void AttachFile_mermaid_source(string fileName, string requestedTitle, string expectedTitle)
+    {
+        var directory = Path.Combine(AppContext.BaseDirectory, $"mermaid-evidence-{Guid.NewGuid():N}");
+        var filePath = Path.Combine(directory, fileName);
+        string? source = null;
+        try
+        {
+            Given("a Mermaid file containing a large 'sequenceDiagram' with 'alt', 'loop', and 'opt' paths", ctx =>
+            {
+                source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "large-sequence.mmd"));
+                Assert.StartsWith(ctx.Step!.Values[0].AsString(), source);
+                foreach (var keyword in ctx.Step.ValuesRaw.Skip(1))
+                    Assert.Contains($"\n    {keyword} ", source);
+                Directory.CreateDirectory(directory);
+                File.WriteAllBytes(filePath, Encoding.UTF8.GetBytes(source));
+            });
+
+            When("AttachFile uses <requestedTitle> for <fileName>", () =>
+                AttachFile(filePath, requestedTitle == "(default)" ? null : requestedTitle));
+
+            Then("the title is <expectedTitle> with MIME 'text/vnd.mermaid' and kind 'file'", ctx =>
+            {
+                var (mimeType, kind) = ctx.Step!.Values.As<string, string>();
+                var attachment = Assert.Single(GetAttachments());
+                Assert.Equal(expectedTitle, attachment.Title);
+                Assert.Equal(mimeType, attachment.MimeType);
+                Assert.Equal(kind, attachment.Kind);
+                Assert.Equal(Encoding.UTF8.GetBytes(source!), Convert.FromBase64String(attachment.Base64!));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Tag("mermaid, attachments")]
+    [Scenario("A large document-sync sequence diagram is attached as evidence")]
+    public void Large_sequence_diagram_is_visible_in_the_viewer()
+    {
+        string? source = null;
+        string? filePath = null;
+
+        Given("a large 'sequenceDiagram' for document history and offline synchronization", ctx =>
+        {
+            filePath = Path.Combine(AppContext.BaseDirectory, "large-sequence.mmd");
+            source = File.ReadAllText(filePath);
+            Assert.StartsWith(ctx.Step!.Values[0].AsString(), source);
+        });
+
+        When("the diagram is attached with title 'Document sync sequence'", ctx =>
+            AttachFile(filePath!, ctx.Step!.Values[0].AsString()));
+
+        Then("the evidence has title 'Document sync sequence', MIME 'text/vnd.mermaid', and kind 'file'", ctx =>
+        {
+            var (title, mimeType, kind) = ctx.Step!.Values.As<string, string, string>();
+            var attachment = Assert.Single(GetAttachments());
+            Assert.Equal(title, attachment.Title);
+            Assert.Equal(mimeType, attachment.MimeType);
+            Assert.Equal(kind, attachment.Kind);
+            Assert.Equal(Encoding.UTF8.GetBytes(source!), Convert.FromBase64String(attachment.Base64!));
+        });
     }
 
     #endregion

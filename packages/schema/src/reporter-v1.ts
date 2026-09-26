@@ -220,6 +220,11 @@ export interface ScenarioTest extends BaseTest {
   steps: StepTest[];
 }
 
+export interface BackgroundTest extends BaseTest {
+  kind: 'Background';
+  steps: StepTest[];
+}
+
 export interface RuleTest extends BaseTest {
   kind: 'Rule';
 }
@@ -242,7 +247,7 @@ export interface RuleShape extends BaseTest {
 export interface ExampleResult {
   // References the template node id the result applies to.
   // For ScenarioOutline: usually a StepTest.id, and optionally ScenarioOutline.id
-  // For RuleOutline: the RuleTest.id
+  // For RuleOutline: the outline id or one of its template step ids, when present.
   testId: string;
 
   result: ExecutionResult; // includes rowId
@@ -264,6 +269,9 @@ export interface ScenarioOutlineTest extends ScenarioShape {
 export interface RuleOutlineTest extends RuleShape {
   kind: 'RuleOutline';
 
+  // Template steps identify which per-row results belong to this outline.
+  steps?: StepTest[];
+  template?: { children?: StepTest[]; steps?: StepTest[] };
   examples: DataTable[];
   exampleResults: ExampleResult[];
   statistics: Statistics;
@@ -271,6 +279,7 @@ export interface RuleOutlineTest extends RuleShape {
 
 export type AnyTest =
   | StepTest
+  | BackgroundTest
   | ScenarioOutlineTest
   | ScenarioTest
   | RuleOutlineTest

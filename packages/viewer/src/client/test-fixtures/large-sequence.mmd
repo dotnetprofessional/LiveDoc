@@ -1,0 +1,79 @@
+sequenceDiagram
+    autonumber
+    participant Browser as Browser client and offline workspace
+    participant Gateway as API gateway and request validation
+    participant Auth as Identity and permissions service
+    participant Docs as Document history coordinator
+    participant Cache as Distributed snapshot cache
+    participant Store as Durable revision store
+    participant Media as Attachment and preview service
+    participant Events as Realtime event delivery
+
+    Note over Browser,Events: Reconnect a workspace after an offline editing session and recover its revision history
+    Browser->>Gateway: GET /v1/workspaces/{workspaceId}/documents/{documentId}/history?include=attachments
+    activate Gateway
+    Gateway->>Auth: Validate session and resolve document permissions
+    activate Auth
+    Auth-->>Gateway: Authorized principal with read and preview grants
+    deactivate Auth
+    Gateway->>Docs: Load history using cursor and requested attachment previews
+    activate Docs
+    Docs->>Cache: Look up latest revision snapshot for this document
+    activate Cache
+    alt Snapshot found and cursor still valid
+        Cache-->>Docs: Cached snapshot with revision and continuation cursor
+    else Snapshot missing or cursor expired
+        Cache-->>Docs: No usable snapshot
+        Docs->>Store: Read durable snapshot and earliest available revision
+        activate Store
+        Store-->>Docs: Snapshot with history boundaries and revision metadata
+        deactivate Store
+        Docs->>Cache: Refresh snapshot with a bounded expiration
+        Cache-->>Docs: Snapshot stored for subsequent readers
+    end
+    deactivate Cache
+
+    loop For each page of revisions until the client cursor is current
+        Docs->>Store: Query revision page, authors, timestamps, and change summaries
+        activate Store
+        Store-->>Docs: Ordered revision records and next page cursor
+        deactivate Store
+        opt Attachment previews requested for this page
+            Docs->>Media: Resolve safe preview metadata for referenced attachments
+            activate Media
+            alt Preview is available
+                Media-->>Docs: Content type, title, thumbnail, and download reference
+            else Preview is not available
+                Media-->>Docs: Placeholder and original download reference
+            end
+            deactivate Media
+        end
+        Docs-->>Gateway: Append revision page and continuation cursor
+    end
+
+    opt Client requests live updates after catching up
+        Docs->>Events: Subscribe workspace and document to revision notifications
+        activate Events
+        Events-->>Docs: Subscription acknowledged with sequence checkpoint
+        deactivate Events
+    end
+    Docs-->>Gateway: History response with snapshot, pages, and live checkpoint
+    deactivate Docs
+    Gateway-->>Browser: 200 OK with revisions, previews, cursor, and checkpoint
+    deactivate Gateway
+
+    Note over Browser,Events: A concurrent edit may arrive after the snapshot but before the client resumes live delivery
+    Events-->>Browser: Revision published with sequence and document identifier
+    Browser->>Gateway: GET /v1/documents/{documentId}/history?after=checkpoint
+    activate Gateway
+    Gateway->>Auth: Recheck permissions for the resumed stream
+    Auth-->>Gateway: Read grant is still valid
+    Gateway->>Docs: Request only revisions after the checkpoint
+    activate Docs
+    Docs->>Store: Find committed revisions after the checkpoint
+    Store-->>Docs: Ordered updates and a new checkpoint
+    Docs-->>Gateway: Delta page and new checkpoint
+    deactivate Docs
+    Gateway-->>Browser: 200 OK with deltas and no duplicate revisions
+    deactivate Gateway
+    Browser->>Browser: Merge revisions and retain the user's pending offline edits

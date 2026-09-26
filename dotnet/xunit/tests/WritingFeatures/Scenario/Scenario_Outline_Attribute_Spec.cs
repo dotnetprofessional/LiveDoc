@@ -12,6 +12,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Scenario;
     The [ScenarioOutline] attribute marks a method as a data-driven scenario.
     It supports descriptions, tags, and [Example] attributes that provide
     parameterized test data to the method.")]
+[Tag("scenario-outlines")]
 public class Scenario_Outline_Attribute_Spec : SpecificationTest
 {
     public Scenario_Outline_Attribute_Spec(ITestOutputHelper output) : base(output)

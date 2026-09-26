@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Steps;
     Extracted quoted and named values support type conversion via
     .AsInt(), .AsDecimal(), .AsBool(), .AsDateTime(), .As<T>(), and
     array parsing. Invalid conversions throw LiveDocConversionException.")]
+[Tag("steps")]
 public class Step_Type_Conversion_Spec : FeatureTest
 {
     public Step_Type_Conversion_Spec(ITestOutputHelper output) : base(output)

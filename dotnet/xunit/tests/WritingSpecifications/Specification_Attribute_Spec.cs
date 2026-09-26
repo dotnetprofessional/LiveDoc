@@ -12,6 +12,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
     The [Specification] attribute marks a test class as a specification container.
     It provides a title and optional description and tags.
 ")]
+[Tag("specifications")]
 public class Specification_Attribute_Spec : SpecificationTest
 {
     public Specification_Attribute_Spec(ITestOutputHelper output) : base(output)

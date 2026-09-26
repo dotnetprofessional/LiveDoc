@@ -4,6 +4,8 @@
 
 export type DataTableRow = any[] | { [key: string]: any };
 
+import type { Attachment } from "@swedevtools/livedoc-schema";
+
 export interface LiveDocMetaTable {
     name: string;
     description: string;
@@ -38,6 +40,8 @@ export interface LiveDocRuleExampleTaskMeta {
         example: {
             sequence: number;
             values: Record<string, unknown>;
+            valuesRaw?: Record<string, unknown>;
+            attachments?: Attachment[];
         };
     };
 }
@@ -48,6 +52,7 @@ export interface LiveDocRuleTaskMeta {
         title: string;
         description: string;
         tags: string[];
+        attachments?: Attachment[];
     };
 }
 

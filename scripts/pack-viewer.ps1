@@ -43,6 +43,10 @@ if (-not (Test-Path $viewerDir)) {
 $pkgJson = Get-Content (Join-Path $viewerDir 'package.json') -Raw | ConvertFrom-Json
 $packageName = $pkgJson.name
 $version = $pkgJson.version
+$semVerPattern = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(?:0|[1-9A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$'
+if ($version -notmatch $semVerPattern) {
+    throw "Viewer version '$version' is not valid npm SemVer."
+}
 
 Write-Host ""
 Write-Host "══════════════════════════════════════════════════════════" -ForegroundColor Cyan
@@ -212,7 +216,18 @@ try {
     if (-not $tgzFile) {
         throw "npm pack did not produce a .tgz file"
     }
-    Write-Host "  ✓ Created $($tgzFile.Name) ($([math]::Round($tgzFile.Length / 1KB)) KB)" -ForegroundColor Green
+    $packMetadata = $packOutput | ConvertFrom-Json | Select-Object -First 1
+    $compressedSize = if ($packMetadata.size) {
+        "$([math]::Round($packMetadata.size / 1MB, 2)) MB compressed"
+    } else {
+        "$([math]::Round($tgzFile.Length / 1MB, 2)) MB compressed"
+    }
+    $unpackedSize = if ($packMetadata.unpackedSize) {
+        ", $([math]::Round($packMetadata.unpackedSize / 1MB, 2)) MB unpacked"
+    } else {
+        ""
+    }
+    Write-Host "  ✓ Created $($tgzFile.Name) ($compressedSize$unpackedSize)" -ForegroundColor Green
 
     # ── Step 6: Move to releases/ ────────────────────────────────────────
 

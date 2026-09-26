@@ -268,6 +268,7 @@ export function NodeView({ node }: NodeViewProps) {
             description={node.description}
             tags={node.tags}
             steps={stepTests}
+            attachments={node.execution?.attachments}
             showDurations={!isBusiness}
             showErrorStack={!isBusiness}
             tone="scenario"

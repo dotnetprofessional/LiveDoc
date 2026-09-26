@@ -64,6 +64,8 @@
   <!-- Copy journey test data to output -->
   <ItemGroup>
     <None Include="Journeys\sample-journeys\**" CopyToOutputDirectory="PreserveNewest" LinkBase="sample-journeys" />
+    <None Include="..\..\..\packages\viewer\src\client\test-fixtures\large-sequence.mmd"
+          Link="large-sequence.mmd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

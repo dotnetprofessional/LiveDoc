@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
     The [Specification] + [Rule] pattern enables MSpec-style testing
     with direct assertions and no Given/When/Then ceremony. Rules
     support explicit titles, embedded values, and simple assertions.")]
+[Tag("specifications")]
 public class Specification_Rules_Spec : SpecificationTest
 {
     public Specification_Rules_Spec(ITestOutputHelper output) : base(output)
@@ -30,11 +31,11 @@ public class Specification_Rules_Spec : SpecificationTest
         Assert.True(true);
     }
 
-    [Rule("Explicit description is used")]
+    [Rule("Explicit title is used", Description = "Secondary rule context")]
     public void Some_internal_name()
     {
-        // The display name should be "Explicit description is used"
-        Assert.True(true);
+        Assert.Equal("Explicit title is used", Rule.Name);
+        Assert.Equal("Secondary rule context", Rule.Description);
     }
 
     [Rule]

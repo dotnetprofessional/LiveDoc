@@ -17,6 +17,11 @@ public class StepContext
     public string DisplayTitle { get; }
 
     /// <summary>
+    /// Optional Markdown content displayed beneath the step title.
+    /// </summary>
+    public string? Description { get; }
+
+    /// <summary>
     /// The step keyword type (Given, When, Then, And, But).
     /// </summary>
     public string Type { get; }
@@ -51,10 +56,12 @@ public class StepContext
         string displayTitle,
         string type,
         string[] valuesRaw,
-        Dictionary<string, string> paramsRaw)
+        Dictionary<string, string> paramsRaw,
+        string? description = null)
     {
         Title = title;
         DisplayTitle = displayTitle;
+        Description = description;
         Type = type;
         ValuesRaw = valuesRaw;
         ParamsRaw = paramsRaw;

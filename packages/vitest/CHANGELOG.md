@@ -6,6 +6,8 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+- Added Rule and Rule Outline example attachment APIs, including screenshots and JSON, with evidence preserved per rule or example in console and Viewer reports.
+
 ## [0.3.0] - 2026-08-29
 
 ### Added

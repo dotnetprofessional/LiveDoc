@@ -1,4 +1,4 @@
-import { Folder, FileText, BookOpen, ScrollText, LayoutList, Clock, ChevronRight, Home } from 'lucide-react';
+import { Folder, FileText, BookOpen, ScrollText, LayoutList, ChevronRight, Home } from 'lucide-react';
 import { useMemo } from 'react';
 import { RunLike, useStore } from '../store';
 import { buildGroupedNavTree, findNavItemById, findNavPath, NavItem } from '../lib/nav-tree';
@@ -9,7 +9,8 @@ import { Badge } from './ui/badge';
 import type { AnyTest, Status, TestCase } from '@swedevtools/livedoc-schema';
 import { Markdown } from './Markdown';
 import { TagChips } from './TagChips';
-import { shouldAllowDrillDown, formatDuration } from '../lib/status-utils';
+import { shouldAllowDrillDown } from '../lib/status-utils';
+import { ListRowMetadata } from './ListRowMetadata';
 
 type ListItem = 
   | { type: 'navItem'; item: NavItem }
@@ -287,7 +288,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
                             </span>
                         </div>
                         <div className="rounded-xl border bg-card overflow-hidden">
-                            <div className="divide-y">
+                            <div className="divide-y" role="list">
                                 {groupedChildren[kind].map((child) => {
                                     const key = child.type === 'navItem' ? child.item.id : child.node.id;
                                     return <GroupRow 
@@ -339,23 +340,11 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
 
     const canDrillDown = shouldAllowDrillDown(kind, status);
     const onClick = canDrillDown ? () => navigate(navType, nodeId) : undefined;
-
     const Icon = getIconForKind(kind);
-    const durationText = duration === undefined ? undefined : formatDuration(duration);
+    const showAttachmentSlot = kind === 'Rule' || kind === 'RuleOutline' || kind === 'Scenario';
 
-    return (
-        <div
-          className={cn(
-            'w-full text-left px-4 py-3 flex items-center gap-3 transition-colors group',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            canDrillDown && 'hover:bg-muted/50 cursor-pointer',
-            !canDrillDown && 'cursor-default'
-          )}
-          onClick={onClick}
-          role={canDrillDown ? 'button' : undefined}
-          tabIndex={canDrillDown ? 0 : undefined}
-          onKeyDown={canDrillDown ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); } : undefined}
-        >
+    const contents = (
+        <>
             <div className={cn("p-2 rounded-lg bg-muted/40 group-hover:bg-background transition-colors", 
                 status === 'failed' && "bg-destructive/10 text-destructive",
                 status === 'passed' && "bg-pass/10 text-pass"
@@ -377,20 +366,35 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
                 />
             </div>
 
-            <div className="flex items-center gap-4 shrink-0 text-muted-foreground">
-                {durationText && (
-                    <div className="flex items-center gap-1 text-xs tabular-nums">
-                        <Clock className="w-3.5 h-3.5" />
-                        {durationText}
-                    </div>
-                )}
-                
-                {status && <StatusBadge status={status} size="xs" />}
-                
-                {canDrillDown && (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                )}
-            </div>
+        </>
+    );
+
+    return (
+        <div role="listitem" className={cn(
+            'relative flex items-center gap-2 px-4 py-3 group',
+            canDrillDown && 'transition-colors hover:bg-muted/50',
+        )}>
+            {canDrillDown ? (
+                <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left before:absolute before:inset-0 focus-visible:outline-none focus-visible:before:ring-2 focus-visible:before:ring-inset focus-visible:before:ring-ring"
+                    onClick={onClick}
+                >
+                    {contents}
+                </button>
+            ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    {contents}
+                </div>
+            )}
+            <ListRowMetadata
+                node={child.type === 'node' ? child.node : undefined}
+                duration={duration}
+                status={status}
+                canDrillDown={canDrillDown}
+                showAttachmentSlot={showAttachmentSlot}
+                statusSize="xs"
+            />
         </div>
     );
 }

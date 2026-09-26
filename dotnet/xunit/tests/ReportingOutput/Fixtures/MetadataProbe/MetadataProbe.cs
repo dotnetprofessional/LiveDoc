@@ -117,7 +117,9 @@ public class Rule_Specification_Metadata_Spec : SpecificationTest
     public Rule_Specification_Metadata_Spec(ITestOutputHelper output) : base(output) { }
 
     [Tag("rule-method")]
-    [Rule("Rule attribute sends <threshold:42> metadata")]
+    [Rule(
+        "Rule attribute sends <threshold:42> metadata",
+        Description = "Rule threshold <threshold:42> is included once.")]
     public void Rule_attribute_without_context()
     {
         Assert.True(true);
@@ -131,11 +133,69 @@ public class Rule_Specification_Metadata_Spec : SpecificationTest
     }
 
     [Tag("rule-outline-method")]
-    [RuleOutline("Rule outline sends '<value>' metadata")]
+    [RuleOutline(
+        "Rule outline sends '<value>' metadata",
+        Description = "Rule outline value <value> is selected.")]
     [Example(42)]
     [Example(100)]
     public void Rule_outline_sends_metadata(int value)
     {
         Assert.True(value > 0);
+    }
+
+    [RuleOutline("A positional title '<value>' is not repeated as description")]
+    [Example("single")]
+    public void Positional_title_is_not_description(string value)
+    {
+        Assert.Equal("single", value);
+    }
+}
+
+[Feature(nameof(Nameof_feature_name_is_formatted))]
+public class Nameof_feature_name_is_formatted : FeatureTest
+{
+    public Nameof_feature_name_is_formatted(ITestOutputHelper output) : base(output) { }
+
+    [Scenario(nameof(Nameof_scenario_name_is_formatted))]
+    public void Nameof_scenario_name_is_formatted()
+    {
+        Given("a nameof scenario title", () => { });
+        When("the title is reported", () => { });
+        Then("underscores are rendered as spaces", () => Assert.True(true));
+    }
+
+    [ScenarioOutline(nameof(Nameof_scenario_outline_name_is_formatted))]
+    [Example("value")]
+    public void Nameof_scenario_outline_name_is_formatted(string value)
+    {
+        Given("an outline value <value>", () => { });
+        When("the outline title is reported", () => { });
+        Then("underscores are rendered as spaces", () => Assert.Equal("value", value));
+    }
+}
+
+[Specification(nameof(Nameof_specification_name_is_formatted))]
+public class Nameof_specification_name_is_formatted : SpecificationTest
+{
+    public Nameof_specification_name_is_formatted(ITestOutputHelper output) : base(output) { }
+
+    [Rule(nameof(Nameof_rule_name_is_formatted))]
+    public void Nameof_rule_name_is_formatted()
+    {
+        Assert.True(true);
+    }
+
+    [RuleOutline(nameof(Nameof_rule_outline_name_is_formatted))]
+    [Example("value")]
+    public void Nameof_rule_outline_name_is_formatted(string value)
+    {
+        Assert.Equal("value", value);
+    }
+
+    [RuleOutline(nameof(Dividing_A_by_B_equals_EXPECTED))]
+    [Example(10, 2, 5)]
+    public void Dividing_A_by_B_equals_EXPECTED(int a, int b, int expected)
+    {
+        Assert.Equal(expected, a / b);
     }
 }

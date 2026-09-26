@@ -68,9 +68,8 @@ The key tension: **grouped by step** (contextual, structured) vs. **flat list** 
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Gallery: User completes checkout           3/12  [✕]   │
+│  Step 2 of 5 · When the user clicks checkout ✅ [⋯][□][✕] │
 │  ──────────────────────────────────────────────────────   │
-│  Step 2 of 5: When the user clicks checkout     ✅       │
 │                                                          │
 │              ┌─────────────────────┐                     │
 │    ◀         │                     │         ▶           │
@@ -93,11 +92,11 @@ The key tension: **grouped by step** (contextual, structured) vs. **flat list** 
 - Arrow keys navigate flatly (left/right through ALL attachments, crossing step boundaries seamlessly)
 - Click any thumbnail to jump directly
 
-**Step Context Bar (above the content area):**
-- Shows the current step's keyword + title: *"When the user clicks checkout"*
-- Step status icon (✅/❌) — so the PM sees pass/fail alongside the screenshot
-- Step number: *"Step 2 of 5"* — orientation in the scenario
-- **Animated transition** when crossing a step boundary: the context bar slides/fades to the new step title, creating a "scene change" feel
+**One shared gallery header (above the preview):**
+- On a scenario step, show its number out of the **complete scenario step count**, with keyword, title, and status when space allows. An attachment without a known total shows just *"Step 2"*, never *"Step 2 of 1"* merely because one step has attachments.
+- Otherwise show the attachment name and MIME type once. For step attachments, the full step title, attachment name, and MIME type remain available through the header tooltip, accessible step context, and dialog title, not in another metadata bar.
+- All actions live here: opt-in zoom, source/copy/download when available, slideshow, Maximize/Restore, and Close. On phones, the controls use a second row **within the same header**, and attachment-specific actions move into an accessible menu.
+- No step-context card or renderer-specific metadata/action bar separates the header from the preview. Step transitions still animate the preview.
 
 **Keyboard Shortcuts:**
 | Key | Action |
@@ -106,8 +105,8 @@ The key tension: **grouped by step** (contextual, structured) vs. **flat list** 
 | `Home` / `End` | First / Last attachment |
 | `[` / `]` | Previous / Next **step group** (jump to first attachment of adjacent step) |
 | `Space` | Toggle auto-play |
-| `Escape` | Close gallery |
-| `F` or `F11` | Toggle fullscreen (browser) |
+| `Escape` | Restore a maximized gallery, or close the gallery and return focus to its opener |
+| `F` | Toggle the gallery's viewport-filling Maximize/Restore layout |
 
 ### Alternative: Sidebar Timeline
 
@@ -119,13 +118,13 @@ A vertical timeline on the left showing step titles with thumbnail previews, scr
 
 ### Recommended: Play Button in Header Bar
 
-**Entry point:** A `Play` (▶) icon button in the gallery header bar, next to the counter. Clicking starts auto-advance.
+**Entry point:** A `Play` (▶) action in the shared header; at phone widths, it is in the attachment actions menu. Clicking starts auto-advance.
 
 **Auto-Play Behavior:**
 - Default interval: **3 seconds** per image (ideal for PM reviews)
 - Speed adjustment: gear icon opens a small popover with speed presets: `1s` / `2s` / `3s` / `5s`
 - **Pause on hover**: moving the mouse pauses auto-play (shows play/pause toggle)
-- **Step boundary pause**: when crossing from one step's attachments to the next, hold for an extra 1s and animate the step context bar — creates a natural "scene break"
+- **Step boundary pause**: when crossing from one step's attachments to the next, hold for an extra 1s and animate the preview — creates a natural "scene break"
 - **Loop or stop**: reaches the end → subtle "Replay?" prompt rather than infinite loop
 - **Progress bar**: thin horizontal bar at the very bottom of the content area, showing segment progress (like YouTube). Fills left-to-right per attachment, then resets for the next.
 
@@ -213,21 +212,22 @@ A thin horizontal progress indicator at the top of the gallery, showing the user
 - The user can then navigate beyond that step's attachments into the full scenario gallery — the film strip shows all attachments, and the step dividers make it clear they've moved to a different step
 - **This unifies the two entry points** — there's really one gallery, entered either at scenario level (start at beginning) or step level (start at that step)
 
-### Pinch-to-Zoom on Screenshots
+### Zoom and Pan (implemented)
 
-- On image attachments, support **scroll-wheel zoom** (desktop) and **pinch-to-zoom** (touch)
-- Double-click to toggle between fit-to-view and 100% zoom
-- When zoomed in, click-and-drag to pan
-- Implementation: CSS `transform: scale()` + `translate()` with pointer event handlers
-- Zoom state resets when navigating to next attachment
+- Mermaid diagrams and raster images opt into the same header toolbar: **Fit**, **−**, current zoom percentage, **+**, and **100%**. JSON, text, and binary previews do not display zoom actions.
+- On narrow screens, source/copy/download and slideshow actions are under **Attachment actions** (⋯) in that same header; Maximize/Restore and Close stay visible.
+- When an image exceeds its preview viewport, drag it with a mouse or pen to pan; touch users pan with native scrolling. The preview remains keyboard-scrollable. Pointer cancellation and release stop dragging.
+- The image's dimensions change within a bounded scroll container rather than transforming the entire gallery. Zoom resets on attachment navigation, and a fitted preview tracks available space when the gallery is resized or maximized.
+- **Future exploration:** wheel zoom, pinch-to-zoom, and double-click to toggle Fit/100% are not implemented.
 
-### Fullscreen Mode
+**Code:** `packages/viewer/src/client/components/AttachmentViewer.tsx` (`ScalablePreview`, `ZoomControls`, `HeaderBar`). **Browser coverage:** `packages/viewer/test/MermaidAttachments.Spec.ts`.
 
-- `F` key or a small `Maximize2` icon in the header bar
-- Uses the browser `requestFullscreen()` API
-- In fullscreen, the header bar auto-hides after 2s of no mouse movement (reappears on hover)
-- Film strip remains visible but more compact (thumbnails shrink to 10×10)
-- Perfect for presentations / screen-sharing
+### Maximize and Restore (implemented)
+
+- The header's square Maximize/Restore control and `F` shortcut change the *dialog layout*, not browser fullscreen. This works when browser fullscreen permission is unavailable, including embedded previews.
+- Maximizing allocates the Viewer viewport to every attachment type; the single header, available attachment actions, and filmstrip remain visible. The narrow-screen header places zoom actions on a second row instead of clipping them.
+- `Escape` first restores the dialog, then closes it on a second press. Closing restores focus to the gallery opener.
+- **Future exploration:** browser-chrome fullscreen, auto-hiding controls, and a presentation filmstrip are not part of this mode.
 
 ### Share / Export
 
@@ -433,8 +433,7 @@ ScenarioGallery (new wrapper component)
 ├── maps each attachment to its source step (index, title, keyword, status)
 ├── passes grouped data to AttachmentViewer via new scenarioContext prop
 └── AttachmentViewer (enhanced)
-    ├── StepContextBar (new sub-component)
-    ├── HeaderBar (existing, enhanced with play controls)
+    ├── HeaderBar (step context, attachment actions, zoom and size controls)
     ├── ProgressTimeline (new sub-component)
     ├── FilmStrip (existing, enhanced with step dividers)
     ├── NavArrow (existing)
@@ -447,6 +446,7 @@ ScenarioGallery (new wrapper component)
 // Collect all attachments across steps with source context
 interface GalleryItem extends AttachmentItem {
   stepIndex: number;
+  stepCount?: number; // Complete scenario steps, including steps without attachments
   stepKeyword: string;
   stepTitle: string;
   stepStatus: Status;

@@ -84,7 +84,7 @@ Add these MSBuild properties to your test project's `.csproj`:
 | `LiveDocJourneyOutputDir` | `$(MSBuildProjectDirectory)\Journeys` | Where generated `.Journey.cs` files are written |
 | `LiveDocJourneyBaseNamespace` | `$(RootNamespace).Journeys` | Root namespace for generated test classes |
 | `LiveDocJourneyInfrastructureNamespace` | `$(BaseNamespace).Infrastructure` | Namespace for `JsonAssertions`, `PropertyRules`, etc. |
-| `LiveDocJourneyFixtureType` | `JourneyServerFixture` | The `IClassFixture<T>` type that starts your server |
+| `LiveDocJourneyFixtureType` | `JourneyServerFixture` | Fixture shared by the generated xUnit Journey collection |
 | `LiveDocJourneyMode` | `scaffold` | `scaffold`, `validate`, or `force` (see [Modes](#modes)) |
 | `LiveDocHttpYacEnsure` | `check` | `check`, `auto-install`, or `off` (see [httpYac](#httpyac)) |
 
@@ -484,7 +484,8 @@ dotnet test --filter "FullyQualifiedName~Journeys"
 ### What Gets Generated {#generated-output}
 
 For a journey at `api/ai-services/_ai-services.http`, the generator creates
-`Journeys/Api/AiServices.Journey.cs`:
+`Journeys/Api/AiServices.Journey.cs` and one
+`JourneyServerFixtureCollection.cs` support file:
 
 ```csharp
 // Generated from api/ai-services/_ai-services.http
@@ -500,7 +501,8 @@ namespace MyProject.Specs.Journeys.Api;
 
 [Feature("AI Services API", Description = "Full CRUD validation for the /api/ai-services endpoints")]
 [Scenario("Create, read, update, and delete a service")]
-public class AiServices_Journey : FeatureTest, IClassFixture<JourneyServerFixture>
+[Collection(JourneyServerFixtureCollection.Name)]
+public class AiServices_Journey : FeatureTest
 {
     private readonly JourneyServerFixture _server;
     private readonly PropertyRules _propertyRules;
@@ -547,6 +549,28 @@ public class AiServices_Journey : FeatureTest, IClassFixture<JourneyServerFixtur
     }
 }
 ```
+
+The support file owns the shared server lifecycle:
+
+```csharp title="Journeys/JourneyServerFixtureCollection.cs"
+[CollectionDefinition(Name)]
+public sealed class JourneyServerFixtureCollection
+    : ICollectionFixture<JourneyServerFixture>
+{
+    public const string Name = "LiveDoc journeys: JourneyServerFixture";
+}
+```
+
+All generated Journey classes join this collection. xUnit therefore starts the
+application once per test assembly and stops it after the final Journey class,
+instead of starting one process per generated class. Tests in the collection
+run sequentially against the shared application, preventing stateful journeys
+from racing each other.
+
+When upgrading an existing project, `scaffold` mode replaces only the exact
+legacy `IClassFixture<JourneyServerFixture>` class declaration. It preserves
+the developer-owned test body. `validate` mode reports Journey files that are
+not connected to the shared collection.
 
 ### Path Derivation {#path-derivation}
 

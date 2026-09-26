@@ -1,6 +1,6 @@
 {
   "name": "@swedevtools/livedoc-schema",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Canonical vNext data model for LiveDoc",
   "author": "Garry McGlennon",

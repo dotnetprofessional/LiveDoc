@@ -13,6 +13,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Scenario;
     The [Scenario] attribute marks a method as a BDD scenario. It supports
     explicit display names (overriding the method name), descriptions,
     and tags for filtering.")]
+[Tag("scenarios")]
 public class Scenario_Statement_Spec : SpecificationTest
 {
     public Scenario_Statement_Spec(ITestOutputHelper output) : base(output)
