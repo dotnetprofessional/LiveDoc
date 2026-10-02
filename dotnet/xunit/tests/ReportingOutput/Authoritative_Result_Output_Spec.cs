@@ -260,7 +260,6 @@ public class Authoritative_Result_Output_Spec : SpecificationTest
         var exportPath = Path.Combine(outputDirectory, "livedoc-report.json");
 
         var startInfo = IsolatedTestProcess.Create(projectPath, exportPath);
-        startInfo.ArgumentList.Add("--no-restore");
 
         try
         {

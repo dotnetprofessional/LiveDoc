@@ -373,6 +373,7 @@ specification(`Sidebar Navigation and Resizing
     await waitWidth(preferred);
     await page().setViewportSize({ width: mobile, height: 812 });
     await page().getByRole('button', { name: 'Open navigation', exact: true }).waitFor();
+    await divider().waitFor({ state: 'detached' });
     expect(await divider().count()).toBe(0);
     expect(await page().evaluate(() => document.documentElement.scrollWidth)).toBe(mobile);
     await page().getByRole('button', { name: 'Open navigation', exact: true }).click();
