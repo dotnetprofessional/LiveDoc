@@ -146,7 +146,7 @@ public void TestShipping()
 **With the skill**, the same request produces:
 
 ```csharp
-[Feature("Shipping Costs", Description = "Business rules for shipping rate calculation")]
+[Feature("Shipping Costs", Description = "Avoids assigning the wrong delivery tier for the tested destinations and totals.")]
 public class ShippingCostsTests : FeatureTest
 {
     public ShippingCostsTests(ITestOutputHelper output) : base(output) { }

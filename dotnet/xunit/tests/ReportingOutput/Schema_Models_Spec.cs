@@ -16,6 +16,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     The C# schema models map to the v1 reporter protocol. Each model
     (Status, StepKeyword, ExecutionResult, TestCase, etc.) must serialize
     to the expected camelCase JSON format.")]
+[Tag("reporting")]
 public class Schema_Models_Spec : SpecificationTest
 {
     private readonly JsonSerializerOptions _jsonOptions = new()

@@ -43,6 +43,7 @@ export function collectScenarioAttachments(steps: StepTest[]): GalleryItem[] {
       items.push({
         ...att,
         stepIndex,
+        stepCount: steps.length,
         stepKeyword: keyword,
         stepTitle: title,
         stepStatus: status,
@@ -68,6 +69,8 @@ export function groupByStep(items: GalleryItem[]): StepGroup[] {
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const stepIndex = item.stepIndex;
+
+    if (stepIndex === undefined) continue;
 
     if (seenSteps.has(stepIndex)) {
       // Add to existing group

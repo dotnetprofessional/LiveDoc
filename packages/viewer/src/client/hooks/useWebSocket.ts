@@ -254,6 +254,7 @@ export function useWebSocket(skip = false) {
   }, [fetchActiveRuns, fetchDiagnostics, fetchProjectHierarchy, fetchRunById, selectBestAvailableView, addRun]);
 
   const handleRunCompleted = useCallback(async (runId: string, completedStatus?: string) => {
+    if (useStore.getState().deletedRunIds.has(runId)) return;
     if (completedStatus === 'cancelled') {
       removePhysicalRun(runId);
       removeRun(runId);
@@ -352,6 +353,8 @@ export function useWebSocket(skip = false) {
       case 'run:v1:started': {
         const evt = message as V1WebSocketEvent & { type: 'run:v1:started' };
         if (!evt.runId) return;
+        if (useStore.getState().deletedProjects.has(evt.project ?? 'Test Results')
+          || useStore.getState().deletedRunIds.has(evt.runId)) return;
 
         const runType = evt.runType ?? 'full';
         const run: TestRunV1 = {
@@ -430,7 +433,7 @@ export function useWebSocket(skip = false) {
 
       case 'run:v1:coverage': {
         const evt = message as V1WebSocketEvent & { type: 'run:v1:coverage' };
-        if (evt.runId && evt.coverage) {
+        if (evt.runId && evt.coverage && !useStore.getState().deletedRunIds.has(evt.runId)) {
           void applyCoverageEvent(evt.runId, evt.coverage, {
             fetchRunById,
             addRun: (run) => {

@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
@@ -84,12 +85,17 @@ public class LiveDocMessageSink : IMessageSink
 {
     private readonly IMessageSink _innerSink;
     private readonly Reporter.LiveDocTestRunReporter _reporter;
+    private readonly object _standardTheoryIdentityLock = new();
+    private readonly ConditionalWeakTable<ITest, StandardTheoryExecutionIdentity> _standardTheoryIdentities = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _standardTheoryExecutionIndices = new();
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Concurrent.ConcurrentDictionary<int, byte>>
         _claimedOutlineRows = new();
 
     private sealed record ClassMetadata(string Title, string? Description, string[]? Tags);
 
     private sealed record MethodMetadata(string Title, string? Description, string[]? Tags);
+
+    private sealed record StandardTheoryExecutionIdentity(string Id);
 
     public LiveDocMessageSink(IMessageSink innerSink)
     {
@@ -135,6 +141,10 @@ public class LiveDocMessageSink : IMessageSink
     {
         switch (message)
         {
+            case ITestStarting starting:
+                RegisterStandardTheoryExecution(starting.Test);
+                break;
+
             case ITestPassed passed:
                 ReportTestResult(passed.Test, Reporter.Models.Status.Passed, passed.ExecutionTime, null);
                 break;
@@ -168,13 +178,7 @@ public class LiveDocMessageSink : IMessageSink
         var methodName = testMethod.Name;
         var durationMs = (long)(executionTime * 1000);
 
-        // Derive assembly simple name — IAssemblyInfo.Name may return full name with version or DLL path
-        var rawAssemblyName = testCase.TestMethod.TestClass.TestCollection.TestAssembly.Assembly.Name;
-        // Handle both "Name.dll" paths and "Name, Version=..." full names
-        var assemblyName = rawAssemblyName.Contains(',')
-            ? rawAssemblyName.Split(',')[0].Trim()
-            : System.IO.Path.GetFileNameWithoutExtension(rawAssemblyName);
-        var path = Reporter.LiveDocTestRunReporter.DerivePathFromNames(className, assemblyName);
+        var path = Reporter.LiveDocTestRunReporter.DerivePathFromNames(className);
 
         if (isFeature || isSpec)
         {
@@ -289,15 +293,60 @@ public class LiveDocMessageSink : IMessageSink
             var displayName = test.DisplayName;
             var testCaseId = $"standard:{className}";
             var args = GetTestArguments(test);
-            var testId = args.Length == 0
-                ? $"{className}.{methodName}"
-                : $"{className}.{methodName}:{testCase.UniqueID}:{test.DisplayName}";
+            var standardTheoryId = IsDeferredStandardTheory(test)
+                ? GetOrCreateStandardTheoryExecutionIdentity(test).Id
+                : null;
+            var testId = standardTheoryId
+                ?? (args.Length == 0
+                    ? $"{className}.{methodName}"
+                    : $"{className}.{methodName}:{testCase.UniqueID}:{test.DisplayName}");
+            var resultId = standardTheoryId
+                ?? $"{testCase.UniqueID}:{test.DisplayName}";
 
             _reporter.BufferTestCase(testCaseId, Reporter.Models.TestKinds.Standard, 
                 FormatTestCaseTitle(className), path: path);
             _reporter.BufferTest(testCaseId, testId, "Test", displayName);
             _reporter.UpdateTestExecution(testId, status, durationMs, error);
-            _reporter.RecordResult(status, testCaseId, $"{testCase.UniqueID}:{test.DisplayName}");
+            _reporter.RecordResult(status, testCaseId, resultId);
+        }
+    }
+
+    private void RegisterStandardTheoryExecution(ITest test)
+    {
+        if (IsDeferredStandardTheory(test))
+            GetOrCreateStandardTheoryExecutionIdentity(test);
+    }
+
+    private static bool IsDeferredStandardTheory(ITest test)
+    {
+        var testClass = test.TestCase.TestMethod.TestClass.Class;
+        if (testClass.GetCustomAttributes(typeof(FeatureAttribute)).Any() ||
+            testClass.GetCustomAttributes(typeof(SpecificationAttribute)).Any())
+        {
+            return false;
+        }
+
+        return test.TestCase is XunitTheoryTestCase;
+    }
+
+    private StandardTheoryExecutionIdentity GetOrCreateStandardTheoryExecutionIdentity(ITest test)
+    {
+        lock (_standardTheoryIdentityLock)
+        {
+            if (_standardTheoryIdentities.TryGetValue(test, out var existing))
+                return existing;
+
+            var testCase = test.TestCase;
+            var executionIndex = _standardTheoryExecutionIndices.AddOrUpdate(
+                testCase.UniqueID,
+                0,
+                (_, current) => checked(current + 1));
+            var className = testCase.TestMethod.TestClass.Class.Name;
+            var methodName = testCase.TestMethod.Method.Name;
+            var identity = new StandardTheoryExecutionIdentity(
+                $"{className}.{methodName}:{testCase.UniqueID}:execution:{executionIndex}");
+            _standardTheoryIdentities.Add(test, identity);
+            return identity;
         }
     }
 
@@ -472,7 +521,9 @@ public class LiveDocMessageSink : IMessageSink
             var attr = attrs.FirstOrDefault();
             if (attr != null)
             {
-                var configuredTitle = GetAttributeString(attr, isSpec ? "Title" : "Name", 0);
+                var configuredTitle = GetAttributeTitle(
+                    attr,
+                    isSpec ? "Title" : "Name");
                 if (!string.IsNullOrWhiteSpace(configuredTitle))
                     title = configuredTitle;
 
@@ -517,9 +568,9 @@ public class LiveDocMessageSink : IMessageSink
 
                 description = kind switch
                 {
-                    "RuleOutline" => methodInfo.GetCustomAttribute<RuleOutlineAttribute>()?.GetDescription(methodInfo),
+                    "RuleOutline" => methodInfo.GetCustomAttribute<RuleOutlineAttribute>()?.Description,
                     "ScenarioOutline" => methodInfo.GetCustomAttribute<ScenarioOutlineAttribute>()?.Description,
-                    "Rule" => ruleAttribute?.GetDescription(methodInfo),
+                    "Rule" => ruleAttribute?.Description,
                     "Scenario" => methodInfo.GetCustomAttribute<ScenarioAttribute>()?.Description,
                     _ => null
                 };
@@ -544,23 +595,6 @@ public class LiveDocMessageSink : IMessageSink
             {
                 var attr = testMethod.GetCustomAttributes(attrType).FirstOrDefault();
                 description = attr?.GetNamedArgument<string>("Description");
-                if ((attrType == typeof(RuleAttribute) || attrType == typeof(RuleOutlineAttribute)) &&
-                    string.Equals(description, testMethod.Name, StringComparison.Ordinal))
-                {
-                    description = null;
-                }
-
-                // Rule/RuleOutline descriptions are constructor values. Avoid treating
-                // CallerMemberName-provided method names as user-authored descriptions.
-                if (string.IsNullOrWhiteSpace(description) && attrType != typeof(ScenarioAttribute) && attrType != typeof(ScenarioOutlineAttribute))
-                {
-                    var ctorDescription = GetAttributeString(attr, "Description", 0);
-                    if (!string.IsNullOrWhiteSpace(ctorDescription) &&
-                        !string.Equals(ctorDescription, testMethod.Name, StringComparison.Ordinal))
-                    {
-                        description = ctorDescription;
-                    }
-                }
             }
 
             methodTags = MergeTags(classTags, ExtractTags(testMethod.GetCustomAttributes(typeof(TagAttribute))));
@@ -619,6 +653,45 @@ public class LiveDocMessageSink : IMessageSink
         return null;
     }
 
+    private static string? GetAttributeTitle(
+        Xunit.Abstractions.IAttributeInfo? attr,
+        string namedArgument)
+    {
+        if (attr == null)
+            return null;
+
+        try
+        {
+            var named = attr.GetNamedArgument<string>(namedArgument);
+            if (!string.IsNullOrWhiteSpace(named))
+                return named;
+        }
+        catch
+        {
+            // Fall back to constructor arguments below.
+        }
+
+        try
+        {
+            var ctorArgs = attr.GetConstructorArguments().ToList();
+            if (ctorArgs.Count == 0 ||
+                ctorArgs[0] is not string title ||
+                string.IsNullOrWhiteSpace(title))
+            {
+                return null;
+            }
+
+            var expression = ctorArgs.Count > 1
+                ? ctorArgs[1] as string
+                : null;
+            return AttributeTitleFormatter.FormatExplicitName(title, expression);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string[]? ExtractTags(IEnumerable<Xunit.Abstractions.IAttributeInfo> tagAttrs)
     {
         var tags = new List<string>();
@@ -660,7 +733,7 @@ public class LiveDocMessageSink : IMessageSink
 
         var attrType = isSpec ? typeof(RuleOutlineAttribute) : typeof(ScenarioOutlineAttribute);
         var attr = testMethod.GetCustomAttributes(attrType).FirstOrDefault();
-        var configuredTitle = GetAttributeString(attr, isSpec ? "Description" : "DisplayName", 0);
+        var configuredTitle = GetAttributeTitle(attr, "DisplayName");
         if (!string.IsNullOrWhiteSpace(configuredTitle) &&
             !string.Equals(configuredTitle, testMethod.Name, StringComparison.Ordinal))
         {

@@ -11,7 +11,8 @@ using SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys.Generated;
 
 [Feature("Health Check", Description = "Verify the sample API is running")]
-public class HealthCheck_Journey : FeatureTest, IClassFixture<SampleApiFixture>
+[Collection(SampleApiFixtureCollection.Name)]
+public class HealthCheck_Journey : FeatureTest
 {
     private readonly SampleApiFixture _server;
     private readonly PropertyRules _propertyRules;

@@ -1,0 +1,5 @@
+### 2026-09-30T20-05-29: Exact source-project and completed-run deletion contract
+**By:** Wash
+**What:** Exact source-project and completed-run deletion contract
+**References:** packages/server/src/index.ts, packages/server/src/store-v1.ts, packages/server/test/RunStore.Spec.ts, packages/server/test/ServerV1API.Spec.ts
+**Why:** DELETE /api/v1/projects/{project} permanently removes all runs and stored project data for one exact physical source project across environments; logical Viewer groups are not server project IDs and cannot cascade. DELETE /api/v1/runs/{runId} permanently removes one completed run; a full baseline with dependent partial runs returns 409. Both return 200 {success:true}, 404 for missing, 400 for invalid path segments, 409 for active/concurrent write or dependency, and 500 on persistence failure. Existing DELETE /api/runs/{runId} forwards to the v1 behavior (no longer cancels active runs). UI must ask explicit confirmation; no authentication is implied by these endpoints.

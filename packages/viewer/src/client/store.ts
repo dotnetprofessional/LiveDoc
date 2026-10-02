@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { filterRunByTestTypes, getInitialTestTypes, withDisplayTestTitles, TEST_TYPES_KEY, type TestType, type TestTypeSettings } from './lib/test-type-filter';
+import { clampSidebarWidth, getInitialSidebarWidth, SIDEBAR_WIDTH_KEY } from './lib/sidebar-layout';
 import type { AnyTest, CoverageReport, ExecutionResult, RunType, Statistics, Status, TestCase, TestRunV1 } from '@swedevtools/livedoc-schema';
 import {
   buildLogicalRunGroups,
@@ -167,6 +169,9 @@ interface AppState {
   /** Physical-projection cache, keyed by runId. Never fed into grouping/logical-run inputs. */
   physicalRuns: Record<string, Run>;
   projectHierarchy: ProjectNode[];
+  deletedRunIds: Set<string>;
+  deletedProjects: Set<string>;
+  deletionRevision: number;
 
   // Selection
   selectedRunId: string | null;
@@ -189,6 +194,7 @@ interface AppState {
   audienceMode: AudienceMode;
   projectGrouping: ProjectGroupingSettings;
   followLatestRun: boolean;
+  testTypes: TestTypeSettings;
   sidebarWidth: number;
   expandedItems: Set<string>;
 
@@ -207,6 +213,8 @@ interface AppState {
   removePhysicalRun: (runId: string) => void;
 
   setProjectHierarchy: (hierarchy: ProjectNode[]) => void;
+  recordDeletion: (deleted: { project?: string; runIds?: string[] }) => void;
+  reconcileServerSnapshot: (hierarchy: ProjectNode[], availableIds: Set<string>) => void;
   setDiagnostics: (diagnostics: DataDiagnostic[]) => void;
   addDiagnostic: (diagnostic: DataDiagnostic) => void;
   clearRunDiagnostics: (runId: string) => void;
@@ -229,6 +237,7 @@ interface AppState {
   setProjectGroupingEnabled: (enabled: boolean) => void;
   setProjectGroupingHideSourceProjects: (hidden: boolean) => void;
   setFollowLatestRun: (enabled: boolean) => void;
+  setTestTypeIncluded: (type: TestType, included: boolean) => void;
   followRunIfEnabled: (runId: string, view?: RunProjection) => void;
   setSidebarWidth: (width: number) => void;
   toggleExpanded: (itemId: string) => void;
@@ -247,6 +256,7 @@ interface AppState {
   getRunGroups: () => RunGroup[];
   getDetectedRunGroups: () => RunGroup[];
   getCurrentRun: () => RunView | undefined;
+  getVisibleRun: () => RunView | undefined;
   getCurrentRunGroup: () => RunGroup | undefined;
   /** Returns either the current logical group or current run (group takes priority) */
   getCurrentView: () => { type: 'grouped-run'; data: RunGroup } | { type: 'run'; data: Run } | undefined;
@@ -286,6 +296,22 @@ export function makeRunState(run: TestRunV1): Run {
 
 export function makeRunGroupState(group: LogicalRunGroup): RunGroup {
   return { group, run: group.run, itemById: buildItemIndex(group.run) };
+}
+
+const displayRunCache = new WeakMap<RunView, WeakMap<TestTypeSettings, RunView>>();
+
+function filterRunView(view: RunView, settings: TestTypeSettings): RunView {
+  let cache = displayRunCache.get(view);
+  if (!cache) {
+    cache = new WeakMap();
+    displayRunCache.set(view, cache);
+  }
+  const cached = cache.get(settings);
+  if (cached) return cached;
+  const run = withDisplayTestTitles(filterRunByTestTypes(view.run, settings));
+  const result = run === view.run ? view : { ...view, ...makeRunState(run) };
+  cache.set(settings, result);
+  return result;
 }
 
 function mergeExecution(existing: ExecutionResult, patch: Partial<ExecutionResult>): ExecutionResult {
@@ -502,6 +528,9 @@ export const useStore = create<AppState>((set, get) => ({
   runs: [],
   physicalRuns: {},
   projectHierarchy: [],
+  deletedRunIds: new Set(),
+  deletedProjects: new Set(),
+  deletionRevision: 0,
   selectedRunId: null,
   selectedRunGroupId: null,
   selectedNodeId: null,
@@ -516,16 +545,22 @@ export const useStore = create<AppState>((set, get) => ({
   audienceMode: getInitialAudienceMode(),
   projectGrouping: getInitialProjectGroupingSettings(),
   followLatestRun: getInitialFollowLatestRun(),
-  sidebarWidth: 280,
+  testTypes: getInitialTestTypes(),
+  sidebarWidth: getInitialSidebarWidth(),
   expandedItems: new Set<string>(),
 
   filterText: '',
   filterTags: [],
 
   // Data actions
-  setRuns: (runs) => set({ runs: sortRunsNewestFirst(runs) }),
+  setRuns: (runs) => set((state) => ({
+    runs: sortRunsNewestFirst(runs.filter((run) =>
+      !state.deletedRunIds.has(run.run.runId) && !state.deletedProjects.has(run.run.project)
+    )),
+  })),
 
   addRun: (run) => set((state) => {
+    if (state.deletedRunIds.has(run.run.runId) || state.deletedProjects.has(run.run.project)) return state;
     const idx = state.runs.findIndex((r) => r.run.runId === run.run.runId);
     if (idx >= 0) {
       // Upsert: replace existing run data
@@ -541,7 +576,7 @@ export const useStore = create<AppState>((set, get) => ({
   }),
 
   updateRun: (runId, updates) => set((state) => ({
-    runs: state.runs.map((r) =>
+    runs: state.deletedRunIds.has(runId) ? state.runs : state.runs.map((r) =>
       r.run.runId === runId
         ? (
             updates.run
@@ -581,9 +616,11 @@ export const useStore = create<AppState>((set, get) => ({
     };
   }),
 
-  upsertPhysicalRun: (runId, run) => set((state) => ({
-    physicalRuns: { ...state.physicalRuns, [runId]: run },
-  })),
+  upsertPhysicalRun: (runId, run) => set((state) =>
+    state.deletedRunIds.has(runId) || state.deletedProjects.has(run.run.project)
+      ? state
+      : { physicalRuns: { ...state.physicalRuns, [runId]: run } }
+  ),
 
   removePhysicalRun: (runId) => set((state) => {
     if (!state.physicalRuns[runId]) return state;
@@ -592,7 +629,82 @@ export const useStore = create<AppState>((set, get) => ({
     return { physicalRuns: newPhysicalRuns };
   }),
 
-  setProjectHierarchy: (hierarchy) => set({ projectHierarchy: hierarchy }),
+  setProjectHierarchy: (hierarchy) => set((state) => ({
+    projectHierarchy: hierarchy
+      .filter((project) => !state.deletedProjects.has(project.name))
+      .map((project) => ({
+        ...project,
+        environments: project.environments.map((env) => ({
+          ...env,
+          history: env.history.filter((run) => !state.deletedRunIds.has(run.runId)),
+          latestRun: env.latestRun && !state.deletedRunIds.has(env.latestRun.run.runId) ? env.latestRun : undefined,
+        })).filter((env) => env.history.length > 0 || env.latestRun),
+      }))
+      .filter((project) => project.environments.length > 0),
+  })),
+  recordDeletion: ({ project, runIds = [] }) => set((state) => {
+    const deletedProjects = new Set(state.deletedProjects);
+    if (project) deletedProjects.add(project);
+    const deletedRunIds = new Set([...state.deletedRunIds, ...runIds]);
+    if (project) {
+      for (const run of state.runs) if (run.run.project === project) deletedRunIds.add(run.run.runId);
+      for (const run of Object.values(state.physicalRuns)) if (run.run.project === project) deletedRunIds.add(run.run.runId);
+      for (const node of state.projectHierarchy) {
+        if (node.name === project) {
+          for (const env of node.environments) {
+            for (const run of env.history) deletedRunIds.add(run.runId);
+          }
+        }
+      }
+    }
+    const keep = (run: Run) => !deletedProjects.has(run.run.project) && !deletedRunIds.has(run.run.runId);
+    const runs = state.runs.filter(keep);
+    const physicalRuns = Object.fromEntries(Object.entries(state.physicalRuns).filter(([, run]) => keep(run)));
+    const projectHierarchy = state.projectHierarchy
+      .filter((node) => !deletedProjects.has(node.name))
+      .map((node) => ({
+        ...node,
+        environments: node.environments.map((env) => ({
+          ...env,
+          history: env.history.filter((run) => !deletedRunIds.has(run.runId)),
+          latestRun: env.latestRun && keep(env.latestRun) ? env.latestRun : undefined,
+        })).filter((env) => env.history.length > 0 || env.latestRun),
+      })).filter((node) => node.environments.length > 0);
+    const groups = buildLogicalRunGroups(runs.map((run) => run.run), state.projectGrouping);
+    const groupStillExists = groups.some((group) => group.id === state.selectedRunGroupId);
+    const runStillExists = runs.some((run) => run.run.runId === state.selectedRunId)
+      || (state.selectedRunId !== null && !!physicalRuns[state.selectedRunId]);
+    const selectionLost = (state.selectedRunGroupId !== null && !groupStillExists)
+      || (state.selectedRunId !== null && !runStillExists);
+    const nextGroup = selectionLost && state.projectGrouping.enabled ? groups[0] : undefined;
+    const nextRunId = selectionLost && !nextGroup ? runs[0]?.run.runId ?? null : state.selectedRunId;
+    return {
+      deletedProjects, deletedRunIds, runs, physicalRuns, projectHierarchy,
+      deletionRevision: state.deletionRevision + 1,
+      selectedRunGroupId: selectionLost ? nextGroup?.id ?? null : state.selectedRunGroupId,
+      selectedRunId: selectionLost ? (nextGroup ? null : nextRunId) : state.selectedRunId,
+      selectedRunView: selectionLost ? 'combined' : state.selectedRunView,
+      pendingRunFetch: selectionLost ? null : state.pendingRunFetch,
+      currentView: selectionLost ? { type: 'summary' } : state.currentView,
+      selectedNodeId: selectionLost ? null : state.selectedNodeId,
+      unresolvedDeepLink: null,
+    };
+  }),
+  reconcileServerSnapshot: (hierarchy, availableIds) => {
+    set((state) => {
+      const keep = (run: Run) => availableIds.has(run.run.runId)
+        && !state.deletedRunIds.has(run.run.runId) && !state.deletedProjects.has(run.run.project);
+      const latest = hierarchy.flatMap((project) => project.environments
+        .map((env) => env.latestRun).filter((run): run is Run => !!run && keep(run)));
+      const byId = new Map([...state.runs.filter(keep), ...latest].map((run) => [run.run.runId, run]));
+      return {
+        runs: sortRunsNewestFirst([...byId.values()]),
+        physicalRuns: Object.fromEntries(Object.entries(state.physicalRuns).filter(([, run]) => keep(run))),
+        projectHierarchy: hierarchy,
+      };
+    });
+    get().recordDeletion({});
+  },
   setDiagnostics: (diagnostics) => set({ diagnostics }),
 
   addDiagnostic: (diagnostic) => set((state) => ({
@@ -737,9 +849,25 @@ export const useStore = create<AppState>((set, get) => ({
     }
     set({ followLatestRun: enabled });
   },
+  setTestTypeIncluded: (type, included) => {
+    const state = get();
+    const testTypes = { ...state.testTypes, [type]: included };
+    try {
+      localStorage.setItem(TEST_TYPES_KEY, JSON.stringify(testTypes));
+    } catch (error) {
+      console.warn('Could not save Viewer test-type preferences.', error);
+    }
+    const currentRun = state.getCurrentRun();
+    const visible = currentRun ? filterRunView(currentRun, testTypes) : undefined;
+    const hiddenNode = state.selectedNodeId && visible && !visible.itemById[state.selectedNodeId];
+    set({
+      testTypes,
+      ...(hiddenNode ? { selectedNodeId: null, currentView: { type: 'summary' as const } } : {}),
+    });
+  },
   followRunIfEnabled: (runId, view = 'combined') => {
     const state = get();
-    if (!state.followLatestRun) return;
+    if (!state.followLatestRun || state.deletedRunIds.has(runId)) return;
 
     if (state.projectGrouping.enabled) {
       const containingGroup = findContainingGroup(
@@ -754,7 +882,15 @@ export const useStore = create<AppState>((set, get) => ({
 
     state.selectRun(runId, view);
   },
-  setSidebarWidth: (width) => set({ sidebarWidth: width }),
+  setSidebarWidth: (width) => {
+    const sidebarWidth = clampSidebarWidth(width);
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+    } catch {
+      // Storage can be unavailable in a webview or private browser.
+    }
+    set({ sidebarWidth });
+  },
 
   toggleExpanded: (itemId) => set((state) => {
     const newExpanded = new Set(state.expandedItems);
@@ -892,6 +1028,12 @@ export const useStore = create<AppState>((set, get) => ({
     return state.getRunGroups().find((group) => group.group.id === state.selectedRunGroupId);
   },
 
+  getVisibleRun: () => {
+    const state = get();
+    const run = state.getCurrentRun();
+    return run ? filterRunView(run, state.testTypes) : undefined;
+  },
+
   getCurrentView: () => {
     const state = get();
     if (state.selectedRunGroupId) {
@@ -907,7 +1049,8 @@ export const useStore = create<AppState>((set, get) => ({
   getCurrentViewData: () => {
     const state = get();
     if (state.selectedRunGroupId) {
-      const group = state.getRunGroups().find((candidate) => candidate.group.id === state.selectedRunGroupId);
+      const current = state.getVisibleRun();
+      const group = current && 'group' in current ? current : undefined;
       if (group) return {
         run: {
           documents: group.run.documents,
@@ -918,7 +1061,7 @@ export const useStore = create<AppState>((set, get) => ({
           project: group.run.project,
           environment: group.run.environment,
           framework: group.run.framework,
-          sourceRuns: group.group.runs.map((run) => ({
+          sourceRuns: group.group.runs.map((source) => filterRunByTestTypes(source, state.testTypes)).map((run) => ({
             runId: run.runId,
             project: run.project,
             timestamp: run.timestamp,
@@ -934,7 +1077,7 @@ export const useStore = create<AppState>((set, get) => ({
       };
     }
 
-    const run = resolveSelectedRun(state);
+    const run = state.getVisibleRun();
     if (run) {
       return {
         run: {
@@ -958,12 +1101,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   getCurrentNode: () => {
     const state = get();
-    if (state.selectedRunGroupId) {
-      const group = state.getRunGroups().find((candidate) => candidate.group.id === state.selectedRunGroupId);
-      if (group && state.selectedNodeId) return group.itemById[state.selectedNodeId];
-    }
-
-    const run = resolveSelectedRun(state);
+    const run = state.getVisibleRun();
     if (!run || !state.selectedNodeId) return undefined;
     return run.itemById[state.selectedNodeId];
   },

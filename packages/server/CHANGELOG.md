@@ -11,6 +11,10 @@ Use the `[next release]` section for changes that have not yet been promoted int
 - Marked the server as a private workspace package embedded in the Viewer distribution instead of publishing it independently.
 - Updated `@hono/node-server` to 1.19.17 to address GHSA-92pp-h63x-v22m and GHSA-frvp-7c67-39w9.
 
+## [0.3.1] - 2026-09-30 (local testing)
+
+- Added exact-ID v1 DELETE routes for completed runs and source projects, with active-run rejection, persistent history/snapshot cleanup, and explicit failure responses.
+
 ## [0.3.0] - 2026-08-29
 
 - Added full/partial run lifecycles, raw physical history, server-composed historical views, active-run fencing, and completed-only latest snapshots.

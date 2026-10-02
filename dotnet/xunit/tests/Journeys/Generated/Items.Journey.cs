@@ -11,7 +11,8 @@ using SweDevTools.LiveDoc.xUnit.Tests.Journeys;
 namespace SweDevTools.LiveDoc.xUnit.Tests.Journeys.Generated;
 
 [Feature("Items CRUD", Description = "Create, read, and delete items via the API")]
-public class Items_Journey : FeatureTest, IClassFixture<SampleApiFixture>
+[Collection(SampleApiFixtureCollection.Name)]
+public class Items_Journey : FeatureTest
 {
     private readonly SampleApiFixture _server;
     private readonly PropertyRules _propertyRules;

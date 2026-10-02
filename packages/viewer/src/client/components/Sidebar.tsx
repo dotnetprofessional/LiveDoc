@@ -6,12 +6,13 @@ import {
   ChevronRight,
   ChevronDown,
   Folder,
-  FileText,
   Gauge,
+  X,
 } from "lucide-react"
 import { cn } from "../lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
-import { buildGroupedNavTree, ContainerKind, NavItem } from '../lib/nav-tree';
+import { buildGroupedNavTree, ContainerKind, NavItem, navItemPath, projectNavTree } from '../lib/nav-tree';
+import { getKindPresentation } from '../lib/kind-presentation';
 import { subtreeHasMatch } from '../lib/filter-utils';
 import { deriveRunBadges, formatRunBadge, mergeRunHistoryEntries, type RunHistoryEntry } from '../lib/run-history';
 import { latestLogicalRunGroups } from '../lib/run-grouping';
@@ -22,6 +23,12 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { isStaticMode } from '../config';
+import { deleteStoredResult, refreshStoredResults, sourceProjectsForGroup } from '../lib/delete-results';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription,
+  AlertDialogCancel, AlertDialogAction,
+} from './ui/alert-dialog';
 
 type NavKind = 'Group' | ContainerKind;
 
@@ -45,17 +52,12 @@ type ProjectEntry =
       grouped: boolean;
     };
 
+type DeleteTarget =
+  | { kind: 'project'; name: string; sources: string[]; runCount: number }
+  | { kind: 'run'; name: string; runIds: string[]; group: boolean };
+
 function getContainerIcon(kind: ContainerKind) {
-  switch (kind) {
-    case 'Feature':
-      return FileText;
-    case 'Specification':
-      return FileText;
-    case 'Container':
-      return Folder;
-    default:
-      return FileText;
-  }
+  return getKindPresentation(kind).navIcon;
 }
 
 function getNavIcon(kind: NavKind) {
@@ -117,7 +119,7 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
     expandedItems,
     navigate,
     toggleExpanded,
-    getCurrentRun,
+    getVisibleRun,
     getCurrentRunGroup,
     getRunGroups,
     runs,
@@ -134,13 +136,23 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
     filterTags,
   } = useStore();
 
-  const currentRun = getCurrentRun();
+  const currentRun = getVisibleRun();
   const currentGroup = getCurrentRunGroup();
   const groups = getRunGroups();
 
   const [projectMenuOpen, setProjectMenuOpen] = React.useState(false);
   const [envMenuOpen, setEnvMenuOpen] = React.useState(false);
   const [runMenuOpen, setRunMenuOpen] = React.useState(false);
+  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(null);
+  const [deleteError, setDeleteError] = React.useState('');
+  const [deleteBusy, setDeleteBusy] = React.useState(false);
+  const [refreshNeeded, setRefreshNeeded] = React.useState(false);
+  const deletedInBatch = React.useRef(new Set<string>());
+  const deleting = React.useRef(false);
+  const projectTriggerRef = React.useRef<HTMLButtonElement>(null);
+  const runTriggerRef = React.useRef<HTMLButtonElement>(null);
+  const returnFocusRef = React.useRef<HTMLButtonElement | null>(null);
+  const canDelete = !isStaticMode();
 
   const projectEntries = React.useMemo<ProjectEntry[]>(() => {
     if (projectGrouping.enabled && groups.length > 0) {
@@ -349,6 +361,98 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
     return [];
   }, [badgedRunEntries, groups, selectedProjectEntry]);
 
+  const requestProjectDeletion = (entry: ProjectEntry) => {
+    returnFocusRef.current = projectTriggerRef.current;
+    const sources = entry.kind === 'group'
+      ? sourceProjectsForGroup(entry.label, groups.map((group) => group.group))
+      : [entry.project];
+    const runCount = (projectHierarchy ?? []).filter((node) => sources.includes(node.name))
+      .reduce((count, node) => count + node.environments
+        .reduce((total, env) => total + env.history.length, 0), 0);
+    deletedInBatch.current.clear();
+    setDeleteError('');
+    setRefreshNeeded(false);
+    setProjectMenuOpen(false);
+    setDeleteTarget({ kind: 'project', name: entry.label, sources, runCount });
+  };
+
+  const requestRunDeletion = (entry: (typeof runMenuEntries)[number]) => {
+    returnFocusRef.current = runTriggerRef.current;
+    const group = entry.kind === 'group'
+      ? groups.find((item) => item.group.id === entry.id)
+      : undefined;
+    // A grouped run is synthetic; its ID is never sent to the server.
+    const runIds = group
+      ? group.group.runs.slice().sort((a, b) =>
+        Number(b.runType === 'partial') - Number(a.runType === 'partial')
+      ).map((run) => run.runId)
+      : [entry.id];
+    deletedInBatch.current.clear();
+    setDeleteError('');
+    setRefreshNeeded(false);
+    setRunMenuOpen(false);
+    setDeleteTarget({ kind: 'run', name: entry.label, runIds, group: !!group });
+  };
+
+  const confirmDeletion = async () => {
+    if (!deleteTarget || deleting.current) return;
+    deleting.current = true;
+    setDeleteBusy(true);
+    setDeleteError('');
+    let failure = '';
+    try {
+      if (!refreshNeeded) {
+        const ids = deleteTarget.kind === 'project' ? deleteTarget.sources : deleteTarget.runIds;
+        for (const id of ids) {
+          if (deletedInBatch.current.has(id)) continue;
+          try {
+            await deleteStoredResult(deleteTarget.kind === 'project' ? 'projects' : 'runs', id);
+            deletedInBatch.current.add(id);
+            if (deleteTarget.kind === 'project') useStore.getState().recordDeletion({ project: id });
+            else useStore.getState().recordDeletion({ runIds: [id] });
+          } catch (error) {
+            failure = `Could not delete ${deleteTarget.kind === 'project' ? 'source project' : 'run'} "${id}": ${
+              error instanceof Error ? error.message : String(error)
+            }. ${deletedInBatch.current.size
+              ? `${deletedInBatch.current.size} already deleted; remaining items are still visible. ` : ''
+            }Retry or cancel.`;
+            break;
+          }
+        }
+      }
+      if (deletedInBatch.current.size || refreshNeeded) {
+        try {
+          await refreshStoredResults();
+          setRefreshNeeded(false);
+        } catch (error) {
+          setRefreshNeeded(true);
+          setDeleteError(`Deletion was applied, but the updated project and run lists could not be loaded: ${
+            error instanceof Error ? error.message : String(error)
+          }. Retry refresh or reload the page.`);
+          return;
+        }
+      }
+      if (failure) {
+        setDeleteError(failure);
+        return;
+      }
+      const remaining = (deleteTarget.kind === 'project' ? deleteTarget.sources : deleteTarget.runIds)
+        .filter((id) => !deletedInBatch.current.has(id));
+      if (remaining.length > 0) {
+        setDeleteError(`Project and run lists are up to date, but ${remaining.length} ${
+          deleteTarget.kind === 'project'
+            ? `source project${remaining.length === 1 ? '' : 's'}`
+            : `run${remaining.length === 1 ? '' : 's'}`
+        } still remain. Retry deletion or cancel.`);
+        return;
+      }
+      setDeleteTarget(null);
+    } finally {
+      deleting.current = false;
+      setDeleteBusy(false);
+    }
+  };
+
   /** Selects a run entry from the chronological list, defaulting to Combined unless it's an
    *  active partial only tracked in the physical cache (no combined snapshot yet). */
   const selectRunEntry = React.useCallback((runId: string) => {
@@ -391,18 +495,10 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
     : (currentRun?.run.coverage?.files?.length ?? 0) > 0;
   const navTree = React.useMemo(() => buildGroupedNavTree(documents), [documents]);
 
-  const navTreeForSidebar = React.useMemo(() => {
-    const maybeRoot = navTree.length === 1 && navTree[0]?.kind === 'Group' && navTree[0]?.id === 'group:/'
-      ? navTree[0]
-      : undefined;
-
-    if (!maybeRoot) return navTree;
-
-    const hasRootLevelContainers = maybeRoot.children.some((child) => child.kind !== 'Group');
-    if (!hasRootLevelContainers) return maybeRoot.children;
-
-    return [maybeRoot, ...maybeRoot.children];
-  }, [navTree]);
+  const navTreeForSidebar = React.useMemo(
+    () => projectNavTree(navTree).sidebarItems,
+    [navTree]
+  );
 
   const renderNavTree = React.useCallback((items: NavItem[], level = 0): React.ReactNode => {
     const textQueryLower = filterText.trim().toLowerCase();
@@ -441,7 +537,24 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
     };
 
     return items.map((item) => {
-      if (item.kind !== 'Group') return null;
+      if (item.kind !== 'Group') {
+        return level === 0 ? (
+          <button
+            key={item.id}
+            type="button"
+            title={navItemPath(item)}
+            onClick={() => navigate('group', item.id)}
+            className={cn(
+              "mx-2 mb-0.5 flex w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              currentView.id === item.id ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+            )}
+          >
+            {React.createElement(getNavIcon(item.kind), { className: 'h-4 w-4 shrink-0 text-muted-foreground' })}
+            <span className="min-w-0 flex-1 truncate">{item.title}</span>
+            {item.status && <StatusBadge status={item.status as Status} size="xs" />}
+          </button>
+        ) : null;
+      }
 
       const suppressChildren = level === 0 && item.id === 'group:/';
       const isExpanded = expandedItems.has(item.id);
@@ -468,6 +581,7 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
           >
             <button
               type="button"
+              title={navItemPath(item)}
               className={cn(
                 "w-4 h-4 flex items-center justify-center shrink-0 rounded-sm",
                 hasChildren ? "hover:bg-muted-foreground/10" : "pointer-events-none"
@@ -498,6 +612,7 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
                 "flex items-center gap-2 min-w-0 flex-1 text-left",
                 isSelected ? "text-primary-foreground" : "text-foreground"
               )}
+              title={navItemPath(item)}
               onClick={() => navigate('group', item.id)}
             >
               <span className="text-sm truncate flex-1">{item.title}</span>
@@ -528,7 +643,8 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
 
   return (
     <aside
-      className="flex flex-col bg-card border-r shrink-0 overflow-hidden transition-all duration-300 ease-in-out"
+      aria-label="Report navigation"
+      className="flex h-full flex-col bg-card shrink-0 overflow-hidden"
       style={{ width: fullWidth ? '100%' : sidebarWidth }}
     >
       <div className="border-b shrink-0 bg-muted/30">
@@ -553,40 +669,46 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
                   <DropdownMenuTrigger
                     asChild
                     onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
                   >
                     <button
                       type="button"
                       className="text-xs font-medium hover:text-foreground transition-colors"
                       aria-label="Select project"
+                      ref={projectTriggerRef}
                     >
                       {currentProject}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}
+                    onCloseAutoFocus={(event) => { if (deleteTarget) event.preventDefault(); }}>
                     {projectEntries.map((entry) => (
-                      <DropdownMenuItem
-                        key={entry.key}
-                        onSelect={() => {
-                          selectProjectEntry(entry);
-                          setProjectMenuOpen(false);
-                        }}
-                        className={cn(
-                          "text-xs",
-                          entry.key === selectedProjectEntry?.key && "bg-muted"
+                      <div key={entry.key} className="flex min-w-0 items-center" role="none">
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            selectProjectEntry(entry);
+                            setProjectMenuOpen(false);
+                          }}
+                          className={cn("min-w-0 flex-1 text-xs", entry.key === selectedProjectEntry?.key && "bg-muted")}
+                        >
+                          <span className="truncate">{entry.label}</span>
+                          {entry.kind === 'group' && (
+                            <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">Group</span>
+                          )}
+                          {entry.kind === 'project' && entry.grouped && (
+                            <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">Source</span>
+                          )}
+                        </DropdownMenuItem>
+                        {canDelete && (
+                          <DropdownMenuItem
+                            aria-label={`Delete ${entry.kind === 'group' ? 'project group' : 'project'} ${entry.label}`}
+                            className="ml-1 shrink-0 rounded-sm p-1.5 text-muted-foreground focus:bg-destructive/10 focus:text-destructive"
+                            onSelect={() => requestProjectDeletion(entry)}
+                          >
+                            <X className="h-3.5 w-3.5" aria-hidden="true" />
+                          </DropdownMenuItem>
                         )}
-                      >
-                        <span className="truncate">{entry.label}</span>
-                        {entry.kind === 'group' && (
-                          <span className="ml-2 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">
-                            Group
-                          </span>
-                        )}
-                        {entry.kind === 'project' && entry.grouped && (
-                          <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">
-                            Source
-                          </span>
-                        )}
-                      </DropdownMenuItem>
+                      </div>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -602,6 +724,7 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
                   <DropdownMenuTrigger
                     asChild
                     onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
                   >
                     <button
                       type="button"
@@ -641,11 +764,13 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
                   <DropdownMenuTrigger
                     asChild
                     onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
                   >
                     <button
                       type="button"
                       className="flex items-center gap-1.5 text-xs font-medium hover:text-foreground transition-colors"
                       aria-label="Select run"
+                      ref={runTriggerRef}
                     >
                       {currentRunLabel}
                       {selectedRunBadge && (
@@ -662,35 +787,40 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                  <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}
+                    onCloseAutoFocus={(event) => { if (deleteTarget) event.preventDefault(); }}>
                     {runMenuEntries.map((entry) => (
-                      <DropdownMenuItem
-                        key={entry.id}
-                        onSelect={() => {
-                          if (entry.kind === 'group') selectRunGroup(entry.id);
-                          else selectRunEntry(entry.id);
-                          setRunMenuOpen(false);
-                        }}
-                        className={cn(
-                          "text-xs",
-                          entry.id === currentGroup?.group.id && "bg-muted",
-                          entry.id === (currentRun?.run.runId ?? selectedRunId) && "bg-muted"
-                        )}
-                      >
-                        <span className="truncate flex-1">{entry.label}</span>
-                        {entry.badgeLabel && (
-                          <span
-                            className={cn(
+                      <div key={entry.id} className="flex min-w-0 items-center" role="none">
+                        <DropdownMenuItem
+                          onSelect={() => {
+                            if (entry.kind === 'group') selectRunGroup(entry.id);
+                            else selectRunEntry(entry.id);
+                            setRunMenuOpen(false);
+                          }}
+                          className={cn(
+                            "min-w-0 flex-1 text-xs",
+                            entry.id === currentGroup?.group.id && "bg-muted",
+                            entry.id === (currentRun?.run.runId ?? selectedRunId) && "bg-muted"
+                          )}
+                        >
+                          <span className="truncate flex-1">{entry.label}</span>
+                          {entry.badgeLabel && (
+                            <span className={cn(
                               "ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold shrink-0",
-                              entry.badgeLabel === 'Full'
-                                ? "bg-muted text-muted-foreground"
-                                : "bg-primary/10 text-primary"
-                            )}
+                              entry.badgeLabel === 'Full' ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
+                            )}>{entry.badgeLabel}</span>
+                          )}
+                        </DropdownMenuItem>
+                        {canDelete && (
+                          <DropdownMenuItem
+                            aria-label={`Delete ${entry.kind === 'group' ? 'run group' : 'run'} ${entry.label}`}
+                            className="ml-1 shrink-0 rounded-sm p-1.5 text-muted-foreground focus:bg-destructive/10 focus:text-destructive"
+                            onSelect={() => requestRunDeletion(entry)}
                           >
-                            {entry.badgeLabel}
-                          </span>
+                            <X className="h-3.5 w-3.5" aria-hidden="true" />
+                          </DropdownMenuItem>
                         )}
-                      </DropdownMenuItem>
+                      </div>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -767,6 +897,70 @@ export function Sidebar({ fullWidth = false }: { fullWidth?: boolean } = {}) {
           )}
         </div>
       </div>
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => {
+        if (!open && !deleteBusy) setDeleteTarget(null);
+      }}>
+        <AlertDialogContent
+          onEscapeKeyDown={(event) => { if (deleteBusy) event.preventDefault(); }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            returnFocusRef.current?.focus();
+          }}
+          aria-describedby="delete-results-description"
+        >
+          <AlertDialogTitle className="text-lg font-semibold">
+            {deleteTarget?.kind === 'project' ? 'Permanently delete project results?' : 'Permanently delete run results?'}
+          </AlertDialogTitle>
+          <AlertDialogDescription id="delete-results-description" className="space-y-3 text-sm text-muted-foreground">
+            {deleteTarget?.kind === 'project' ? (
+              <>
+                <span className="block">
+                  Delete <strong className="text-foreground break-words">{deleteTarget.name}</strong> and all saved runs
+                  across every environment for {deleteTarget.sources.length} source {deleteTarget.sources.length === 1 ? 'project' : 'projects'}
+                  {deleteTarget.runCount > 0 ? ` (at least ${deleteTarget.runCount} recorded runs)` : ''}.
+                </span>
+                <span className="block">Source projects:</span>
+                <span className="block max-h-32 overflow-y-auto rounded-md bg-muted/50 p-2 text-foreground">
+                  {deleteTarget.sources.map((source) => (
+                    <span key={source} className="block break-all">{source}{deletedInBatch.current.has(source) ? ' — deleted' : ''}</span>
+                  ))}
+                </span>
+                {deleteTarget.sources.some((source) => /[/\\]/.test(source)) && (
+                  <span className="block text-foreground">
+                    The server rejects project names containing slashes, even when URL-encoded. That source cannot be removed with this API.
+                  </span>
+                )}
+                <span className="block">This is permanent. Each source is deleted separately; if one fails, remaining sources stay available.</span>
+              </>
+            ) : deleteTarget ? (
+              <>
+                <span className="block">
+                  {deleteTarget.group
+                    ? `This set contains ${deleteTarget.runIds.length} saved source runs. Each exact run below will be permanently deleted.`
+                    : 'Only this exact saved run will be permanently deleted; other runs in its project remain.'}
+                </span>
+                <span className="block max-h-32 overflow-y-auto rounded-md bg-muted/50 p-2 text-foreground">
+                  {deleteTarget.runIds.map((id) => (
+                    <span key={id} className="block break-all">{id}{deletedInBatch.current.has(id) ? ' — deleted' : ''}</span>
+                  ))}
+                </span>
+                <span className="block">Active runs and runs with dependent partials cannot be deleted. A partial failure leaves the remaining runs available.</span>
+              </>
+            ) : null}
+          </AlertDialogDescription>
+          {deleteError && <p role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-foreground break-words">{deleteError}</p>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialogCancel disabled={deleteBusy} onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteBusy || (deleteTarget?.kind === 'project' && deleteTarget.sources.length === 0)}
+              onClick={(event) => { event.preventDefault(); void confirmDeletion(); }}
+            >
+              {deleteBusy ? 'Deleting…' : refreshNeeded ? 'Retry refresh' : deleteError ? 'Retry deletion' : 'Delete permanently'}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }

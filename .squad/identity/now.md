@@ -8,4 +8,4 @@ active_issues: []
 
 The xUnit reporter now detects Visual Studio coverage and writes run metadata, but Test Explorer is not activating the post-run `LiveDocCoverage` logger. Coverage therefore remains pending instead of being attached to the completed LiveDoc run and rendered in the viewer.
 
-Reasoning-heavy agent work uses `gpt-5.6-sol` or `claude-opus-4.8`; lightweight models are reserved for mechanical tasks.
+Reasoning-heavy agent work uses `gpt-6.1-sol` or `claude-sonnet-5.5`; lightweight models are reserved for mechanical tasks.

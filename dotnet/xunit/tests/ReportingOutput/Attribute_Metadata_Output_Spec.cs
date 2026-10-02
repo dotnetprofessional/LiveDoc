@@ -11,14 +11,24 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     Rule, RuleOutline, and Given/When/Then/And/But metadata even when a test does not
     explicitly create a LiveDoc context before the framework fallback reports it.")]
 [Collection(Environment_Sensitive_Collection.Name)]
-public class Attribute_Metadata_Output_Spec : SpecificationTest
+[Tag("reporting")]
+public class Attribute_Metadata_Output_Spec :
+    SpecificationTest,
+    IClassFixture<AttributeMetadataProbeFixture>
 {
-    public Attribute_Metadata_Output_Spec(ITestOutputHelper output) : base(output) { }
+    private readonly AttributeMetadataProbeFixture _probe;
+
+    public Attribute_Metadata_Output_Spec(
+        ITestOutputHelper output,
+        AttributeMetadataProbeFixture probe) : base(output)
+    {
+        _probe = probe;
+    }
 
     [Rule("The viewer export contains Feature, Scenario, ScenarioOutline, and Given/When/Then/And/But metadata")]
-    public async Task Feature_metadata_reaches_viewer_export()
+    public void Feature_metadata_reaches_viewer_export()
     {
-        var result = await RunMetadataProbe();
+        var result = _probe.ExportResult;
         Assert.Equal(0, result.ExitCode);
 
         var root = ReadExport(result.ExportPath);
@@ -70,9 +80,9 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
     }
 
     [Rule("The viewer export contains Specification, Rule, and RuleOutline metadata")]
-    public async Task Rule_metadata_reaches_viewer_export()
+    public void Rule_metadata_reaches_viewer_export()
     {
-        var result = await RunMetadataProbe();
+        var result = _probe.ExportResult;
         Assert.Equal(0, result.ExitCode);
 
         var root = ReadExport(result.ExportPath);
@@ -83,24 +93,46 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
 
         var rule = FindTest(specification, "Rule", "Rule attribute sends <threshold:42> metadata");
         AssertTags(rule, "spec-class", "rule-method");
+        Assert.Equal(
+            "Rule threshold <threshold:42> is included once.",
+            rule["description"]!.GetValue<string>());
 
         var contextRule = FindTest(specification, "Rule", "Rule context extracts <limit:7> and sends metadata");
         AssertTags(contextRule, "spec-class", "rule-context-method");
+        Assert.Null(contextRule["description"]);
 
         var outline = FindTest(specification, "RuleOutline", "Rule outline sends '<value>' metadata");
         AssertTags(outline, "spec-class", "rule-outline-method");
+        Assert.Equal(
+            "Rule outline value <value> is selected.",
+            outline["description"]!.GetValue<string>());
         Assert.Equal(2, outline["examples"]![0]!["rows"]!.AsArray().Count);
+
+        var titleOnlyOutline = FindTest(
+            specification,
+            "RuleOutline",
+            "A positional title '<value>' is not repeated as description");
+        Assert.Null(titleOnlyOutline["description"]);
 
         Assert.Contains("Specification: Rule Specification Attribute", result.Output);
         Assert.Contains("Rule: Rule attribute sends <threshold:42> metadata", result.Output);
         Assert.Contains("Rule: Rule outline sends '42' metadata", result.Output);
         Assert.Contains("Rule: Rule outline sends '100' metadata", result.Output);
+
+        var nameofFeature = FindDocument(root, "Nameof feature name is formatted");
+        FindTest(nameofFeature, "Scenario", "Nameof scenario name is formatted");
+        FindTest(nameofFeature, "ScenarioOutline", "Nameof scenario outline name is formatted");
+
+        var nameofSpecification = FindDocument(root, "Nameof specification name is formatted");
+        FindTest(nameofSpecification, "Rule", "Nameof rule name is formatted");
+        FindTest(nameofSpecification, "RuleOutline", "Nameof rule outline name is formatted");
+        FindTest(nameofSpecification, "RuleOutline", "Dividing <a> by <b> equals <expected>");
     }
 
     [Rule("The viewer export uses LiveDocProject assembly metadata when LIVEDOC_PROJECT is not set")]
-    public async Task Assembly_metadata_project_reaches_viewer_export()
+    public void Assembly_metadata_project_reaches_viewer_export()
     {
-        var result = await RunMetadataProbe(setProjectEnvironmentVariable: false);
+        var result = _probe.ExportResult;
         Assert.Equal(0, result.ExitCode);
 
         var root = ReadExport(result.ExportPath);
@@ -108,67 +140,15 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
     }
 
     [Rule("Discovery lists concrete RuleOutline and ScenarioOutline names for every serializable Example row")]
-    public async Task Outline_discovery_uses_concrete_example_names()
+    public void Outline_discovery_uses_concrete_example_names()
     {
-        var result = await RunMetadataProbe(listTests: true);
+        var result = _probe.DiscoveryResult;
         Assert.Equal(0, result.ExitCode);
 
         Assert.Contains("Rule: Rule outline sends '42' metadata", result.Output);
         Assert.Contains("Rule: Rule outline sends '100' metadata", result.Output);
         Assert.Contains("Scenario: Scenario outline sends 'retail' metadata", result.Output);
         Assert.Contains("Scenario: Scenario outline sends 'wholesale' metadata", result.Output);
-    }
-
-    private static async Task<ProbeResult> RunMetadataProbe(
-        bool setProjectEnvironmentVariable = true,
-        bool listTests = false,
-        [CallerFilePath] string filePath = "")
-    {
-        var specDirectory = Path.GetDirectoryName(filePath)!;
-        var projectPath = Path.Combine(specDirectory, "Fixtures", "MetadataProbe", "MetadataProbe.csproj");
-        var outputDirectory = Path.Combine(Path.GetTempPath(), "livedoc-xunit-metadata-probe", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(outputDirectory);
-        var exportPath = Path.Combine(outputDirectory, "livedoc-report.json");
-
-        var startInfo = IsolatedTestProcess.Create(projectPath, exportPath);
-        startInfo.ArgumentList.Add("--logger");
-        startInfo.ArgumentList.Add("LiveDoc");
-        if (listTests)
-            startInfo.ArgumentList.Add("--list-tests");
-        if (setProjectEnvironmentVariable)
-            startInfo.Environment["LIVEDOC_PROJECT"] = "xunit-metadata-probe";
-
-        using var process = Process.Start(startInfo)!;
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-
-        try
-        {
-            await process.WaitForExitAsync(timeout.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            if (!process.HasExited)
-            {
-                try
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-                catch (InvalidOperationException) when (process.HasExited)
-                {
-                }
-            }
-
-            await process.WaitForExitAsync();
-            var timedOutOutput = await stdoutTask + await stderrTask;
-            throw new TimeoutException($"Metadata probe timed out after 60 seconds.{Environment.NewLine}{timedOutOutput}");
-        }
-
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
-
-        return new ProbeResult(process.ExitCode, exportPath, stdout + stderr);
     }
 
     private static JsonObject ReadExport(string exportPath)
@@ -221,5 +201,96 @@ public class Attribute_Metadata_Output_Spec : SpecificationTest
         }
     }
 
-    private sealed record ProbeResult(int ExitCode, string ExportPath, string Output);
 }
+
+public sealed class AttributeMetadataProbeFixture : IAsyncLifetime
+{
+    private readonly List<string> _outputDirectories = [];
+
+    public MetadataProbeResult ExportResult { get; private set; } = null!;
+
+    public MetadataProbeResult DiscoveryResult { get; private set; } = null!;
+
+    public async Task InitializeAsync()
+    {
+        ExportResult = await RunMetadataProbe(listTests: false);
+        DiscoveryResult = await RunMetadataProbe(listTests: true);
+    }
+
+    public Task DisposeAsync()
+    {
+        foreach (var outputDirectory in _outputDirectories)
+        {
+            try
+            {
+                if (Directory.Exists(outputDirectory))
+                    Directory.Delete(outputDirectory, recursive: true);
+            }
+            catch
+            {
+                // Best-effort cleanup must not hide probe assertions.
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task<MetadataProbeResult> RunMetadataProbe(
+        bool listTests,
+        [CallerFilePath] string filePath = "")
+    {
+        var specDirectory = Path.GetDirectoryName(filePath)!;
+        var projectPath = Path.Combine(
+            specDirectory,
+            "Fixtures",
+            "MetadataProbe",
+            "MetadataProbe.csproj");
+        var outputDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "livedoc-xunit-metadata-probe",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(outputDirectory);
+        _outputDirectories.Add(outputDirectory);
+        var exportPath = Path.Combine(outputDirectory, "livedoc-report.json");
+
+        var startInfo = IsolatedTestProcess.Create(projectPath, exportPath);
+        startInfo.ArgumentList.Add("--logger");
+        startInfo.ArgumentList.Add("LiveDoc");
+        if (listTests)
+            startInfo.ArgumentList.Add("--list-tests");
+
+        using var process = Process.Start(startInfo)!;
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited)
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException) when (process.HasExited)
+                {
+                }
+            }
+
+            await process.WaitForExitAsync();
+            var timedOutOutput = await stdoutTask + await stderrTask;
+            throw new TimeoutException(
+                $"Metadata probe timed out after 60 seconds.{Environment.NewLine}{timedOutOutput}");
+        }
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+        return new MetadataProbeResult(process.ExitCode, exportPath, stdout + stderr);
+    }
+}
+
+public sealed record MetadataProbeResult(int ExitCode, string ExportPath, string Output);

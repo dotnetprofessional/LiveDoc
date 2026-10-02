@@ -24,6 +24,7 @@ public class LiveDocTestRunReporter : IDisposable
 
     private readonly LiveDocReporter _reporter;
     private readonly ConcurrentDictionary<string, TestCase> _testCases = new();
+    private readonly ConcurrentDictionary<string, BackgroundTest> _backgrounds = new();
     private readonly ConcurrentDictionary<string, BaseTest> _tests = new();
     private readonly ConcurrentDictionary<string, string> _testToTestCase = new();
     private readonly ConcurrentDictionary<string, Models.Status> _recordedResults = new();
@@ -162,6 +163,28 @@ public class LiveDocTestRunReporter : IDisposable
 
     private TestCase BuildTestCasePayload(TestCase testCase)
     {
+        if (_backgrounds.TryGetValue(testCase.Id, out var background))
+        {
+            lock (background)
+            {
+                testCase.Background = new BackgroundTest
+                {
+                    Id = background.Id,
+                    Title = background.Title,
+                    Execution = CopyExecution(background.Execution),
+                    Steps = background.Steps.Select(step => new StepTest
+                    {
+                        Id = step.Id,
+                        Title = step.Title,
+                        Description = step.Description,
+                        Keyword = step.Keyword,
+                        Execution = CopyExecution(step.Execution),
+                        RuleViolations = step.RuleViolations
+                    }).ToList()
+                };
+            }
+        }
+
         // Gather tests belonging to this test case
         var testsForCase = _testToTestCase
             .Where(t => t.Value == testCase.Id)
@@ -277,6 +300,14 @@ public class LiveDocTestRunReporter : IDisposable
 
         return testCase;
     }
+
+    private static ExecutionResult CopyExecution(ExecutionResult execution) => new()
+    {
+        Status = execution.Status,
+        Duration = execution.Duration,
+        Error = execution.Error,
+        Attachments = execution.Attachments?.ToList()
+    };
 
     private void PublishTestCaseRealtime(string testCaseId)
     {
@@ -679,6 +710,58 @@ public class LiveDocTestRunReporter : IDisposable
     }
 
     /// <summary>
+    /// Aggregates a feature's background steps without counting each invocation as a test.
+    /// </summary>
+    public void RecordBackground(string testCaseId, List<StepTest> steps, Exception? failure)
+    {
+        var background = _backgrounds.GetOrAdd(testCaseId, id => new BackgroundTest
+        {
+            Id = GenerateBackgroundId(id),
+            Title = "Shared setup",
+            Execution = new ExecutionResult { Status = Models.Status.Pending }
+        });
+
+        lock (background)
+        {
+            var failed = failure != null || steps.Any(step => step.Execution.Status == Models.Status.Failed);
+            if (failed)
+            {
+                background.Execution.Status = Models.Status.Failed;
+                background.Execution.Error ??= failure == null
+                    ? steps.First(step => step.Execution.Status == Models.Status.Failed).Execution.Error
+                    : new ErrorInfo { Message = failure.Message, Stack = failure.StackTrace };
+            }
+            else if (background.Execution.Status != Models.Status.Failed)
+            {
+                background.Execution.Status = Models.Status.Passed;
+            }
+
+            background.Execution.Duration += steps.Sum(step => step.Execution.Duration);
+            foreach (var step in steps)
+            {
+                var recorded = background.Steps.FirstOrDefault(existing => existing.Id == step.Id);
+                if (recorded == null)
+                {
+                    background.Steps.Add(step);
+                    continue;
+                }
+
+                recorded.Execution.Duration += step.Execution.Duration;
+                if (step.Execution.Status == Models.Status.Failed)
+                {
+                    recorded.Execution.Status = Models.Status.Failed;
+                    recorded.Execution.Error ??= step.Execution.Error;
+                }
+                if (step.Execution.Attachments is { Count: > 0 })
+                {
+                    recorded.Execution.Attachments ??= new List<Attachment>();
+                    recorded.Execution.Attachments.AddRange(step.Execution.Attachments);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Buffers a scenario/rule test result (non-outline).
     /// Uses TryAdd to avoid overwriting data already provided by LiveDocContext.
     /// </summary>
@@ -912,7 +995,8 @@ public class LiveDocTestRunReporter : IDisposable
         string testId,
         Models.Status status,
         long duration,
-        ErrorInfo? error = null)
+        ErrorInfo? error = null,
+        List<Attachment>? attachments = null)
     {
         if (!_tests.TryGetValue(outlineId, out var test))
             return;
@@ -925,7 +1009,8 @@ public class LiveDocTestRunReporter : IDisposable
                 RowId = rowId,
                 Status = status,
                 Duration = duration,
-                Error = error
+                Error = error,
+                Attachments = attachments
             }
         };
 
@@ -1244,7 +1329,8 @@ public class LiveDocTestRunReporter : IDisposable
         string testId,
         Models.Status status,
         long duration,
-        ErrorInfo? error = null)
+        ErrorInfo? error = null,
+        List<Attachment>? attachments = null)
     {
         if (_tests.TryGetValue(testId, out var test))
         {
@@ -1252,7 +1338,8 @@ public class LiveDocTestRunReporter : IDisposable
             {
                 Status = status,
                 Duration = duration,
-                Error = error
+                Error = error,
+                Attachments = attachments ?? test.Execution.Attachments
             };
         }
     }
@@ -1354,6 +1441,8 @@ public class LiveDocTestRunReporter : IDisposable
         return $"TestCase:{testClass.FullName ?? testClass.Name}";
     }
 
+    public static string GenerateBackgroundId(string testCaseId) => $"{testCaseId}:background";
+
     /// <summary>
     /// Generates a stable ID for a scenario/rule (non-outline).
     /// Includes args hash for unique per-invocation identification.
@@ -1406,45 +1495,29 @@ public class LiveDocTestRunReporter : IDisposable
 
     /// <summary>
     /// Derives a navigation path from a test class type.
-    /// Strips the assembly name prefix and converts namespace separators to slashes.
-    /// E.g., SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Scenario.MySpec → WritingFeatures/Scenario/MySpec.cs
+    /// Preserves the declared namespace as folders, independent of assembly identity.
+    /// The class name remains a file leaf and does not become a navigation folder.
     /// </summary>
     public static string DerivePath(Type testClass)
     {
         var fullName = testClass.FullName ?? testClass.Name;
-        var assemblyName = testClass.Assembly.GetName().Name ?? "";
-        return DerivePathFromNames(fullName, assemblyName);
+        return DerivePathFromNames(fullName);
     }
 
     /// <summary>
-    /// Derives a navigation path from class and assembly name strings.
+    /// Derives a navigation path from a fully qualified class name.
     /// Used by MessageSink which has ITypeInfo instead of Type.
     /// </summary>
-    public static string DerivePathFromNames(string fullClassName, string assemblyName)
+    public static string DerivePathFromNames(string fullClassName)
     {
-        var relativeName = fullClassName;
-
-        if (!string.IsNullOrWhiteSpace(assemblyName))
-        {
-            var marker = assemblyName + ".";
-
-            if (relativeName.StartsWith(marker, StringComparison.Ordinal))
-            {
-                relativeName = relativeName.Substring(marker.Length);
-            }
-            else
-            {
-                var markerIndex = relativeName.IndexOf(marker, StringComparison.Ordinal);
-                if (markerIndex >= 0)
-                {
-                    relativeName = relativeName.Substring(markerIndex + marker.Length);
-                }
-            }
-        }
-
-        // Convert dots to slashes
-        return relativeName.Replace('.', '/') + ".cs";
+        return fullClassName.Replace('.', '/') + ".cs";
     }
+
+    /// <summary>
+    /// Compatibility overload. Assembly identity does not affect namespace navigation.
+    /// </summary>
+    public static string DerivePathFromNames(string fullClassName, string assemblyName)
+        => DerivePathFromNames(fullClassName);
 
     private static string ComputeHash(string input)
     {
@@ -1460,6 +1533,7 @@ public class LiveDocTestRunReporter : IDisposable
     private void Reset()
     {
         _testCases.Clear();
+        _backgrounds.Clear();
         _tests.Clear();
         _testToTestCase.Clear();
         _recordedResults.Clear();

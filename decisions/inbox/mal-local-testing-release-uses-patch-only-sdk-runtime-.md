@@ -1,0 +1,5 @@
+### 2026-10-01T01-32-52: Local testing release uses patch-only SDK/runtime versions and a local Schema companion
+**By:** Mal
+**What:** Local testing release uses patch-only SDK/runtime versions and a local Schema companion
+**References:** releases/local-release-20260930.json, scripts/validate-release.ps1
+**Why:** 2026-09-30 local-testing release: Vitest 0.3.3, Viewer 0.3.5, Server 0.3.1, xUnit 0.3.0.6. Schema remains 0.3.1 and VS Code unchanged. Both the public npm registry and configured feed returned E404 for Schema 0.3.1, so standalone Server consumers must install the locally packed Schema 0.3.1 companion together with Server. Viewer embeds the current Server/Schema runtime closure and installs offline. Artifacts remain under releases; no publishing, tagging, staging, committing, branch switching, or OneDrive copy. The existing dirty worktree and staged index were preserved.

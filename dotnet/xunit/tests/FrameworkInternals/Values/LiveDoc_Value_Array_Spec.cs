@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.FrameworkInternals.Values;
     LiveDocValueArray provides bounds-checked indexing over extracted values.
     It supports tuple deconstruction and typed conversion via As<T1,T2,...>,
     throwing LiveDocValueIndexException with helpful context on out-of-range access.")]
+[Tag("values")]
 public class LiveDoc_Value_Array_Spec : SpecificationTest
 {
     public LiveDoc_Value_Array_Spec(ITestOutputHelper output) : base(output)

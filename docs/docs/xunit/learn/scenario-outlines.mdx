@@ -267,15 +267,14 @@ public void GST_and_shipping(
 
 ## Step 5: Adding Descriptions
 
-Use the `Description` property to document the business rules behind the outline:
+Use the optional `Description` property to clarify the scope of an outline;
+the step titles and example rows show its inputs and expected results:
 
 ```csharp
 [ScenarioOutline("Calculate shipping rates",
     Description = @"
-    Shipping rules:
-    - Australian orders $100+ get free shipping
-    - Australian orders under $100 pay $9.95 domestic
-    - All international orders pay $25 flat rate
+    Covers the Australian threshold and a representative
+    international destination; other destinations need examples.
 ")]
 [Example("Australia", 100.00, "Free")]
 [Example("Australia", 99.99, "Standard Domestic")]
@@ -381,7 +380,7 @@ for details.
 - **Method parameters** — typed, compile-time safe access to example data (recommended)
 - **`Example` property** — dynamic access when needed
 - **`<Placeholder>`** — replaced with values in formatted output
-- **`Description`** — document the business rules behind the data
+- **`Description`** — optionally clarify purpose or scope without repeating the example data
 - **`[RuleOutline]`** — same pattern for Specification tests
 - **Method name placeholders** — `_ALLCAPS` segments auto-map to parameters
 

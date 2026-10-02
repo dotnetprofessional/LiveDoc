@@ -33,8 +33,10 @@ export function useDeepLink(): void {
     projectGrouping,
     unresolvedDeepLink,
     setUnresolvedDeepLink,
+    deletionRevision,
   } = useStore();
   const suppressHashUpdate = useRef(false);
+  const lastDeletionRevision = useRef(deletionRevision);
   const hydratingSourceRuns = useRef(new Set<string>());
   const [embedded] = useState(() => isEmbedded());
 
@@ -180,7 +182,8 @@ export function useDeepLink(): void {
   useEffect(() => {
     if (embedded) return;
     // Don't overwrite URL until the initial hash has been resolved
-    if (initialHash.current && !initialResolved.current) return;
+    if (initialHash.current && !initialResolved.current && lastDeletionRevision.current === deletionRevision) return;
+    if (lastDeletionRevision.current !== deletionRevision) initialResolved.current = true;
 
     if (suppressHashUpdate.current) {
       suppressHashUpdate.current = false;
@@ -207,8 +210,11 @@ export function useDeepLink(): void {
 
     // Only update if hash actually changed (avoid pushing duplicate history)
     if (hash !== currentHash && !(hash === '' && currentHash === '')) {
-      window.history.pushState(null, '', hash || window.location.pathname + window.location.search);
+      const nextUrl = hash || window.location.pathname + window.location.search;
+      if (lastDeletionRevision.current !== deletionRevision) window.history.replaceState(null, '', nextUrl);
+      else window.history.pushState(null, '', nextUrl);
     }
+    lastDeletionRevision.current = deletionRevision;
   }, [
     embedded,
     currentView,
@@ -218,6 +224,7 @@ export function useDeepLink(): void {
     selectedRunId,
     selectedRunView,
     unresolvedDeepLink,
+    deletionRevision,
   ]);
 
   // ── Resolve initial hash when run data becomes available ──────

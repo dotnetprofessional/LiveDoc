@@ -160,6 +160,16 @@ The generated HTML is completely self-contained:
 - **Dark theme** — matches the Viewer's default appearance
 - **Zero external dependencies** — no CDN links, no fetch calls, no internet needed
 
+:::caution Review sensitive evidence before sharing
+The HTML contains **every** test title, error, and attachment, including
+base64-embedded screenshots and API evidence. Base64 is not redaction or
+access control: recipients can extract the original data. Before uploading,
+emailing, or publishing a report, remove or redact tokens, cookies,
+authorization headers, personal data, and sensitive screen or response
+content at the source. Restrict who can access the artifact or Pages site
+and set an appropriate retention policy for CI artifacts.
+:::
+
 :::tip File size expectations
 | Content | Typical size |
 |---------|-------------|

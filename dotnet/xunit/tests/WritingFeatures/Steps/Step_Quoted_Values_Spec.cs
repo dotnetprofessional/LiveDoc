@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Steps;
     Single-quoted values in step descriptions are automatically extracted
     into ctx.Step.Values. The array supports indexing, tuple deconstruction,
     typed conversion, and bounds-checked access with helpful errors.")]
+[Tag("steps")]
 public class Step_Quoted_Values_Spec : FeatureTest
 {
     public Step_Quoted_Values_Spec(ITestOutputHelper output) : base(output)

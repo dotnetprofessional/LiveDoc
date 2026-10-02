@@ -11,6 +11,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     This feature tests that descriptions are displayed correctly.
     The description should appear below the Feature header.
 ")]
+[Tag("reporting")]
 public class Description_Display_Spec : FeatureTest
 {
     public Description_Display_Spec(ITestOutputHelper output) : base(output)

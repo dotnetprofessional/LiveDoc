@@ -6,6 +6,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.GettingStarted;
 [Specification("First Specification", Description = @"
     A minimal MSpec-style example that shows how a rule title can carry
     the inputs and expected result while the assertion extracts those values.")]
+[Tag("getting-started")]
 public class FirstSpecification_Spec : SpecificationTest
 {
     public FirstSpecification_Spec(ITestOutputHelper output) : base(output) { }

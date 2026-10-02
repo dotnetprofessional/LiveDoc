@@ -17,8 +17,8 @@ All specification tests inherit from `SpecificationTest`:
 
 ```csharp
 [Specification("Calculator Operations", Description = @"
-    Core arithmetic operations for the calculator module.
-    Uses the specification pattern for cleaner unit tests.
+    Callers can rely on the arithmetic results covered
+    by these rules.
 ")]
 public class CalculatorSpec : SpecificationTest
 {
@@ -35,6 +35,14 @@ public class CalculatorSpec : SpecificationTest
 | `Example`       | `dynamic?`             | Current outline example row (RuleOutline only)   |
 
 **Key difference from BDD**: No step methods (Given/When/Then). Rules contain direct assertions.
+
+Specification, Rule, and RuleOutline titles supplied through `nameof(...)`
+replace identifier underscores with spaces. Literal strings preserve underscores:
+
+```csharp
+[Specification(nameof(Calculator_operations))] // "Calculator operations"
+[Rule("LIVEDOC_RUN_TYPE")]                     // "LIVEDOC_RUN_TYPE"
+```
 
 ---
 
@@ -53,7 +61,7 @@ public class CalculatorSpec : SpecificationTest { ... }
 
 // Title + description (strongly encouraged)
 [Specification("Calculator Operations", Description = @"
-    Core arithmetic operations for the calculator module.
+    Callers can rely on the arithmetic results covered by these rules.
 ")]
 public class CalculatorSpec : SpecificationTest { ... }
 ```
@@ -63,9 +71,15 @@ public class CalculatorSpec : SpecificationTest { ... }
 | `title`       | `string` | No       | Spec title (defaults to formatted class name) |
 | `Description` | `string` | No       | Multi-line description text          |
 
-### `[Rule]` — Method Attribute (single assertion)
+Use the optional description to explain why this contract matters to its
+callers. Rule titles, examples, and assertions provide the evidence; do not
+imply integration or business outcomes that the rules do not observe.
 
-Inherits from xUnit's `[Fact]`. Each rule is one test with direct assertions — no steps.
+### `[Rule]` — Method Attribute (one independent claim)
+
+Inherits from xUnit's `[Fact]`. Each rule reports one independent contract
+claim with direct assertions — no Given/When/Then steps. Multiple assertions
+are fine when together they prove that one claim.
 
 ```csharp
 // Auto-derived from method name (underscores → spaces)
@@ -75,8 +89,10 @@ public void Adding_positive_numbers_works()
     Assert.Equal(8, Add(5, 3));
 }
 
-// Explicit description with embedded values
-[Rule("Adding '5' and '3' returns '8'")]
+// Explicit title with embedded values and optional supporting prose
+[Rule(
+    "Adding '5' and '3' returns '8'",
+    Description = "Covers positive integer inputs; overflow is not exercised here.")]
 public void Add_with_values()
 {
     var (a, b, expected) = Rule.Values.As<int, int, int>();
@@ -96,8 +112,8 @@ public void Subtract_with_named_params()
 
 | Parameter       | Type     | Required | Description                                |
 | --------------- | -------- | -------- | ------------------------------------------ |
-| `description`   | `string` | No       | Rule description with optional `'value'` or `<name:value>` |
-| `testMethodName`| `string` | No       | Auto-populated via `[CallerMemberName]`     |
+| `title`         | `string` | No       | Rule title with optional `'value'` or `<name:value>` |
+| `Description`   | `string` | No       | Secondary Markdown prose                    |
 
 **Supports `async`:**
 ```csharp
@@ -114,8 +130,10 @@ public async Task Async_rule()
 Inherits from xUnit's `[Theory]`. Runs once per `[Example]` row.
 
 ```csharp
-// With explicit description — <placeholder> replaced in output
-[RuleOutline("Adding '<a>' and '<b>' returns '<result>'")]
+// Title and description templates bind to the selected example row
+[RuleOutline(
+    "Adding '<a>' and '<b>' returns '<result>'",
+    Description = "Integer inputs <a> and <b> are covered; overflow is outside this example.")]
 [Example(1, 2, 3)]
 [Example(5, 5, 10)]
 [Example(-5, 5, 0)]
@@ -124,7 +142,7 @@ public void Addition_examples(int a, int b, int result)
     Assert.Equal(result, Add(a, b));
 }
 
-// Without description — method name placeholders used
+// Without a title — method name placeholders used
 [RuleOutline]
 [Example(10, 2, 5)]
 [Example(100, 10, 10)]
@@ -137,12 +155,12 @@ public void Dividing_A_by_B_returns_RESULT(int a, int b, int result)
 
 | Parameter       | Type     | Required | Description                                  |
 | --------------- | -------- | -------- | -------------------------------------------- |
-| `description`   | `string` | No       | Template with `<paramName>` placeholders      |
-| `testMethodName`| `string` | No       | Auto-populated via `[CallerMemberName]`       |
+| `title`         | `string` | No       | Positional title template with `<paramName>` placeholders |
+| `Description`   | `string` | No       | Optional secondary Markdown prose (also binds placeholders) |
 
 ### Method Name Placeholders
 
-When `[RuleOutline]` has no explicit description, the method name serves as the template:
+When `[RuleOutline]` has no explicit title, the method name serves as the template:
 
 ```csharp
 // Method name: Converting_INPUT_to_uppercase_returns_EXPECTED
@@ -191,7 +209,7 @@ public class CalculatorSpec : SpecificationTest { ... }
 
 ### Rule.Values — Quoted Values
 
-Extracted from the `[Rule]` description string. Use single quotes:
+Extracted from the `[Rule]` title string, not its optional `Description`. Use single quotes:
 
 ```csharp
 [Rule("Adding '5' and '3' returns '8'")]
@@ -243,7 +261,7 @@ public void Subtract_named()
 
 | Property    | Type                      | Description                              |
 | ----------- | ------------------------- | ---------------------------------------- |
-| `Name`      | `string`                  | Rule name (from method or description)   |
+| `Name`      | `string`                  | Rule name (from method or title)         |
 | `Description` | `string?`              | Rule description text                    |
 | `Tags`      | `string[]`                | Merged class + method tags               |
 | `Values`    | `LiveDocValueArray`       | Quoted values from description           |
@@ -279,25 +297,31 @@ using Xunit.Abstractions;
 namespace MyApp.Tests.Validation;
 
 [Specification("Email Validation Rules", Description = @"
-    Validates email format using RFC-compliant checks.
-    Covers valid formats, invalid formats, and edge cases.
+    Helps callers reject the malformed address shapes covered
+    by these rules before using an address.
 ")]
 public class EmailValidationSpec : SpecificationTest
 {
     public EmailValidationSpec(ITestOutputHelper output) : base(output) { }
 
-    [Rule("Empty emails are always invalid")]
+    [Rule("Empty email '' is invalid")]
     public void Empty_email_is_invalid()
     {
-        Assert.False(IsValidEmail(""));
-        Assert.False(IsValidEmail(null!));
+        Assert.False(IsValidEmail(Rule.Values[0].AsString()));
     }
 
-    [Rule("Email must contain exactly one '@' symbol")]
-    public void Must_contain_at_symbol()
+    [Rule("Null email is invalid")]
+    public void Null_email_is_invalid()
     {
-        Assert.False(IsValidEmail("nodomain.com"));
-        Assert.False(IsValidEmail("two@@domain.com"));
+        Assert.False(IsValidEmail(null));
+    }
+
+    [RuleOutline("Email '<email>' is invalid without exactly one at-sign")]
+    [Example("nodomain.com")]
+    [Example("two@@domain.com")]
+    public void Must_contain_at_symbol(string email)
+    {
+        Assert.False(IsValidEmail(email));
     }
 
     [RuleOutline("Email '<email>' is <validity>")]
@@ -326,7 +350,8 @@ public class EmailValidationSpec : SpecificationTest
     {
         if (string.IsNullOrWhiteSpace(email)) return false;
         var atIndex = email.IndexOf('@');
-        return atIndex > 0 && atIndex < email.Length - 1 && !email.Contains(' ');
+        return atIndex > 0 && atIndex == email.LastIndexOf('@')
+            && atIndex < email.Length - 1 && !email.Contains(' ');
     }
 }
 ```
@@ -337,13 +362,15 @@ public class EmailValidationSpec : SpecificationTest
 
 | Use Specification When...                    | Use BDD/Feature When...                       |
 | -------------------------------------------- | --------------------------------------------- |
-| Testing APIs, utilities, algorithms          | Testing user journeys and business flows       |
-| Developer-only audience                       | Business + technical audience                  |
+| Precise business policies or technical contracts | User and operator workflows                 |
+| Readers inspect exact rules and examples          | Readers follow a Given/When/Then narrative  |
 | Many input variations (data-driven)           | Narrative scenarios with Given/When/Then       |
 | Direct assertions without ceremony            | Step-by-step workflow documentation            |
-| Single-assertion rules                        | Multi-step scenarios with state transitions    |
+| One independent claim per reported rule       | Multi-step scenarios with state transitions    |
 
-**You can mix both patterns** in the same test project. Use `[Feature]` for acceptance tests and `[Specification]` for unit/component tests.
+**You can mix both patterns** under the same business capability namespace.
+Use `[Feature]` for workflows and `[Specification]` for exact policies and
+contracts, even when product stakeholders want to read the rules.
 
 ---
 
@@ -351,9 +378,9 @@ public class EmailValidationSpec : SpecificationTest
 
 | Exception                     | Cause                                          | Fix                                          |
 | ----------------------------- | ---------------------------------------------- | -------------------------------------------- |
-| `LiveDocConversionException`  | Invalid type conversion (e.g., `'abc'.AsInt()`) | Check quoted value format in `[Rule]` description |
-| `LiveDocValueIndexException`  | `Rule.Values[n]` beyond available count         | Verify quoted value count in description     |
-| `LiveDocParamNotFoundException` | `Rule.Params["x"]` for non-existent parameter | Check `<name:value>` syntax in description   |
+| `LiveDocConversionException`  | Invalid type conversion (e.g., `'abc'.AsInt()`) | Check quoted value format in `[Rule]` title |
+| `LiveDocValueIndexException`  | `Rule.Values[n]` beyond available count         | Verify quoted value count in title     |
+| `LiveDocParamNotFoundException` | `Rule.Params["x"]` for non-existent parameter | Check `<name:value>` syntax in title   |
 | Test not in Test Explorer     | Missing `[Rule]` attribute                      | Add `[Rule]` — it inherits from `[Fact]`     |
 | Placeholder not replaced      | `_PARAM_` doesn't match parameter name          | Match case-insensitively in method name      |
 
@@ -362,21 +389,23 @@ public class EmailValidationSpec : SpecificationTest
 ## Attachments and Evidence
 
 Specifications can call `Attach`, `AttachScreenshot`, `AttachFile`, or
-`AttachJson` after asserting the contract. Read `resources/evidence.md` for the
-supported APIs and redaction rules.
+`AttachJson` to document meaningful evidence. Attach selected, sanitized
+fields before an assertion that may fail, or after a successful assertion.
+Read `resources/evidence.md` for the supported APIs and redaction rules.
 
 ---
 
 ## Validation Checklist
 
 - [ ] Class inherits `SpecificationTest` and has `[Specification]` attribute
-- [ ] `Description` provided on `[Specification]` attribute
+- [ ] If provided, `[Specification]` `Description` explains why the tested contract matters without overclaiming
+- [ ] Each Rule reports one independent claim (multiple assertions may establish that same claim)
 - [ ] Constructor accepts `ITestOutputHelper` and passes to `base(output)`
 - [ ] Each rule method has `[Rule]` or `[RuleOutline]` attribute
-- [ ] Quoted values in `[Rule]` descriptions are extracted via `Rule.Values`, never hardcoded
+- [ ] Quoted values in `[Rule]` titles are extracted via `Rule.Values`, never hardcoded
 - [ ] Named parameters use `<name:value>` syntax and `Rule.Params["name"]`
 - [ ] `[Example]` parameter count matches method parameter count
-- [ ] `<Placeholder>` names in descriptions match method parameter names
+- [ ] `<Placeholder>` names in RuleOutline titles and descriptions match method parameter names
 - [ ] Method name placeholders use `_ALLCAPS_` segments matching parameter names
 - [ ] Attachments are redacted and support an explicit assertion
 - [ ] Tests pass: `dotnet test`

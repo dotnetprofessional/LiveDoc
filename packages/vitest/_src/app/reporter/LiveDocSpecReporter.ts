@@ -952,6 +952,9 @@ export default class LiveDocSpecReporter implements Reporter {
         if (Array.isArray(meta?.rule?.tags)) {
             rule.tags = meta.rule.tags;
         }
+        if (Array.isArray(meta.rule.attachments)) {
+            rule.attachments = meta.rule.attachments;
+        }
         
         // Set status based on task result
         const taskState = task.result?.state || 'unknown';
@@ -1065,6 +1068,9 @@ export default class LiveDocSpecReporter implements Reporter {
 
         example.example = this.sanitizeExampleKeys(values);
         example.exampleRaw = valuesRaw && typeof valuesRaw === 'object' ? this.sanitizeExampleKeys(valuesRaw) : example.example;
+        if (Array.isArray(meta.ruleOutline.example.attachments)) {
+            example.attachments = meta.ruleOutline.example.attachments;
+        }
         
         // Set status based on task result
         const taskState = task.result?.state || 'unknown';

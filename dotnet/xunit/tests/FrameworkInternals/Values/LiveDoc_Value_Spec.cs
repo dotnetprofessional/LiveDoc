@@ -14,6 +14,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.FrameworkInternals.Values;
     LiveDocValue wraps a raw string and provides type-safe conversion
     methods: AsInt(), AsLong(), AsDecimal(), AsDouble(), AsBool(),
     AsDateTime(), and As<T>() for enums, arrays, and nullable types.")]
+[Tag("values")]
 public class LiveDoc_Value_Spec : SpecificationTest
 {
     public LiveDoc_Value_Spec(ITestOutputHelper output) : base(output)

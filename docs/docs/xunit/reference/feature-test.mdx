@@ -89,6 +89,18 @@ Task Given(string title, Func<LiveDocContext, Task> action);
 
 All five keywords (`Given`, `When`, `Then`, `And`, `But`) share these same overloads. See the [Step Methods](./step-methods.mdx) reference for full details.
 
+### JSON evidence {#json-evidence}
+
+Call the inherited `AttachJson(data, title)` inside a step to attach JSON
+evidence to that step. Newtonsoft.Json `JObject`, `JArray`, and JSON-compatible
+`JValue` values can be passed directly, including tokens nested in CLR objects
+or collections; pre-serialization is unnecessary. The same serialization
+contract applies to Specification rules. See
+[Newtonsoft JSON tokens](./specification-test.mdx#newtonsoft-json-tokens)
+for a typed example, automatic runtime dependency, and unsupported-token
+diagnostics. Ordinary CLR serialization and raw JSON string pass-through
+remain unchanged.
+
 ### `EnsureContext()` {#ensurecontext}
 
 ```csharp
@@ -271,13 +283,13 @@ public void Discount_for_membership(string tier, double discount)
 
 ```csharp
 [Feature("Order Processing", Description = @"
-    End-to-end order processing workflow including
-    validation, payment, and fulfillment steps.")]
+    Keeps confirmation predictable for standard
+    orders when they are submitted.")]
 public class OrderTests : FeatureTest
 {
     public OrderTests(ITestOutputHelper output) : base(output) { }
 
-    [Scenario(Description = "Validates the happy path for standard orders")]
+    [Scenario(Description = "Assumes a valid order; payment and fulfillment need separate coverage.")]
     public void Standard_order_flow()
     {
         Given("a valid order", () => { /* ... */ });

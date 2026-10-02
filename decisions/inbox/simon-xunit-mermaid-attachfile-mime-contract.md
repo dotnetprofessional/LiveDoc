@@ -1,0 +1,5 @@
+### 2026-09-26T00-12-05: xUnit Mermaid AttachFile MIME contract
+**By:** Simon
+**What:** xUnit Mermaid AttachFile MIME contract
+**References:** dotnet/xunit/src/LiveDocTestBase.cs, dotnet/xunit/tests/AttachingEvidence/Attachment_Api_Spec.cs, dotnet/xunit/tests/ReportingOutput/Authoritative_Result_Output_Spec.cs
+**Why:** Map both .mmd and .mermaid files in LiveDocTestBase.AttachFile to text/vnd.mermaid with kind file. The Viewer recognizes this MIME even when a caller supplies a custom attachment title without an extension. Preserve UTF-8 source bytes in base64 and cover both extensions plus title handling with an xUnit feature outline; assert the same metadata and original bytes at the reporter JSON export boundary. A tagged xUnit partial run was verified in the Viewer, including the rendered custom-title diagram.

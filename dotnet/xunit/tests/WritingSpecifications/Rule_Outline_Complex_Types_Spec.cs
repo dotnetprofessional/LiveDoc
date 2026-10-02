@@ -9,6 +9,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
 [Specification("Rule Outline Complex Types", Description = @"
     [RuleOutline] supports complex types such as enums in [Example] data.
     Values are passed as strongly-typed method parameters by xUnit.")]
+[Tag("rule-outlines")]
 public class Rule_Outline_Complex_Types_Spec : SpecificationTest
 {
     public Rule_Outline_Complex_Types_Spec(ITestOutputHelper output) : base(output)

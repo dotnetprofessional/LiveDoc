@@ -6,6 +6,14 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+## [0.3.3] - 2026-09-30 (local testing)
+
+- Updated the packaged AI skill with canonical project naming, exact temporary project/run cleanup, purpose-first descriptions, and clearer Specification and Rule Outline guidance.
+
+## [0.3.2] - 2026-09-28 (local testing)
+
+- Added Rule and Rule Outline example attachment APIs, including screenshots and JSON, with evidence preserved per rule or example in console and Viewer reports.
+
 ## [0.3.0] - 2026-08-29
 
 ### Added

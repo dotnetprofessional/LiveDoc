@@ -212,6 +212,11 @@ function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+function isSafeDeleteId(id: string): boolean {
+  return id.length > 0 && id.length <= 255 && !id.endsWith('.') &&
+    id.trim() === id && !/[<>:"/\\|?*\x00-\x1f]/.test(id);
+}
+
 export interface ServerOptions {
   port?: number;
   host?: string;
@@ -318,7 +323,7 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   const runStoreError = (error: unknown): { status: 404 | 409 | 410 | 500; body: { error: string; code: string } } => {
     if (error instanceof RunStoreError) {
       if (error.code === 'run-cancelled') return { status: 410, body: { error: error.message, code: error.code } };
-      if (error.code === 'no-baseline' || error.code === 'run-active' || error.code === 'framework-mismatch' || error.code === 'dependent-run') {
+      if (error.code === 'no-baseline' || error.code === 'run-active' || error.code === 'framework-mismatch' || error.code === 'dependent-run' || error.code === 'project-busy') {
         return { status: 409, body: { error: error.message, code: error.code } };
       }
       return { status: 404, body: { error: error.message, code: error.code } };
@@ -458,34 +463,6 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
     return c.json(legacyRunResponse(run));
   });
 
-  // Delete a run
-  app.delete('/api/runs/:runId', async (c) => {
-    const runId = c.req.param('runId');
-    const run = store.getRun(runId);
-
-    if (!run) {
-      return c.json({ error: 'Run not found' }, 404);
-    }
-
-    if (store.cancelRun(runId)) {
-      return c.json({ success: true });
-    }
-
-    let deleted: boolean;
-    try {
-      deleted = await store.deleteRun(runId);
-    } catch (error) {
-      const apiError = runStoreError(error);
-      return c.json(apiError.body, apiError.status);
-    }
-
-    if (deleted) {
-      return c.json({ success: true });
-    }
-
-    return c.json({ error: 'Failed to delete run' }, 500);
-  });
-
   // Get runs for project
   app.get('/api/projects/:project/:environment/runs', (c) => {
     const project = c.req.param('project');
@@ -550,6 +527,30 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
       return c.json({ error: 'Run not found' }, 404);
     }
     return c.json(run);
+  });
+
+  app.delete('/api/v1/runs/:runId', async (c) => {
+    const runId = c.req.param('runId');
+    if (!isSafeDeleteId(runId)) return c.json({ error: 'Invalid run ID' }, 400);
+    try {
+      if (!await store.deleteRun(runId)) return c.json({ error: 'Run not found' }, 404);
+      return c.json({ success: true });
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
+  });
+
+  app.delete('/api/v1/projects/:project', async (c) => {
+    const project = c.req.param('project');
+    if (!isSafeDeleteId(project)) return c.json({ error: 'Invalid project ID' }, 400);
+    try {
+      if (!await store.deleteProject(project)) return c.json({ error: 'Project not found' }, 404);
+      return c.json({ success: true });
+    } catch (error) {
+      const apiError = runStoreError(error);
+      return c.json(apiError.body, apiError.status);
+    }
   });
 
   app.get('/api/v1/diagnostics', (c) => {
@@ -928,6 +929,8 @@ export function createServer(options: ServerOptions = {}): LiveDocServer {
   // Unversioned endpoints remain supported for existing reporters. Their
   // lifecycle semantics and persisted data are delegated to the v1 model.
   app.post('/api/runs/start', (c) => forwardToV1(c.req.raw, '/api/v1/runs/start'));
+  app.delete('/api/runs/:runId', (c) =>
+    forwardToV1(c.req.raw, `/api/v1/runs/${encodeURIComponent(c.req.param('runId'))}`));
   app.post('/api/runs/:runId/complete', (c) =>
     forwardToV1(c.req.raw, `/api/v1/runs/${c.req.param('runId')}/complete`));
 

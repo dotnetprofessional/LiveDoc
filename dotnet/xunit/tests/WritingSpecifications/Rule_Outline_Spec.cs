@@ -16,6 +16,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.WritingSpecifications;
     It allows data-driven testing with [Example] attributes.
     The rule description can include <placeholder> syntax.
 ")]
+[Tag("rule-outlines")]
 public class Rule_Outline_Spec : SpecificationTest
 {
     public Rule_Outline_Spec(ITestOutputHelper output) : base(output)
@@ -34,15 +35,16 @@ public class Rule_Outline_Spec : SpecificationTest
         Assert.Equal(expected, a + b);
     }
 
-    [Rule("A single positional RuleOutline narrative is stored as its authored description")]
-    public void Positional_narrative_binds_as_description()
+    [Rule("A positional RuleOutline narrative is stored as title without duplicating its description")]
+    public void Positional_narrative_is_title_only()
     {
         var method = typeof(Rule_Outline_Spec).GetMethod(nameof(Basic_addition));
         var attribute = method?.GetCustomAttributes(typeof(RuleOutlineAttribute), false)
             .Cast<RuleOutlineAttribute>()
             .Single();
 
-        Assert.Equal("Adding '<a>' and '<b>' equals '<expected>'", attribute?.Description);
+        Assert.Equal("Adding '<a>' and '<b>' equals '<expected>'", attribute?.Title);
+        Assert.Null(attribute?.Description);
     }
 
     [Rule("A parameterless RuleOutline continues to derive its narrative from the method name")]
@@ -60,8 +62,29 @@ public class Rule_Outline_Spec : SpecificationTest
         };
 
         Assert.Equal("Dividing 10 by 2 equals 5", attribute.GetDisplayName(method, values));
+        Assert.Null(attribute.Title);
         Assert.Null(attribute.Description);
-        Assert.Null(attribute.GetDescription(method));
+    }
+
+    [Rule("RuleOutline supports a separate title and description template")]
+    public void RuleOutline_supports_separate_title_and_description()
+    {
+        var method = typeof(Rule_Outline_Spec).GetMethod(nameof(Separate_description))!;
+        var attribute = method.GetCustomAttributes(typeof(RuleOutlineAttribute), false)
+            .Cast<RuleOutlineAttribute>()
+            .Single();
+
+        Assert.Equal("Policy '<policy>' is selected", attribute.Title);
+        Assert.Equal("The <policy> policy applies to this order.", attribute.Description);
+    }
+
+    [RuleOutline(
+        "Policy '<policy>' is selected",
+        Description = "The <policy> policy applies to this order.")]
+    [Example("express")]
+    public void Separate_description(string policy)
+    {
+        Assert.Equal("express", policy);
     }
 
     [Rule("An explicit RuleOutline DisplayName template takes precedence and substitutes example values")]

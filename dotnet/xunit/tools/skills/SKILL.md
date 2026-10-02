@@ -1,7 +1,7 @@
 ---
 name: livedoc-xunit
 description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the SweDevTools.LiveDoc.xUnit framework for C# and .NET. Generates self-documenting xUnit specs with correct attribute usage, value extraction, and living documentation patterns. Also covers Journey testing via annotated .http files.
-sdk_version: 0.3.0
+sdk_version: 0.4.0
 ---
 
 # LiveDoc xUnit Test Author
@@ -10,13 +10,17 @@ sdk_version: 0.3.0
 
 ## Version Check
 
-This skill targets **SweDevTools.LiveDoc.xUnit v0.3.0**. Before writing tests, verify the installed version matches:
+This skill targets **SweDevTools.LiveDoc.xUnit v0.4.0**. Before writing tests, verify the installed version matches:
 
-```bash
-dotnet list package | grep -i livedoc
+```text
+dotnet list package
 ```
 
-If the installed version differs from `0.3.0`, tell the developer: *"Your LiveDoc skill files target v0.3.0 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
+If the installed version differs from `0.4.0`, tell the developer: *"Your LiveDoc skill files target v0.4.0 but you have vX.Y.Z installed. Run `dotnet msbuild -t:LiveDocInstallSkills` to update the skill files, or check the changelog for breaking changes."*
+
+The `0.3.0.4` local testing build includes `BackgroundAsync` and the other
+changes listed in its changelog section. For APIs in future `[next release]`
+sections, check the installed assembly before using them.
 
 ## Use this skill when
 - Creating or modifying C# test classes using `SweDevTools.LiveDoc.xUnit`
@@ -53,9 +57,15 @@ If the installed version differs from `0.3.0`, tell the developer: *"Your LiveDo
 
 ## Workflow
 
+### Keep the project list intentional
+
+Configure one canonical project name for routine test runs rather than inventing a new name per agent invocation. Use temporary project names only when isolation is intentional. After an isolated run, clean up **only the exact temporary project or run you created** through the server API: `DELETE /api/v1/projects/{project}` removes that project's persisted runs across environments; `DELETE /api/v1/runs/{runId}` removes one completed run. Both return `{"success":true}` on success; a missing ID returns 404, and an active run returns 409. Neither DELETE requires a JSON body. Do not silently delete a user's existing project or a logical grouped name that represents multiple source projects; ask for explicit confirmation before permanent cleanup.
+
+Example: `curl -X DELETE "http://localhost:3100/api/v1/projects/TemporaryProject"` (check the HTTP status before accepting cleanup).
+
 1. Read `resources/test-strategy.md` and apply the two-question litmus.
 2. Select the lowest trustworthy boundary; use a test host unless a real process is load-bearing.
-3. Choose Feature or Specification by audience and journey shape.
+3. Choose Feature for a meaningful workflow narrative or Specification for an independently verifiable rule, including business policies; write a purpose-first description within the tested boundary.
 4. Read the matching syntax resource or `resources/journey-testing.md`.
 5. Use `resources/evidence.md` when attachments add reader value.
 6. Review `resources/anti-patterns.md`.
@@ -74,7 +84,7 @@ If the installed version differs from `0.3.0`, tell the developer: *"Your LiveDo
 **Use when**: Testing user journeys, business flows, acceptance criteria. Audience is business + technical. Tests read as Given/When/Then narratives.
 
 ```csharp
-[Feature("Shipping Costs", Description = "Business rules for shipping fees")]
+[Feature("Shipping Costs", Description = "Avoids assigning the wrong delivery tier for the tested destinations and totals.")]
 public class ShippingTests : FeatureTest
 {
     public ShippingTests(ITestOutputHelper output) : base(output) { }
@@ -102,16 +112,16 @@ public class ShippingTests : FeatureTest
 }
 ```
 
-**Key concepts**: `FeatureTest` base class, `[Feature]`, `[Scenario]`, `[ScenarioOutline]`, `[Example]`, Given/When/Then/And/But steps, `ctx.Step!.Values`, `ctx.Step!.Params`, async steps.
+**Key concepts**: `FeatureTest` base class, `[Feature]`, `[Scenario]`, `[ScenarioOutline]`, `[Example]`, per-invocation `BackgroundAsync`/`AfterBackgroundAsync` hooks, Given/When/Then/And/But steps, optional inline Markdown/JSON descriptions, `ctx.Step!.Values`, `ctx.Step!.Params`, async steps.
 
 → **Read `resources/features.md`** for complete attribute reference, all step method overloads, value extraction API, tuple deconstruction, named parameters, async patterns, error handling, and validation checklist.
 
 ### 2. Specifications (`resources/specifications.md`)
 
-**Use when**: Testing APIs, utilities, algorithms, data-driven edge cases. Developer-only audience. No Given/When/Then ceremony — direct assertions in rules.
+**Use when**: Documenting precise domain policies, API contracts, utilities, algorithms, or data-driven edge cases. Product stakeholders may inspect business-owned rules; direct assertions need no Given/When/Then ceremony.
 
 ```csharp
-[Specification("Calculator Operations", Description = "Core arithmetic rules")]
+[Specification("Calculator Operations", Description = "Callers can rely on the arithmetic results covered by these rules.")]
 public class CalculatorSpec : SpecificationTest
 {
     public CalculatorSpec(ITestOutputHelper output) : base(output) { }
@@ -150,7 +160,8 @@ public class CalculatorSpec : SpecificationTest
 
 ```http
 # Feature: Widget API
-# Scenario: Create and verify a widget
+# Description: Clients can create, retrieve, and delete a widget through the documented HTTP flow.
+# Scenario: Create, retrieve, and delete a widget
 
 # Given a new widget is created
 # @name createWidget
@@ -163,16 +174,32 @@ Content-Type: application/json
 
 ###
 
-# Then the widget can be retrieved
+# When the widget is retrieved
 # @name getWidget
 GET {{baseUrl}}/api/widgets/test-widget
 
 ?? status == 200
+
+###
+
+# Then the widget can be deleted
+# @name deleteWidget
+DELETE {{baseUrl}}/api/widgets/test-widget
+
+?? status == 204
 ```
 
 **Key concepts**: BDD comment annotations (`# Feature:`, `# Scenario:`, `# Given/When/Then`, `# @name`), `.Response.json` contract files, `property-rules.txt` for dynamic fields, capture mode, MSBuild configuration, generated `.Journey.cs` test classes.
 
 **Library-provided infrastructure** (`SweDevTools.LiveDoc.xUnit.Journeys` namespace): `JourneyFixtureBase` (server lifecycle + httpYac runner), `JourneyResult` / `StepResult` (output parser), `JsonAssertions` / `PropertyRules` (JSON comparison engine). Users create a minimal fixture subclass specifying their server path — all heavy lifting is built-in.
+
+**Journey lifecycle and performance**:
+- Configure one `LiveDocJourneyFixtureType` per application server. The generator creates `{FixtureType}Collection.cs` and places every generated Journey in that shared xUnit collection.
+- Generated and custom Journey classes must use `[Collection({FixtureType}Collection.Name)]`. Do not add `IClassFixture<T>` to each class; that starts and stops the server once per class.
+- Put any hand-written integration tests that use the same server in the same collection. Tests in the collection run sequentially, preventing shared-server state races.
+- Repeated `[LiveDoc Journey] Starting server` banners mean a class is outside the shared collection. Run `dotnet build -p:LiveDocJourneyMode=validate` to find lifecycle drift.
+- Use a separate fixture type and collection only for a genuinely independent server. Do not create a process-global static server.
+- If one startup remains but the run is still slow, measure server startup, `RunJourneyAsync`, and Viewer reporting separately; do not add sleeps or per-test restart logic.
 
 → **Read `resources/journey-testing.md`** for complete .http format reference, BDD annotation table, CRUD example, contract pattern, capture mode CLI/MSBuild, property-rules syntax, fixture setup, and validation checklist.
 
@@ -182,17 +209,30 @@ GET {{baseUrl}}/api/widgets/test-widget
 
 ### Namespace = Report Hierarchy
 
-The C# namespace determines the visual tree in the LiveDoc Viewer. Mirror domain boundaries:
+The complete declared C# namespace determines the visual tree in the LiveDoc
+Viewer, independently of the assembly name. Use business capabilities as
+namespace segments and place both patterns beneath them:
 
+```text
+MyApp
+└── Tests
+    ├── Accounts                           MyApp.Tests.Accounts
+    │   └── Registration Feature
+    └── Orders                             MyApp.Tests.Orders
+        ├── Checkout Feature
+        └── Pricing                        MyApp.Tests.Orders.Pricing
+            └── Shipping Rates Specification
 ```
-MyApp.Tests/
-├── Checkout/       → "Checkout" node in viewer
-│   └── CartSpec.cs
-├── Shipping/       → "Shipping" node
-│   └── CostsSpec.cs
-└── Auth/           → "Auth" node
-    └── LoginSpec.cs
-```
+
+For example, `MyApp.Tests.Orders.CheckoutFeature` reports the document path
+`MyApp/Tests/Orders/CheckoutFeature.cs`; the Viewer groups by the namespace
+directories and displays the authored Feature or Specification title as the
+document leaf. Neither the class name nor a nested type's declaring class
+becomes a folder. A namespace-free class reports `ClassName.cs` at the root.
+Assembly names remain available for project identity but never trim or supply
+namespace folders. Physical folders alone do not control the hierarchy. Do not default to
+`MyApp.Tests.Features.Orders` and `MyApp.Tests.Specs.Orders`: a product
+manager may read the precise Shipping rates rules beside Checkout.
 
 ### Required Usings
 
@@ -206,6 +246,13 @@ using Xunit.Abstractions;
 ### CRITICAL: Self-Documenting Tests
 
 **Embed all inputs and expected outputs in step/rule titles.** Extract them using the context API. Never hardcode values that appear in titles.
+
+Use the optional `[Feature]` or `[Specification]` `Description` to explain *why*
+the covered behavior matters; Scenario and Rule titles and assertions show
+*what* was tested. Keep that purpose within the boundary the tests observe:
+a calculator Rule does not prove a checkout flow, and a Journey response
+contract is not evidence that a customer saw the result. Read
+`resources/test-strategy.md` for examples and review checks.
 
 ```csharp
 // ✅ Values in title AND extracted from context
@@ -307,7 +354,7 @@ LiveDoc rule violations are validation failures even when xUnit exits successful
 
 1. Run the affected tests with LiveDoc reporting enabled and inspect the report/export, not only the xUnit exit code.
 2. Enumerate every document-, test-, and step-level `ruleViolations` entry and its owning title.
-3. Fix the test structure named by the violation. Use one meaningful Given, When, and Then in Features; use And/But for continuations; use Specifications for technical assertions that do not describe a behavioral journey.
+3. Fix the test structure named by the violation. Use a meaningful Given in the scenario or its Background, plus When and Then in the scenario; use And/But for continuations. Use Specifications for technical assertions that do not describe a behavioral journey.
 4. Do not silence violations with filler/no-op steps, blanket suppression, or weaker rules. Each step must communicate and observe real behavior.
 5. Keep deliberate malformed-Gherkin tests in an isolated probe project excluded from the main report. The probe should assert the violation while the normal suite remains clean.
 6. Rerun the affected tests and normal report until unintended rule violations equal zero.
@@ -338,6 +385,7 @@ If authentication, permissions, or network access prevents submission, preserve 
 - [ ] The instrument observes the public behavior named in the title.
 - [ ] The intended test was discovered and executed.
 - [ ] Values are visible in titles and extracted through LiveDoc APIs.
+- [ ] Feature/Specification descriptions explain the purpose without claiming untested outcomes; titles and steps/rules carry the proof.
 - [ ] Expected results are independent of production logic.
 - [ ] The test passes alone and in its normal suite.
 - [ ] The LiveDoc report contains zero unintended rule violations.
@@ -352,9 +400,11 @@ If authentication, permissions, or network access prevents submission, preserve 
 ### Positive routing examples
 - "Create a BDD test for shipping costs" → Read `resources/features.md`, write `FeatureTest`
 - "Add data-driven tests for tax calculation" → Read `resources/features.md`, use `[ScenarioOutline]`
+- "Share setup without serializing independent scenarios" → Read `resources/features.md`, override the per-invocation Background and After hooks
 - "Write unit tests for the email validator" → Read `resources/specifications.md`, write `SpecificationTest`
 - "Fix value drift — step says 500 but code checks 200" → Use `ctx.Step!.Values[0]` extraction
 - "Create HTTP journey tests for Users API" → Read `resources/journey-testing.md`
+- "Document API requests and responses alongside a Journey" → Read `resources/journey-testing.md` and `resources/evidence.md`; attach only selected safe fields before assertions
 - "Set up journey testing in my project" → Read `resources/journey-testing.md`
 - "Fix LiveDoc coverage diagnostic dotnet-coverage-missing" → Install/configure `dotnet-coverage`
 - "Configure full solution coverage" → Prefer Microsoft Code Coverage with `Format=Cobertura`; verify line and branch modules in the Viewer

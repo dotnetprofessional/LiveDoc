@@ -1,6 +1,7 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Version>0.4.0</Version>
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <RootNamespace>SweDevTools.LiveDoc.xUnit</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,7 +10,6 @@
     <IsTestProject>false</IsTestProject>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageId>SweDevTools.LiveDoc.xUnit</PackageId>
-    <Version>0.3.0</Version>
     <Authors>dotnetprofessional</Authors>
     <Description>BDD-style testing framework for xUnit with Gherkin-inspired syntax and beautiful formatted output</Description>
     <PackageTags>xunit;bdd;gherkin;testing;livedoc;specification</PackageTags>
@@ -26,6 +26,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="xunit.extensibility.core" Version="2.9.0" />
     <PackageReference Include="xunit.extensibility.execution" Version="2.9.0" />
     <PackageReference Include="xunit.abstractions" Version="2.0.3" />
@@ -96,19 +97,19 @@
   <Target Name="BuildJourneyGeneratorTool" BeforeTargets="GenerateNuspec">
     <MSBuild Projects="tools\journey-generator\SweDevTools.LiveDoc.xUnit.JourneyGenerator.csproj"
              Targets="Restore;Build"
-             Properties="Configuration=$(Configuration)" />
+             Properties="Configuration=$(Configuration);Version=$(Version)" />
   </Target>
 
   <Target Name="BuildLoggerTool" BeforeTargets="GenerateNuspec">
     <MSBuild Projects="logger\LiveDoc.TestLogger.csproj"
              Targets="Restore;Build"
-             Properties="Configuration=$(Configuration)" />
+             Properties="Configuration=$(Configuration);Version=$(Version)" />
   </Target>
 
   <Target Name="BuildCoverageCollectorTool" BeforeTargets="GenerateNuspec">
     <MSBuild Projects="collector\LiveDoc.CoverageCollector.csproj"
              Targets="Restore;Build"
-             Properties="Configuration=$(Configuration)" />
+             Properties="Configuration=$(Configuration);Version=$(Version)" />
   </Target>
 
 </Project>

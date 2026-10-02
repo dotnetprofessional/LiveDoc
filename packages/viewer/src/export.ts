@@ -84,7 +84,7 @@ export function exportReport(options: ExportOptions): ExportResult {
   <script>
     window.__LIVEDOC_DATA__ = ${safeJson};
   </script>
-  <script>${jsContent}</script>
+  <script type="module">${jsContent}</script>
 </body>
 </html>`;
 

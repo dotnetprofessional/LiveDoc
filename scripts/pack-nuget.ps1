@@ -34,6 +34,26 @@ if (-not (Test-Path $csproj)) {
 $packageId = $proj.Project.PropertyGroup.PackageId
 $version = $proj.Project.PropertyGroup.Version
 
+$canonicalSkillsDir = Join-Path $repoRoot '.github\skills\livedoc-xunit'
+$bundledSkillsDir = Join-Path $xunitDir 'tools\skills'
+$skillText = Get-Content (Join-Path $bundledSkillsDir 'SKILL.md') -Raw
+if ($skillText -notmatch "(?m)^sdk_version:\s*$([regex]::Escape($version))\s*$") {
+    throw "Bundled xUnit skill version does not match package version $version."
+}
+$canonicalFiles = @(Get-ChildItem $canonicalSkillsDir -File -Recurse)
+$bundledFiles = @(Get-ChildItem $bundledSkillsDir -File -Recurse)
+if ($canonicalFiles.Count -ne $bundledFiles.Count) {
+    throw 'Canonical and bundled xUnit skill file counts differ.'
+}
+foreach ($file in $canonicalFiles) {
+    $relativePath = $file.FullName.Substring($canonicalSkillsDir.Length).TrimStart('\', '/')
+    $bundledPath = Join-Path $bundledSkillsDir $relativePath
+    if (-not (Test-Path $bundledPath) -or
+        (Get-FileHash $file.FullName -Algorithm SHA256).Hash -ne (Get-FileHash $bundledPath -Algorithm SHA256).Hash) {
+        throw "Bundled xUnit skill is stale: $relativePath"
+    }
+}
+
 Write-Host ""
 Write-Host "══════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host "  Packing: $packageId@$version" -ForegroundColor Cyan

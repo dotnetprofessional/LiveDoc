@@ -1,19 +1,14 @@
 import type { DataTableRow } from "../types";
 import type { Attachment } from "@swedevtools/livedoc-schema";
-
-let _attachmentCounter = 0;
-function nextAttachmentId(): string {
-    return `att-${Date.now()}-${++_attachmentCounter}`;
-}
+import { AttachmentContext } from "./AttachmentContext";
 
 /**
  * Framework metadata about the current step
  * READ-ONLY - contains title, parsed values, tables, docStrings
  * Provides helpers for accessing step data in various formats
  */
-export class StepContext {
+export class StepContext extends AttachmentContext {
     private _table?: DataTableRow[];
-    private _attachments: Attachment[];
 
     public title: string = "";
     public displayTitle: string = "";
@@ -26,43 +21,7 @@ export class StepContext {
     public paramsRaw: Record<string, string> = {};
 
     constructor(attachments?: Attachment[]) {
-        this._attachments = attachments ?? [];
-    }
-
-    /**
-     * Attach arbitrary data (base64-encoded) to this step.
-     */
-    attach(data: string, opts?: { title?: string; mimeType?: string; kind?: 'image' | 'screenshot' | 'file' }): void {
-        this._attachments.push({
-            id: nextAttachmentId(),
-            kind: opts?.kind ?? 'file',
-            title: opts?.title,
-            mimeType: opts?.mimeType ?? 'application/octet-stream',
-            base64: data,
-        });
-    }
-
-    /**
-     * Convenience: attach a PNG screenshot.
-     */
-    attachScreenshot(base64: string, title?: string): void {
-        this.attach(base64, { title, mimeType: 'image/png', kind: 'screenshot' });
-    }
-
-    /**
-     * Convenience: attach a JSON payload (e.g., API response).
-     */
-    attachJSON(data: unknown, title?: string): void {
-        const json = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-        const base64 = typeof globalThis.btoa === 'function'
-            ? globalThis.btoa(unescape(encodeURIComponent(json)))
-            : Buffer.from(json, 'utf-8').toString('base64');
-        this.attach(base64, { title, mimeType: 'application/json', kind: 'file' });
-    }
-
-    /** Attachments collected during step execution. */
-    public get attachments(): Attachment[] {
-        return this._attachments;
+        super(attachments);
     }
 
     /**

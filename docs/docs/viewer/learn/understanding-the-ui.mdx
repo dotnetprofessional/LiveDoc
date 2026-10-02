@@ -123,6 +123,30 @@ specifications from the selected run:
 Click any feature to expand its scenarios, or click a scenario to open it in
 the detail panel.
 
+### Common roots and sidebar width
+
+The Viewer hides redundant shared folders for every framework until the first
+branch or a folder containing documents. For example, if all containers live
+under `Acme.Commerce.Quotes.Services.Transactor.UnitTests`, navigation starts
+at **Authentication** and **ResourceProviders** rather than six single-child
+folders. A folder with its own documents stops shortening, so those documents
+remain reachable. Vitest already strips the common filesystem root when exporting
+reports; the Viewer preserves that structure and also shortens shared folders in
+saved reports that still contain a redundant prefix.
+
+This is a display choice only: reports keep their exported filesystem or namespace
+paths, document IDs, and totals. Existing links to hidden ancestor folders
+still open; hover a folder, breadcrumb, or document heading to discover its
+full path. Search and tag filters do not change the shared prefix.
+
+Drag the divider between desktop navigation and results to give deeper paths
+more room. You can also focus **Resize navigation sidebar** with Tab and use
+the arrow keys. The sidebar starts at 280 pixels and remembers your preferred
+width locally, between 240 and 600 pixels. Smaller windows limit that width
+to leave at least 480 pixels for results, then restore your preference when
+space returns. On phones, **Open navigation** still opens the drawer; the
+desktop width does not affect it.
+
 ### Filtering & Search
 
 Use the search bar above the tree to filter by:
@@ -150,6 +174,48 @@ Each step (`Given`, `When`, `Then`, `And`, `But`) is listed with:
 | **Step title**   | The full step title with embedded values            |
 | **Status icon**  | ✅ passed, ❌ failed, ⏭️ skipped                   |
 | **Duration**     | How long the step took to execute                   |
+
+### Exploring JSON Attachments
+
+JSON evidence opens as a structured tree. The top level starts expanded so
+you can scan its fields; nested objects and arrays start collapsed to keep
+large responses readable. Select a disclosure button to inspect a branch,
+including indexed array entries. The buttons work with Enter and Space.
+
+> **Example: Inspecting an API Response**
+>
+> Open `order.json`, expand `items`, then expand item `0` to inspect its
+> properties. **Copy** still copies the complete formatted JSON, even when
+> branches are collapsed. An invalid JSON attachment displays a warning and
+> its raw text instead of an empty tree.
+
+### Viewing Mermaid Attachments
+
+An attached diagram can show the relationship between steps more clearly than
+an assertion log. Open the attachment gallery from a step's evidence button,
+then select the diagram in the filmstrip. For example, a test can attach
+`checkout.mmd` to show the checkout paths it exercised; the viewer displays the
+rendered diagram, while **View source**, **Copy source**, and **Download** keep
+the original definition available.
+
+For a long or wide sequence diagram, **Fit** initially shows the whole diagram
+without shrinking the gallery's controls. Use **+** and **−** to zoom, or
+**100%** to read labels at the diagram's rendered size; scroll inside the
+diagram viewport to inspect the rest. The viewport can be focused for keyboard
+scrolling, and the gallery's fullscreen button gives the diagram more room.
+On a phone, fit is an overview rather than a readable text size—zoom in and
+scroll to read individual exchanges. The passing **Attachment API → A large
+document-sync sequence diagram is attached as evidence** scenario includes a
+representative multi-participant example.
+
+The viewer renders base64-encoded attachments as Mermaid when their MIME type
+is `text/vnd.mermaid`, `text/x-mermaid`, `text/mermaid`, or
+`application/vnd.mermaid` (case and charset parameters do not matter), or
+their filename ends in `.mmd` or `.mermaid`. A regular Markdown or text
+attachment containing a Mermaid code fence remains plain text. If a diagram
+is invalid or cannot render, the gallery shows an error and its source instead
+of a blank image. Diagrams render in a non-interactive image preview; embedded
+scripts and links are not activated.
 
 ### Failure Details
 

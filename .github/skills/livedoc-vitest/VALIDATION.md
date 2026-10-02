@@ -9,7 +9,7 @@
 | Frontmatter `name` present | ✅ |
 | Frontmatter `description` present | ✅ |
 | Description ≤ 100 words | ✅ (28 words) |
-| Body ≤ 500 lines | ✅ (334 lines) |
+| Body ≤ 500 lines | ✅ (352 lines) |
 | `## Use this skill when` | ✅ |
 | `## Do not use this skill when` | ✅ |
 | `## Inputs` | ✅ |
@@ -28,7 +28,15 @@
 | Framework defect verification and duplicate search | ✅ |
 | Sanitized draft and explicit consent before submission | ✅ |
 | Rule-violation self-correction gate | ✅ |
+| Purpose-first descriptions stay within tested boundaries | ✅ |
+| Features and Specifications share capability paths; product readers can inspect Rules | ✅ |
+| Safe API evidence captured before assertions; screenshot guidance retained | ✅ |
 | Source and package-shipped copies aligned | ✅ |
+
+Both copies pass the skill-factory manifest checks (28-word description,
+352-line body). On Windows the validator sees `SKILL.md` and `skill.md`
+as the same path and reports a false duplicate; validation called its
+`validate_manifest` on the actual `SKILL.md` for each copy.
 
 ## Assumptions
 - Tests are written in TypeScript and use Vitest as the test runner

@@ -17,13 +17,16 @@ public class ScenarioOutlineAttribute : TheoryAttribute
     /// <summary>
     /// Constructs a new instance of the ScenarioOutlineAttribute with an optional test method name.
     /// </summary>
-    /// <param name="testMethodName">
+    /// <param name="title">
     /// The name of the test method. This is optional and defaults to the name of the method that calls the constructor.
-    /// The testMethodName is used in the DisplayName of the test, with underscores replaced by spaces for better readability.
+    /// A title supplied through nameof(...) also has underscores replaced by spaces.
     /// </param>
-    public ScenarioOutlineAttribute([CallerMemberName] string testMethodName = "")
+    public ScenarioOutlineAttribute(
+        [CallerMemberName] string title = "",
+        [CallerArgumentExpression(nameof(title))] string? titleExpression = null)
     {
-        this.DisplayName = "Scenario Outline: " + testMethodName.Replace("_", " ");
+        DisplayName = "Scenario Outline: " +
+            AttributeTitleFormatter.FormatMemberName(title, titleExpression);
     }
 
     public string? Description { get; set; }
@@ -42,7 +45,7 @@ public class ScenarioOutlineAttribute : TheoryAttribute
 
             return System.Text.RegularExpressions.Regex.Replace(
                 template,
-                @"<([^>]+)>",
+                @"<([^<>\r\n]+)>",
                 match => paramValues.TryGetValue(match.Groups[1].Value, out var value)
                     ? OutlineDisplayNameFormatter.FormatValue(value)
                     : match.Value);

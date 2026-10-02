@@ -11,14 +11,12 @@ How to decide who handles what.
 | Server / API / WebSocket | Wash 🔧 | Hono endpoints, WebSocket manager, REST API, data storage |
 | VS Code Extension | River 💻 | Tree views, webviews, snippets, table formatter, extension config |
 | .NET / C# / xUnit | Simon 🔩 | BDD attributes, xUnit framework, NuGet packaging, MSBuild, .NET CLI tool |
-| Documentation site | Mal 🏗️ + domain expert | Docusaurus pages, MDX content, Mermaid diagrams |
+| Documentation site | Mal | Docusaurus pages, MDX content, Mermaid diagrams |
 | CI/CD / DevOps | Mal 🏗️ | GitHub Actions, build scripts, publishing, release process |
 | Code review | Mal 🏗️ | Review PRs, check quality, suggest improvements |
 | Testing | Zoe 🧪 | Write tests, find edge cases, verify fixes, BDD spec quality |
 | Architecture / Cross-platform | Mal 🏗️ | Schema changes, monorepo structure, cross-package decisions |
 | Scope & priorities | Mal 🏗️ | What to build next, trade-offs, decisions |
-| Async issue work (bugs, tests, small features) | @copilot 🤖 | Well-defined tasks matching capability profile |
-| Session logging | Scribe | Automatic — never needs routing |
 
 ## Issue Routing
 

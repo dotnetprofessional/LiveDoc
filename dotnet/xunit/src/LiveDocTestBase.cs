@@ -153,7 +153,9 @@ public abstract class LiveDocTestBase : IDisposable
         [".gif"] = "image/gif",
         [".webp"] = "image/webp",
         [".svg"] = "image/svg+xml",
-        [".pdf"] = "application/pdf"
+        [".pdf"] = "application/pdf",
+        [".mmd"] = "text/vnd.mermaid",
+        [".mermaid"] = "text/vnd.mermaid"
     };
 
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -162,8 +164,8 @@ public abstract class LiveDocTestBase : IDisposable
     };
 
     /// <summary>
-    /// Attaches base64-encoded data to the current step.
-    /// Call this inside a Given/When/Then/And/But step callback.
+    /// Attaches base64-encoded data to the current scenario step or specification rule.
+    /// Call this inside a Given/When/Then/And/But callback, Rule, or RuleOutline.
     /// </summary>
     /// <param name="base64Data">The base64-encoded content.</param>
     /// <param name="mimeType">The MIME type of the content (e.g., "image/png").</param>
@@ -183,7 +185,7 @@ public abstract class LiveDocTestBase : IDisposable
     }
 
     /// <summary>
-    /// Attaches a screenshot (PNG) to the current step.
+    /// Attaches a screenshot (PNG) to the current scenario step or specification rule.
     /// Convenience wrapper around <see cref="Attach"/> with screenshot defaults.
     /// </summary>
     /// <param name="base64Data">The base64-encoded PNG screenshot data.</param>
@@ -194,8 +196,9 @@ public abstract class LiveDocTestBase : IDisposable
     }
 
     /// <summary>
-    /// Reads a file from disk and attaches it to the current step.
-    /// MIME type is auto-detected from the file extension.
+    /// Reads a file from disk and attaches it to the current scenario step or specification rule.
+    /// MIME type is auto-detected from the file extension, including .mmd and .mermaid
+    /// as text/vnd.mermaid so custom titles remain previewable.
     /// Image files (.png, .jpg, .jpeg, .gif, .webp) use kind "image"; others use "file".
     /// </summary>
     /// <param name="filePath">Path to the file to attach.</param>
@@ -213,8 +216,9 @@ public abstract class LiveDocTestBase : IDisposable
     }
 
     /// <summary>
-    /// Attaches a JSON payload to the current step (e.g., API response body).
-    /// The object is serialized to JSON with indented formatting.
+    /// Attaches a JSON payload to the current scenario step or specification rule (e.g., API response body).
+    /// The object is serialized with System.Text.Json and indented formatting.
+    /// Newtonsoft JSON tokens retain their JSON values, including within CLR collections and properties.
     /// </summary>
     /// <param name="data">The object to serialize as JSON. If already a string, used as-is.</param>
     /// <param name="title">Optional descriptive title.</param>
@@ -222,7 +226,11 @@ public abstract class LiveDocTestBase : IDisposable
     {
         var json = data is string s
             ? s
-            : System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            : System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Converters = { new NewtonsoftJsonTokenConverterFactory() }
+            });
         var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
         Attach(base64, "application/json", title, "file");
     }

@@ -51,6 +51,10 @@ public record JourneyConfig
 /// Override <see cref="Configure"/> to provide your project settings. All other behavior
 /// has sensible defaults — override virtual methods only for advanced scenarios.
 /// </para>
+/// <para>
+/// Generated journey tests share the concrete fixture through one xUnit collection so the
+/// server starts once per test assembly and stops after the final journey test.
+/// </para>
 /// </summary>
 /// <remarks>
 /// <b>Minimal usage</b>:

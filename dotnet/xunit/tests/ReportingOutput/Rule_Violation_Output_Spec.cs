@@ -10,6 +10,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.ReportingOutput;
     Gherkin structure violations remain non-fatal but are exported on the exact
     scenario or step that needs attention.")]
 [Collection(Environment_Sensitive_Collection.Name)]
+[Tag("reporting")]
 public class Rule_Violation_Output_Spec : SpecificationTest
 {
     public Rule_Violation_Output_Spec(ITestOutputHelper output) : base(output) { }

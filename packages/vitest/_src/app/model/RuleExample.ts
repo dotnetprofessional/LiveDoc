@@ -28,16 +28,15 @@ export class RuleExample extends Rule {
 
     public getRuleContext(): RuleOutlineContext {
         const baseContext = super.getRuleContext();
-        return {
-            ...baseContext,
-            // Pull values/params from the parent ruleOutline (where parsing populates them)
+        // Keep the class instance: spreading it would discard attachment methods and the shared array.
+        return Object.assign(baseContext, {
             values: this.ruleOutline.values,
             valuesRaw: this.ruleOutline.valuesRaw,
             params: this.ruleOutline.params,
             paramsRaw: this.ruleOutline.paramsRaw,
             example: this.example,
             exampleRaw: this.exampleRaw
-        };
+        });
     }
 
     public bind(content: string, model: DataTableRow): string {

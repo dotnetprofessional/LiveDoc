@@ -57,6 +57,95 @@ function Run-BuildPackages {
     Invoke-InDirectory -Path $repoRoot -Action { pnpm -r build }
 }
 
+function Set-NpmPublishingToken {
+    $registry = 'https://registry.npmjs.org/'
+    $tokenConfigKey = '//registry.npmjs.org/:_authToken'
+    $secureToken = Read-Host 'npm granular access token (requires read/write and Bypass 2FA)' -AsSecureString
+    $tokenPointer = [IntPtr]::Zero
+    $plainToken = $null
+    $originalConfig = $null
+    $configExisted = $false
+    $userConfigPath = $null
+
+    try {
+        $tokenPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
+        $plainToken = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($tokenPointer)
+        if ([string]::IsNullOrWhiteSpace($plainToken)) {
+            throw 'An npm access token is required.'
+        }
+        $plainToken = $plainToken.Trim()
+
+        $userConfigPath = (& npm config get userconfig 2>$null).Trim()
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($userConfigPath)) {
+            throw 'npm could not locate the user configuration file.'
+        }
+
+        $configDirectory = Split-Path -Parent $userConfigPath
+        if ($configDirectory -and -not (Test-Path -LiteralPath $configDirectory)) {
+            New-Item -ItemType Directory -Path $configDirectory -Force | Out-Null
+        }
+
+        $configExisted = Test-Path -LiteralPath $userConfigPath
+        $originalConfig = if ($configExisted) {
+            [System.IO.File]::ReadAllBytes($userConfigPath)
+        } else {
+            [byte[]]@()
+        }
+
+        $existingLines = if ($configExisted) {
+            [System.IO.File]::ReadAllLines($userConfigPath)
+        } else {
+            [string[]]@()
+        }
+        $tokenPattern = '^\s*//registry\.npmjs\.org/:_authToken\s*='
+        $updatedLines = [System.Collections.Generic.List[string]]::new()
+        $tokenWritten = $false
+        foreach ($line in $existingLines) {
+            if ($line -match $tokenPattern) {
+                if (-not $tokenWritten) {
+                    $updatedLines.Add("$tokenConfigKey=$plainToken")
+                    $tokenWritten = $true
+                }
+                continue
+            }
+            $updatedLines.Add($line)
+        }
+        if (-not $tokenWritten) {
+            $updatedLines.Add("$tokenConfigKey=$plainToken")
+        }
+
+        [System.IO.File]::WriteAllLines(
+            $userConfigPath,
+            $updatedLines,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+
+        Write-Host 'Checking npm identity...' -ForegroundColor Cyan
+        $identity = & npm whoami "--registry=$registry" 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($identity)) {
+            if ($configExisted) {
+                [System.IO.File]::WriteAllBytes($userConfigPath, $originalConfig)
+            } else {
+                Remove-Item -LiteralPath $userConfigPath -Force -ErrorAction SilentlyContinue
+            }
+            throw 'npm rejected the token or could not reach the registry. The previous npm configuration was restored.'
+        }
+
+        Write-Host "npm token authenticated and saved for $($identity.Trim())." -ForegroundColor Green
+        Write-Host 'npm verifies package write access and Bypass 2FA when publishing.' -ForegroundColor Yellow
+    }
+    finally {
+        if ($tokenPointer -ne [IntPtr]::Zero) {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($tokenPointer)
+        }
+        if ($originalConfig) {
+            [Array]::Clear($originalConfig, 0, $originalConfig.Length)
+        }
+        $plainToken = $null
+        $secureToken = $null
+    }
+}
+
 function Sync-Releases {
     $releasesDir = Join-Path $repoRoot 'releases'
     if (-not (Test-Path $releasesDir)) {
@@ -393,6 +482,9 @@ $items.Add((New-MenuItem -Label 'Publish' -HotKey 'n' -Children @(
             -Action { & "$publishScriptsDir\publish-nuget.ps1" }.GetNewClosure() `
             -Description 'Pack, confirm, and publish to nuget.org')
     ) -Description 'xUnit BDD testing framework (.NET)')
+    (New-MenuItem -Label 'Configure npm publishing token' -HotKey '4' `
+        -Action { Set-NpmPublishingToken } `
+        -Description 'Authenticate and save a granular token in the user npm configuration')
 ) -Description 'Publish Vitest, Viewer, and xUnit; Schema/Server are embedded in Viewer'))
 
 # --- Update global viewer ---

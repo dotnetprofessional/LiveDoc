@@ -5,6 +5,7 @@ namespace SweDevTools.LiveDoc.xUnit.Tests.GettingStarted;
 [Feature("First Feature", Description = @"
     A minimal BDD example that shows how a feature, scenario, and
     self-documenting Given/When/Then steps become executable documentation.")]
+[Tag("getting-started")]
 public class FirstFeature_Spec : FeatureTest
 {
     public FirstFeature_Spec(ITestOutputHelper output) : base(output) { }

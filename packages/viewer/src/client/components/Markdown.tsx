@@ -9,12 +9,42 @@ function normalizeLiveDocMarkdown(content: string): string {
   //    This is a rendering concern only; the underlying content remains "raw".
   const lines = content.split(/\r?\n/);
   const out: string[] = [];
-  let inFence = false;
+  let inDocStringFence = false;
+  let markdownFence: { char: '`' | '~'; length: number } | null = null;
 
   for (const line of lines) {
-    if (line.trim() === '"""') {
+    const trimmed = line.trim();
+    if (markdownFence) {
+      const closingFence = trimmed.match(/^(`{3,}|~{3,})\s*$/);
+      if (
+        closingFence &&
+        closingFence[1][0] === markdownFence.char &&
+        closingFence[1].length >= markdownFence.length
+      ) {
+        markdownFence = null;
+      }
+      out.push(line);
+      continue;
+    }
+
+    if (trimmed === '"""') {
       out.push('```');
-      inFence = !inFence;
+      inDocStringFence = !inDocStringFence;
+      continue;
+    }
+
+    if (inDocStringFence) {
+      out.push(line);
+      continue;
+    }
+
+    const openingFence = trimmed.match(/^(`{3,}|~{3,})/);
+    if (openingFence) {
+      markdownFence = {
+        char: openingFence[1][0] as '`' | '~',
+        length: openingFence[1].length,
+      };
+      out.push(line);
       continue;
     }
 
@@ -22,14 +52,12 @@ function normalizeLiveDocMarkdown(content: string): string {
     //    ReactMarkdown treats raw "<tag>" as HTML in markdown contexts; wrapping as code
     //    keeps it literal without displaying entity strings like "&lt;step&gt;".
     out.push(
-      inFence
-        ? line
-        : line.replace(/<([^>\n]+)>/g, (_m, inner: string) => `\`<${inner}>\``)
+      line.replace(/<([^<>\n]+)>/g, (_m, inner: string) => `\`<${inner}>\``)
     );
   }
 
   // If content was malformed (odd number of fences), close it.
-  if (inFence) out.push('```');
+  if (inDocStringFence) out.push('```');
 
   return out.join('\n');
 }
@@ -87,8 +115,8 @@ export function Markdown({ content, className, highlightValues }: { content?: st
             </p>
         ),
         code: ({ node, className, children, ...props }) => {
-            // @ts-ignore
-            const inline = props.inline
+            const inline =
+              node?.position?.start.line === node?.position?.end.line;
 
             const codeText = Array.isArray(children)
               ? children.map((c) => (typeof c === 'string' ? c : String(c))).join('')

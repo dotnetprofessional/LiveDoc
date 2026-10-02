@@ -273,6 +273,9 @@ feature(`V1 partial run lifecycle
     Then('both deletions report code \'dependent-run\'', (ctx) => {
       expect(baselineError?.code).toBe(ctx.step.values[0]);
       expect(middleError?.code).toBe(ctx.step.values[0]);
+    });
+
+    and('deletion while a newer partial is active reports code \'run-active\'', (ctx) => {
       expect(activeDependencyError?.code).toBe(ctx.step.values[0]);
     });
 

@@ -84,7 +84,7 @@ Add these MSBuild properties to your test project's `.csproj`:
 | `LiveDocJourneyOutputDir` | `$(MSBuildProjectDirectory)\Journeys` | Where generated `.Journey.cs` files are written |
 | `LiveDocJourneyBaseNamespace` | `$(RootNamespace).Journeys` | Root namespace for generated test classes |
 | `LiveDocJourneyInfrastructureNamespace` | `$(BaseNamespace).Infrastructure` | Namespace for `JsonAssertions`, `PropertyRules`, etc. |
-| `LiveDocJourneyFixtureType` | `JourneyServerFixture` | The `IClassFixture<T>` type that starts your server |
+| `LiveDocJourneyFixtureType` | `JourneyServerFixture` | Fixture shared by the generated xUnit Journey collection |
 | `LiveDocJourneyMode` | `scaffold` | `scaffold`, `validate`, or `force` (see [Modes](#modes)) |
 | `LiveDocHttpYacEnsure` | `check` | `check`, `auto-install`, or `off` (see [httpYac](#httpyac)) |
 
@@ -142,11 +142,11 @@ structure:
 
 ```http
 # Feature: Health Check
-# Description: Verify the server is running and responsive
+# Description: Operators can detect when the public and admin health checks stop responding.
 
 # Scenario: Server is alive and healthy
 
-# When checking the public health endpoint
+# Given the public health endpoint responds
 # @name healthCheck
 GET {{baseUrl}}/health
 
@@ -155,10 +155,19 @@ GET {{baseUrl}}/health
 
 ###
 
-# Then the admin health endpoint is also accessible
+# When the admin health endpoint is checked
 # @name adminHealth
 GET {{baseUrl}}/health
 X-Admin-Token: {{adminToken}}
+
+?? status == 200
+?? body status == healthy
+
+###
+
+# Then the public health endpoint remains available
+# @name healthAfterAdmin
+GET {{baseUrl}}/health
 
 ?? status == 200
 ?? body status == healthy
@@ -174,7 +183,7 @@ The journey generator parses these to create the test class structure:
 | Annotation | Purpose | Example |
 | --- | --- | --- |
 | `# Feature: Title` | Names the test class and `[Feature]` attribute | `# Feature: AI Services API` |
-| `# Description: Text` | Sets the `Description` on the `[Feature]` attribute | `# Description: Full CRUD validation` |
+| `# Description: Text` | Explains why this Feature matters via `[Feature(Description = ...)]` | `# Description: Clients can manage widgets through this HTTP flow.` |
 | `# Scenario: Title` | Creates a `[Scenario]` test method | `# Scenario: Create and delete a service` |
 | `# Given ...` | BDD step — maps to `Given()` in the test | `# Given a new service is created` |
 | `# When ...` | BDD step — maps to `When()` in the test | `# When listing all services` |
@@ -226,7 +235,7 @@ Here's a full journey testing create, read, update, and delete:
 
 ```http
 # Feature: AI Services API
-# Description: Full CRUD validation for the /api/ai-services endpoints
+# Description: Clients can create, retrieve, update, and delete a service through the documented HTTP flow.
 
 # Scenario: Create, read, update, and delete a service
 
@@ -337,6 +346,64 @@ Steps **without** a `.Response.json` file still assert that the HTTP request
 succeeded (via httpYac's `??` assertions). The response contract adds
 **structural payload validation** on top.
 :::
+
+### Document Request and Response Evidence
+
+The `.http` file contains the **authored request**; a `.Response.json` file
+is the **expected contract**, not a record of the actual response. Capture
+mode writes contract files, and generated Journey tests do **not**
+automatically attach exchanges to the Viewer.
+
+If the request or expected JSON is safe to show inline, add it to the
+user-owned scaffold's optional step Markdown description. Keep any values
+repeated from the `.http` file and step title consistent. For *actual*
+responses, inspect a reached `run.Steps` entry: `StatusCode` and
+`ResponseBody` are available, but no structured request-body property exists.
+Attach only reviewed, non-sensitive fields before calling `AssertStep`, which
+can throw **before** its callback runs:
+
+```csharp
+// In the generated, developer-owned .Journey.cs file; add using System.Text.Json.
+Given("a new AI service is created", ctx =>
+{
+    if (run.Steps.TryGetValue("createService", out var observed))
+    {
+        AttachJson(new { status = observed.StatusCode }, "Create service HTTP status");
+
+        if (observed.ResponseBody is { Length: > 0 } body)
+        {
+            using var json = JsonDocument.Parse(body);
+            if (json.RootElement.ValueKind == JsonValueKind.Object &&
+                json.RootElement.TryGetProperty("provider_id", out var provider) &&
+                provider.ValueKind == JsonValueKind.String)
+            {
+                AttachJson(new { provider_id = provider.GetString() },
+                    "Service provider (safe field)");
+            }
+        }
+    }
+
+    run.AssertStep("createService", step =>
+    {
+        var expected = _server.LoadResponseFile("api/ai-services", "createService");
+        Assert.False(string.IsNullOrWhiteSpace(step.ResponseBody),
+            "Step 'createService' has a response contract but returned no body");
+        JsonAssertions.IsComparable(step.ResponseBody, expected, _propertyRules, "createService");
+    });
+});
+```
+
+Status evidence survives even when the response is missing or invalid JSON;
+parsing invalid JSON still fails explicitly. Never attach raw `run.Output`,
+`step.Output`, headers, tokens, or entire unreviewed bodies. Attachments
+support the assertions; they do not replace status or payload validation.
+On failure, `AssertStep` may include raw httpYac output in its exception:
+use synthetic, non-sensitive test data and restrict access to logs and
+reports even when attachments are filtered.
+Review captured `.Response.json` files for secrets before committing them,
+and [check exported report access](../../viewer/guides/static-export.mdx)
+before sharing evidence. `LiveDocJourneyMode=force` regenerates scaffold files
+and overwrites manual attachment code.
 
 ### Auto-Generating Contracts with Capture Mode {#capture-mode}
 
@@ -484,7 +551,8 @@ dotnet test --filter "FullyQualifiedName~Journeys"
 ### What Gets Generated {#generated-output}
 
 For a journey at `api/ai-services/_ai-services.http`, the generator creates
-`Journeys/Api/AiServices.Journey.cs`:
+`Journeys/Api/AiServices.Journey.cs` and one
+`JourneyServerFixtureCollection.cs` support file:
 
 ```csharp
 // Generated from api/ai-services/_ai-services.http
@@ -492,15 +560,16 @@ For a journey at `api/ai-services/_ai-services.http`, the generator creates
 // Re-scaffold with: dotnet msbuild -t:Build
 
 using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Journeys;
 using Xunit;
 using Xunit.Abstractions;
 using MyProject.Specs.Journeys.Infrastructure;
 
 namespace MyProject.Specs.Journeys.Api;
 
-[Feature("AI Services API", Description = "Full CRUD validation for the /api/ai-services endpoints")]
-[Scenario("Create, read, update, and delete a service")]
-public class AiServices_Journey : FeatureTest, IClassFixture<JourneyServerFixture>
+[Feature("AI Services API", Description = "Clients can create, retrieve, update, and delete a service through the documented HTTP flow.")]
+[Collection(JourneyServerFixtureCollection.Name)]
+public class AiServices_Journey : FeatureTest
 {
     private readonly JourneyServerFixture _server;
     private readonly PropertyRules _propertyRules;
@@ -548,6 +617,28 @@ public class AiServices_Journey : FeatureTest, IClassFixture<JourneyServerFixtur
 }
 ```
 
+The support file owns the shared server lifecycle:
+
+```csharp title="Journeys/JourneyServerFixtureCollection.cs"
+[CollectionDefinition(Name)]
+public sealed class JourneyServerFixtureCollection
+    : ICollectionFixture<JourneyServerFixture>
+{
+    public const string Name = "LiveDoc journeys: JourneyServerFixture";
+}
+```
+
+All generated Journey classes join this collection. xUnit therefore starts the
+application once per test assembly and stops it after the final Journey class,
+instead of starting one process per generated class. Tests in the collection
+run sequentially against the shared application, preventing stateful journeys
+from racing each other.
+
+When upgrading an existing project, `scaffold` mode replaces only the exact
+legacy `IClassFixture<JourneyServerFixture>` class declaration. It preserves
+the developer-owned test body. `validate` mode reports Journey files that are
+not connected to the shared collection.
+
 ### Path Derivation {#path-derivation}
 
 The generator maps journey folder paths to C# namespaces and file paths:
@@ -560,6 +651,26 @@ The generator maps journey folder paths to C# namespaces and file paths:
 
 Numeric prefixes are stripped if present (e.g., `00-health-check` → `HealthCheck`),
 but prefer plain kebab-case folder names — ordering is only within a `.http` file, not across folders.
+
+:::tip Keep generated Journeys with their capability
+By default, `LiveDocJourneyBaseNamespace` is `$(RootNamespace).Journeys`,
+which creates a Journeys group in the Viewer. For a new test project that
+groups documents by capability, use:
+
+```xml
+<LiveDocJourneyBaseNamespace>$(RootNamespace)</LiveDocJourneyBaseNamespace>
+<LiveDocJourneyInfrastructureNamespace>$(RootNamespace).Journeys</LiveDocJourneyInfrastructureNamespace>
+```
+
+The second property keeps the generated `using` and shared collection in
+the namespace of the `JourneyServerFixture` shown below. Put the `.http`
+file under `orders/checkout/_checkout.http`: its generated class uses an
+`.Orders` namespace, alongside hand-written Orders Features and
+Specifications. If your fixture lives elsewhere, set the infrastructure
+namespace to its actual namespace. Changing namespaces for existing tests
+changes report paths and identities, so treat it as a migration, not a
+silent update.
+:::
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "name": "@swedevtools/livedoc-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "LiveDoc Server - Shared server infrastructure for LiveDoc ecosystem",
   "author": "Garry McGlennon",

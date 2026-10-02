@@ -9,6 +9,8 @@ Use the `[next release]` section for changes that have not yet been promoted int
 ### Changed
 
 - Marked the schema as a private workspace package embedded in the Viewer distribution instead of publishing it independently.
+- Added optional Rule Outline template steps to the reporter model and wire schema so per-example step results and attachments can be associated with their template steps.
+- Recognized Background nodes with steps in Feature reports, retaining their shared Given/And steps through wire validation.
 
 ## [0.3.0] - 2026-08-29
 

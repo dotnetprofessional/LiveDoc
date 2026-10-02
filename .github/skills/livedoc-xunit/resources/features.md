@@ -48,8 +48,8 @@ public class ShippingCostsTests : FeatureTest { ... }
 
 // Title + description (strongly encouraged)
 [Feature("Shipping Costs", Description = @"
-    Business rules for calculating shipping fees
-    based on customer country and order total.
+    Avoids assigning the wrong delivery tier for the
+    destinations and order totals covered below.
 ")]
 public class ShippingCostsTests : FeatureTest { ... }
 ```
@@ -58,6 +58,10 @@ public class ShippingCostsTests : FeatureTest { ... }
 | ------------- | -------- | -------- | ------------------------------- |
 | `name`        | `string` | No       | Feature title (defaults to formatted class name) |
 | `Description` | `string` | No       | Multi-line description text     |
+
+Use the description for the purpose of the Feature, not an inventory of
+scenarios. Keep claims within what those scenarios actually observe; the
+title, steps, and assertions carry the technical proof.
 
 ### `[Scenario]` — Method Attribute (single test)
 
@@ -172,9 +176,76 @@ Available steps: **`Given`**, **`When`**, **`Then`**, **`And`**, **`But`**
 
 All steps can be called with `this.Given(...)` or just `Given(...)`.
 
+### Background and After hooks
+
+Override `BackgroundAsync` and `AfterBackgroundAsync` in a `FeatureTest`.
+Each Scenario and each Scenario Outline example receives its own instance and
+runs the Background before its method, then cleanup after it, including failures.
+Only `Given` and `And` are valid Background steps. The Background's `Given`
+fulfills the scenario's required Given; the scenario may also have its own
+Given. The Viewer groups Background steps and their aggregate status under
+the Feature, separately from scenario steps; test instances and failures
+remain isolated per Scenario or example.
+
+```csharp
+protected override async Task BackgroundAsync()
+{
+    await Given("the account starts with '10' credits", async ctx =>
+    {
+        _account = await CreateAccountAsync(ctx.Step!.Values[0].AsInt());
+    });
+}
+
+protected override async Task AfterBackgroundAsync()
+{
+    if (_account != null)
+        await _account.DisposeAsync();
+}
+```
+
+Do not use a shared static field for Background state. xUnit keeps its normal
+parallel test-collection behavior; use a collection fixture only when a shared
+resource actually requires serial access. Teardown exceptions fail the test
+and retain any earlier failure. Avoid calling step methods from cleanup.
+
+Feature, Scenario, and ScenarioOutline titles supplied through `nameof(...)`
+replace identifier underscores with spaces. Literal strings preserve underscores:
+
+```csharp
+[Feature(nameof(Customer_checkout_feature))] // "Customer checkout feature"
+[Scenario("LIVEDOC_RUN_TYPE")]               // "LIVEDOC_RUN_TYPE"
+```
+
+Each callback shape has an existing `title, step` overload and a
+`title, description, step` overload. Descriptions are Markdown rendered beneath
+the title; fenced JSON remains exact and visible without opening an attachment:
+
+````csharp
+var myJsonVariable = JsonSerializer.Serialize(request);
+
+Given(
+    title: "the input response",
+    description: $"""
+        ### Input
+        ```json
+        {myJsonVariable}
+        ```
+        """,
+    step: ctx => input = Parse(ctx.Step!.Description!));
+````
+
+The variable must exist before the step call. Values produced inside the
+callback can be used by later steps or attached as execution evidence, but
+cannot retroactively alter the current step description.
+
+For outlines, author `<parameter>` placeholders in the description template;
+the Viewer binds them to the selected example row. Do not set descriptions at
+runtime. Use attachments for supplementary evidence and downloads.
+
 ### Async Support
 
-**Only steps support `async`** — the scenario method itself can be `async Task`, but step lambdas are where async work happens:
+Step callbacks and Background/After hooks support `async`. The scenario
+method itself can also be `async Task`:
 
 ```csharp
 [Scenario("Async shipping calculation")]
@@ -206,12 +277,13 @@ public async Task Async_shipping_test()
 
 Every Scenario and Scenario Outline should contain:
 
-1. One primary `Given`
+1. One primary `Given` in the scenario or its Background
 2. One primary `When`
 3. One primary `Then`
 
 Use `And` or `But` for additional preconditions, actions, and outcomes. Do not
-repeat `Given`, `When`, or `Then` as separate primary steps.
+repeat `Given`, `When`, or `Then` as separate primary steps within the same
+section. A Background `Given` and a scenario `Given` can coexist.
 
 LiveDoc reports structural issues as non-fatal `ruleViolations` in the Viewer,
 including repeated primary steps, missing Given/When/Then steps, untitled steps,
@@ -370,8 +442,8 @@ using Xunit.Abstractions;
 namespace MyApp.Tests.Checkout;
 
 [Feature("Shopping Cart Checkout", Description = @"
-    Validates the complete checkout flow including
-    cart totals, tax calculation, and payment processing.
+    Keeps cart totals and discounts predictable before
+    an order is placed.
 ")]
 public class CheckoutTests : FeatureTest
 {
@@ -455,9 +527,10 @@ All exceptions include the step title and available values/params for easy debug
 ## Attachments and Evidence
 
 Feature scenarios can call `Attach`, `AttachScreenshot`, `AttachFile`, or
-`AttachJson` after asserting the behavior. Read `resources/evidence.md` for the
-supported APIs and redaction rules. Evidence supplements an assertion; it never
-replaces one.
+`AttachJson` to document meaningful states. Capture sanitized evidence before
+an assertion that may fail, or after a successful assertion. Read
+`resources/evidence.md` for the APIs and redaction rules; attachments never
+replace behavioral assertions.
 
 ---
 
@@ -467,17 +540,16 @@ replaces one.
 | --------------- | ------------------------------------------- |
 | Data Tables     | Use method parameters or constructor injection |
 | Doc Strings     | Use normal string variables                 |
-| Background      | Use class constructor or `IClassFixture<T>` |
 
 ---
 
 ## Validation Checklist
 
 - [ ] Class inherits `FeatureTest` and has `[Feature]` attribute
-- [ ] `Description` provided on `[Feature]` attribute
+- [ ] If provided, `[Feature]` `Description` explains why the covered behavior matters without overclaiming
 - [ ] Constructor accepts `ITestOutputHelper` and passes to `base(output)`
 - [ ] Each scenario method has `[Scenario]` or `[ScenarioOutline]` attribute
-- [ ] Each scenario has one primary Given, When, and Then; additional steps use And/But
+- [ ] Each scenario has a Given in itself or its Background, plus a When and Then in the scenario; additional steps use And/But
 - [ ] All test data appears in step title strings (self-documenting)
 - [ ] Values extracted via `ctx.Step!.Values` or `ctx.Step!.Params`, never hardcoded
 - [ ] `[Example]` parameter count matches method parameter count

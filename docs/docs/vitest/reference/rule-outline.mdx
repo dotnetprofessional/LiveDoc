@@ -51,14 +51,14 @@ function ruleOutline(title: string, fn: (ctx: RuleOutlineCtx) => void): void
   - **Other lines before `Examples:`** → description
   - **`Examples:` block** → pipe-delimited table (first row = headers, subsequent rows = data)
 
-- **`fn`**: `(ctx: RuleOutlineCtx) => void` — Callback containing assertions. Runs once per example row. **Should not be `async`**.
+- **`fn`**: `(ctx: RuleOutlineCtx) => void | Promise<void>` — Callback containing assertions. Runs once per example row; async callbacks are supported.
 
 #### The `ctx` Parameter {#ctx}
 
 | Property            | Type                      | Description                                        |
 | ------------------- | ------------------------- | -------------------------------------------------- |
 | `ctx.specification` | `SpecificationContext`    | `{ filename, title, description, tags }`           |
-| `ctx.rule`          | `RuleContext`             | `{ title, description, tags, specification }`      |
+| `ctx.rule`          | `RuleContext`             | Rule metadata, values/params, and attachment methods |
 | `ctx.example`       | `Record<string, any>`     | Current row data keyed by column header name       |
 
 #### The Examples Table {#examples-table}
@@ -82,7 +82,8 @@ Values are auto-coerced:
 - The `Examples:` keyword is required. Without it, no rows are parsed.
 - Column names become properties on `ctx.example`. Use valid JavaScript identifiers.
 - Each row runs as a separate Vitest `it()` call, independently reportable.
-- `ctx.rule.values` and `ctx.rule.params` are **not** populated in `ruleOutline` — use `ctx.example` instead.
+- `ctx.rule.values` and `ctx.rule.params` come from the outline title; use `ctx.example` for row values.
+- Call `ctx.rule.attach()`, `ctx.rule.attachScreenshot()`, or `ctx.rule.attachJSON()` **inside the example callback**. Attachments belong to that row's `exampleResults` entry (`testId` = outline ID, `result.rowId` = the example row), not to the outline declaration. Evidence already attached is retained when the example fails.
 
 ---
 
@@ -115,6 +116,24 @@ ruleOutline.only(`Focus on this
 ---
 
 ## Usage {#usage}
+
+### Attach evidence for each example {#attachments}
+
+```typescript
+ruleOutline(`Invoice totals
+  Examples:
+  | items | expected |
+  |     2 |       20 |
+  |     3 |       30 |
+`, async (ctx) => {
+  const invoice = await priceInvoice(ctx.example.items);
+  ctx.rule.attachJSON(invoice, `Invoice for ${ctx.example.items} items`);
+  expect(invoice.total).toBe(ctx.example.expected);
+});
+```
+
+The exported TestRunV1 attaches each JSON file to that example row, even if its assertion fails.
+Other rows and the outline itself remain unaffected.
 
 ### Basic: Data-driven rule {#basic-usage}
 

@@ -109,7 +109,8 @@ export type RunStoreErrorCode =
   | 'framework-mismatch'
   | 'run-cancelled'
   | 'run-not-active'
-  | 'dependent-run';
+  | 'dependent-run'
+  | 'project-busy';
 
 export class RunStoreError extends Error {
   constructor(public readonly code: RunStoreErrorCode, message: string) {
@@ -281,6 +282,7 @@ export class RunStore {
   private historyPathByRunId: Map<string, string> = new Map();
   private latestCombinedByProject: Map<string, TestRunV1> = new Map();
   private pendingPersistence: Set<Promise<unknown>> = new Set();
+  private busyProjects: Set<string> = new Set();
   private runsByProject: Map<string, string[]> = new Map();
   private diagnostics: RunStoreDiagnostic[] = [];
 
@@ -424,6 +426,29 @@ export class RunStore {
 
   private projectKey(project: string, environment: string): string {
     return `${project}/${environment}`;
+  }
+
+  private assertProjectAvailable(project: string): void {
+    if (Array.from(this.busyProjects).some((busy) => this.storageKey(busy) === this.storageKey(project))) {
+      throw new RunStoreError('project-busy', `Project '${project}' has a storage operation in progress.`);
+    }
+  }
+
+  private storageKey(project: string): string {
+    const name = sanitizeName(project);
+    return process.platform === 'win32' ? name.toLowerCase() : name;
+  }
+
+  private hasActiveProjectRun(project: string): boolean {
+    return Array.from(this.activeRuns.values()).some((record) =>
+      this.storageKey(record.run.project) === this.storageKey(project));
+  }
+
+  private assertUnambiguousProject(project: string): void {
+    if (Array.from(this.runs.values()).some((record) =>
+      record.run.project !== project && this.storageKey(record.run.project) === this.storageKey(project))) {
+      throw new RunStoreError('project-busy', `Project '${project}' shares a storage path with another project.`);
+    }
   }
 
   private isFull(run: TestRunV1): boolean {
@@ -624,6 +649,7 @@ export class RunStore {
     timestamp: string,
     runType: 'full' | 'partial' = 'full'
   ): TestRunV1 {
+    this.assertProjectAvailable(project);
     const key = this.projectKey(project, environment);
     if (this.activeRunIdsByProject.has(key)) {
       throw new RunStoreError('run-active', `A run is already active for '${project}/${environment}'.`);
@@ -710,37 +736,108 @@ export class RunStore {
 
   async deleteRun(runId: string): Promise<boolean> {
     const record = this.runs.get(runId);
+    if (this.activeRuns.has(runId)) {
+      throw new RunStoreError('run-active', `Run '${runId}' is active and cannot be deleted.`);
+    }
     if (!record) return false;
 
     const run = record.run;
+    this.assertProjectAvailable(run.project);
+    this.assertUnambiguousProject(run.project);
+    if (this.hasActiveProjectRun(run.project)) {
+      throw new RunStoreError('run-active', `Project '${run.project}' has an active run.`);
+    }
 
     if (this.hasDependents(runId)) {
       throw new RunStoreError('dependent-run', `Run '${runId}' has dependent partial runs.`);
     }
 
-    this.runs.delete(runId);
-
     const key = this.projectKey(run.project, run.environment);
-    const projectRuns = this.runsByProject.get(key) || [];
-    const newProjectRuns = projectRuns.filter((id) => id !== runId);
-
-    if (newProjectRuns.length === 0) this.runsByProject.delete(key);
-    else this.runsByProject.set(key, newProjectRuns);
-
+    const projectRuns = this.runsByProject.get(key) ?? [];
+    const remaining = projectRuns.filter((id) => id !== runId);
+    const previousLatest = this.latestCombinedByProject.get(key);
+    this.runsByProject.set(key, remaining);
+    let latest: TestRunV1 | undefined;
+    try {
+      latest = this.computeLatestCombined(run.project, run.environment);
+    } finally {
+      this.runsByProject.set(key, projectRuns);
+    }
+    this.busyProjects.add(run.project);
     try {
       const historyPath = this.historyPathByRunId.get(runId);
-      if (historyPath) await fs.unlink(historyPath).catch(() => undefined);
-      this.historyPathByRunId.delete(runId);
-      this.completedAtByRunId.delete(runId);
-      const latest = await this.rebuildLatestCombined(run.project, run.environment);
       const latestRunPath = this.getLastRunPath(run.project, run.environment);
       if (latest) await this.writeJsonAtomically(latestRunPath, latest);
-      else await fs.unlink(latestRunPath).catch(() => undefined);
+      else if (previousLatest) await fs.unlink(latestRunPath);
+      try {
+        if (historyPath) await fs.unlink(historyPath);
+      } catch (error) {
+        if (previousLatest) await this.writeJsonAtomically(latestRunPath, previousLatest);
+        throw error;
+      }
+      this.runs.delete(runId);
+      if (remaining.length) this.runsByProject.set(key, remaining);
+      else this.runsByProject.delete(key);
+      this.historyPathByRunId.delete(runId);
+      this.completedAtByRunId.delete(runId);
+      if (latest) this.latestCombinedByProject.set(key, latest);
+      else this.latestCombinedByProject.delete(key);
+      if (!remaining.length) {
+        await fs.rmdir(this.getHistoryDir(run.project, run.environment)).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== 'ENOENT' && error.code !== 'ENOTEMPTY') throw error;
+        });
+        await fs.rmdir(this.getProjectEnvDir(run.project, run.environment)).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== 'ENOENT' && error.code !== 'ENOTEMPTY') throw error;
+        });
+        await fs.rmdir(path.join(this.dataDir, sanitizeName(run.project))).catch((error: NodeJS.ErrnoException) => {
+          if (error.code !== 'ENOENT' && error.code !== 'ENOTEMPTY') throw error;
+        });
+      }
+      return true;
+    } finally {
+      this.busyProjects.delete(run.project);
+    }
+  }
 
+  async deleteProject(project: string): Promise<boolean> {
+    this.assertProjectAvailable(project);
+    if (this.hasActiveProjectRun(project)) {
+      throw new RunStoreError('run-active', `Project '${project}' has an active run.`);
+    }
+    const records = Array.from(this.runs.values()).filter((record) => record.run.project === project);
+    if (!records.length) return false;
+    const projectDir = path.join(this.dataDir, project);
+    this.assertUnambiguousProject(project);
+    if (sanitizeName(project) !== project || project === '.' || project === '..' ||
+      records.some((record) => {
+        const historyPath = this.historyPathByRunId.get(record.run.runId);
+        return historyPath !== undefined && !historyPath.startsWith(projectDir + path.sep);
+      }) ||
+      Array.from(this.runs.values()).some((record) => {
+        const historyPath = this.historyPathByRunId.get(record.run.runId);
+        return record.run.project !== project && historyPath?.startsWith(projectDir + path.sep);
+      })) {
+      throw new RunStoreError('project-busy', `Project '${project}' has an ambiguous storage path.`);
+    }
+    this.busyProjects.add(project);
+    try {
+      const stat = await fs.lstat(projectDir);
+      if (!stat.isDirectory() || stat.isSymbolicLink()) {
+        throw new RunStoreError('project-busy', `Project '${project}' is not a regular storage directory.`);
+      }
+      await fs.rm(projectDir, { recursive: true });
+      for (const record of records) {
+        const run = record.run;
+        this.runs.delete(run.runId);
+        this.historyPathByRunId.delete(run.runId);
+        this.completedAtByRunId.delete(run.runId);
+        const key = this.projectKey(project, run.environment);
+        this.runsByProject.delete(key);
+        this.latestCombinedByProject.delete(key);
+      }
       return true;
-    } catch (err) {
-      console.error(`Failed to delete run ${runId} from disk:`, err);
-      return true;
+    } finally {
+      this.busyProjects.delete(project);
     }
   }
 
@@ -1077,6 +1174,7 @@ export class RunStore {
   async attachCoverage(runId: string, coverage: CoverageReport): Promise<{ completed: true; paths: string[] }> {
     const activeRecord = this.activeRuns.get(runId);
     if (activeRecord) {
+      this.assertProjectAvailable(activeRecord.run.project);
       const previousCoverage = activeRecord.run.coverage;
       activeRecord.run.coverage = coverage;
       try {
@@ -1098,6 +1196,8 @@ export class RunStore {
       throw new RunStoreError('run-not-active', `Run ${runId} is not completed.`);
     }
 
+    this.assertProjectAvailable(record.run.project);
+    this.busyProjects.add(record.run.project);
     const previousCoverage = record.run.coverage;
     record.run.coverage = coverage;
     try {
@@ -1116,6 +1216,8 @@ export class RunStore {
     } catch (error) {
       record.run.coverage = previousCoverage;
       throw error;
+    } finally {
+      this.busyProjects.delete(record.run.project);
     }
   }
 

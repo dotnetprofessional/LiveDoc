@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { getCoverageSources, hasCoverageDetails } from '../lib/coverage-utils';
+import { buildGroupedNavTree, findNavItemById } from '../lib/nav-tree';
+import { TEST_TYPES } from '../lib/test-type-filter';
 
 export function MainContent() {
   const {
@@ -20,6 +22,7 @@ export function MainContent() {
     unresolvedDeepLink,
     pendingRunFetch,
     navigate,
+    testTypes,
   } = useStore();
 
   const viewData = getCurrentViewData();
@@ -29,12 +32,22 @@ export function MainContent() {
   const attemptedLink = unresolvedDeepLink?.hash ?? '';
   const isLoadingSelectedRun = Boolean(pendingRunFetch) && !hasDiagnostics;
   const hasCoverage = viewData ? getCoverageSources(viewData).some(hasCoverageDetails) : false;
+  const hasTypeFilter = TEST_TYPES.some(type => !testTypes[type]);
+  const hiddenSelection = Boolean(viewData && (
+    (currentView.type === 'node' && !node) ||
+    (currentView.type === 'group' && currentView.id &&
+      !findNavItemById(buildGroupedNavTree(viewData.run.documents ?? []), currentView.id))
+  ));
 
   useEffect(() => {
     if (currentView.type === 'coverage' && viewData && !hasCoverage) {
       navigate('summary');
     }
   }, [currentView.type, hasCoverage, navigate, viewData]);
+
+  useEffect(() => {
+    if (hiddenSelection) navigate('summary');
+  }, [hiddenSelection, navigate]);
 
   if (unresolvedDeepLink) {
     return (
@@ -149,6 +162,19 @@ export function MainContent() {
 
   return (
     <main className="flex-1 overflow-auto bg-background/50">
+      {hasTypeFilter && (
+        <div role="status" className="mx-4 mt-4 rounded-lg border bg-muted/40 px-4 py-3 text-sm md:mx-10">
+          <p className="font-medium">
+            {viewData.run.documents?.length
+              ? 'Test-type filter is active.'
+              : 'No tests match the included test types.'}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Change included test types in Viewer settings to restore hidden results.
+            {' '}Test metrics reflect included types; run duration and coverage describe the whole invocation.
+          </p>
+        </div>
+      )}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentView.type + (currentView.id || '')}

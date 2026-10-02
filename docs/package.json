@@ -7,6 +7,8 @@
     "start": "docusaurus start --port 4000",
     "dev": "docusaurus start --port 4000",
     "build": "docusaurus build",
+    "test": "node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -14,6 +16,7 @@
   },
   "dependencies": {
     "@docusaurus/core": "^3.10.2",
+    "@docusaurus/plugin-content-docs": "^3.10.2",
     "@docusaurus/preset-classic": "^3.10.2",
     "@docusaurus/theme-mermaid": "^3.10.2",
     "@mdx-js/react": "^3.0.0",
@@ -26,7 +29,9 @@
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.10.2",
     "@docusaurus/types": "^3.10.2",
-    "typescript": "~5.7.0"
+    "@types/react": "^19.0.0",
+    "typescript": "~5.7.0",
+    "xml-js": "^1.6.11"
   },
   "browserslist": {
     "production": [

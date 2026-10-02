@@ -193,14 +193,17 @@ LiveDoc also offers the [Specification pattern](./specification-pattern.mdx) for
 | ------------------- | ------------------------------ | ------------------------------ |
 | **Structure**       | Feature → Scenario → Steps     | Specification → Rule           |
 | **Step keywords**   | Given / When / Then / And / But| None — direct assertions       |
-| **Best for**        | User behavior, business rules  | Technical components, APIs     |
-| **Audience**        | Business + Technical           | Technical                      |
+| **Best for**        | Workflows with meaningful steps | Precise domain rules and technical contracts |
+| **Reader's focus**  | Following the behavior          | Inspecting rules and examples  |
 | **Verbosity**       | Higher (structured steps)      | Lower (direct code)            |
 | **Data-driven**     | ScenarioOutline + Examples     | RuleOutline + Examples         |
 | **Collaboration**   | Discovery workshops, reviews   | Code reviews, TDD              |
 
 :::tip Mix and Match
-You don't have to choose one pattern for your entire project. Use BDD for acceptance tests and the Specification pattern for unit/component tests — they complement each other naturally.
+You don't have to choose one pattern for your entire project. Use BDD for
+workflows and Specification for focused rules, including business-owned
+policies. Keep both under the same capability in the
+[Viewer hierarchy](./test-organization.mdx).
 :::
 
 ## SDK Support
@@ -219,7 +222,8 @@ The concepts are identical across both SDKs. Only the syntax differs.
 - **ScenarioOutline** supports [data-driven testing](./data-driven-tests.mdx) with Examples tables.
 - **Background** provides shared setup across scenarios in a feature.
 - LiveDoc uses the Gherkin vocabulary but tests are written in your language, not `.feature` files.
-- Use BDD for stakeholder-facing behavior; use [Specification](./specification-pattern.mdx) for technical components.
+- Use BDD when a narrative helps; [Specification](./specification-pattern.mdx) can
+  document exact business rules that stakeholders want to inspect.
 
 ## Next Steps
 

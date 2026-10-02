@@ -137,6 +137,13 @@
           ConsoleToMSBuild="true"
           StandardOutputImportance="low"
           StandardErrorImportance="high" />
+
+    <!-- Files created during this target did not exist when the SDK evaluated
+         its default Compile glob. Include only those missing from this build. -->
+    <ItemGroup>
+      <Compile Include="$(LiveDocJourneyOutputDir)\**\*.cs"
+               Exclude="@(Compile)" />
+    </ItemGroup>
   </Target>
 
   <!--

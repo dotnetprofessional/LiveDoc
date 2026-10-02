@@ -125,17 +125,19 @@ import { specification, rule } from "@swedevtools/livedoc-vitest";
 
 specification(`Tax Calculation Rules
   @finance @tax @critical
-  Business rules governing tax computation for domestic
-  and international orders
+  Keeps tax results consistent for the domestic and
+  international orders covered by these rules.
 `, (ctx) => {
-  rule("Domestic orders are taxed at the state rate", () => {
-    const tax = calculateTax({ state: "CA", amount: 100 });
-    expect(tax).toBe(7.25);
+  rule("A 'CA' order of '100' has tax '7.25'", (ctx) => {
+    const [state, amount, expectedTax] = ctx.rule.values;
+    const tax = calculateTax({ state, amount });
+    expect(tax).toBe(expectedTax);
   });
 
-  rule("International orders are tax-exempt", () => {
-    const tax = calculateTax({ country: "UK", amount: 100 });
-    expect(tax).toBe(0);
+  rule("A 'UK' order of '100' has tax '0'", (ctx) => {
+    const [country, amount, expectedTax] = ctx.rule.values;
+    const tax = calculateTax({ country, amount });
+    expect(tax).toBe(expectedTax);
   });
 });
 ```
@@ -145,14 +147,14 @@ specification(`Tax Calculation Rules
 ```typescript
 import { specification, rule } from "@swedevtools/livedoc-vitest";
 
-specification(`Inventory Management
+specification(`Specification Metadata
   @warehouse @v2
-  Rules for tracking stock levels across warehouses
+  Readers can identify the subject and tags of this published specification.
 `, (ctx) => {
   rule("Read specification context", () => {
-    expect(ctx.specification.title).toBe("Inventory Management");
+    expect(ctx.specification.title).toBe("Specification Metadata");
     expect(ctx.specification.tags).toEqual(["warehouse", "v2"]);
-    expect(ctx.specification.description).toContain("tracking stock levels");
+    expect(ctx.specification.description).toContain("identify the subject and tags");
   });
 });
 ```

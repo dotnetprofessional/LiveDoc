@@ -16,4 +16,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\livedoc-xunit.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\..\..\..\packages\viewer\src\client\test-fixtures\large-sequence.mmd"
+          Link="large-sequence.mmd" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

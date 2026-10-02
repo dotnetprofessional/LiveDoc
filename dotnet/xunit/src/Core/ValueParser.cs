@@ -11,10 +11,10 @@ public static class ValueParser
     private static readonly Regex QuotedValuePattern = new(@"'([^']*)'", RegexOptions.Compiled);
 
     // Pattern for named parameters: <name:value>
-    private static readonly Regex NamedParamPattern = new(@"<([^:>]+):([^>]*)>", RegexOptions.Compiled);
+    private static readonly Regex NamedParamPattern = new(@"<([^<:>\r\n]+):([^<>\r\n]*)>", RegexOptions.Compiled);
 
     // Pattern for placeholder only: <name> (without value, for outline placeholders)
-    private static readonly Regex PlaceholderPattern = new(@"<([^:>]+)>", RegexOptions.Compiled);
+    private static readonly Regex PlaceholderPattern = new(@"<([^<:>\r\n]+)>", RegexOptions.Compiled);
 
     /// <summary>
     /// Extracts all quoted values from a step description.

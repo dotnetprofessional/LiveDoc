@@ -1,10 +1,21 @@
 import { feature, scenario, background, given, when, Then, and } from "@swedevtools/livedoc-vitest";
-import { expect } from "vitest";
+import { afterAll, expect } from "vitest";
 import { RunStore } from "../src/store.js";
 import type { Feature, Scenario, Step, Statistics } from "../src/schema.js";
 import { promises as fs } from "fs";
 import path from "path";
-import os from "os";
+
+const createdTestDirectories = new Set<string>();
+function testDirectory(): string {
+    const directory = path.join(process.cwd(), `.livedoc-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    createdTestDirectories.add(directory);
+    return directory;
+}
+afterAll(async () => {
+    for (const directory of createdTestDirectories) {
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
 
 feature(`RunStore Data Management
     @unit @store
@@ -16,7 +27,7 @@ feature(`RunStore Data Management
 
     background("Fresh store for each scenario", (ctx) => {
         given("a new RunStore with temporary storage", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory();
             store = new RunStore(50, testDataDir);
             await store.initialize();
         });
@@ -395,6 +406,110 @@ feature(`RunStore Data Management
             expect(deleted).toBe(ctx.step.values[0]);
         });
     });
+
+    scenario("Deleting the latest run restores the previous snapshot after restart", () => {
+        let reloaded: RunStore;
+
+        given("completed runs 'old' and 'new' exist in project 'Project'", async (ctx) => {
+            for (const id of ctx.step.values.slice(0, 2) as string[]) {
+                store.createRun(id, ctx.step.values[2], "dev", "vitest", new Date().toISOString());
+                await store.completeRun(id, "passed", 0);
+            }
+        });
+
+        when("run 'new' is deleted and the store restarts", async (ctx) => {
+            await store.deleteRun(ctx.step.values[0]);
+            reloaded = new RunStore(50, testDataDir);
+            await reloaded.initialize();
+        });
+
+        Then("run 'new' is absent and the latest run is 'old'", (ctx) => {
+            expect(reloaded.getRun(ctx.step.values[0])).toBeUndefined();
+            expect(reloaded.getLatestRun("Project", "dev")?.runId).toBe(ctx.step.values[1]);
+            expect(reloaded.getRunsForProject("Project", "dev")).toHaveLength(1);
+        });
+    });
+
+    scenario("Deleting a project's last run removes the project after restart", () => {
+        let reloaded: RunStore;
+
+        given("project 'Disposable' has completed run 'only'", async (ctx) => {
+            store.createRun(ctx.step.values[1], ctx.step.values[0], "dev", "vitest", new Date().toISOString());
+            await store.completeRun(ctx.step.values[1], "passed", 0);
+        });
+
+        when("run 'only' is deleted and storage reloads", async (ctx) => {
+            await store.deleteRun(ctx.step.values[0]);
+            reloaded = new RunStore(50, testDataDir);
+            await reloaded.initialize();
+        });
+
+        Then("project 'Disposable' and run 'only' are absent", (ctx) => {
+            expect(reloaded.getProjectHierarchy().some((project) => project.name === ctx.step.values[0])).toBe(false);
+            expect(reloaded.getRun(ctx.step.values[1])).toBeUndefined();
+        });
+    });
+
+    scenario("An active run cannot be deleted", () => {
+        given("run 'active' is running in project 'Project'", (ctx) => {
+            store.createRun(ctx.step.values[0], ctx.step.values[1], "dev", "vitest", new Date().toISOString());
+        });
+
+        when("deletion of run 'active' is attempted", async (ctx) => {
+            await expect(store.deleteRun(ctx.step.values[0])).rejects.toMatchObject({ code: "run-active" });
+        });
+
+        Then("run 'active' remains available for reporting", (ctx) => {
+            expect(store.getRun(ctx.step.values[0])?.status).toBe("running");
+        });
+    });
+
+    scenario("Deletion waits for a concurrent coverage write", () => {
+        let writing: Promise<unknown>;
+        let release: () => void = () => {};
+        given("project 'Coverage' has completed run 'saved'", async (ctx) => {
+            store.createRun(ctx.step.values[1], ctx.step.values[0], "dev", "vitest", new Date().toISOString());
+            await store.completeRun(ctx.step.values[1], "passed", 0);
+        });
+        when("a coverage write holds the project storage lock", async () => {
+            const internals = store as unknown as {
+                writeJsonAtomically(file: string, value: unknown): Promise<void>;
+            };
+            const original = internals.writeJsonAtomically.bind(store);
+            const gate = new Promise<void>(resolve => { release = resolve; });
+            internals.writeJsonAtomically = async (file, value) => {
+                await gate;
+                return original(file, value);
+            };
+            writing = store.attachCoverage("saved", {
+                summary: { lines: { total: 0, covered: 0, pct: 0 } }, files: [],
+            } as Parameters<typeof store.attachCoverage>[1]);
+            await expect(store.deleteRun("saved")).rejects.toMatchObject({ code: "project-busy" });
+            await expect(store.deleteProject("Coverage")).rejects.toMatchObject({ code: "project-busy" });
+            release();
+            await writing;
+        });
+        Then("run 'saved' can be deleted after coverage persists", async (ctx) => {
+            expect(await store.deleteRun(ctx.step.values[0])).toBe(true);
+        });
+    });
+
+    scenario("A full baseline cannot be deleted while a partial run depends on it", () => {
+        given("project 'Partial' has completed baseline 'full' and partial 'patch'", async (ctx) => {
+            const [project, full, patch] = ctx.step.values as string[];
+            store.createRun(full, project, "dev", "vitest", new Date().toISOString());
+            await store.completeRun(full, "passed", 0);
+            store.createRun(patch, project, "dev", "vitest", new Date().toISOString(), "partial");
+            await store.completeRun(patch, "passed", 0);
+        });
+        when("baseline 'full' is deleted", async (ctx) => {
+            await expect(store.deleteRun(ctx.step.values[0])).rejects.toMatchObject({ code: "dependent-run" });
+        });
+        Then("partial 'patch' can be deleted before baseline 'full'", async (ctx) => {
+            expect(await store.deleteRun(ctx.step.values[0])).toBe(true);
+            expect(await store.deleteRun(ctx.step.values[1])).toBe(true);
+        });
+    });
 });
 
 feature(`RunStore Project Organization
@@ -406,7 +521,7 @@ feature(`RunStore Project Organization
 
     background("Fresh store", (ctx) => {
         given("a new RunStore instance", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory();
             store = new RunStore(50, testDataDir);
             await store.initialize();
         });
@@ -473,6 +588,42 @@ feature(`RunStore Project Organization
             expect(project!.environments).toHaveLength(ctx.step.values[1]);
         });
     });
+
+    scenario("Deleting an exact project removes every environment but leaves another project", () => {
+        let reloaded: RunStore;
+        given("projects 'Disposable' and 'Other' have completed runs across environments", async (ctx) => {
+            for (const [runId, project, environment] of [
+                ["d1", ctx.step.values[0], "dev"], ["d2", ctx.step.values[0], "ci"],
+                ["o1", ctx.step.values[1], "dev"],
+            ] as const) {
+                store.createRun(runId, project, environment, "vitest", new Date().toISOString());
+                await store.completeRun(runId, "passed", 0);
+            }
+        });
+        when("project 'Disposable' is deleted and storage reloads", async (ctx) => {
+            expect(await store.deleteProject(ctx.step.values[0])).toBe(true);
+            reloaded = new RunStore(50, testDataDir);
+            await reloaded.initialize();
+        });
+        Then("project 'Disposable' runs are absent while project 'Other' remains", (ctx) => {
+            expect(reloaded.getRun("d1")).toBeUndefined();
+            expect(reloaded.getRun("d2")).toBeUndefined();
+            expect(reloaded.getProjectHierarchy().map(p => p.name)).toEqual([ctx.step.values[1]]);
+            expect(reloaded.getRun("o1")?.project).toBe(ctx.step.values[1]);
+        });
+    });
+
+    scenario("Project deletion is rejected while a run is active", () => {
+        given("project 'Busy' has an active run", (ctx) => {
+            store.createRun("active", ctx.step.values[0], "dev", "vitest", new Date().toISOString());
+        });
+        when("project 'Busy' is deleted", async (ctx) => {
+            await expect(store.deleteProject(ctx.step.values[0])).rejects.toMatchObject({ code: "run-active" });
+        });
+        Then("the active run remains available", () => {
+            expect(store.getRun("active")).toBeDefined();
+        });
+    });
 });
 
 feature(`RunStore Persistence
@@ -484,7 +635,7 @@ feature(`RunStore Persistence
 
     background("Temporary storage directory", (ctx) => {
         given("a temporary data directory", () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory();
         });
 
         ctx.afterBackground(async () => {
@@ -503,6 +654,26 @@ feature(`RunStore Persistence
             store = new RunStore(50, testDataDir);
             await store.initialize();
             store.createRun("run-1", "Project", "dev", "vitest", new Date().toISOString());
+            store.upsertTestCase("run-1", {
+                id: "feature-1",
+                kind: "Feature",
+                title: "Inline content",
+                tests: [{
+                    id: "scenario-1",
+                    kind: "Scenario",
+                    title: "JSON remains visible",
+                    steps: [{
+                        id: "step-1",
+                        kind: "Step",
+                        keyword: "given",
+                        title: "the input response",
+                        description: "```json\n{\"value\":11}\n```",
+                        execution: { status: "passed", duration: 1 }
+                    }],
+                    execution: { status: "passed", duration: 1 }
+                }],
+                statistics: { total: 1, passed: 1, failed: 0, pending: 0, skipped: 0 }
+            });
             store.completeRun("run-1", "passed", 1000, {
                 total: 1, passed: 1, failed: 0, pending: 0, skipped: 0, duration: 1000
             });
@@ -524,6 +695,11 @@ feature(`RunStore Persistence
 
         and("the reloaded run should have status 'passed'", (ctx) => {
             expect(reloadedRun?.status).toBe(ctx.step.values[0]);
+        });
+
+        and("the reloaded step preserves inline JSON value '11'", (ctx) => {
+            expect((reloadedRun?.documents[0].tests[0] as any).steps[0].description)
+                .toContain(`"value":${ctx.step.values[0]}`);
         });
     });
 });
