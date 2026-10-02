@@ -9,6 +9,7 @@ import { formatTagLabel } from '../../lib/filter-utils';
 export interface ContainerHeaderBreadcrumb {
   id: string;
   title: string;
+  path?: string;
 }
 
 export interface ContainerHeaderProps {
@@ -18,6 +19,7 @@ export interface ContainerHeaderProps {
 
   containerTitleWithKind?: string;
   containerTitle: string;
+  containerPath?: string;
   environment: string;
   containerStatus?: Status;
 
@@ -31,6 +33,7 @@ export function ContainerHeader({
   navigate,
   containerTitleWithKind,
   containerTitle,
+  containerPath,
   environment,
   containerStatus,
   containerDescription,
@@ -38,7 +41,7 @@ export function ContainerHeader({
 }: ContainerHeaderProps) {
   return (
     <div className="space-y-2">
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-2 overflow-hidden">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground mb-2 overflow-x-auto">
         {breadcrumbs.length > 0 ? (() => {
           // Container pages (Feature/Specification/Suite) should not show a non-clickable final crumb.
           // Scenario pages should include the owning Feature (clickable), but not the current Scenario.
@@ -52,6 +55,7 @@ export function ContainerHeader({
               <div key={item.id} className="flex items-center gap-1 shrink-0">
                 {index > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
                 <button
+                  title={item.path}
                   onClick={() => navigate('group', item.id)}
                   className={cn(
                     "flex items-center gap-1.5 hover:text-foreground transition-colors truncate px-1 py-0.5 rounded-md hover:bg-muted/50",
@@ -83,7 +87,7 @@ export function ContainerHeader({
       </nav>
 
       <div className="flex items-start justify-between gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">{containerTitleWithKind || containerTitle}</h1>
+        <h1 title={containerPath} className="min-w-0 break-words text-2xl font-bold tracking-tight">{containerTitleWithKind || containerTitle}</h1>
         <div className="flex items-center gap-3">
           {environment && (
             <Badge variant="outline" className="text-muted-foreground font-normal border-border bg-muted/20">

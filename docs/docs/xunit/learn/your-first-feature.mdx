@@ -47,9 +47,8 @@ using Xunit.Abstractions;
 namespace TeaShop.Tests.Shipping;
 
 [Feature("Tea Shop Shipping Costs", Description = @"
-    Business rules for shipping and GST calculation.
-    Australian orders over $100 get free shipping.
-    Overseas orders always pay international rates.
+    Avoids assigning the wrong delivery tier for
+    the destinations and totals covered below.
 ")]
 public class ShippingCostsTests : FeatureTest
 {
@@ -231,7 +230,7 @@ literal `200`. See [Value Extraction](./value-extraction.mdx) for the full API.
 Descriptions provide additional context without cluttering the scenario title:
 
 ```csharp
-[Scenario("International shipping for overseas customers",
+[Scenario("International shipping for a New Zealand order",
     Description = @"
     Overseas customers are charged a flat $25 international
     shipping rate regardless of order size. No GST applies.
@@ -344,9 +343,8 @@ using Xunit.Abstractions;
 namespace TeaShop.Tests.Shipping;
 
 [Feature("Tea Shop Shipping Costs", Description = @"
-    Business rules for shipping and GST calculation.
-    Australian orders over $100 get free shipping.
-    Overseas orders always pay international rates.
+    Avoids assigning the wrong delivery tier for
+    the destinations and totals covered below.
 ")]
 public class ShippingCostsTests : FeatureTest
 {
@@ -382,7 +380,7 @@ public class ShippingCostsTests : FeatureTest
     }
 
     [Scenario("International shipping for overseas customers",
-        Description = "Overseas customers pay flat $25 international shipping.")]
+        Description = "Covers New Zealand at this total; other destinations need separate examples.")]
     public void International_shipping()
     {
         Given("the customer is from 'New Zealand'", ctx =>

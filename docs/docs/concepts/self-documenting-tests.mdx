@@ -11,11 +11,36 @@ title, not hidden in code. When you read a specification, you should see exactly
 without ever opening the source file.
 </p>
 
+## Purpose and Proof
+
+A title names the behavior; an optional Feature or Specification description
+explains **why it matters**. The Scenario steps or Rule titles, example rows,
+and assertions provide the **proof**. For example:
+
+```
+Feature: Shipping Costs
+  Avoids assigning the wrong delivery tier for the tested destinations and totals.
+  Scenario: Free shipping for Australian orders over $100
+    Given the destination is 'Australia'
+    When the order totals '100.00' dollars
+    Then the shipping tier is 'Free'
+
+Specification: Calculator Operations
+  Callers can rely on the arithmetic results covered by these rules.
+  Rule: Adding '5' and '3' returns '8'
+```
+
+The descriptions state a reason to care without claiming that a shipping
+price was shown in a UI or that a calculator was used in checkout. Technical
+Specifications need a contract purpose, not a fabricated business story.
+Purpose-first wording is guidance for authors and reviewers, **not** a
+runtime validation rule; descriptions remain optional in both SDKs.
+
 ## The Core Principle: Values in Titles
 
 In a [living documentation](./living-documentation.mdx) system, the test title *is* the documentation. Stakeholders, QA engineers, and future developers read titles to understand what was tested and what was proven. If the inputs and expected outputs are buried in the implementation code, the documentation is incomplete — it describes the *shape* of the behavior without showing the *substance*.
 
-LiveDoc enforces a simple rule: **embed all inputs and expected outputs directly in the step or rule title**. This makes every test a complete, self-contained statement of fact:
+Follow a simple authoring rule: **embed all inputs and expected outputs directly in the step or rule title**. This makes every test a complete, self-contained statement of fact:
 
 ```
 ✅ Self-documenting:

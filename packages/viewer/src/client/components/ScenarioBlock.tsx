@@ -15,13 +15,15 @@ import { bindExamplePlaceholdersInText } from '../lib/title-utils';
 import type { AttachmentItem } from './AttachmentViewer';
 
 export interface ScenarioBlockProps {
-  label: 'Scenario' | 'Scenario Outline' | 'Background' | 'Rule' | 'Rule Outline';
+  label: 'Scenario' | 'Scenario Outline' | 'Background' | 'Rule' | 'Rule Outline' | 'Test';
   title: React.ReactNode;
   status?: Status;
   description?: string;
   bindValues?: Record<string, string>;
   tags?: string[];
   steps?: StepTest[];
+  /** Steps rendered outside this block that still belong in its gallery. */
+  gallerySteps?: StepTest[];
   attachments?: Attachment[];
   highlightValues?: Record<string, string>;
   showDurations: boolean;
@@ -39,6 +41,7 @@ export function ScenarioBlock({
   bindValues,
   tags,
   steps,
+  gallerySteps,
   attachments,
   highlightValues,
   showDurations,
@@ -49,7 +52,8 @@ export function ScenarioBlock({
   const [galleryOpen, setGalleryOpen] = useState(false);
   const bgClass = tone === 'background' ? 'bg-muted/20' : 'bg-card/60';
 
-  const stepGalleryItems = useMemo(() => collectScenarioAttachments(steps ?? []), [steps]);
+  const evidenceSteps = gallerySteps ?? steps;
+  const stepGalleryItems = useMemo(() => collectScenarioAttachments(evidenceSteps ?? []), [evidenceSteps]);
   const galleryItems: AttachmentItem[] = useMemo(
     () => [...(attachments ?? []), ...stepGalleryItems],
     [attachments, stepGalleryItems]
@@ -67,33 +71,33 @@ export function ScenarioBlock({
 
   // Find first failed step for smart default opening
   const firstFailedStepIndex = useMemo(() => {
-    if (!steps) return 0;
-    const failedIdx = steps.findIndex((s) => s.execution?.status === 'failed');
-    return failedIdx >= 0 ? failedIdx : 0;
-  }, [steps]);
+    return evidenceSteps?.findIndex((s) => s.execution?.status === 'failed') ?? -1;
+  }, [evidenceSteps]);
 
   const initialGalleryIndex = useMemo(() => {
-    if (totalAttachments === 0) return 0;
+    if (totalAttachments === 0 || firstFailedStepIndex < 0) return 0;
     let count = attachments?.length ?? 0;
-    for (let i = 0; i < firstFailedStepIndex && i < (steps?.length ?? 0); i++) {
-      const stepAttachments = steps![i].execution?.attachments?.length ?? 0;
+    for (let i = 0; i < firstFailedStepIndex && i < (evidenceSteps?.length ?? 0); i++) {
+      const stepAttachments = evidenceSteps![i].execution?.attachments?.length ?? 0;
       count += stepAttachments;
     }
-    return count;
-  }, [attachments, firstFailedStepIndex, steps, totalAttachments]);
+    return count < totalAttachments ? count : 0;
+  }, [attachments, firstFailedStepIndex, evidenceSteps, totalAttachments]);
 
-  const attachmentScope = label === 'Rule Outline'
+  const attachmentScope = label === 'Rule Outline' || label === 'Scenario Outline'
     ? 'this example'
     : label === 'Rule'
       ? 'this rule'
-      : 'this scenario';
+      : label === 'Test'
+        ? 'this test'
+        : 'this scenario';
   const attachmentTitle = `View all ${totalAttachments} attachment${totalAttachments === 1 ? '' : 's'} for ${attachmentScope}`;
 
   return (
     <Card className={`border-none shadow-none ${bgClass}`}>
       <CardContent className="p-0">
         <div className="py-4">
-          <div className="flex items-start justify-between gap-4 mb-2">
+          <div className={`flex items-start justify-between gap-4 mb-2 ${label === 'Test' ? 'flex-col sm:flex-row' : ''}`}>
             <h2 className="text-xl font-bold tracking-tight">
               <span className="text-muted-foreground font-semibold">{label}:</span>{' '}
               {title}

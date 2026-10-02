@@ -155,12 +155,29 @@ const scenarioOutline = V1ScenarioOutlineTestSchema.parse({
     { testId: 'scenario-outline-given', result: { rowId: 2, status: 'passed', duration: 1, attachments: [
       { id: 'second', kind: 'file', title: 'second.json', mimeType: 'application/json', base64: 'eyJyb3ciOjJ9' },
     ] } },
+    { testId: 'scenario-outline-evidence', result: { rowId: 2, status: 'passed', duration: 1, attachments: [
+      { id: 'row', kind: 'file', title: 'row.json', mimeType: 'application/json', base64: 'eyJyb3ciOjJ9' },
+    ] } },
     { testId: 'scenario-outline-evidence', result: { rowId: 3, status: 'passed', duration: 1 } },
     { testId: 'unrelated-step', result: { rowId: 3, status: 'passed', duration: 1, attachments: [
       { id: 'unrelated', kind: 'file', title: 'unrelated.json', mimeType: 'application/json', base64: 'e30=' },
     ] } },
+    { testId: 'scenario-outline-given', result: { rowId: 99, status: 'passed', duration: 1, attachments: [
+      { id: 'unknown-row', kind: 'file', title: 'unknown-row.json', mimeType: 'application/json', base64: 'e30=' },
+    ] } },
   ],
   statistics: { total: 3, passed: 3, failed: 0, pending: 0, skipped: 0 },
+});
+
+const emptyScenarioOutline = V1ScenarioOutlineTestSchema.parse({
+  ...scenarioOutline,
+  id: 'scenario-outline-empty',
+  title: 'A scenario outline without example evidence',
+  exampleResults: [
+    { testId: 'scenario-outline-evidence', result: { rowId: 1, status: 'passed', duration: 1, attachments: [
+      { id: 'other-outline', kind: 'file', title: 'other-outline.json', mimeType: 'application/json', base64: 'e30=' },
+    ] } },
+  ],
 });
 
 const specification: SpecificationTestCase = {
@@ -217,7 +234,7 @@ const feature: FeatureTestCase = {
   id: 'feature-1',
   kind: 'Feature',
   title: 'Scenario examples',
-  tests: [scenario, scenarioOnly, stepOnly, emptyScenario],
+  tests: [scenario, scenarioOnly, stepOnly, emptyScenario, scenarioOutline, emptyScenarioOutline],
   statistics: { total: 1, passed: 1, failed: 0, pending: 0, skipped: 0 },
 };
 

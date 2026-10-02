@@ -49,6 +49,66 @@ const attachments: AttachmentItem[] = [
   )) },
 ];
 
+const jsonCases: AttachmentItem[] = [
+  { title: 'search.json', mimeType: 'application/json', base64: encode(JSON.stringify({
+    name: 'name',
+    branch: { name: 'name', nested: { name: 'Café 中文.*[x] "quoted"\nline ΟΣ 🛰️ İ '.repeat(12) } },
+    untouched: { description: 'not a search result' },
+    'a.b': { '': true },
+    numbers: [false, 0, null, [], {}],
+  })) },
+  { title: 'scalar-string.json', mimeType: 'application/json', base64: encode(JSON.stringify('Café 中文.*[x]')) },
+  { title: 'collections.json', mimeType: 'application/json',
+    base64: encode(JSON.stringify({
+      documentType: 'collection-validation',
+      services: [{ name: 'api', healthy: true, dependencies: [{ name: 'database', healthy: false }] }],
+      summary: { total: 48, healthy: false },
+      records: Array.from({ length: 48 }, (_, index) => ({
+        id: index + 1, name: `record-${index + 1}`,
+        description: 'Café 中文 — dependency information. '.repeat(10),
+        dependencies: [{ name: 'database', healthy: false }, { name: 'cache', healthy: true }],
+      })),
+      Error: {
+        httpStatusCode: null,
+        dependencies: [{ name: 'database', healthy: false }, { name: 'cache', healthy: true }],
+        emptyArray: [], emptyObject: {}, optional: null,
+        message: 'long-value-without-spaces-'.repeat(30),
+      },
+      emptyArray: [], emptyObject: {}, optional: null, active: true,
+      description: 'Café 中文 — collection validation',
+    })) },
+  { title: 'response.json', mimeType: 'application/json',
+    base64: encode(JSON.stringify({
+      SchemaVersion: 1,
+      Status: 'degraded',
+      StatusUpdatedUtc: '2026-09-30T11:00:00Z',
+      Error: {
+        provider: 'remote',
+        operation: 'fetch',
+        code: 'unavailable',
+        message: 'long-value-without-spaces-'.repeat(30),
+        httpStatusCode: null,
+        dependencies: [{ name: 'database', healthy: false }, { name: 'cache', healthy: true }],
+      },
+      emptyArray: [],
+      emptyObject: {},
+      emptyString: '',
+      zero: 0,
+    })) },
+  { title: 'null.json', mimeType: 'application/json', base64: encode('null') },
+];
+
+const wheelImage = encode('<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1400"><rect width="1800" height="1400" fill="#2563eb"/><path d="M0 700H1800M900 0V1400" stroke="white" stroke-width="4"/></svg>');
+const wheelCases: AttachmentItem[] = [
+  { title: 'large-image.svg', mimeType: 'image/svg+xml', base64: wheelImage },
+  { title: 'second-image.svg', mimeType: 'image/svg+xml', base64: wheelImage },
+  { title: 'loading-image.svg', mimeType: 'image/svg+xml', uri: '/wheel-loading.svg' },
+  { title: 'invalid-image.png', mimeType: 'image/png', base64: encode('not an image') },
+  attachments[6], attachments[8], attachments[10], attachments[16], attachments[15],
+  { title: 'oversized-image.svg', mimeType: 'image/svg+xml',
+    base64: encode('<svg xmlns="http://www.w3.org/2000/svg" width="100000" height="100000"><rect width="100000" height="100000" fill="#2563eb"/></svg>') },
+];
+
 declare global {
   interface Window { __mermaidExecuted?: boolean }
 }
@@ -65,7 +125,11 @@ function Fixture() {
       ? [{ ...attachments[6], stepIndex: 1, stepTitle: 'the document is synchronized', stepKeyword: 'when' }]
       : params.has('step-gallery')
         ? [{ ...attachments[10], stepIndex: 0, stepTitle: 'a response is inspected', stepKeyword: 'then' }]
-        : attachments;
+        : params.has('json-cases')
+          ? [...attachments, ...jsonCases]
+          : params.has('wheel-cases')
+            ? wheelCases
+          : attachments;
   return (
     <>
       <button onClick={() => setOpen(true)}>Open attachment gallery</button>

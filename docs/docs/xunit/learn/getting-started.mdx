@@ -265,18 +265,24 @@ Install the [.NET Test Explorer](https://marketplace.visualstudio.com/items?item
 
 ## Namespace Matters
 
-Your C# namespace determines how tests are grouped in the LiveDoc Viewer. Organize
-namespaces by feature area for a clean report hierarchy:
+Your full declared C# namespace determines how tests are grouped in the
+LiveDoc Viewer, independently of the assembly name. Organize namespaces by
+feature area and align your source folders with those declarations:
 
-```
-MyProject.Tests/
-├── Checkout/           → "Checkout" in the viewer tree
+```text
+MyProject.Tests/        (source project)
+├── Checkout/           → namespace MyProject.Tests.Checkout
 │   └── CartTests.cs
-├── Shipping/           → "Shipping" in the viewer tree
+├── Shipping/           → namespace MyProject.Tests.Shipping
 │   └── CostsTests.cs
-└── Auth/               → "Auth" in the viewer tree
+└── Auth/               → namespace MyProject.Tests.Auth
     └── LoginTests.cs
 ```
+
+The Viewer retains **MyProject → Tests → Checkout**, for example; it does
+not remove `MyProject.Tests` when that also happens to be the assembly name.
+Physical folders alone do not set the report path. Class names and
+Feature/Specification titles remain document leaves, not folders.
 
 :::caution
 Avoid flat namespaces — placing all tests in a single namespace produces a

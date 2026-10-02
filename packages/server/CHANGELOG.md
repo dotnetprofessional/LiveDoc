@@ -6,6 +6,10 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 ## [next release]
 
+## [0.3.1] - 2026-09-30 (local testing)
+
+- Added exact-ID v1 DELETE routes for completed runs and source projects, with active-run rejection, persistent history/snapshot cleanup, and explicit failure responses.
+
 ## [0.3.0] - 2026-08-29
 
 - Added full/partial run lifecycles, raw physical history, server-composed historical views, active-run fencing, and completed-only latest snapshots.

@@ -1,0 +1,2134 @@
+{
+  "protocolVersion": "1.0",
+  "runId": "40257fa5-69a1-48d6-80e0-4fbbf056f8c3",
+  "project": "viewer-validation",
+  "environment": "local",
+  "framework": "vitest",
+  "timestamp": "2026-10-02T17:05:19.752Z",
+  "duration": 36466.96140000002,
+  "status": "passed",
+  "summary": {
+    "total": 104,
+    "passed": 104,
+    "failed": 0,
+    "pending": 0,
+    "skipped": 0
+  },
+  "documents": [
+    {
+      "id": "24nhql",
+      "kind": "Specification",
+      "path": "DeepLinkProjection.Spec.ts",
+      "title": "Viewer Deep Link Context Round Trip",
+      "description": "Project, environment, run or logical group, projection, and current page must round-trip through\nthe URL while existing node-only links remain backward compatible.",
+      "tags": [],
+      "tests": [
+        {
+          "id": "24nhql:ypsdz6",
+          "kind": "Rule",
+          "title": "Building a hash for a node view without a runView omits the projection suffix (backward compatible)",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1.4435999999999467
+          }
+        },
+        {
+          "id": "24nhql:hem102",
+          "kind": "Rule",
+          "title": "Building a hash with runView 'combined' also omits the suffix, since combined is the default",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.116800000000012
+          }
+        },
+        {
+          "id": "24nhql:x58stl",
+          "kind": "Rule",
+          "title": "Building a hash with runView 'physical' appends a '?view=physical' suffix",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.22900000000004184
+          }
+        },
+        {
+          "id": "24nhql:bnvd69",
+          "kind": "Rule",
+          "title": "Resolving a hash with no '?view=' suffix defaults to no explicit runView (callers default to combined)",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.7187000000000126
+          }
+        },
+        {
+          "id": "24nhql:hwynz0",
+          "kind": "Rule",
+          "title": "Resolving a hash with '?view=physical' recovers 'physical' as the runView alongside the resolved node",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.31529999999997926
+          }
+        },
+        {
+          "id": "24nhql:mbhv27",
+          "kind": "Rule",
+          "title": "A build-then-resolve round trip for a physical projection recovers the exact same node and runView",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.20959999999990941
+          }
+        },
+        {
+          "id": "24nhql:2vo36q",
+          "kind": "Rule",
+          "title": "An unrecognized query value other than 'physical' resolves as no explicit runView (defaults to combined)",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.14649999999994634
+          }
+        },
+        {
+          "id": "24nhql:o58xo7",
+          "kind": "Rule",
+          "title": "The summary (home) view never carries a projection suffix, even when runView is 'physical'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.10620000000005803
+          }
+        },
+        {
+          "id": "24nhql:goey3r",
+          "kind": "Rule",
+          "title": "A contextual node link preserves project 'Demo.Tests', environment 'ci', run 'partial-2', and view 'physical'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.21670000000005984
+          }
+        },
+        {
+          "id": "24nhql:gitq6o",
+          "kind": "Rule",
+          "title": "A summary link preserves run 'partial-2' instead of returning an empty hash",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.181699999999978
+          }
+        },
+        {
+          "id": "24nhql:5cvhu1",
+          "kind": "Rule",
+          "title": "A run-qualified link selects 'partial-2' when '2' candidates contain the same node",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.6324999999999363
+          }
+        },
+        {
+          "id": "24nhql:glo4rc",
+          "kind": "Rule",
+          "title": "A grouped link preserves group 'group:ci:demo:integration-1+unit-1' and '2' source runs",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.3464999999999918
+          }
+        }
+      ],
+      "statistics": {
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "208thb",
+      "kind": "Specification",
+      "path": "NamespaceNavigation.Spec.ts",
+      "title": "Namespace Display Projection",
+      "description": "A shorter namespace presentation keeps canonical report identities and saved navigation intact.",
+      "tags": [
+        "navigation"
+      ],
+      "tests": [
+        {
+          "id": "208thb:v0g1q4",
+          "kind": "RuleOutline",
+          "title": "The <kind> namespace Acme/Commerce/Quotes/Services/Transactor/UnitTests shows Authentication and ResourceProviders, retaining both full-path group identities",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "kind"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "Standard",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "Container",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "Feature",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "Specification",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "208thb:v0g1q4",
+              "result": {
+                "status": "passed",
+                "duration": 8.192900000000009,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "208thb:v0g1q4",
+              "result": {
+                "status": "passed",
+                "duration": 0.3404000000000451,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "208thb:v0g1q4",
+              "result": {
+                "status": "passed",
+                "duration": 0.22820000000001528,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "208thb:v0g1q4",
+              "result": {
+                "status": "passed",
+                "duration": 0.22839999999996508,
+                "rowId": 3
+              }
+            }
+          ],
+          "statistics": {
+            "total": 4,
+            "passed": 4,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 9.251199999999926
+          }
+        },
+        {
+          "id": "208thb:gvy7dz",
+          "kind": "RuleOutline",
+          "title": "Framework <framework> with paths <first> and <second> retains visible roots <roots>",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework",
+                "first",
+                "second",
+                "roots"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Other/Billing/B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme,Other",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Root,Auth,Document 1",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth,Document 1",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Billing/B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 4,
+                  "values": [
+                    {
+                      "value": "mixed",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Billing/B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 5,
+                  "values": [
+                    {
+                      "value": "unknown",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Billing/B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "208thb:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.15010000000006585,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "208thb:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.09780000000000655,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "208thb:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.09249999999997272,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "208thb:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.10930000000007567,
+                "rowId": 3
+              }
+            },
+            {
+              "testId": "208thb:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.11700000000018917,
+                "rowId": 4
+              }
+            },
+            {
+              "testId": "208thb:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.15220000000022083,
+                "rowId": 5
+              }
+            }
+          ],
+          "statistics": {
+            "total": 6,
+            "passed": 6,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 0.7812999999998738
+          }
+        },
+        {
+          "id": "208thb:jge57c",
+          "kind": "Rule",
+          "title": "A single document at 'Acme/Commerce/Tests/Check.cs' displays 'Document 0' with canonical ID 'doc-0'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.39789999999993597
+          }
+        },
+        {
+          "id": "208thb:tb6o2z",
+          "kind": "Rule",
+          "title": "Branching at 'Acme/Tests' retains 'Billing/Lifecycle/Renewals' beside 'Authentication' without losing direct 'Document 2'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.2477000000001226
+          }
+        },
+        {
+          "id": "208thb:d43w7m",
+          "kind": "Rule",
+          "title": "Hidden ancestor 'group:Acme/Commerce/Quotes' still round-trips through '#/group/Acme/Commerce/Quotes' and opens 'Authentication,ResourceProviders'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 7.6141999999999825
+          }
+        }
+      ],
+      "statistics": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "niywt4",
+      "kind": "Specification",
+      "path": "RunGrouping.Spec.ts",
+      "title": "Viewer Run Grouping",
+      "description": "Logical project grouping should represent one solution/test run at a time.",
+      "tags": [],
+      "tests": [
+        {
+          "id": "niywt4:tbqgm",
+          "kind": "Rule",
+          "title": "Repeated project ids split one solution run into '2' logical groups",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 3.703399999999988
+          }
+        },
+        {
+          "id": "niywt4:ja9bm1",
+          "kind": "Rule",
+          "title": "Partial rerun leaves only the original multi-project group grouped as '1' group",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.35880000000000223
+          }
+        },
+        {
+          "id": "niywt4:fvjlkz",
+          "kind": "Rule",
+          "title": "Duplicate-triggered split resets the time window and still forms '2' groups",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.37630000000001473
+          }
+        },
+        {
+          "id": "niywt4:iqz3r4",
+          "kind": "Rule",
+          "title": "Back-to-back duplicate project ids keep only the latest complete solution run in '2' groups",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.4188999999999794
+          }
+        },
+        {
+          "id": "niywt4:6s7tnp",
+          "kind": "Rule",
+          "title": "'2' historical groups for one project and environment produce '1' current project entry",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.45420000000001437
+          }
+        }
+      ],
+      "statistics": {
+        "total": 5,
+        "passed": 5,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "rr51p4",
+      "kind": "Specification",
+      "path": "RunHistoryBadges.Spec.ts",
+      "title": "Viewer Run History Badges",
+      "description": "Deriving 'Full' / 'Partial n' badges for the chronological run dropdown has no stored sequence\nfield — the badge is purely a function of chronological order since the most recent full run.",
+      "tags": [],
+      "tests": [
+        {
+          "id": "rr51p4:fgqs4j",
+          "kind": "Rule",
+          "title": "A full run followed by '3' partial reruns is badged 'Full, Partial 1, Partial 2, Partial 3' in order",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 3.0971000000000117
+          }
+        },
+        {
+          "id": "rr51p4:hlb3pz",
+          "kind": "Rule",
+          "title": "A second full baseline resets the partial sequence back to '1' for the next partial",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.2948000000000093
+          }
+        },
+        {
+          "id": "rr51p4:a0x12k",
+          "kind": "Rule",
+          "title": "Entries missing a runType are treated as 'full', preserving pre-partial-support history",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.1904999999999859
+          }
+        },
+        {
+          "id": "rr51p4:5davr3",
+          "kind": "Rule",
+          "title": "Server history order yields partial sequence '2' even when producer timestamps are out of order",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.200300000000027
+          }
+        },
+        {
+          "id": "rr51p4:diyaan",
+          "kind": "Rule",
+          "title": "formatRunBadge renders 'Full' and 'Partial 2' for the respective badge kinds",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.1453999999999951
+          }
+        },
+        {
+          "id": "rr51p4:n14tyw",
+          "kind": "Rule",
+          "title": "Merging history with a live in-progress entry prefers the live entry's fresher status",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.279200000000003
+          }
+        },
+        {
+          "id": "rr51p4:5e1s67",
+          "kind": "Rule",
+          "title": "Merging de-duplicates by runId, preferring the live/loaded entry over stale history metadata",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.2518999999999778
+          }
+        },
+        {
+          "id": "rr51p4:bo9u3u",
+          "kind": "Rule",
+          "title": "Merging duplicate Combined and physical live entries keeps only '1' run menu entry",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.26499999999998636
+          }
+        }
+      ],
+      "statistics": {
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "nl5g0m",
+      "kind": "Specification",
+      "path": "RunProjectionStore.Spec.ts",
+      "title": "Viewer Run Projection Store",
+      "description": "Combined runs and physical (partial) run projections are cached separately so grouping/logical\nrun inputs — which only ever read the combined 'runs' collection — can never be corrupted by an\nactive partial's physical data.",
+      "tags": [],
+      "tests": [
+        {
+          "id": "nl5g0m:axh7by",
+          "kind": "Rule",
+          "title": "Selecting a run without specifying a projection defaults 'selectedRunView' to 'combined'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1.5365000000000464
+          }
+        },
+        {
+          "id": "nl5g0m:a6o14i",
+          "kind": "Rule",
+          "title": "Selecting a run with an explicit 'physical' projection is preserved on the store",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.2878999999999792
+          }
+        },
+        {
+          "id": "nl5g0m:pogo7j",
+          "kind": "Rule",
+          "title": "Selecting a run group always resets the projection back to 'combined'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.3018999999999892
+          }
+        },
+        {
+          "id": "nl5g0m:18jnaf",
+          "kind": "Rule",
+          "title": "Follow latest disabled keeps selected run 'run-a' when newer run 'run-b' arrives",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.6247000000000185
+          }
+        },
+        {
+          "id": "nl5g0m:en3rqz",
+          "kind": "Rule",
+          "title": "Follow latest enabled switches selected run from 'run-a' to newer run 'run-b'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.5063000000000102
+          }
+        },
+        {
+          "id": "nl5g0m:2b3wkg",
+          "kind": "Rule",
+          "title": "Follow latest enabled selects '1' containing group after '2' related projects arrive",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 2.37620000000004
+          }
+        },
+        {
+          "id": "nl5g0m:2w3jta",
+          "kind": "Rule",
+          "title": "upsertPhysicalRun stores data only in the physical cache, leaving 'runs' — and therefore grouping inputs — untouched",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.4433999999999969
+          }
+        },
+        {
+          "id": "nl5g0m:oatw69",
+          "kind": "Rule",
+          "title": "getCurrentRun returns the combined projection with '2' documents when runs holds it and the view is combined",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.507000000000005
+          }
+        },
+        {
+          "id": "nl5g0m:pnyapw",
+          "kind": "Rule",
+          "title": "Toggling to the physical projection returns just '1' document for the same selected run",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.9599999999999795
+          }
+        },
+        {
+          "id": "nl5g0m:a5b65q",
+          "kind": "Rule",
+          "title": "An active partial with no combined snapshot yet still resolves via the physical cache when the view defaults back to combined",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.6347999999999843
+          }
+        },
+        {
+          "id": "nl5g0m:pt8j1h",
+          "kind": "Rule",
+          "title": "A completed partial does not masquerade as Combined while its combined projection is loading",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.3051999999999566
+          }
+        },
+        {
+          "id": "nl5g0m:vrdhii",
+          "kind": "Rule",
+          "title": "Real-time testcase upserts route to the physical cache when the runId is only tracked there, never touching 'runs'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.6981999999999857
+          }
+        },
+        {
+          "id": "nl5g0m:i59qy8",
+          "kind": "Rule",
+          "title": "Real-time testcase upserts continue to route to 'runs' for full runs, unaffected by the physical cache split",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.5343000000000302
+          }
+        },
+        {
+          "id": "nl5g0m:le47z0",
+          "kind": "Rule",
+          "title": "A failed testcase upsert keeps an active full run 'running' while recording '1' failure",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.36899999999997135
+          }
+        },
+        {
+          "id": "nl5g0m:hw0oxx",
+          "kind": "Rule",
+          "title": "Late partial testcase updates change only the physical projection while Combined stays at '2' documents",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.4175999999999931
+          }
+        },
+        {
+          "id": "nl5g0m:7wg4rq",
+          "kind": "Rule",
+          "title": "Partial coverage '50' updates This partial while Combined baseline coverage remains '100'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.42360000000002174
+          }
+        },
+        {
+          "id": "nl5g0m:xsxj1w",
+          "kind": "Rule",
+          "title": "removeRun also evicts any physical cache entry for the same runId, preventing an orphaned toggle target",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.405399999999986
+          }
+        }
+      ],
+      "statistics": {
+        "total": 17,
+        "passed": 17,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "7i84k",
+      "kind": "Specification",
+      "path": "SidebarLayout.Spec.ts",
+      "title": "Sidebar Width Preferences",
+      "description": "Stored desktop widths stay usable even when storage is absent or contains an invalid value.",
+      "tags": [
+        "sidebar"
+      ],
+      "tests": [
+        {
+          "id": "7i84k:ih7x4b",
+          "kind": "RuleOutline",
+          "title": "Stored width <stored> initializes the sidebar preference to <expected> pixels",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "stored",
+                "expected"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "missing",
+                      "type": "string"
+                    },
+                    {
+                      "value": "280",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "invalid",
+                      "type": "string"
+                    },
+                    {
+                      "value": "280",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "480",
+                      "type": "string"
+                    },
+                    {
+                      "value": "480",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "-50",
+                      "type": "string"
+                    },
+                    {
+                      "value": "240",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 4,
+                  "values": [
+                    {
+                      "value": "999",
+                      "type": "string"
+                    },
+                    {
+                      "value": "600",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "7i84k:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.9027999999998428,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "7i84k:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.12419999999997344,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "7i84k:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.09950000000003456,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "7i84k:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.09009999999989304,
+                "rowId": 3
+              }
+            },
+            {
+              "testId": "7i84k:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.08839999999986503,
+                "rowId": 4
+              }
+            }
+          ],
+          "statistics": {
+            "total": 5,
+            "passed": 5,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 1.5833000000000084
+          }
+        }
+      ],
+      "statistics": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "au7g8c",
+      "kind": "Specification",
+      "path": "SidebarLayout.Spec.ts",
+      "title": "Sidebar Navigation and Resizing",
+      "description": "Readers can find meaningful namespaces and allocate space to deeper branches without changing report data or mobile navigation.",
+      "tags": [
+        "navigation",
+        "sidebar"
+      ],
+      "tests": [
+        {
+          "id": "au7g8c:30se3i",
+          "kind": "Rule",
+          "title": "An xUnit run with '401' containers starts at 'Authentication,ResourceProviders', preserving '401' passed tests",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 2495.2637
+          }
+        },
+        {
+          "id": "au7g8c:4ms88d",
+          "kind": "Rule",
+          "title": "Search 'Check 001' and tag '@authentication' keep the 'Authentication' root and canonical selection without revealing 'UnitTests'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1158.8040999999998
+          }
+        },
+        {
+          "id": "au7g8c:ahtc77",
+          "kind": "Rule",
+          "title": "A saved hidden-ancestor link '#/group/Acme/Commerce/Quotes' opens 'Quotes' with 'Authentication,ResourceProviders' and full namespace tooltips",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 2119.9125999999997
+          }
+        },
+        {
+          "id": "au7g8c:vnzfgv",
+          "kind": "Rule",
+          "title": "Document 'Check 001' and native result 'Check 1 passes' retain full paths with compact 'Root,Authentication,Check 001' breadcrumbs",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1143.3714
+          }
+        },
+        {
+          "id": "au7g8c:caq83n",
+          "kind": "Rule",
+          "title": "A single deeply namespaced container 'Check 001' tagged 'authentication' is directly reachable in the sidebar and Root listing",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1372.630799999999
+          }
+        },
+        {
+          "id": "au7g8c:ew3mvk",
+          "kind": "Rule",
+          "title": "Combined partial inventory keeps '401' containers while This partial shows '4', and Combined restores 'Authentication,ResourceProviders'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1380.3438999999998
+          }
+        },
+        {
+          "id": "au7g8c:m9f70a",
+          "kind": "Rule",
+          "title": "Dragging the desktop divider from default '280' to '480' pixels preserves expanded 'ResourceProviders' and folder selection after reload",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 2344.045100000001
+          }
+        },
+        {
+          "id": "au7g8c:adti6v",
+          "kind": "Rule",
+          "title": "The named separator responds to 'ArrowRight' and 'ArrowLeft' with keyboard focus retained",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1166.9457999999995
+          }
+        },
+        {
+          "id": "au7g8c:5ggtsv",
+          "kind": "Rule",
+          "title": "A legitimate branch 'ResourceProviders/Billing/Lifecycle/Renewals/LongTransactionAuthorizationPolicies' remains navigable and its label fits after resizing from '280' to '480' pixels",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 2075.943299999999
+          }
+        },
+        {
+          "id": "au7g8c:txs8py",
+          "kind": "RuleOutline",
+          "title": "Dragging at viewport <viewport> pixels to <target> clamps sidebar at <expected>, retaining at least '480' pixels of content",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "viewport",
+                "target",
+                "expected"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "1440",
+                      "type": "string"
+                    },
+                    {
+                      "value": "0",
+                      "type": "string"
+                    },
+                    {
+                      "value": "240",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "1440",
+                      "type": "string"
+                    },
+                    {
+                      "value": "1400",
+                      "type": "string"
+                    },
+                    {
+                      "value": "600",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "800",
+                      "type": "string"
+                    },
+                    {
+                      "value": "790",
+                      "type": "string"
+                    },
+                    {
+                      "value": "308",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "au7g8c:txs8py",
+              "result": {
+                "status": "passed",
+                "duration": 1327.6371,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "au7g8c:txs8py",
+              "result": {
+                "status": "passed",
+                "duration": 847.4452000000019,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "au7g8c:txs8py",
+              "result": {
+                "status": "passed",
+                "duration": 817.8601999999992,
+                "rowId": 2
+              }
+            }
+          ],
+          "statistics": {
+            "total": 3,
+            "passed": 3,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 2993.3840999999993
+          }
+        },
+        {
+          "id": "au7g8c:qrwj6t",
+          "kind": "Rule",
+          "title": "Preferred width '600' shrinks to '276' at viewport '768', restores at '1440', and does not leak into the '375' pixel mobile drawer",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1182.3446000000004
+          }
+        },
+        {
+          "id": "au7g8c:cqn9t4",
+          "kind": "Rule",
+          "title": "An embedded VS Code viewer at '1440' pixels retains host-controlled navigation with no desktop divider or sidebar",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 278.88300000000163
+          }
+        }
+      ],
+      "statistics": {
+        "total": 12,
+        "passed": 12,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "diu3fj",
+      "kind": "Specification",
+      "path": "StandardTests.Spec.ts",
+      "title": "Native Test Report Compatibility",
+      "description": "Existing saved xUnit results remain reachable beside authored living documentation without changing their identities or totals.",
+      "tags": [
+        "native-tests"
+      ],
+      "tests": [
+        {
+          "id": "diu3fj:6sn37x",
+          "kind": "Rule",
+          "title": "Unmapped kind 'toString' retains label 'toString', plural 'toStrings', and a FileText icon",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1.5661999999997533
+          }
+        },
+        {
+          "id": "diu3fj:klgc5z",
+          "kind": "RuleOutline",
+          "title": "A <kind> document with Test children retains ID plain-tests, namespace Arithmetic/Native, and totals 2 passed of 2 in navigation",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "kind"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "Standard",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "Container",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "Feature",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "Specification",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "diu3fj:klgc5z",
+              "result": {
+                "status": "passed",
+                "duration": 1.1156000000000859,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "diu3fj:klgc5z",
+              "result": {
+                "status": "passed",
+                "duration": 0.2588999999998123,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "diu3fj:klgc5z",
+              "result": {
+                "status": "passed",
+                "duration": 0.2132000000001426,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "diu3fj:klgc5z",
+              "result": {
+                "status": "passed",
+                "duration": 0.19190000000025975,
+                "rowId": 3
+              }
+            }
+          ],
+          "statistics": {
+            "total": 4,
+            "passed": 4,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 1.9018999999998414
+          }
+        },
+        {
+          "id": "diu3fj:nzfhr7",
+          "kind": "Rule",
+          "title": "A saved 'Standard' document and 'Specification' expose '2' document nodes and '2' passed results",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 3242.7927
+          }
+        },
+        {
+          "id": "diu3fj:szgn3",
+          "kind": "RuleOutline",
+          "title": "Cards for <kind> label their children Tests and expose passed Test Adding one and one returns two as a button",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "kind"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "Standard",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "Container",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "diu3fj:szgn3",
+              "result": {
+                "status": "passed",
+                "duration": 11.070800000000418,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "diu3fj:szgn3",
+              "result": {
+                "status": "passed",
+                "duration": 2.891700000000128,
+                "rowId": 1
+              }
+            }
+          ],
+          "statistics": {
+            "total": 2,
+            "passed": 2,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 14.011099999999715
+          }
+        },
+        {
+          "id": "diu3fj:20i5qz",
+          "kind": "RuleOutline",
+          "title": "Direct native test links render <title> with status <status> and details <detail>",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "slug",
+                "title",
+                "status",
+                "detail"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "adding-one-and-one-returns-two",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Adding one and one returns two",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Passed",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Test: Adding one and one returns two",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "a-failing-fact",
+                      "type": "string"
+                    },
+                    {
+                      "value": "A failing Fact",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Failed",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Expected 2 but received 3",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "a-skipped-fact",
+                      "type": "string"
+                    },
+                    {
+                      "value": "A skipped Fact",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Skipped",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Requires an unavailable service",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "addition-left-1-right-2-expected-3",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Addition(left: 1, right: 2, expected: 3)",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Passed",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Arguments",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 4,
+                  "values": [
+                    {
+                      "value": "addition-left-2-right-2-expected-5",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Addition(left: 2, right: 2, expected: 5)",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Failed",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Expected 5 but received 4",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "diu3fj:20i5qz",
+              "result": {
+                "status": "passed",
+                "duration": 547.5445,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "diu3fj:20i5qz",
+              "result": {
+                "status": "passed",
+                "duration": 276.26640000000043,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "diu3fj:20i5qz",
+              "result": {
+                "status": "passed",
+                "duration": 268.8168999999998,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "diu3fj:20i5qz",
+              "result": {
+                "status": "passed",
+                "duration": 275.27950000000055,
+                "rowId": 3
+              }
+            },
+            {
+              "testId": "diu3fj:20i5qz",
+              "result": {
+                "status": "passed",
+                "duration": 323.3676000000005,
+                "rowId": 4
+              }
+            }
+          ],
+          "statistics": {
+            "total": 5,
+            "passed": 5,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 1691.3613000000005
+          }
+        },
+        {
+          "id": "diu3fj:wusxd4",
+          "kind": "RuleOutline",
+          "title": "Native Test Adding one and one returns two with schema-supported status <status> remains navigable and displays <label>",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "status",
+                "label"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "pending",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Pending",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "running",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Running",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "timedOut",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Timed Out",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "cancelled",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Cancelled",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "diu3fj:wusxd4",
+              "result": {
+                "status": "passed",
+                "duration": 1040.2687999999998,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "diu3fj:wusxd4",
+              "result": {
+                "status": "passed",
+                "duration": 996.2934000000005,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "diu3fj:wusxd4",
+              "result": {
+                "status": "passed",
+                "duration": 969.423499999999,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "diu3fj:wusxd4",
+              "result": {
+                "status": "passed",
+                "duration": 994.2662,
+                "rowId": 3
+              }
+            }
+          ],
+          "statistics": {
+            "total": 4,
+            "passed": 4,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 4000.3495000000003
+          }
+        },
+        {
+          "id": "diu3fj:6xpufp",
+          "kind": "RuleOutline",
+          "title": "The <kind> list exposes passed Facts and individual Theory rows as <tests> test links plus <evidence> evidence controls",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "kind",
+                "query",
+                "tests",
+                "evidence"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "Standard",
+                      "type": "string"
+                    },
+                    {
+                      "value": "detailed",
+                      "type": "string"
+                    },
+                    {
+                      "value": "5",
+                      "type": "string"
+                    },
+                    {
+                      "value": "2",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "Container",
+                      "type": "string"
+                    },
+                    {
+                      "value": "detailed&container",
+                      "type": "string"
+                    },
+                    {
+                      "value": "5",
+                      "type": "string"
+                    },
+                    {
+                      "value": "2",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "diu3fj:6xpufp",
+              "result": {
+                "status": "passed",
+                "duration": 527.1610999999994,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "diu3fj:6xpufp",
+              "result": {
+                "status": "passed",
+                "duration": 516.0151999999998,
+                "rowId": 1
+              }
+            }
+          ],
+          "statistics": {
+            "total": 2,
+            "passed": 2,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 1043.2343999999994
+          }
+        },
+        {
+          "id": "diu3fj:n7agz6",
+          "kind": "Rule",
+          "title": "Searching 'Addition(left: 2' reaches '1' Theory result; tag '@theory' keeps '2' test rows",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1092.5224999999991
+          }
+        },
+        {
+          "id": "diu3fj:gi6hv",
+          "kind": "Rule",
+          "title": "Native Fact evidence opens 'stdout.txt' with 'Fact output: 1 + 1 = 2'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 634.2433000000001
+          }
+        },
+        {
+          "id": "diu3fj:b7c24s",
+          "kind": "Rule",
+          "title": "A 'Standard' Test link preserves project 'livedoc.xunit.unittests', run 'native-tests-fixture', and physical projection",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1.2597999999998137
+          }
+        },
+        {
+          "id": "diu3fj:qtiny1",
+          "kind": "Rule",
+          "title": "Patching Standard Fact 'plain-fact' to 'failed' retains '2' documents and 'arithmetic' in combined inventory",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 7.688899999999194
+          }
+        },
+        {
+          "id": "diu3fj:7gqmwx",
+          "kind": "Rule",
+          "title": "Reloaded REST results preserve 'Standard,Specification', summary '2', passed '2', and a clickable native Fact",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1171.1682999999994
+          }
+        },
+        {
+          "id": "diu3fj:b883c",
+          "kind": "Rule",
+          "title": "A partial Standard Fact changes to 'failed' while combined inventory retains '2' documents and '1' unaffected Specification",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 927.6917000000012
+          }
+        },
+        {
+          "id": "diu3fj:17coaf",
+          "kind": "RuleOutline",
+          "title": "At viewport <width> by <height>, Standard and Specification show <count> document links without page overflow",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "width",
+                "height",
+                "count"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "1440",
+                      "type": "string"
+                    },
+                    {
+                      "value": "900",
+                      "type": "string"
+                    },
+                    {
+                      "value": "2",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "390",
+                      "type": "string"
+                    },
+                    {
+                      "value": "844",
+                      "type": "string"
+                    },
+                    {
+                      "value": "2",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "diu3fj:17coaf",
+              "result": {
+                "status": "passed",
+                "duration": 1529.7927000000018,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "diu3fj:17coaf",
+              "result": {
+                "status": "passed",
+                "duration": 1319.6784000000007,
+                "rowId": 1
+              }
+            }
+          ],
+          "statistics": {
+            "total": 2,
+            "passed": 2,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 2849.526600000001
+          }
+        }
+      ],
+      "statistics": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "5ka93c",
+      "kind": "Specification",
+      "path": "SummaryView.Spec.ts",
+      "title": "Viewer Summary Verification Timestamp",
+      "description": "Readers can distinguish executions on different days without losing the local verification time.",
+      "tags": [],
+      "tests": [
+        {
+          "id": "5ka93c:sa1q2w",
+          "kind": "RuleOutline",
+          "title": "Environment Last verified shows the local date and time including seconds for <timestamp> with status <status>",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "timestamp",
+                "status"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "2026-10-01T00:40:00.000Z",
+                      "type": "string"
+                    },
+                    {
+                      "value": "passed",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "2026-10-01T00:40:00.000Z",
+                      "type": "string"
+                    },
+                    {
+                      "value": "running",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "5ka93c:sa1q2w",
+              "result": {
+                "status": "passed",
+                "duration": 24.284899999999993,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "5ka93c:sa1q2w",
+              "result": {
+                "status": "passed",
+                "duration": 3.9146999999999252,
+                "rowId": 1
+              }
+            }
+          ],
+          "statistics": {
+            "total": 2,
+            "passed": 2,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 28.460699999999974
+          }
+        },
+        {
+          "id": "5ka93c:3k0c9y",
+          "kind": "Rule",
+          "title": "A running dashboard without a timestamp retains 'Run in progress — results are updating live'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 3.1767999999999574
+          }
+        }
+      ],
+      "statistics": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    }
+  ]
+}

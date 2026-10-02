@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { formatTagLabel, normalizeTag, subtreeHasMatch } from '../lib/filter-utils';
 import { formatDuration } from '../lib/status-utils';
 import { StatusBadge } from './StatusBadge';
+import { getKindPresentation } from '../lib/kind-presentation';
 
 /** Given a Step node id, find its parent Scenario/Rule (or Feature for background steps). */
 function findStepParent(documents: TestCase[], stepId: string): { id: string; navigateAs: 'node' | 'group' } | undefined {
@@ -56,8 +57,8 @@ function collectKnownTags(nodes: TestCase[]): string[] {
 }
 
 export function GlobalFilter({ className }: { className?: string }) {
-  const { getCurrentRun, filterText, filterTags, setFilterText, setFilterTags, navigate } = useStore();
-  const run = getCurrentRun();
+  const { getVisibleRun, filterText, filterTags, setFilterText, setFilterTags, navigate } = useStore();
+  const run = getVisibleRun();
   const documents = run?.run.documents ?? [];
 
   const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -334,7 +335,7 @@ export function GlobalFilter({ className }: { className?: string }) {
                   <StatusBadge status={(node as any).execution?.status ?? ((node as any).statistics?.failed > 0 ? 'failed' : (node as any).statistics?.passed > 0 ? 'passed' : undefined)} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
-                      {String((node as any).kind ?? '').toLowerCase() || 'spec'}
+                      {getKindPresentation(String(node.kind ?? '')).label}
                     </div>
                     <div className="text-sm font-semibold truncate">
                       {(node as any).title}

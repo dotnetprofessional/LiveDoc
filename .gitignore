@@ -34,3 +34,4 @@ _temp
 .playwright-mcp/
 
 reports/
+.squad/.cache/

@@ -1,9 +1,20 @@
 import { feature, scenario, background, given, when, Then, and } from "@swedevtools/livedoc-vitest";
-import { expect } from "vitest";
+import { afterAll, expect } from "vitest";
 import { createServer, type LiveDocServer } from "../src/index.js";
-import os from "os";
 import path from "path";
 import { promises as fs } from "fs";
+
+const createdTestDirectories = new Set<string>();
+function testDirectory(prefix: string): string {
+    const directory = path.join(process.cwd(), `.livedoc-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    createdTestDirectories.add(directory);
+    return directory;
+}
+afterAll(async () => {
+    for (const directory of createdTestDirectories) {
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
 
 // ---------------------------------------------------------------------------
 // Helpers — reusable payload builders
@@ -129,6 +140,167 @@ async function writeLastRun(dataDir: string, project: string, environment: strin
     await fs.writeFile(path.join(envDir, "lastrun.json"), content, "utf-8");
 }
 
+feature(`V1 API — Permanent Deletion
+    @integration @api @v1
+    Exact project and run IDs remove persisted test history without affecting unrelated projects.
+    `, () => {
+    let server: LiveDocServer;
+    let dataDir: string;
+    let baseUrl: string;
+
+    background("Isolated server", (ctx) => {
+        given("a server with isolated project-local storage", async () => {
+            dataDir = testDirectory("delete");
+            server = createServer({ port: 0, host: "localhost", dataDir });
+            baseUrl = `http://localhost:${await server.listen()}`;
+        });
+        ctx.afterBackground(async () => {
+            await server.stop();
+            await fs.rm(dataDir, { recursive: true, force: true });
+        });
+    });
+
+    async function start(project: string, environment = "dev"): Promise<string> {
+        const response = await fetch(`${baseUrl}/api/v1/runs/start`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project, environment, framework: "vitest" }),
+        });
+        expect(response.status).toBe(201);
+        return (await response.json()).runId;
+    }
+
+    async function complete(runId: string): Promise<void> {
+        const response = await fetch(`${baseUrl}/api/v1/runs/${encodeURIComponent(runId)}/complete`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "passed", duration: 0 }),
+        });
+        expect(response.status).toBe(200);
+    }
+
+    scenario("Deleting a project by exact name removes all environments after restart", () => {
+        let deletedIds: string[];
+        let survivor: string;
+        let response: Response;
+        given("project 'Temp' has two runs and project 'Temp.UI' has one run", async (ctx) => {
+            const [target, other] = ctx.step.values as string[];
+            deletedIds = [];
+            deletedIds.push(await start(target));
+            await complete(deletedIds[0]);
+            deletedIds.push(await start(target, "ci"));
+            await complete(deletedIds[1]);
+            survivor = await start(other);
+            await complete(survivor);
+        });
+        when("project 'Temp' is deleted without a JSON body", async (ctx) => {
+            response = await fetch(`${baseUrl}/api/v1/projects/${ctx.step.values[0]}`, { method: "DELETE" });
+            await server.stop();
+            server = createServer({ port: 0, host: "localhost", dataDir });
+            baseUrl = `http://localhost:${await server.listen()}`;
+        });
+        Then("the response is '200' and only 'Temp.UI' remains", async (ctx) => {
+            expect(response.status).toBe(ctx.step.values[0]);
+            expect(await response.json()).toEqual({ success: true });
+            const hierarchy = await (await fetch(`${baseUrl}/api/v1/hierarchy`)).json();
+            expect(hierarchy.projects.map((p: { name: string }) => p.name)).toEqual([ctx.step.values[1]]);
+            expect((await (await fetch(`${baseUrl}/api/v1/runs`)).json()).map((r: { runId: string }) => r.runId)).toEqual([survivor]);
+            for (const id of deletedIds) {
+                expect((await fetch(`${baseUrl}/api/v1/runs/${id}`)).status).toBe(404);
+            }
+        });
+    });
+
+    scenario("Deleting one completed run updates latest and survives restart", () => {
+        let oldRun: string;
+        let newRun: string;
+        let response: Response;
+        given("project 'History' has two completed runs", async (ctx) => {
+            oldRun = await start(ctx.step.values[0]);
+            await complete(oldRun);
+            newRun = await start(ctx.step.values[0]);
+            await complete(newRun);
+        });
+        when("the latest run is deleted with a JSON body", async () => {
+            response = await fetch(`${baseUrl}/api/v1/runs/${newRun}`, {
+                method: "DELETE", headers: { "Content-Type": "application/json" }, body: "{}",
+            });
+            await server.stop();
+            server = createServer({ port: 0, host: "localhost", dataDir });
+            baseUrl = `http://localhost:${await server.listen()}`;
+        });
+        Then("the response is '200' and the previous run is latest", async (ctx) => {
+            expect(response.status).toBe(ctx.step.values[0]);
+            expect(await response.json()).toEqual({ success: true });
+            expect((await fetch(`${baseUrl}/api/v1/runs/${newRun}`)).status).toBe(404);
+            const latest = await (await fetch(`${baseUrl}/api/v1/projects/History/dev/latest`)).json();
+            expect(latest.runId).toBe(oldRun);
+        });
+    });
+
+    scenario("Invalid and unknown IDs report errors without deleting data", () => {
+        let runId: string;
+        given("project 'Safe' has a completed run", async (ctx) => {
+            runId = await start(ctx.step.values[0]);
+            await complete(runId);
+        });
+        when("deletion uses missing and path-like IDs", async () => {
+            expect((await fetch(`${baseUrl}/api/v1/projects/missing`, { method: "DELETE" })).status).toBe(404);
+            expect((await fetch(`${baseUrl}/api/v1/runs/missing`, { method: "DELETE" })).status).toBe(404);
+            expect((await fetch(`${baseUrl}/api/v1/projects/%5Cescape`, { method: "DELETE" })).status).toBe(400);
+            expect((await fetch(`${baseUrl}/api/v1/projects/unsafe.`, { method: "DELETE" })).status).toBe(400);
+            expect((await fetch(`${baseUrl}/api/v1/runs/%5Cescape`, { method: "DELETE" })).status).toBe(400);
+        });
+        Then("project 'Safe' and its run remain available", async (ctx) => {
+            expect((await fetch(`${baseUrl}/api/v1/runs/${runId}`)).status).toBe(200);
+            const hierarchy = await (await fetch(`${baseUrl}/api/v1/hierarchy`)).json();
+            expect(hierarchy.projects[0].name).toBe(ctx.step.values[0]);
+        });
+    });
+
+    scenario("Active runs cannot be deleted by run or project ID", () => {
+        let runId: string;
+        given("project 'Busy' has an active run", async (ctx) => {
+            runId = await start(ctx.step.values[0]);
+        });
+        when("deletion of the active run and project is requested", async () => {
+            for (const route of [`/api/v1/runs/${runId}`, "/api/v1/projects/Busy"]) {
+                const response = await fetch(`${baseUrl}${route}`, { method: "DELETE" });
+                expect(response.status).toBe(409);
+                expect((await response.json()).code).toBe("run-active");
+            }
+        });
+        Then("the active run can still complete", async () => {
+            await complete(runId);
+            expect((await fetch(`${baseUrl}/api/v1/runs/${runId}`)).status).toBe(200);
+        });
+    });
+
+    scenario("A disk failure cannot return a successful run deletion", () => {
+        let runId: string;
+        let response: Response;
+        let historyPaths: Map<string, string>;
+        let originalPath: string;
+        given("project 'Failure' has a completed run", async (ctx) => {
+            runId = await start(ctx.step.values[0]);
+            await complete(runId);
+        });
+        when("the run history file cannot be removed", async () => {
+            historyPaths = (server.getRunStore() as unknown as { historyPathByRunId: Map<string, string> }).historyPathByRunId;
+            originalPath = historyPaths.get(runId)!;
+            historyPaths.set(runId, path.join(dataDir, "missing-history.json"));
+            try {
+                response = await fetch(`${baseUrl}/api/v1/runs/${runId}`, { method: "DELETE" });
+            } finally {
+                historyPaths.set(runId, originalPath);
+            }
+        });
+        Then("the response is '500' and the run is still available", async (ctx) => {
+            expect(response.status).toBe(ctx.step.values[0]);
+            expect((await response.json()).code).toBe("run-persistence-failed");
+            expect((await fetch(`${baseUrl}/api/v1/runs/${runId}`)).status).toBe(200);
+        });
+    });
+});
+
 // ---------------------------------------------------------------------------
 // Feature: V1 Run Lifecycle
 // ---------------------------------------------------------------------------
@@ -144,7 +316,7 @@ feature(`V1 API — Run Lifecycle
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v1-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory("v1-test");
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -612,7 +784,7 @@ feature(`V1 API — Batch Upsert with Completion
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v1-batch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory("v1-batch");
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -761,7 +933,7 @@ feature(`V1 API — Stored Run Diagnostics
 
     background("Temporary storage directory", (ctx) => {
         given("a temporary data directory", () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v1-diagnostics-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory("v1-diagnostics");
         });
 
         ctx.afterBackground(async () => {
@@ -886,7 +1058,7 @@ feature(`V1 API — All Test Types
 
     background("Running server with active run", (ctx) => {
         given("a LiveDoc server is running with an active V1 run", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v1-types-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory("v1-types");
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -1025,7 +1197,7 @@ feature(`V1 API — Execution Patching and Outline Results
 
     background("Running server with test data", (ctx) => {
         given("a V1 run with a Scenario and a ScenarioOutline exists", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v1-patch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory("v1-patch");
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -1164,7 +1336,7 @@ feature(`V1 API — Test Case Merge Behavior
 
     background("Running server with active run", (ctx) => {
         given("a V1 run has been started", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v1-merge-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory("v1-merge");
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;
@@ -1269,7 +1441,7 @@ feature(`V1 API — Schema Validation
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-v1-validation-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory("v1-validation");
             server = createServer({ port: 0, host: "localhost", dataDir: testDataDir });
             const port = await server.listen();
             baseUrl = `http://localhost:${port}`;

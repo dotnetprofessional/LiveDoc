@@ -57,15 +57,6 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     return [];
   })();
 
-  const stepIdSet = useMemo(() => {
-    const ids = new Set<string>();
-    for (const s of templateSteps) {
-      const id = String(s?.id ?? '').trim();
-      if (id) ids.add(id);
-    }
-    return ids;
-  }, [templateSteps]);
-
   const exampleDataTables = looksLikeDataTables((node as any).examples) ? ((node as any).examples as DataTable[]) : undefined;
   const allTables = exampleDataTables
     ? (exampleDataTables as any[])
@@ -87,7 +78,7 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     return m;
   }, [exampleResults]);
 
-  // Row-level result selection: prefer outline-level results, otherwise pick any non-step result.
+  // Only this outline's row results can supply row-level evidence.
   const rowResultsByRowId = useMemo(() => {
     const m = new Map<number, ExecutionResult>();
     const outlineId = String((node as any)?.id ?? '');
@@ -102,14 +93,12 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
     }
 
     for (const [rowId, entries] of byRow) {
-      const nonStep = entries.filter((e) => !stepIdSet.has(String(e.testId ?? '')));
-      const preferred = nonStep.find((e) => String(e.testId ?? '') === outlineId)
-        ?? (kind === 'ruleoutline' ? undefined : nonStep[0]);
+      const preferred = entries.find((e) => String(e.testId ?? '') === outlineId);
       if (preferred?.result) m.set(rowId, preferred.result);
     }
 
     return m;
-  }, [node, stepIdSet, exampleResults]);
+  }, [node, exampleResults]);
 
   const aggregateStatus = (statuses: Status[]): Status => {
     const s = new Set(statuses);
@@ -246,7 +235,8 @@ export function OutlineNodeView({ label, node, isBusiness, tone, featurePath }: 
         bindValues={selectedValues}
         tags={node.tags}
         steps={[]}
-        attachments={label === 'Rule Outline' ? selectedRow?.execution?.attachments : undefined}
+        attachments={selectedRow?.execution?.attachments}
+        gallerySteps={label === 'Scenario Outline' ? selectedSteps : undefined}
         showDurations={!isBusiness}
         showErrorStack={!isBusiness}
         tone={tone}

@@ -123,6 +123,30 @@ specifications from the selected run:
 Click any feature to expand its scenarios, or click a scenario to open it in
 the detail panel.
 
+### Common roots and sidebar width
+
+The Viewer hides redundant shared folders for every framework until the first
+branch or a folder containing documents. For example, if all containers live
+under `Acme.Commerce.Quotes.Services.Transactor.UnitTests`, navigation starts
+at **Authentication** and **ResourceProviders** rather than six single-child
+folders. A folder with its own documents stops shortening, so those documents
+remain reachable. Vitest already strips the common filesystem root when exporting
+reports; the Viewer preserves that structure and also shortens shared folders in
+saved reports that still contain a redundant prefix.
+
+This is a display choice only: reports keep their exported filesystem or namespace
+paths, document IDs, and totals. Existing links to hidden ancestor folders
+still open; hover a folder, breadcrumb, or document heading to discover its
+full path. Search and tag filters do not change the shared prefix.
+
+Drag the divider between desktop navigation and results to give deeper paths
+more room. You can also focus **Resize navigation sidebar** with Tab and use
+the arrow keys. The sidebar starts at 280 pixels and remembers your preferred
+width locally, between 240 and 600 pixels. Smaller windows limit that width
+to leave at least 480 pixels for results, then restore your preference when
+space returns. On phones, **Open navigation** still opens the drawer; the
+desktop width does not affect it.
+
 ### Filtering & Search
 
 Use the search bar above the tree to filter by:

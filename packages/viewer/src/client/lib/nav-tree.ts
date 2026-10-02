@@ -1,7 +1,8 @@
 import type { Statistics, TestCase } from '@swedevtools/livedoc-schema';
 import { statusFromStats } from './status-utils';
+import { isContainerKind, type ContainerKind } from './kind-presentation';
+export { isContainerKind, type ContainerKind } from './kind-presentation';
 
-export type ContainerKind = 'Feature' | 'Specification' | 'Container';
 export type NavKind = 'Group' | ContainerKind;
 
 export type NavItem =
@@ -21,12 +22,8 @@ export type NavItem =
       status?: string;
     };
 
-export function isContainerKind(kind: string): kind is ContainerKind {
-  return kind === 'Feature' || kind === 'Specification' || kind === 'Container';
-}
-
 function getNodePathSegments(node: TestCase): string[] {
-  const raw = String((node as any).path ?? '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+  const raw = String(node.path ?? '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
   if (!raw) return [];
   const parts = raw.split('/').filter(Boolean);
   // If it looks like a file path, use directories as groups.
@@ -126,7 +123,7 @@ export function buildGroupedNavTree(documents: TestCase[]): NavItem[] {
   };
 
   for (const node of documents) {
-    const kind = String((node as any).kind ?? '');
+    const kind = node.kind;
     if (!isContainerKind(kind)) continue;
 
     const pathSegments = getNodePathSegments(node);
@@ -139,7 +136,7 @@ export function buildGroupedNavTree(documents: TestCase[]): NavItem[] {
     }
 
     const navNode: NavItem = {
-      kind: kind as ContainerKind,
+      kind,
       id: node.id,
       title: node.title,
       node,
@@ -186,4 +183,45 @@ export function findNavPath(items: NavItem[], targetId: string): NavItem[] | nul
     }
   }
   return null;
+}
+
+/** A display-only projection; the canonical tree remains available for saved links and selection. */
+export function projectNavTree(tree: NavItem[]) {
+  const root = tree.find(item => item.id === 'group:/');
+  let displayRoot = root;
+  const sharedGroups = new Set<string>();
+
+  // Use the complete, unfiltered tree: filters must not change the shared root.
+  while (displayRoot?.kind === 'Group' && displayRoot.children.length === 1) {
+    const child = displayRoot.children[0]!;
+    if (child.kind !== 'Group') break;
+    displayRoot = child;
+    sharedGroups.add(child.id);
+  }
+
+  const childrenOf = (item: NavItem): NavItem[] =>
+    item.id === root?.id || sharedGroups.has(item.id)
+      ? displayRoot?.children ?? item.children
+      : item.children;
+
+  const visibleChildren = displayRoot?.children ?? tree;
+  const hasRootDocuments = visibleChildren.some(child => child.kind !== 'Group');
+  // A Root entry is the route to ungrouped documents (the tree normally lists folders).
+  // For a single deeply grouped document, list it directly instead of an empty tree.
+  const sidebarItems = sharedGroups.size > 0
+    ? visibleChildren
+    : hasRootDocuments && root ? [root, ...visibleChildren] : visibleChildren;
+
+  return {
+    sidebarItems,
+    childrenOf,
+    breadcrumbs: (id: string): NavItem[] =>
+      (findNavPath(tree, id) ?? []).filter(item => !sharedGroups.has(item.id) || item.id === id),
+  };
+}
+
+export function navItemPath(item: NavItem): string {
+  return item.kind === 'Group'
+    ? item.id.slice('group:'.length)
+    : item.node.path ?? item.title;
 }

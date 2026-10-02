@@ -30,8 +30,8 @@ afterAll(async () => {
   await server?.close();
 });
 
-feature('Rule Evidence in the Viewer', () => {
-  scenario("An unselected scenario outline has '0' step attachment buttons", () => {
+feature('Outline and Rule Evidence in the Viewer', () => {
+  scenario("An unselected scenario outline has '0' attachment buttons", () => {
     given("an outline with '3' examples and no selection", async (ctx) => {
       await page().goto(`${baseUrl}?kind=scenario-outline`);
       await page().getByRole('button', { name: `Select example ${ctx.step.values[0]}` }).waitFor({ state: 'visible' });
@@ -41,7 +41,101 @@ feature('Rule Evidence in the Viewer', () => {
       await page().getByText('the example is loaded').waitFor({ state: 'visible' });
     });
 
-    then("there are '0' step attachment buttons", async (ctx) => {
+    then("there are '0' step or example attachment buttons", async (ctx) => {
+      expect(await page().getByRole('button', { name: '1 attachment', exact: true }).count()).toBe(ctx.step.values[0]);
+      expect(await page().getByRole('button', { name: /attachments? for this example/ }).count()).toBe(ctx.step.values[0]);
+    });
+  });
+
+  scenarioOutline(`Scenario outlines show a passive count of examples with evidence
+    Examples:
+    | surface          | count |
+    | feature-list     | 2     |
+    | feature-children | 2     |
+    `, () => {
+    given('a <surface> with scenario outline step and row evidence', async (ctx) => {
+      await page().goto(`${baseUrl}?kind=${ctx.example.surface}`);
+    });
+
+    when('viewing the scenario outline indicator', async () => {
+      await page().getByText('Each scenario example owns its step evidence').waitFor({ state: 'visible' });
+    });
+
+    then('the indicator reports <count> attached examples and is not a gallery button', async (ctx) => {
+      const label = `${ctx.example.count} examples with attachments in scenario outline Each scenario example owns its step evidence`;
+      expect(await page().getByRole('note', { name: label }).textContent()).toContain(String(ctx.example.count));
+      expect(await page().getByRole('button', { name: label }).count()).toBe(0);
+    });
+  });
+
+  scenario("Navigating from the outline list opens 'first.json' on selected row '1'", () => {
+    given("the scenario outline list reports '2' attached examples", async (ctx) => {
+      await page().goto(`${baseUrl}?kind=feature-list`);
+      await page().getByRole('note', {
+        name: `${ctx.step.values[0]} examples with attachments in scenario outline Each scenario example owns its step evidence`,
+      }).waitFor({ state: 'visible' });
+    });
+
+    when("navigating via the evidence indicator, selecting row '1', and opening its '1' attachment", async (ctx) => {
+      const note = await page().getByRole('note', { name: /attachments in scenario outline/ }).boundingBox();
+      expect(note).not.toBeNull();
+      await page().mouse.click(note!.x + note!.width / 2, note!.y + note!.height / 2);
+      await page().getByRole('button', { name: `Select example ${ctx.step.values[0]}` }).click();
+      await page().getByRole('button', { name: `View all ${ctx.step.values[1]} attachment for this example` }).click();
+    });
+
+    then("the selected example gallery contains 'first.json' but not 'second.json', 'row.json', or 'unknown-row.json'", async (ctx) => {
+      const [first, second, row, unknownRow] = ctx.step.values as string[];
+      const dialog = page().getByRole('dialog');
+      await dialog.getByText(first).first().waitFor({ state: 'visible' });
+      for (const name of [second, row, unknownRow]) {
+        expect(await dialog.getByText(name).count()).toBe(0);
+      }
+    });
+  });
+
+  scenario("Selecting row '2' previews its '2' attachments and row '3' has none", () => {
+    given("a scenario outline with '3' examples", async (ctx) => {
+      await page().goto(`${baseUrl}?kind=scenario-outline`);
+      await page().getByRole('button', { name: `Select example ${ctx.step.values[0]}` }).waitFor({ state: 'visible' });
+    });
+
+    when("selecting row '2' and opening its '2' attachments", async (ctx) => {
+      await page().getByRole('button', { name: `Select example ${ctx.step.values[0]}` }).click();
+      await page().getByRole('button', { name: `View all ${ctx.step.values[1]} attachments for this example` }).click();
+    });
+
+    then("the gallery contains 'row.json' and 'second.json' but not 'first.json' or 'unrelated.json'", async (ctx) => {
+      const [row, second, first, unrelated] = ctx.step.values as string[];
+      const dialog = page().getByRole('dialog');
+      await dialog.getByRole('button', { name: row }).click();
+      await dialog.getByText(row).first().waitFor({ state: 'visible' });
+      await dialog.getByRole('button', { name: second }).click();
+      await dialog.getByText(second).first().waitFor({ state: 'visible' });
+      expect(await dialog.getByText(first).count()).toBe(0);
+      expect(await dialog.getByText(unrelated).count()).toBe(0);
+    });
+
+    and("after selecting unattached row '3' there are '0' attachment buttons", async (ctx) => {
+      await page().keyboard.press('Escape');
+      await page().getByRole('button', { name: `Select example ${ctx.step.values[0]}` }).click();
+      expect(await page().getByRole('button', { name: /attachments? for this example/ }).count()).toBe(ctx.step.values[1]);
+      expect(await page().getByRole('button', { name: '1 attachment', exact: true }).count()).toBe(ctx.step.values[1]);
+    });
+  });
+
+  scenario("An unrelated outline result offers '0' attachments for example '1'", () => {
+    given("a list containing a scenario outline without example evidence", async () => {
+      await page().goto(`${baseUrl}?kind=feature-list`);
+      await page().getByRole('button', { name: 'A scenario outline without example evidence' }).click();
+    });
+
+    when("selecting example '1' despite template and unrelated outline attachments", async (ctx) => {
+      await page().getByRole('button', { name: `Select example ${ctx.step.values[0]}` }).click();
+    });
+
+    then("there are '0' example or step attachment controls", async (ctx) => {
+      expect(await page().getByRole('button', { name: /attachments? for this example/ }).count()).toBe(ctx.step.values[0]);
       expect(await page().getByRole('button', { name: '1 attachment', exact: true }).count()).toBe(ctx.step.values[0]);
     });
   });
@@ -428,6 +522,8 @@ feature('Rule Evidence in the Viewer', () => {
       await page().goto(`${baseUrl}?kind=feature-list`);
       await page().getByText('A scenario without evidence').waitFor({ state: 'visible' });
       expect(await page().getByRole('note', { name: /A scenario without evidence/ }).count()).toBe(empty);
+      await page().getByText('A scenario outline without example evidence').waitFor({ state: 'visible' });
+      expect(await page().getByRole('note', { name: /A scenario outline without example evidence/ }).count()).toBe(empty);
     });
   });
 

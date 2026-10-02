@@ -10,7 +10,7 @@ export interface FailureSummaryProps {
 export function FailureSummary({ node, isBusiness, isTestCaseNode, isOutline }: FailureSummaryProps) {
   if (isTestCaseNode) return null;
   if (isOutline) return null;
-  if ((node as any).execution?.status !== 'failed') return null;
+  if ((node as any).execution?.status !== 'failed' && (node as any).execution?.status !== 'timedOut') return null;
   if (!(node as any).execution?.error) return null;
   if (Array.isArray((node as any).steps) && (node as any).steps.some(
     (step: any) => step?.execution?.status === 'failed' && step?.execution?.error

@@ -8,7 +8,12 @@ BDD test framework using Gherkin syntax. Tests are living documentation.
 
 ## Documentation Principle
 
-**Embed all inputs and expected outputs in step titles.** This makes features self-documenting—readers see what was tested without reading code. 
+**Embed all inputs and expected outputs in step and rule titles.** This makes
+tests self-documenting—readers see what was tested without reading code.
+When provided, a Feature or Specification description should explain *why*
+the covered behavior matters; Scenario steps and Rules prove *what* was
+checked. Descriptions are optional and should not claim outcomes outside
+the test's observable boundary.
 
 ### Trustworthiness Gate
 
@@ -83,39 +88,41 @@ All blocks receive `ctx` parameter with framework metadata.
 ## Choosing a Pattern
 
 ### Use BDD/Gherkin (`feature`/`scenario`) when:
-- **Stakeholder collaboration** — Requirements come from business discussions; non-technical people need to read tests
-- **End-to-end/acceptance testing** — Testing user journeys through the system
-- **Domain behavior** — Capturing business rules in ubiquitous language
-- **Living documentation** — Tests serve as executable specifications for the team
-- **Discovery sessions** — Using examples to explore and agree on requirements
+- **Workflow narrative** — Preconditions, actions, and outcomes communicate the claim
+- **Acceptance testing** — A user or operator journey needs meaningful Given/When/Then steps
+- **Discovery sessions** — Examples help the team explore and agree on behavior
 
 ### Use Specification (`specification`/`rule`) when:
-- **Technical components** — Testing APIs, utilities, algorithms, or infrastructure
+- **Precise rules** — A business-owned policy, API contract, utility, or algorithm has clear input/output examples
 - **Many variations** — Data-driven tests with numerous input combinations
 - **Direct assertions** — No need for Given/When/Then ceremony
-- **Developer-focused** — Tests written by and for developers
-- **Compact tests** — Single-assertion rules that are self-documenting
+- **Compact tests** — Independently verifiable rules that readers can inspect directly
 
 ### Quick Decision Guide
 
 |         Aspect          |         BDD/Gherkin          |      Specification       |
 | ----------------------- | ---------------------------- | -----------------------  |
-| Audience                | Business + Technical         | Technical                |
+| Reader's focus          | Following a workflow         | Inspecting exact rules   |
 | Verbosity               | Higher (structured steps)    | Lower (direct code)      |
-| Best for                | Workflows, user stories      | Units, edge cases        |
+| Best for                | Workflows, acceptance tests  | Domain policies, contracts, edge cases |
 | Data-driven             | `scenarioOutline` + Examples | `ruleOutline` + Examples |
 | Collaboration           | Discovery workshops          | Code reviews             |
 
-**Tip:** You can mix patterns in the same project. Use `feature` for acceptance tests and `specification` for unit/component tests.
+**Tip:** A product manager may read both a Checkout Feature and its exact
+Shipping rates Specification. Organize them together under the capability:
+`tests\Orders\Checkout.Spec.ts` and
+`tests\Orders\Pricing\ShippingRates.Spec.ts`. Choose the pattern by the shape
+of the claim, not a business-versus-developer audience split.
 
 ## Keywords
 
 ### feature(title, fn)
 
 ```typescript
-feature(`Feature Title
+feature(`Shipping Costs
     @tag1 @tag2
-    Optional description text
+    Avoids assigning the wrong delivery tier for the
+    destinations and totals covered by the scenarios.
     `, (ctx) => { /* scenarios */ });
 ```
 
@@ -194,9 +201,9 @@ A simpler alternative to Gherkin BDD. No step functions—assertions live direct
 Container for related rules. Similar to `feature` but without scenarios.
 
 ```typescript
-specification(`Calculator Rules
+specification(`Calculator Operations
     @math @validation
-    Rules for calculator operations
+    Callers can rely on the arithmetic results covered by these rules.
     `, (ctx) => { /* rules */ });
 ```
 
@@ -210,10 +217,10 @@ specification(`Calculator Rules
 Simple assertion block. No given/when/then—just direct test code.
 
 ```typescript
-specification("Math Operations", () => {
-    rule("Adding positive numbers increases the value", (ctx) => {
-        const result = 5 + 3;
-        expect(result).toBe(8);
+specification("Calculator Operations", () => {
+    rule("Adding '5' and '3' returns '8'", (ctx) => {
+        const [a, b, expected] = ctx.rule.values;
+        expect(add(a, b)).toBe(expected);
     });
 
     rule("Multiplying by zero returns zero", async (ctx) => {
@@ -445,6 +452,14 @@ ctx.step.attachScreenshot(base64Data, "Login Page");
 // Attach arbitrary data
 ctx.step.attach(base64Data, { mimeType: "image/png", kind: "image", title: "Chart" });
 ```
+
+For API tests, attach only reviewed, non-sensitive fields from the authored
+request and actual response (for example, selected JSON fields and HTTP
+status). Attach before a potentially failing assertion so the evidence is
+retained on failure; the assertion must still prove the result. Never attach
+tokens, cookies, authorization headers, personal data, or unreviewed raw
+responses. Screenshots can document meaningful passing and failing states
+but do not replace behavioral assertions.
 
 ## Playwright Integration
 

@@ -109,7 +109,7 @@ public class FeatureContext
 | `Tags` | `string[]` | Tags associated with the feature. |
 
 ```csharp
-[Feature("Shopping Cart", Description = "Cart checkout rules")]
+[Feature("Shopping Cart", Description = "Gives cart-related steps a recognizable feature context.")]
 public class CartTests : FeatureTest
 {
     public CartTests(ITestOutputHelper output) : base(output) { }
@@ -120,7 +120,7 @@ public class CartTests : FeatureTest
         Given("context is available", ctx =>
         {
             Assert.Equal("Shopping Cart", ctx.Feature!.Title);
-            Assert.Equal("Cart checkout rules", ctx.Feature!.Description);
+            Assert.Equal("Gives cart-related steps a recognizable feature context.", ctx.Feature!.Description);
         });
     }
 }
@@ -253,7 +253,7 @@ LiveDocContext (aggregates all above)
 ```
 
 ```csharp
-[Feature("Checkout", Description = "Payment flow")]
+[Feature("Checkout", Description = "Keeps payment details accessible to this checkout scenario.")]
 public class CheckoutTests : FeatureTest
 {
     public CheckoutTests(ITestOutputHelper output) : base(output) { }
@@ -287,7 +287,7 @@ Rule property on SpecificationTest
 ```
 
 ```csharp
-[Specification("Math", Description = "Core arithmetic rules")]
+[Specification("Math", Description = "Callers can rely on the arithmetic results covered by these rules.")]
 public class MathSpec : SpecificationTest
 {
     public MathSpec(ITestOutputHelper output) : base(output) { }
@@ -297,7 +297,7 @@ public class MathSpec : SpecificationTest
     {
         // Specification context
         Assert.Equal("Math", Specification.Title);
-        Assert.Equal("Core arithmetic rules", Specification.Description);
+        Assert.Equal("Callers can rely on the arithmetic results covered by these rules.", Specification.Description);
 
         // Rule context with values
         Assert.Equal("Adding '2' and '3' returns '5'", Rule.Name);

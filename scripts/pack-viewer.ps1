@@ -3,10 +3,10 @@
     Packages the LiveDoc Viewer for distribution.
 
 .DESCRIPTION
-    Creates an npm tarball (.tgz) for the viewer using a clean staging
+    Creates an npm tarball (.tgz) for the viewer using a clean project-local staging
     directory approach that avoids pnpm symlink issues:
 
-    1. Copies dist/ and package.json to a temp staging dir
+    1. Copies dist/, release notes, README, and package.json to a project-local staging dir
     2. Resolves workspace:* references to actual versions
     3. Runs npm install --production for clean hoisted node_modules
     4. Runs npm pack from the staging dir (no ../paths, no symlinks)
@@ -75,13 +75,16 @@ if (-not (Test-Path $distDir)) {
 
 # ── Step 1: Create clean staging directory ───────────────────────────────
 
-$stageDir = Join-Path ([System.IO.Path]::GetTempPath()) "livedoc-viewer-pack-$([System.IO.Path]::GetRandomFileName())"
+$stageDir = Join-Path $repoRoot "releases\pack-staging\viewer-$([guid]::NewGuid().ToString('N'))"
 Write-Host "`n→ Creating staging directory..." -ForegroundColor White
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
 try {
     # Copy dist/
     Copy-Item -Path $distDir -Destination (Join-Path $stageDir 'dist') -Recurse -Force
+    foreach ($doc in @('README.md', 'CHANGELOG.md')) {
+        Copy-Item -Path (Join-Path $viewerDir $doc) -Destination (Join-Path $stageDir $doc)
+    }
     Write-Host "  ✓ Copied dist/" -ForegroundColor Green
 
     # ── Step 2: Resolve workspace:* and write clean package.json ─────────

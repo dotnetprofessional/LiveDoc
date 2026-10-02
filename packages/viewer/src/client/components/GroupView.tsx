@@ -1,7 +1,7 @@
-import { Folder, FileText, BookOpen, ScrollText, LayoutList, ChevronRight, Home } from 'lucide-react';
+import { ChevronRight, Home } from 'lucide-react';
 import { useMemo } from 'react';
 import { RunLike, useStore } from '../store';
-import { buildGroupedNavTree, findNavItemById, findNavPath, NavItem } from '../lib/nav-tree';
+import { buildGroupedNavTree, findNavItemById, NavItem, navItemPath, projectNavTree } from '../lib/nav-tree';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '../lib/utils';
 import { subtreeHasMatch } from '../lib/filter-utils';
@@ -11,26 +11,14 @@ import { Markdown } from './Markdown';
 import { TagChips } from './TagChips';
 import { shouldAllowDrillDown } from '../lib/status-utils';
 import { ListRowMetadata } from './ListRowMetadata';
+import { getKindPresentation, isNativeTestKind } from '../lib/kind-presentation';
 
 type ListItem = 
   | { type: 'navItem'; item: NavItem }
   | { type: 'node'; node: AnyTest };
 
 function getIconForKind(kind: string) {
-  switch (kind) {
-    case 'Group': return Folder;
-    case 'Feature': return BookOpen;
-    case 'Specification': return ScrollText;
-    case 'Container': return LayoutList;
-    case 'Scenario':
-    case 'ScenarioOutline':
-    case 'Rule':
-    case 'RuleOutline':
-    case 'Test':
-    case 'Step':
-      return FileText;
-    default: return FileText;
-  }
+  return getKindPresentation(kind).icon;
 }
 
 export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
@@ -38,6 +26,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
 
   const documents = run.run.documents ?? [];
   const navTree = useMemo(() => buildGroupedNavTree(documents), [documents]);
+  const projection = useMemo(() => projectNavTree(navTree), [navTree]);
   
   // 1. Resolve what we are viewing
   const viewData = useMemo(() => {
@@ -70,14 +59,14 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
     if (!viewData) return [];
     
     if (viewData.kind === 'folder') {
-      return viewData.item.children.map(child => ({ type: 'navItem', item: child }));
+      return projection.childrenOf(viewData.item).map(child => ({ type: 'navItem', item: child }));
     } else {
       // Container (TestCase)
       const testCase = viewData.node as TestCase;
       const tests = (testCase.tests ?? []) as AnyTest[];
       return tests.map((t) => ({ type: 'node', node: t }));
     }
-  }, [viewData]);
+  }, [viewData, projection]);
 
   // 3. Filter
   const filteredChildren = useMemo(() => {
@@ -116,7 +105,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
   }, [filteredChildren]);
 
   const sortedGroupKeys = useMemo(() => {
-    const order = ['Group', 'Feature', 'Specification', 'Container', 'Scenario', 'Rule', 'Test'] as string[];
+    const order = ['Group', 'Feature', 'Specification', 'Container', 'Standard', 'Scenario', 'Rule', 'Test'] as string[];
     return Object.keys(groupedChildren).sort((a, b) => {
         const idxA = order.indexOf(a);
         const idxB = order.indexOf(b);
@@ -144,8 +133,8 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
   }, [filterText, filterTags, filteredChildren.length, run.itemById]);
 
   const breadcrumbs = useMemo(() => {
-    return findNavPath(navTree, groupId) || [];
-  }, [navTree, groupId]);
+    return projection.breadcrumbs(groupId);
+  }, [projection, groupId]);
 
   const breadcrumbsToRender = useMemo(() => {
     // On list/container pages, the last breadcrumb is the current page. Omit it.
@@ -181,7 +170,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <nav className="flex items-center gap-1 text-sm text-muted-foreground mb-2 overflow-hidden">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground mb-2 overflow-x-auto">
            {breadcrumbsToRender.length > 0 ? (
              breadcrumbsToRender.map((item, index) => {
                     const isRoot = item.title === 'Root' && index === 0;
@@ -190,6 +179,8 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
                         <div key={item.id} className="flex items-center gap-1 shrink-0">
                             {index > 0 && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
                             <button 
+                                title={navItemPath(item)}
+                                aria-label={isRoot ? 'Root' : undefined}
                     onClick={() => navigate('group', item.id)}
                                 className={cn(
                                     "flex items-center gap-1.5 hover:text-foreground transition-colors truncate px-1 py-0.5 rounded-md hover:bg-muted/50",
@@ -217,7 +208,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
         </nav>
         
         <div className="flex items-start justify-between gap-4">
-            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            <h1 title={viewData.kind === 'folder' ? navItemPath(viewData.item) : viewData.node.path} className="min-w-0 break-words text-2xl font-bold tracking-tight">{title}</h1>
             <div className="flex items-center gap-3">
                  {environment && <Badge variant="outline" className="text-muted-foreground font-normal border-border bg-muted/20">{environment}</Badge>}
                  {status && <StatusBadge status={status} size="lg" showLabel />}
@@ -250,7 +241,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
                           <StatusBadge status={item.execution?.status} size="xs" />
                           <div className="min-w-0 flex-1">
                             <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70">
-                              {String(item.kind ?? '').toLowerCase()}
+                              {getKindPresentation(String(item.kind ?? '')).label}
                             </div>
                             <div className="text-sm font-medium truncate">{item.title}</div>
                           </div>
@@ -281,7 +272,7 @@ export function GroupView({ run, groupId }: { run: RunLike; groupId: string }) {
                         <div className="flex items-center gap-2 px-1">
                             <Icon className="w-4 h-4 text-muted-foreground" />
                             <h3 className="text-sm font-semibold text-foreground tracking-tight flex-1">
-                                {kind === 'Group' ? 'Folders' : `${kind}s`}
+                                {getKindPresentation(kind).plural}
                             </h3>
                             <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                                 {groupedChildren[kind].length}
@@ -338,10 +329,10 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
         navType = 'node';
     }
 
-    const canDrillDown = shouldAllowDrillDown(kind, status);
+    const canDrillDown = shouldAllowDrillDown(kind, status, child.type === 'node' ? child.node : undefined);
     const onClick = canDrillDown ? () => navigate(navType, nodeId) : undefined;
     const Icon = getIconForKind(kind);
-    const showAttachmentSlot = kind === 'Rule' || kind === 'RuleOutline' || kind === 'Scenario';
+    const showAttachmentSlot = isNativeTestKind(kind) || kind === 'Rule' || kind === 'RuleOutline' || kind === 'Scenario' || kind === 'ScenarioOutline';
 
     const contents = (
         <>
@@ -355,7 +346,7 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
             <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2 min-w-0">
                     {!hideKindLabel && (
-                        <span className="font-semibold text-sm capitalize text-muted-foreground mr-1">{kind}:</span>
+                        <span className="font-semibold text-sm capitalize text-muted-foreground mr-1">{getKindPresentation(kind).label}:</span>
                     )}
                     <span className="font-medium truncate text-foreground">{title}</span>
                 </div>
@@ -377,6 +368,7 @@ function GroupRow({ child, navigate, hideKindLabel }: { child: ListItem, navigat
             {canDrillDown ? (
                 <button
                     type="button"
+                    title={child.type === 'navItem' ? navItemPath(child.item) : undefined}
                     className="flex min-w-0 flex-1 items-center gap-3 text-left before:absolute before:inset-0 focus-visible:outline-none focus-visible:before:ring-2 focus-visible:before:ring-inset focus-visible:before:ring-ring"
                     onClick={onClick}
                 >

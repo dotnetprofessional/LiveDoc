@@ -38,6 +38,7 @@ After every substantial work session:
 
 ## Model
 
-- **Preferred:** `claude-haiku-4.5`
-- **Rationale:** Scribe performs mechanical file operations. Any task requiring substantive reasoning must be escalated to an agent using `gpt-5.6-sol` or `claude-opus-4.8`.
+- **Preferred:** `gpt-6-luna`
+- **Reasoning Effort:** high
+- **Rationale:** Scribe performs mechanical file operations. Any task requiring substantive reasoning must be escalated to an agent using `gpt-6.1-sol` or `claude-sonnet-5.5`.
 - **Fallback:** Fast chain — the coordinator handles fallback automatically

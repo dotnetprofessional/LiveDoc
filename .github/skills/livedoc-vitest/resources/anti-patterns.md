@@ -14,6 +14,9 @@ bans; judge whether the assertion protects an implementation-independent promise
 | Implementation title | Step names classes, helpers, or internal flags | Name user-visible behavior or technical contract |
 | Development-history title | Names rounds, team members, or retired behavior | State the current requirement |
 | Multi-case loop | Many meaningful combinations fail as one row | Use an outline with one row per claim |
+| Inventory description | Feature/Specification text lists cases instead of explaining purpose | Explain why the tested behavior matters; leave proof in scenarios and Rules |
+| Unproven outcome | Description promises delivery, UI display, or compliance from a narrower test | Limit claims to the observable boundary |
 | Secret in documentation | Credential-shaped values enter titles, logs, or attachments | Use safe placeholders and absence assertions |
-| Screenshot-only proof | Image is attached with no behavioral assertion | Assert first, attach evidence second |
+| Unreviewed API exchange | Raw headers or an unfiltered response enter an attachment | Attach only reviewed, non-sensitive request and response fields |
+| Screenshot-only proof | Image is attached with no behavioral assertion | Assert behavior; attach sanitized evidence before a possible failure or after success |
 | Fixed-wait race | Test sleeps and hopes state is ready | Use fake clocks, deferred promises, or readiness signals |

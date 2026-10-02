@@ -108,7 +108,7 @@ using Xunit;
 using Xunit.Abstractions;
 
 [Specification("String Operations", Description = @"
-    Rules for standard string manipulation operations.")]
+    Callers can rely on the string transformations covered by these rules.")]
 public class StringSpec : SpecificationTest
 {
     public StringSpec(ITestOutputHelper output) : base(output) { }
@@ -239,6 +239,68 @@ assertion fails; calls after a failing assertion are never reached. Avoid
 attaching secrets or personal data.
 Feature scenarios continue to associate attachments with their individual steps.
 
+#### Newtonsoft JSON tokens {#newtonsoft-json-tokens}
+
+Pass a Newtonsoft.Json `JObject`, `JArray`, or JSON-compatible `JValue`
+directly to `AttachJson`—no `JsonConvert.SerializeObject` call is needed.
+Objects, arrays, and string/number/boolean/null values retain their JSON
+semantics, including empty containers, Unicode, derived token types, and
+tokens nested in CLR properties, arrays, lists, or dictionaries. A string
+`JValue` becomes a quoted JSON string, not unquoted `ToString()` text.
+Newtonsoft.Json is restored automatically as a runtime dependency of the
+LiveDoc xUnit package.
+
+For example, this rule validates a receipt's action and records the same
+receipt as an object, an array, and a nested CLR envelope:
+
+```csharp
+using Newtonsoft.Json.Linq;
+using SweDevTools.LiveDoc.xUnit;
+using SweDevTools.LiveDoc.xUnit.Core;
+using Xunit;
+using Xunit.Abstractions;
+
+[Specification("Receipt payloads",
+    Description = "Receipt JSON provides an action that can be validated and attached as evidence.")]
+public sealed class ReceiptSpec(ITestOutputHelper output) : SpecificationTest(output)
+{
+    [Rule("Receipt JSON '{\"action\":\"Finish\",\"receipt\":{\"id\":\"fixture-id\",\"type\":\"Example\"}}' has action 'Finish'")]
+    public void Receipt_action()
+    {
+        var (json, expectedAction) = Rule.Values.As<string, string>();
+        JObject receipt = JObject.Parse(json);
+
+        AttachJson(receipt, "Receipt object");
+        AttachJson(new JArray(receipt), "Receipt batch");
+        AttachJson(new { receipt }, "Receipt envelope");
+
+        Assert.Equal(expectedAction, receipt.Value<string>("action"));
+    }
+}
+```
+
+The **Receipt object** attachment contains:
+
+```json
+{"action":"Finish","receipt":{"id":"fixture-id","type":"Example"}}
+```
+
+**Receipt batch** contains an array with that object; **Receipt envelope**
+contains it under a `receipt` property. All three are UTF-8/base64 attachments
+with MIME type `application/json` and kind `file`. The action assertion checks
+the parsed payload; the attachments are supplementary evidence, not assertions.
+Ordinary CLR fields still use System.Text.Json attributes and defaults.
+Existing raw JSON strings pass through unchanged.
+
+:::caution Nonstandard tokens
+A standalone `JProperty`, a `JConstructor` or `JRaw` at any depth, and
+undefined/comment tokens are not supported. `AttachJson` throws a
+`System.Text.Json.JsonException` identifying the unsupported token type and
+requesting a standard JSON value; it does not record an empty fallback.
+Place properties inside a `JObject`, and parse valid raw JSON into a standard
+token before attaching it. Invalid token output also fails JSON validation.
+:::
+
 ### Method name placeholders {#method-name-placeholders}
 
 When no explicit title is provided, `_ALLCAPS` segments in the method name become placeholders:
@@ -270,9 +332,8 @@ public async Task Fetch_user_by_id()
 
 ```csharp
 [Specification("Password Policy", Description = @"
-    Organizational password strength requirements.
-    Minimum 8 characters, must include uppercase,
-    lowercase, digit, and special character.")]
+    Helps callers identify passwords accepted by the
+    strength cases covered below.")]
 public class PasswordSpec : SpecificationTest
 {
     public PasswordSpec(ITestOutputHelper output) : base(output) { }
@@ -301,13 +362,17 @@ public class PasswordSpec : SpecificationTest
 |--------|---------------|---------------------|
 | Pattern | BDD / Gherkin | MSpec / Specification |
 | Structure | Given / When / Then steps | Direct assertions in rules |
-| Best for | Workflows, user stories, acceptance tests | Units, edge cases, technical components |
+| Best for | Workflows, acceptance tests | Domain policies, units, edge cases, technical contracts |
 | Data-driven | `[ScenarioOutline]` + `[Example]` | `[RuleOutline]` + `[Example]` |
 | Value extraction | `ctx.Step.Values` / `ctx.Step.Params` | `Rule.Values` / `Rule.Params` |
-| Audience | Business + Technical | Technical |
+| Reader's focus | Following a workflow | Inspecting exact rules and examples |
 
 :::tip When to choose which
-Use `FeatureTest` when stakeholders need to read the tests. Use `SpecificationTest` for developer-facing rules where Gherkin ceremony adds noise without value. You can mix both patterns in the same project.
+Use `FeatureTest` when a workflow benefits from Given/When/Then. Use
+`SpecificationTest` for focused rules where that narrative adds noise,
+including business-owned policies stakeholders may want to inspect.
+Group both under the same capability namespace; see
+[Test Organization](../../concepts/test-organization.mdx).
 :::
 
 ---

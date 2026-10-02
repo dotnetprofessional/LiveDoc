@@ -217,7 +217,8 @@ public abstract class LiveDocTestBase : IDisposable
 
     /// <summary>
     /// Attaches a JSON payload to the current scenario step or specification rule (e.g., API response body).
-    /// The object is serialized to JSON with indented formatting.
+    /// The object is serialized with System.Text.Json and indented formatting.
+    /// Newtonsoft JSON tokens retain their JSON values, including within CLR collections and properties.
     /// </summary>
     /// <param name="data">The object to serialize as JSON. If already a string, used as-is.</param>
     /// <param name="title">Optional descriptive title.</param>
@@ -225,7 +226,11 @@ public abstract class LiveDocTestBase : IDisposable
     {
         var json = data is string s
             ? s
-            : System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            : System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Converters = { new NewtonsoftJsonTokenConverterFactory() }
+            });
         var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
         Attach(base64, "application/json", title, "file");
     }

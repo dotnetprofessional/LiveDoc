@@ -1,0 +1,5 @@
+### 2026-09-26T00-52-44: Gallery maximize uses CSS viewport dialog and shared scalable preview controls
+**By:** Kaylee
+**What:** Gallery maximize uses CSS viewport dialog and shared scalable preview controls
+**References:** packages/viewer/src/client/components/AttachmentViewer.tsx, packages/viewer/test/MermaidAttachments.Spec.ts
+**Why:** Supersedes the AttachmentViewer Fullscreen Mode decision for the gallery control. Browser Fullscreen API could be denied in an embedded viewer and prior dialog already covered the viewport while max-w-5xl and padding constrained the preview; the old button barely enlarged diagrams. The shared gallery now has a normal inset dialog and an accessible viewport-filling Maximize/Restore mode across attachment types, implemented with the existing Radix Dialog and without browser fullscreen permissions. Escape restores then closes, returning focus to the gallery opener. Shared ScalablePreview provides Fit, +/−, 100%, zoom ratio, and scrollable viewport for Mermaid and raster images only. JSON/text/PDF keep ordinary scroll/fallback behavior. Verified with browser geometry, responsive and focus tests.

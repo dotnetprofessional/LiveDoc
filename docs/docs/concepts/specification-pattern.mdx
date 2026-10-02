@@ -1,6 +1,6 @@
 ---
 sidebar_position: 3
-description: "Learn the Specification pattern — a compact, developer-focused alternative to BDD for technical components and APIs."
+description: "Learn the Specification pattern — a compact way to document precise domain rules and technical contracts."
 ---
 
 # Specification Pattern
@@ -8,12 +8,17 @@ description: "Learn the Specification pattern — a compact, developer-focused a
 <p className="intro">
 The Specification pattern provides a streamlined way to write executable specifications
 without the ceremony of Given/When/Then. Inspired by MSpec (Machine.Specifications),
-it's ideal for technical components, algorithms, and APIs where directness beats narrative.
+it fits precise business policies as well as technical components and APIs when
+direct rules communicate more clearly than a narrative.
 </p>
 
 ## What Is the Specification Pattern?
 
-While the [BDD pattern](./bdd-pattern.mdx) excels at describing user-facing behavior in a stakeholder-friendly format, not every test benefits from the Given/When/Then structure. When you're testing a math library, a validation utility, or an API endpoint, the three-step ceremony can feel like overhead:
+While the [BDD pattern](./bdd-pattern.mdx) excels at describing workflows,
+not every claim benefits from the Given/When/Then structure. A product manager
+may want the exact shipping-rate examples without reading a checkout journey;
+the same directness helps when testing a math library, validation utility, or
+API contract:
 
 ```
 // BDD for a simple calculation — more ceremony than value
@@ -34,7 +39,9 @@ Specification: Calculator
   Rule: Dividing by zero throws an error
 ```
 
-Each **Rule** is a direct assertion — a statement of fact about the system that either holds true or doesn't. There are no steps, no setup keywords, no narrative structure. Just a specification title, a collection of rules, and the code to verify them.
+Each **Rule** is one independently verifiable claim about the system. It can
+use multiple related assertions to prove that claim. There are no step
+keywords: the specification title, rules, and examples provide the detail.
 
 :::info Conceptual Vocabulary
 The examples on this page use the LiveDoc **conceptual vocabulary** — `Specification`, `Rule`, `RuleOutline`. Unlike the [BDD pattern](./bdd-pattern.mdx) which borrows from [Gherkin](https://cucumber.io/docs/gherkin/reference/), the Specification pattern is a LiveDoc concept inspired by [MSpec](https://github.com/machine/machine.specifications). Each SDK implements it using its platform's native idioms:
@@ -65,7 +72,8 @@ Like Features, Specifications support:
 
 ### Rule
 
-A **Rule** is a single assertion — a fact about the system that the test verifies. It's analogous to a Scenario, but without the Given/When/Then step structure:
+A **Rule** is a focused fact about the system that the test verifies. It's
+analogous to a Scenario, but without the Given/When/Then step structure:
 
 ```
 Specification: Email Validator
@@ -90,7 +98,7 @@ For data-driven specifications, **RuleOutline** works just like ScenarioOutline 
 ```
 Specification: Email Validator
 
-  RuleOutline: Validates email formats correctly
+  RuleOutline: Email '<email>' has validity '<valid>'
     Examples:
     | email              | valid |
     | user@example.com   | true  |
@@ -106,7 +114,8 @@ Each row becomes a separate test in the documentation output, making all variati
 
 The Specification pattern is the right choice when:
 
-- **The audience is developers** — No business stakeholders need to read these tests
+- **The claim is a precise rule** — A product owner may inspect shipping,
+  eligibility, or discount examples alongside a workflow Feature
 - **Tests are self-contained** — A single rule captures setup, action, and assertion naturally
 - **You're testing many variations** — A list of rules reads better than a list of scenarios with repeated Given/When/Then
 - **The component is technical** — APIs, utilities, algorithms, data transformers
@@ -116,6 +125,7 @@ The Specification pattern is the right choice when:
 
 | Component             | Why Specification Fits                                    |
 | --------------------- | --------------------------------------------------------- |
+| Shipping and pricing policies | Exact input/output examples make thresholds and exceptions inspectable |
 | Validation utilities  | Many rules, each a simple input → output check            |
 | Math/algorithm logic  | Direct assertions on computed results                     |
 | Parser behavior       | Many edge cases, each a one-line rule                     |
@@ -132,7 +142,7 @@ The fundamental difference is **structure vs. directness**:
 | **Organizing concept**   | Feature → Scenario → Steps          | Specification → Rule             |
 | **Step keywords**        | Given, When, Then, And, But         | None                             |
 | **Setup and assertion**  | Separated into distinct steps       | Combined in a single block       |
-| **Readability for**      | Anyone (business + technical)       | Developers                       |
+| **Reader's focus**      | Following a workflow                | Inspecting precise rules and examples |
 | **Data-driven variant**  | ScenarioOutline                     | RuleOutline                      |
 | **Best read as**         | A user story with examples          | A list of facts about the system |
 | **Typical test count**   | Fewer, more detailed scenarios      | Many, more concise rules         |
@@ -164,29 +174,31 @@ Specification: Password Strength Validator
   Rule: Empty passwords are rated 'weak'
 ```
 
-Neither is "better" — they serve different purposes. The BDD version tells a story that a product owner can follow. The Specification version is a concise checklist that a developer can scan quickly.
+Neither is "better" — they serve different purposes. The BDD version tells
+a story; the Specification version provides a concise rule reference. A
+product owner can read either when it documents the behavior they care about.
 
 ## Decision Guide
 
 Use this flowchart to choose the right pattern:
 
-```
-Who needs to read this test?
-├── Business stakeholders + developers
-│   └──▶ Use BDD (Feature / Scenario)
-└── Developers only
-    └── Does Given/When/Then add clarity?
-        ├── Yes ──▶ Use BDD
-        └── No  ──▶ Use Specification (Rule)
+```text
+What kind of claim is this?
+├── A workflow where preconditions, action, and outcome tell the story
+│   └── Use Feature / Scenario
+└── A focused rule or exact input/output contract
+    └── Use Specification / Rule or RuleOutline
 ```
 
 :::tip Mix Freely
 Most projects benefit from using **both** patterns. A common convention:
 
-- **BDD** for acceptance tests and user-facing behavior
-- **Specification** for unit tests and technical components
+- **BDD** for workflows that benefit from Given/When/Then
+- **Specification** for precise business policies and technical contracts
 
-LiveDoc supports both in the same project, and the Viewer displays them together in a unified documentation hierarchy.
+LiveDoc supports both in the same project. Keep related Features and
+Specifications together under the business capability in the Viewer; see
+[Test Organization](./test-organization.mdx).
 :::
 
 ## The Specification Pattern as Living Documentation
@@ -194,9 +206,11 @@ LiveDoc supports both in the same project, and the Viewer displays them together
 Just like BDD, the Specification pattern produces [living documentation](./living-documentation.mdx). The key difference is in the *shape* of that documentation:
 
 - **BDD documentation** reads like a narrative: "Given this context, when the user does X, then Y happens."
-- **Specification documentation** reads like a reference sheet: "Here are the rules that govern this component."
+- **Specification documentation** reads like a reference sheet: "Here are the exact rules for this capability."
 
-Both are valuable. A well-organized project produces documentation that includes narrative behavior descriptions (BDD) *and* concise technical reference (Specification) — just like good traditional documentation includes both user guides and API references.
+Both are valuable. A reader can follow an Orders checkout Feature and inspect
+its nearby Shipping rates Specification for boundary cases without switching
+to a separate technical catalogue.
 
 ## SDK Support
 
@@ -212,9 +226,9 @@ The concepts are identical across both SDKs. Only the syntax differs.
 - The **Specification pattern** is a compact alternative to BDD, inspired by MSpec.
 - **Specification** groups related rules; **Rule** is a direct assertion without step ceremony.
 - **RuleOutline** provides [data-driven testing](./data-driven-tests.mdx) with Examples tables.
-- Use Specification for **technical components**, **developer-only audiences**, and **tests with many variations**.
-- Use [BDD](./bdd-pattern.mdx) when **stakeholders** need to read the specs or when **Given/When/Then adds clarity**.
-- Both patterns produce living documentation and can be **mixed freely** in the same project.
+- Use Specification for **precise business or technical rules** and **tests with many variations**.
+- Use [BDD](./bdd-pattern.mdx) when a **Given/When/Then narrative adds clarity**.
+- Both patterns produce living documentation and belong **together under their capability**.
 
 ## Next Steps
 
