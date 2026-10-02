@@ -1192,10 +1192,12 @@ feature('Mermaid Attachment Previews', () => {
       });
 
       then("the dialog can be closed with 'Escape' and focus returns to 'Open attachment gallery'", async (ctx) => {
+        await page().getByRole('button', { name: 'Maximize viewer' }).waitFor({ state: 'visible' });
         expect(await page().getByRole('button', { name: 'Maximize viewer' }).isVisible()).toBe(true);
         await page().keyboard.press(ctx.step.values[0] as string);
+        await page().getByRole('dialog').waitFor({ state: 'detached' });
         expect(await page().getByRole('dialog').count()).toBe(0);
-        expect(await page().getByRole('button', { name: ctx.step.values[1] as string }).evaluate(
+        await expect.poll(() => page().getByRole('button', { name: ctx.step.values[1] as string }).evaluate(
           (button) => document.activeElement === button)).toBe(true);
       });
   });
