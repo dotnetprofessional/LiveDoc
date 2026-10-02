@@ -5,7 +5,7 @@
 ### Example 1: Create a new BDD feature
 > "Create a test for the shipping costs business rules"
 
-→ Read `resources/features.md`. Write a class inheriting `FeatureTest` with `[Feature]`/`[Scenario]`, embedding all values in step titles.
+→ Read `resources/test-strategy.md` and `resources/features.md`. Write a class inheriting `FeatureTest` with `[Feature]`/`[Scenario]`. State why the tested shipping behavior matters in the Feature description and embed values in step titles.
 
 ### Example 2: Add a ScenarioOutline with Examples
 > "Add data-driven tests for tax calculation across countries"
@@ -20,12 +20,12 @@
 ### Example 4: Write a Specification with Rules
 > "Write unit tests for the email validator as a specification"
 
-→ Read `resources/specifications.md`. Use `[Specification]`/`[Rule]`/`[RuleOutline]` with `SpecificationTest` base class and `Rule.Values`.
+→ Read `resources/test-strategy.md` and `resources/specifications.md`. Give `[Specification]` a developer-readable contract purpose; use `[Rule]`/`[RuleOutline]` with `SpecificationTest` and `Rule.Values` for proof.
 
 ### Example 5: Create an HTTP journey for an API
 > "Create end-to-end journey tests for the Users API"
 
-→ Read `resources/journey-testing.md`. Write `.http` file with BDD annotations, add `.Response.json` contracts.
+→ Read `resources/journey-testing.md`. Write `.http` BDD annotations with a purpose-first `# Description:`; add `.Response.json` contracts for expected payloads, not as actual-response attachments.
 
 ### Example 6: Set up journey testing
 > "Enable journey scaffolding in my test project"
@@ -35,7 +35,7 @@
 ### Example 7: Attach diagnostic evidence
 > "Attach the failed API response to this scenario"
 
-→ Read `resources/evidence.md`. Assert the response contract first, then attach redacted JSON as supporting evidence.
+→ Read `resources/evidence.md` and `resources/journey-testing.md`. Attach allowlisted response fields from a reached `run.Steps` entry **before** `run.AssertStep` or the contract comparison; a failing assertion would skip later attachments. Keep authored safe request/expected JSON in the step description.
 
 ### Example 8: Validate an incremental change by tag
 > "Run only checkout and pricing behavior and patch the Viewer"

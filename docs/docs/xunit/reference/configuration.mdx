@@ -3,6 +3,8 @@ sidebar_position: 8
 description: "Configuration reference for LiveDoc xUnit — environment variables, auto-discovery, LiveDoc Viewer integration, project setup, and test discovery."
 ---
 
+import LibraryCodeBlock from '@site/src/components/LibraryCodeBlock';
+
 # Configuration
 
 <p className="intro">
@@ -44,8 +46,7 @@ using Xunit.Abstractions;                   // ITestOutputHelper
 
 A minimal `.csproj` for a LiveDoc xUnit test project:
 
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
+<LibraryCodeBlock library="xunit" language="xml">{`<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -58,10 +59,9 @@ A minimal `.csproj` for a LiveDoc xUnit test project:
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-    <PackageReference Include="SweDevTools.LiveDoc.xUnit" Version="0.3.0" />
+    <PackageReference Include="SweDevTools.LiveDoc.xUnit" Version="{{libraryVersion}}" />
   </ItemGroup>
-</Project>
-```
+</Project>`}</LibraryCodeBlock>
 
 LiveDoc supports both `net8.0` and `net10.0` test projects.
 
@@ -361,13 +361,27 @@ See the [Static Export Guide](../../viewer/guides/static-export.mdx) for the com
 
 ### Namespace Organization {#namespaces}
 
-The C# namespace of each test class determines the visual tree structure in the LiveDoc Viewer. The reporter strips the assembly name prefix and converts namespace segments to a folder-like path.
+The full declared C# namespace of each test class determines the visual tree
+structure in the LiveDoc Viewer. The reporter retains every namespace segment
+and converts the fully qualified class name to a path, independently of the
+assembly name:
 
+```text
+Fully qualified class name        Report path
+MyApp.Tests.Checkout.CartSpec    → MyApp/Tests/Checkout/CartSpec.cs
+MyApp.Tests.Auth.LoginSpec       → MyApp/Tests/Auth/LoginSpec.cs
+MyApp.Tests.Shipping.CostsSpec   → MyApp/Tests/Shipping/CostsSpec.cs
+Acme.Orders.Checkout             → Acme/Orders/Checkout.cs
+CartSpec (no namespace)          → CartSpec.cs
 ```
-MyApp.Tests.Checkout.CartSpec    → Checkout/CartSpec.cs
-MyApp.Tests.Auth.LoginSpec       → Auth/LoginSpec.cs
-MyApp.Tests.Shipping.CostsSpec   → Shipping/CostsSpec.cs
-```
+
+For example, `Checkout` declared in namespace `Acme.Orders` reports
+`Acme/Orders/Checkout.cs` whether the assembly is `Acme.Orders` or
+`Unrelated.Library`. Only namespace segments become navigation folders.
+The class is a `.cs` document leaf, and its Feature/Specification title labels
+the document rather than adding a folder. Namespace-free classes remain root
+documents. Project display names and assembly identity do not shorten these
+paths.
 
 **Best practices:**
 - **Group related tests** under a common namespace segment

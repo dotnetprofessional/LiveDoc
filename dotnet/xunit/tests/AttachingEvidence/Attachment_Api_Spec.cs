@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using Newtonsoft.Json.Linq;
 using SweDevTools.LiveDoc.xUnit;
 using SweDevTools.LiveDoc.xUnit.Core;
 using SweDevTools.LiveDoc.xUnit.Reporter.Models;
@@ -55,6 +57,64 @@ public class Attachment_Api_Spec : FeatureTest
 
     private static string ToBase64(string text) =>
         Convert.ToBase64String(Encoding.UTF8.GetBytes(text));
+
+    private static object CreateCollectionEvidence(
+        int serviceCount,
+        int recordCount,
+        int dependencyCount,
+        int checksPerDependency,
+        int itemsPerRecord,
+        int descriptionRepeats,
+        string descriptionToken,
+        string city,
+        int httpStatusCode,
+        bool active,
+        bool maintenance) => new
+        {
+            documentType = "collection-validation",
+            services = Enumerable.Range(1, serviceCount).Select(index => new
+            {
+                id = index,
+                name = $"sample-service-{index:D2}",
+                endpoint = $"https://sample-service-{index:D2}.example.invalid/health",
+                enabled = active
+            }).ToArray(),
+            summary = new { city, recordCount, serviceCount },
+            records = Enumerable.Range(1, recordCount).Select(index => new
+            {
+                id = index,
+                name = $"sample-record-{index:D2}",
+                location = new { city, zone = $"sample-zone-{index:D2}" },
+                items = Enumerable.Range(1, itemsPerRecord).Select(item => new
+                {
+                    sku = $"sample-item-{item:D2}",
+                    quantity = item,
+                    available = active
+                }).ToArray(),
+                notes = descriptionToken
+            }).ToArray(),
+            Error = new
+            {
+                httpStatusCode,
+                dependencies = Enumerable.Range(1, dependencyCount).Select(index => new
+                {
+                    service = $"sample-dependency-{index:D2}",
+                    httpStatusCode,
+                    checks = Enumerable.Range(1, checksPerDependency).Select(check => new
+                    {
+                        name = $"sample-check-{check:D2}",
+                        healthy = maintenance,
+                        detail = new { message = descriptionToken, retryAfter = (int?)null }
+                    }).ToArray()
+                }).ToArray()
+            },
+            emptyArray = Array.Empty<object>(),
+            emptyObject = new { },
+            optional = (string?)null,
+            active,
+            maintenance,
+            description = string.Concat(Enumerable.Repeat(descriptionToken, descriptionRepeats))
+        };
 
     #endregion
 
@@ -169,6 +229,46 @@ public class Attachment_Api_Spec : FeatureTest
     }
 
     #endregion
+
+    [Scenario("Receipt JSON evidence preserves action 'Finish', ID 'fixture-id', and type 'Example' across object and array representations")]
+    [Tag("json, json-tokens, receipt-evidence")]
+    public void Receipt_JSON_evidence_preserves_object_and_array_values()
+    {
+        JObject? payload = null;
+        object? clr = null;
+        Given("a receipt with action 'Finish', ID 'fixture-id', and type 'Example'", ctx =>
+        {
+            var (action, id, type) = ctx.Step!.Values.As<string, string, string>();
+            payload = new JObject
+            {
+                ["action"] = action,
+                ["receipt"] = new JObject { ["id"] = id, ["type"] = type }
+            };
+            clr = new { action, receipt = new { id, type } };
+        });
+        When("the object, token array, pre-serialized array, and CLR array are attached", () =>
+        {
+            AttachJson(payload!, "Receipt object");
+            AttachJson(new[] { payload! }, "Receipt token array");
+            AttachJson(Newtonsoft.Json.JsonConvert.SerializeObject(new[] { payload! }), "Receipt raw array control");
+            AttachJson(new[] { clr! }, "Receipt CLR array control");
+        });
+        Then("decoded object JSON is '{\"action\":\"Finish\",\"receipt\":{\"id\":\"fixture-id\",\"type\":\"Example\"}}' and each decoded array contains that object", ctx =>
+        {
+            var expected = ctx.Step!.Values[0].AsString();
+            var attachments = GetAttachments();
+            Assert.Equal(4, attachments.Count);
+            foreach (var attachment in attachments)
+            {
+                Assert.Equal("application/json", attachment.MimeType);
+                Assert.Equal("file", attachment.Kind);
+                var decoded = new UTF8Encoding(false, true).GetString(Convert.FromBase64String(attachment.Base64!));
+                var expectedJson = attachment.Title == "Receipt object" ? expected : $"[{expected}]";
+                Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expectedJson), JsonNode.Parse(decoded)),
+                    $"{attachment.Title}: expected JSON {expectedJson}; recorded JSON {decoded}");
+            }
+        });
+    }
 
     #region 2. AttachScreenshot() Convenience
 
@@ -330,6 +430,142 @@ public class Attachment_Api_Spec : FeatureTest
             var json = Encoding.UTF8.GetString(Convert.FromBase64String(attachments[0].Base64!));
             Assert.Contains("\"city\": \"Sydney\"", json);
             Assert.Contains("\"active\": true", json);
+        });
+    }
+
+    [Tag("json, attachments")]
+    [Scenario("A large JSON document with root collections and nested dependencies is attached as evidence",
+        Description = "Retains collection structure, metadata, and Unicode in serialized attachment evidence; does not assert Viewer rendering.")]
+    public void AttachJson_large_root_collections_and_nested_dependencies()
+    {
+        object? payload = null;
+        byte[]? attachmentBytes = null;
+        int serviceCount = 0, recordCount = 0, dependencyCount = 0, checksPerDependency = 0, itemsPerRecord = 0;
+
+        JsonDocument ReadEvidence() => JsonDocument.Parse(attachmentBytes!);
+
+        Given("a document with '3' services, '24' records, '3' dependencies, '2' checks per dependency, and '3' items per record", ctx =>
+        {
+            (serviceCount, recordCount, dependencyCount, checksPerDependency, itemsPerRecord) =
+                ctx.Step!.Values.As<int, int, int, int, int>();
+        });
+
+        And("its description repeats 'Collection validation — café 東京 🌿. ' '64' times, city is '東京', HTTP status is '503', active is 'true', and maintenance is 'false'", ctx =>
+        {
+            var (token, repeats, city, status, active, maintenance) =
+                ctx.Step!.Values.As<string, int, string, int, bool, bool>();
+            payload = CreateCollectionEvidence(
+                serviceCount, recordCount, dependencyCount, checksPerDependency, itemsPerRecord,
+                repeats, token, city, status, active, maintenance);
+        });
+
+        When("AttachJson attaches the document as 'Large JSON collection validation'", ctx =>
+            AttachJson(payload!, ctx.Step!.Values[0].AsString()));
+
+        Then("there is '1' attachment titled 'Large JSON collection validation' with MIME 'application/json' and kind 'file'", ctx =>
+        {
+            var (count, title, mimeType, kind) = ctx.Step!.Values.As<int, string, string, string>();
+            var attachments = GetAttachments();
+            Assert.Equal(count, attachments.Count);
+            var attachment = Assert.Single(attachments);
+            Assert.Equal(title, attachment.Title);
+            Assert.Equal(mimeType, attachment.MimeType);
+            Assert.Equal(kind, attachment.Kind);
+            attachmentBytes = Convert.FromBase64String(attachment.Base64!);
+        });
+
+        And("the payload is valid UTF-8 JSON between '10240' and '30720' bytes with ordered root fields '[\"documentType\",\"services\",\"summary\",\"records\",\"Error\",\"emptyArray\",\"emptyObject\",\"optional\",\"active\",\"maintenance\",\"description\"]'", ctx =>
+        {
+            var (minimumBytes, maximumBytes, fields) = ctx.Step!.Values.As<int, int, string[]>();
+            Assert.InRange(attachmentBytes!.Length, minimumBytes, maximumBytes);
+            var text = new UTF8Encoding(false, true).GetString(attachmentBytes);
+            using var document = JsonDocument.Parse(text);
+            Assert.Equal(fields, document.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
+        });
+
+        And("the root type is 'collection-validation', services has '3' objects starting with 'sample-service-01', and records has '24' objects", ctx =>
+        {
+            var (documentType, expectedServices, firstService, expectedRecords) = ctx.Step!.Values.As<string, int, string, int>();
+            using var document = ReadEvidence();
+            var root = document.RootElement;
+            Assert.Equal(documentType, root.GetProperty("documentType").GetString());
+            var services = root.GetProperty("services");
+            Assert.Equal(expectedServices, services.GetArrayLength());
+            Assert.All(services.EnumerateArray(), service => Assert.Equal(JsonValueKind.Object, service.ValueKind));
+            Assert.Equal(firstService, services[0].GetProperty("name").GetString());
+            var records = root.GetProperty("records");
+            Assert.Equal(expectedRecords, records.GetArrayLength());
+            Assert.All(records.EnumerateArray(), record => Assert.Equal(JsonValueKind.Object, record.ValueKind));
+            Assert.Equal(expectedServices, root.GetProperty("summary").GetProperty("serviceCount").GetInt32());
+            Assert.Equal(expectedRecords, root.GetProperty("summary").GetProperty("recordCount").GetInt32());
+        });
+
+        And("records span IDs '1' to '24' named 'sample-record-01' to 'sample-record-24', each with '3' items and city '東京'", ctx =>
+        {
+            var (firstId, lastId, firstName, lastName, itemCount, city) =
+                ctx.Step!.Values.As<int, int, string, string, int, string>();
+            using var document = ReadEvidence();
+            var root = document.RootElement;
+            var records = root.GetProperty("records");
+            Assert.Equal(firstId, records[0].GetProperty("id").GetInt32());
+            Assert.Equal(lastId, records[records.GetArrayLength() - 1].GetProperty("id").GetInt32());
+            Assert.Equal(firstName, records[0].GetProperty("name").GetString());
+            Assert.Equal(lastName, records[records.GetArrayLength() - 1].GetProperty("name").GetString());
+            Assert.Equal(city, root.GetProperty("summary").GetProperty("city").GetString());
+            Assert.All(records.EnumerateArray(), record =>
+            {
+                Assert.Equal(city, record.GetProperty("location").GetProperty("city").GetString());
+                var items = record.GetProperty("items");
+                Assert.Equal(itemCount, items.GetArrayLength());
+                Assert.All(items.EnumerateArray(), item => Assert.Equal(JsonValueKind.Object, item.ValueKind));
+            });
+        });
+
+        And("Error fields are ordered '[\"httpStatusCode\",\"dependencies\"]' with status '503' and '3' dependencies starting with 'sample-dependency-01', each with '2' checks whose healthy flag is 'false'", ctx =>
+        {
+            var (fields, status, expectedDependencies, firstDependency, checkCount, healthy) =
+                ctx.Step!.Values.As<string[], int, int, string, int, bool>();
+            using var document = ReadEvidence();
+            var error = document.RootElement.GetProperty("Error");
+            Assert.Equal(fields, error.EnumerateObject().Select(property => property.Name).ToArray());
+            Assert.Equal(status, error.GetProperty("httpStatusCode").GetInt32());
+            var dependencies = error.GetProperty("dependencies");
+            Assert.Equal(expectedDependencies, dependencies.GetArrayLength());
+            Assert.Equal(firstDependency, dependencies[0].GetProperty("service").GetString());
+            Assert.All(dependencies.EnumerateArray(), dependency =>
+            {
+                Assert.Equal(status, dependency.GetProperty("httpStatusCode").GetInt32());
+                var checks = dependency.GetProperty("checks");
+                Assert.Equal(checkCount, checks.GetArrayLength());
+                Assert.All(checks.EnumerateArray(), check =>
+                    Assert.Equal(healthy, check.GetProperty("healthy").GetBoolean()));
+            });
+        });
+
+        And("emptyArray and emptyObject have '0' entries, optional is 'Null', active is 'true', and maintenance is 'false'", ctx =>
+        {
+            var (emptyCount, optionalKind, active, maintenance) =
+                ctx.Step!.Values.As<int, JsonValueKind, bool, bool>();
+            using var document = ReadEvidence();
+            var root = document.RootElement;
+            Assert.Equal(emptyCount, root.GetProperty("emptyArray").GetArrayLength());
+            Assert.Equal(emptyCount, root.GetProperty("emptyObject").EnumerateObject().Count());
+            Assert.Equal(optionalKind, root.GetProperty("optional").ValueKind);
+            Assert.Equal(active, root.GetProperty("active").GetBoolean());
+            Assert.Equal(maintenance, root.GetProperty("maintenance").GetBoolean());
+        });
+
+        And("the long description preserves 'Collection validation — café 東京 🌿. ' repeated '64' times and every record note preserves that Unicode text", ctx =>
+        {
+            var (token, repeats) = ctx.Step!.Values.As<string, int>();
+            using var document = ReadEvidence();
+            var root = document.RootElement;
+            var description = root.GetProperty("description").GetString()!;
+            Assert.Equal(token.Length * repeats, description.Length);
+            for (var offset = 0; offset < description.Length; offset += token.Length)
+                Assert.Equal(token, description.Substring(offset, token.Length));
+            Assert.All(root.GetProperty("records").EnumerateArray(), record =>
+                Assert.Equal(token, record.GetProperty("notes").GetString()));
         });
     }
 

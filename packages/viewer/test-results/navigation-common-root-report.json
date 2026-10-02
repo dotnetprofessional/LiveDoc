@@ -1,0 +1,1343 @@
+{
+  "protocolVersion": "1.0",
+  "runId": "9fe1592a-a99c-4950-a765-a6a321f7d7a0",
+  "project": "livedoc",
+  "environment": "local",
+  "framework": "vitest",
+  "timestamp": "2026-10-02T17:18:42.807Z",
+  "duration": 36019.91090000002,
+  "status": "passed",
+  "summary": {
+    "total": 49,
+    "passed": 49,
+    "failed": 0,
+    "pending": 0,
+    "skipped": 0
+  },
+  "documents": [
+    {
+      "id": "oh2eid",
+      "kind": "Specification",
+      "path": "NamespaceNavigation.Spec.ts",
+      "title": "Common Root Display Projection",
+      "description": "Navigation skips redundant shared folders while keeping canonical report identities and saved navigation intact.",
+      "tags": [
+        "navigation"
+      ],
+      "tests": [
+        {
+          "id": "oh2eid:6ezw7w",
+          "kind": "RuleOutline",
+          "title": "The <kind> paths 'Acme/Commerce/Quotes/Services/Transactor/UnitTests/Authentication/A.cs' and 'Acme/Commerce/Quotes/Services/Transactor/UnitTests/ResourceProviders/B.cs' show 'Authentication,ResourceProviders', retaining both full-path group identities",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "kind"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "Standard",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "Container",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "Feature",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "Specification",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "oh2eid:6ezw7w",
+              "result": {
+                "status": "passed",
+                "duration": 8.226800000000026,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "oh2eid:6ezw7w",
+              "result": {
+                "status": "passed",
+                "duration": 0.3050999999999249,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "oh2eid:6ezw7w",
+              "result": {
+                "status": "passed",
+                "duration": 0.22030000000006567,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "oh2eid:6ezw7w",
+              "result": {
+                "status": "passed",
+                "duration": 0.20659999999998035,
+                "rowId": 3
+              }
+            }
+          ],
+          "statistics": {
+            "total": 4,
+            "passed": 4,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 9.238500000000045
+          }
+        },
+        {
+          "id": "oh2eid:gvy7dz",
+          "kind": "RuleOutline",
+          "title": "Framework <framework> with paths <first> and <second> retains visible roots <roots>",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework",
+                "first",
+                "second",
+                "roots"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Other/Billing/B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme,Other",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Root,Auth,Document 1",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth,Document 1",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Billing/B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth,Billing",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 4,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth/A.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Billing/B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth,Billing",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 5,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "A.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Root,Document 0,Document 1",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 6,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth/A.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Root,Auth,Document 1",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 7,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth,Document 1",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 8,
+                  "values": [
+                    {
+                      "value": "mixed",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Billing/B.Spec.ts",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth,Billing",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 9,
+                  "values": [
+                    {
+                      "value": "unknown",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Auth/A.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Billing/B.cs",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Auth,Billing",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 1.2296999999999798,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.43230000000005475,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.3935999999999922,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.3310999999999922,
+                "rowId": 3
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.29120000000000346,
+                "rowId": 4
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.3188999999999851,
+                "rowId": 5
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.2600999999999658,
+                "rowId": 6
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.25529999999992015,
+                "rowId": 7
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.4642000000000053,
+                "rowId": 8
+              }
+            },
+            {
+              "testId": "oh2eid:gvy7dz",
+              "result": {
+                "status": "passed",
+                "duration": 0.26310000000000855,
+                "rowId": 9
+              }
+            }
+          ],
+          "statistics": {
+            "total": 10,
+            "passed": 10,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 4.331000000000017
+          }
+        },
+        {
+          "id": "oh2eid:mun2fz",
+          "kind": "Rule",
+          "title": "An empty run displays '0' sidebar entries and '0' breadcrumbs for missing 'doc-0'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.6903999999999542
+          }
+        },
+        {
+          "id": "oh2eid:jge57c",
+          "kind": "Rule",
+          "title": "A single document at 'Acme/Commerce/Tests/Check.cs' displays 'Document 0' with canonical ID 'doc-0'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.15449999999998454
+          }
+        },
+        {
+          "id": "oh2eid:tb6o2z",
+          "kind": "Rule",
+          "title": "Branching at 'Acme/Tests' retains 'Billing/Lifecycle/Renewals' beside 'Authentication' without losing direct 'Document 2'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 0.19010000000002947
+          }
+        },
+        {
+          "id": "oh2eid:aidqxm",
+          "kind": "RuleOutline",
+          "title": "Framework <framework> hidden ancestor 'group:Acme/Commerce/Quotes' round-trips through '#/group/Acme/Commerce/Quotes' and opens 'Authentication,ResourceProviders'",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "unknown",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "oh2eid:aidqxm",
+              "result": {
+                "status": "passed",
+                "duration": 6.983799999999974,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "oh2eid:aidqxm",
+              "result": {
+                "status": "passed",
+                "duration": 5.208100000000059,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "oh2eid:aidqxm",
+              "result": {
+                "status": "passed",
+                "duration": 5.523299999999949,
+                "rowId": 2
+              }
+            }
+          ],
+          "statistics": {
+            "total": 3,
+            "passed": 3,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 17.749499999999898
+          }
+        }
+      ],
+      "statistics": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "2f7ty4",
+      "kind": "Specification",
+      "path": "SidebarLayout.Spec.ts",
+      "title": "Sidebar Width Preferences",
+      "description": "Stored desktop widths stay usable even when storage is absent or contains an invalid value.",
+      "tags": [
+        "sidebar"
+      ],
+      "tests": [
+        {
+          "id": "2f7ty4:ih7x4b",
+          "kind": "RuleOutline",
+          "title": "Stored width <stored> initializes the sidebar preference to <expected> pixels",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "stored",
+                "expected"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "missing",
+                      "type": "string"
+                    },
+                    {
+                      "value": "280",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "invalid",
+                      "type": "string"
+                    },
+                    {
+                      "value": "280",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "480",
+                      "type": "string"
+                    },
+                    {
+                      "value": "480",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "-50",
+                      "type": "string"
+                    },
+                    {
+                      "value": "240",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 4,
+                  "values": [
+                    {
+                      "value": "999",
+                      "type": "string"
+                    },
+                    {
+                      "value": "600",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "2f7ty4:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 1.0389000000000124,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "2f7ty4:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.1411000000000513,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "2f7ty4:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.10770000000002256,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "2f7ty4:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.10159999999996217,
+                "rowId": 3
+              }
+            },
+            {
+              "testId": "2f7ty4:ih7x4b",
+              "result": {
+                "status": "passed",
+                "duration": 0.09720000000015716,
+                "rowId": 4
+              }
+            }
+          ],
+          "statistics": {
+            "total": 5,
+            "passed": 5,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 1.7697000000000571
+          }
+        }
+      ],
+      "statistics": {
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "psgfqc",
+      "kind": "Specification",
+      "path": "SidebarLayout.Spec.ts",
+      "title": "Sidebar Navigation and Resizing",
+      "description": "Readers can find meaningful namespaces and allocate space to deeper branches without changing report data or mobile navigation.",
+      "tags": [
+        "navigation",
+        "sidebar"
+      ],
+      "tests": [
+        {
+          "id": "psgfqc:s4hcwh",
+          "kind": "RuleOutline",
+          "title": "A <framework> run with prefix <prefix> and '401' containers starts at 'Authentication,ResourceProviders', preserving '401' passed tests",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework",
+                "prefix"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "shared",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "shared",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "trimmed",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "psgfqc:s4hcwh",
+              "result": {
+                "status": "passed",
+                "duration": 2368.5964000000004,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "psgfqc:s4hcwh",
+              "result": {
+                "status": "passed",
+                "duration": 1019.3823999999995,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "psgfqc:s4hcwh",
+              "result": {
+                "status": "passed",
+                "duration": 949.2336000000005,
+                "rowId": 2
+              }
+            }
+          ],
+          "statistics": {
+            "total": 3,
+            "passed": 3,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 4337.595899999999
+          }
+        },
+        {
+          "id": "psgfqc:pqtp0o",
+          "kind": "RuleOutline",
+          "title": "In <framework>, search 'Check 001' and tag '@authentication' keep the 'Authentication' root and canonical selection without revealing 'UnitTests'",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "psgfqc:pqtp0o",
+              "result": {
+                "status": "passed",
+                "duration": 1554.3622999999998,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "psgfqc:pqtp0o",
+              "result": {
+                "status": "passed",
+                "duration": 1527.1377999999995,
+                "rowId": 1
+              }
+            }
+          ],
+          "statistics": {
+            "total": 2,
+            "passed": 2,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 3081.855600000001
+          }
+        },
+        {
+          "id": "psgfqc:1l9txq",
+          "kind": "RuleOutline",
+          "title": "In <framework>, a saved hidden-ancestor link '#/group/Acme/Commerce/Quotes' opens 'Quotes' with 'Authentication,ResourceProviders' and full path tooltips",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "psgfqc:1l9txq",
+              "result": {
+                "status": "passed",
+                "duration": 2195.8598,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "psgfqc:1l9txq",
+              "result": {
+                "status": "passed",
+                "duration": 2181.3010999999988,
+                "rowId": 1
+              }
+            }
+          ],
+          "statistics": {
+            "total": 2,
+            "passed": 2,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 4377.4414
+          }
+        },
+        {
+          "id": "psgfqc:f8pz1q",
+          "kind": "RuleOutline",
+          "title": "In <framework>, document 'Check 001' and native result 'Check 1 passes' retain full path <path> with compact 'Root,Authentication,Check 001' breadcrumbs",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework",
+                "path"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Quotes/Services/Transactor/UnitTests/Authentication/Check1.cs",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "Acme/Commerce/Quotes/Services/Transactor/UnitTests/Authentication/Check1.Spec.ts",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "psgfqc:f8pz1q",
+              "result": {
+                "status": "passed",
+                "duration": 1340.1657000000014,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "psgfqc:f8pz1q",
+              "result": {
+                "status": "passed",
+                "duration": 1448.4606000000003,
+                "rowId": 1
+              }
+            }
+          ],
+          "statistics": {
+            "total": 2,
+            "passed": 2,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 2788.940999999999
+          }
+        },
+        {
+          "id": "psgfqc:b4cwh9",
+          "kind": "Rule",
+          "title": "A Vitest mobile drawer at '375' pixels starts at 'Authentication,ResourceProviders', hides 'Acme', and opens the full-path 'Authentication' folder without horizontal overflow",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1367.4660000000003
+          }
+        },
+        {
+          "id": "psgfqc:7cw9gc",
+          "kind": "RuleOutline",
+          "title": "A live <framework> report with '401' containers at <viewport> pixels starts at 'Authentication,ResourceProviders' and opens 'Authentication' at its full path without exposing 'Acme'",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "framework",
+                "viewport"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "1440",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "1440",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "xunit",
+                      "type": "string"
+                    },
+                    {
+                      "value": "375",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 3,
+                  "values": [
+                    {
+                      "value": "vitest",
+                      "type": "string"
+                    },
+                    {
+                      "value": "375",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "psgfqc:7cw9gc",
+              "result": {
+                "status": "passed",
+                "duration": 1857.0704000000005,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "psgfqc:7cw9gc",
+              "result": {
+                "status": "passed",
+                "duration": 1773.6491999999998,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "psgfqc:7cw9gc",
+              "result": {
+                "status": "passed",
+                "duration": 1986.406600000002,
+                "rowId": 2
+              }
+            },
+            {
+              "testId": "psgfqc:7cw9gc",
+              "result": {
+                "status": "passed",
+                "duration": 1998.1603000000032,
+                "rowId": 3
+              }
+            }
+          ],
+          "statistics": {
+            "total": 4,
+            "passed": 4,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 7615.805499999999
+          }
+        },
+        {
+          "id": "psgfqc:caq83n",
+          "kind": "Rule",
+          "title": "A single deeply namespaced container 'Check 001' tagged 'authentication' is directly reachable in the sidebar and Root listing",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1315.9989000000023
+          }
+        },
+        {
+          "id": "psgfqc:ew3mvk",
+          "kind": "Rule",
+          "title": "Combined partial inventory keeps '401' containers while This partial shows '4', and Combined restores 'Authentication,ResourceProviders'",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1373.9326
+          }
+        },
+        {
+          "id": "psgfqc:m9f70a",
+          "kind": "Rule",
+          "title": "Dragging the desktop divider from default '280' to '480' pixels preserves expanded 'ResourceProviders' and folder selection after reload",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 2280.6209000000017
+          }
+        },
+        {
+          "id": "psgfqc:adti6v",
+          "kind": "Rule",
+          "title": "The named separator responds to 'ArrowRight' and 'ArrowLeft' with keyboard focus retained",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1193.4029999999984
+          }
+        },
+        {
+          "id": "psgfqc:5ggtsv",
+          "kind": "Rule",
+          "title": "A legitimate branch 'ResourceProviders/Billing/Lifecycle/Renewals/LongTransactionAuthorizationPolicies' remains navigable and its label fits after resizing from '280' to '480' pixels",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 2001.2971999999972
+          }
+        },
+        {
+          "id": "psgfqc:txs8py",
+          "kind": "RuleOutline",
+          "title": "Dragging at viewport <viewport> pixels to <target> clamps sidebar at <expected>, retaining at least '480' pixels of content",
+          "description": "",
+          "tags": [],
+          "examples": [
+            {
+              "headers": [
+                "viewport",
+                "target",
+                "expected"
+              ],
+              "rows": [
+                {
+                  "rowId": 0,
+                  "values": [
+                    {
+                      "value": "1440",
+                      "type": "string"
+                    },
+                    {
+                      "value": "0",
+                      "type": "string"
+                    },
+                    {
+                      "value": "240",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 1,
+                  "values": [
+                    {
+                      "value": "1440",
+                      "type": "string"
+                    },
+                    {
+                      "value": "1400",
+                      "type": "string"
+                    },
+                    {
+                      "value": "600",
+                      "type": "string"
+                    }
+                  ]
+                },
+                {
+                  "rowId": 2,
+                  "values": [
+                    {
+                      "value": "800",
+                      "type": "string"
+                    },
+                    {
+                      "value": "790",
+                      "type": "string"
+                    },
+                    {
+                      "value": "308",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "exampleResults": [
+            {
+              "testId": "psgfqc:txs8py",
+              "result": {
+                "status": "passed",
+                "duration": 1285.0699000000022,
+                "rowId": 0
+              }
+            },
+            {
+              "testId": "psgfqc:txs8py",
+              "result": {
+                "status": "passed",
+                "duration": 789.9659000000029,
+                "rowId": 1
+              }
+            },
+            {
+              "testId": "psgfqc:txs8py",
+              "result": {
+                "status": "passed",
+                "duration": 761.8653000000049,
+                "rowId": 2
+              }
+            }
+          ],
+          "statistics": {
+            "total": 3,
+            "passed": 3,
+            "failed": 0,
+            "pending": 0,
+            "skipped": 0
+          },
+          "execution": {
+            "status": "passed",
+            "duration": 2837.262999999999
+          }
+        },
+        {
+          "id": "psgfqc:qrwj6t",
+          "kind": "Rule",
+          "title": "Preferred width '600' shrinks to '276' at viewport '768', restores at '1440', and does not leak into the '375' pixel mobile drawer",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 1156.6123000000007
+          }
+        },
+        {
+          "id": "psgfqc:cqn9t4",
+          "kind": "Rule",
+          "title": "An embedded VS Code viewer at '1440' pixels retains host-controlled navigation with no desktop divider or sidebar",
+          "description": "",
+          "tags": [],
+          "execution": {
+            "status": "passed",
+            "duration": 260.457699999999
+          }
+        }
+      ],
+      "statistics": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "pending": 0,
+        "skipped": 0
+      }
+    }
+  ]
+}

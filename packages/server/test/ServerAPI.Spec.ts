@@ -1,9 +1,20 @@
 import { feature, scenario, background, given, when, Then, and } from "@swedevtools/livedoc-vitest";
-import { expect } from "vitest";
+import { afterAll, expect } from "vitest";
 import { createServer, type LiveDocServer } from "../src/index.js";
-import os from "os";
 import path from "path";
 import { promises as fs } from "fs";
+
+const createdTestDirectories = new Set<string>();
+function testDirectory(): string {
+    const directory = path.join(process.cwd(), `.livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    createdTestDirectories.add(directory);
+    return directory;
+}
+afterAll(async () => {
+    for (const directory of createdTestDirectories) {
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+});
 
 feature(`Server API - Health and Discovery
     @integration @api
@@ -15,7 +26,7 @@ feature(`Server API - Health and Discovery
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory();
             server = createServer({
                 port: 0,
                 host: "localhost",
@@ -126,7 +137,7 @@ feature(`Server API - Run Management
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory();
             server = createServer({
                 port: 0,
                 host: "localhost",
@@ -223,19 +234,25 @@ feature(`Server API - Run Management
         });
     });
 
-    scenario("Deleting a run", () => {
+    scenario("Deleting a completed run", () => {
         let runId: string;
         let deleteResponse: Response;
         let getResponse: Response;
 
-        given("a run exists", async () => {
+        given("a completed run exists for project 'TestProject' in environment 'local'", async (ctx) => {
             const startResponse = await fetch(`${baseUrl}/api/runs/start`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ project: "TestProject", environment: "local", framework: "vitest" })
+                body: JSON.stringify({ project: ctx.step.values[0], environment: ctx.step.values[1], framework: "vitest" })
             });
             const result = await startResponse.json();
             runId = result.runId;
+            const completeResponse = await fetch(`${baseUrl}/api/runs/${runId}/complete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: "passed", duration: 0 })
+            });
+            expect(completeResponse.status).toBe(200);
         });
 
         when("deleting the run", async () => {
@@ -264,7 +281,7 @@ feature(`Server API - BDD Data Streaming
 
     background("Running server with active run", (ctx) => {
         given("a LiveDoc server is running with an active run", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory();
             server = createServer({
                 port: 0,
                 host: "localhost",
@@ -472,7 +489,7 @@ feature(`Server API - Batch Mode
 
     background("Running server", (ctx) => {
         given("a LiveDoc server is running", async () => {
-            testDataDir = path.join(os.tmpdir(), `livedoc-api-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            testDataDir = testDirectory();
             server = createServer({
                 port: 0,
                 host: "localhost",

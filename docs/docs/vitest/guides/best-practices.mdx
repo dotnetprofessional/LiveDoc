@@ -52,41 +52,92 @@ hidden in code, readers see steps like "a user with some balance" — which tell
 them nothing. When values are in the title, the report becomes a complete
 specification.
 
-## Always Add Descriptions
+## Describe Why the Behavior Matters
 
 Descriptions provide context that helps future readers (and your future self)
-understand *why* a feature or specification exists:
+understand *why* a feature or specification exists. Put the purpose in the
+optional container description and the proof in Scenario steps or Rule titles
+and assertions. A developer-facing Specification needs a contract purpose,
+not an invented business workflow or a list of tested branches:
 
 ```typescript
 feature(`Shopping Cart Checkout
     @checkout @critical
-    Business rules for the shopping cart checkout flow.
-    Covers GST calculation, shipping tiers, and discount codes.
+    Keeps cart totals and shipping tiers predictable for
+    the checkout cases covered below.
     `, () => {
   // scenarios...
 });
 
 specification(`Email Validation
     @validation
-    Rules for validating email addresses across formats.
-    Includes edge cases for international domains (IDN) and
-    plus-addressing (user+tag@domain.com).
+    Helps callers reject malformed addresses before
+    using them in the flows covered by these rules.
     `, () => {
   // rules...
 });
 ```
 
-Descriptions appear in LiveDoc reports and the Viewer UI. They cost nothing to
-add and dramatically improve comprehension.
+Descriptions appear in LiveDoc reports and the Viewer UI. They are optional;
+avoid claiming delivery, compliance, or a UI outcome from an in-process
+validator or a response-only test.
+
+## Attach Safe API Evidence
+
+For an HTTP contract, show the request and the selected actual response
+fields on the Rule they support. Capture the evidence **before** a potentially
+failing assertion; otherwise a failed test will skip later attachments.
+This example expects `API_BASE_URL` to point to an isolated test server:
+
+```typescript
+import { expect } from "vitest";
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification(`Widget API
+    Clients can rely on a stable response when creating a widget.
+`, () => {
+  rule("Creating widget 'sample' returns status '201' and name 'sample'", async (ctx) => {
+    const [name, expectedStatus, expectedName] = ctx.rule.values;
+    const baseUrl = process.env.API_BASE_URL;
+    if (!baseUrl) throw new Error("API_BASE_URL must point to an isolated test server");
+
+    const request = { name };
+    ctx.rule.attachJSON(request, "Create widget request (safe fields)");
+    const response = await fetch(`${baseUrl}/api/widgets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    ctx.rule.attachJSON({ status: response.status }, "Create widget HTTP status");
+
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null ||
+        !("name" in body) || typeof body.name !== "string") {
+      throw new Error("Create widget response is missing a string name");
+    }
+    ctx.rule.attachJSON({ name: body.name }, "Widget response name (safe field)");
+    expect(response.status).toBe(expectedStatus);
+    expect(body.name).toBe(expectedName);
+  });
+});
+```
+
+Only attach reviewed, non-sensitive request and response fields; never attach
+raw headers, tokens, cookies, personal data, or an unreviewed response body.
+Attachments are **evidence, not assertions**. For a browser flow, the
+[`screenshot(page(), ctx)` helper](./playwright.mdx) similarly documents
+meaningful states or failures, but does not replace a behavioral assertion.
+See the [`rule` attachment reference](../reference/rule.mdx#attachments)
+for the API and the [static-export warning](../../viewer/guides/static-export.mdx)
+before sharing reports.
 
 ## Choose the Right Pattern
 
 ### Use BDD/Gherkin When...
 
-- Stakeholders need to read the tests
-- You're testing user-facing behavior or workflows
-- Tests describe business rules in domain language
-- You want living documentation for the team
+- The preconditions, action, and outcome tell a useful story
+- You're testing a user or operator workflow
+- A scenario makes the observable behavior clearer than a list of rules
 
 ```typescript
 feature("Account Withdrawal", () => {
@@ -100,7 +151,7 @@ feature("Account Withdrawal", () => {
 
 ### Use Specification/Rule When...
 
-- Tests are developer-focused (APIs, utilities, algorithms)
+- You're documenting a precise business policy or technical contract
 - You want compact, direct assertions
 - Many data-driven variations are needed
 - No Given/When/Then ceremony is needed
@@ -128,39 +179,38 @@ specification("URL Parser", () => {
 
 | Aspect | BDD/Gherkin | Specification |
 | ------ | ----------- | ------------- |
-| Audience | Business + Technical | Technical only |
+| Reader's focus | Following a workflow | Inspecting exact rules and examples |
 | Verbosity | Higher (structured steps) | Lower (direct code) |
-| Best for | Workflows, user stories | Units, edge cases |
+| Best for | Workflows, acceptance tests | Domain policies, contracts, edge cases |
 | Data-driven | `scenarioOutline` | `ruleOutline` |
 | Collaboration | Discovery workshops | Code reviews |
 
-**Tip**: Mix patterns in the same project — use `feature` for acceptance tests
-and `specification` for unit tests.
+**Tip**: Mix patterns under the same capability. A product manager may read
+an Orders Checkout Feature and its Shipping rates Specification to inspect
+exact calculations. See [Test Organization](../../concepts/test-organization.mdx).
 
 ## Organize Files by Domain
 
-Structure your test files to mirror your domain, not your source code
-directory. This creates a navigable hierarchy in the LiveDoc Viewer:
+Structure your test files to mirror your business capabilities, not your
+source-code layers or test patterns. This creates a navigable hierarchy in
+the LiveDoc Viewer:
 
-```
-tests/
-├── Checkout/
-│   ├── Cart.Spec.ts
-│   ├── Payment.Spec.ts
-│   └── Discounts.Spec.ts
-├── Shipping/
-│   ├── DomesticShipping.Spec.ts
-│   └── InternationalShipping.Spec.ts
-├── Auth/
-│   ├── Login.Spec.ts
-│   └── Registration.Spec.ts
-└── Admin/
-    └── UserManagement.Spec.ts
+```text
+tests
+├── Orders
+│   ├── Checkout.Spec.ts                Feature
+│   └── Pricing
+│       ├── ShippingRates.Spec.ts       Specification
+│       └── Discounts.Spec.ts           Specification
+└── Accounts
+    ├── Registration.Spec.ts            Feature
+    └── PasswordPolicy.Spec.ts          Specification
 ```
 
 :::caution
-Avoid putting all spec files in a single flat directory — this creates an
-unreadable list in the Viewer. Group by feature area.
+Avoid a flat directory or separate `Features/Orders` and
+`Specifications/Orders` roots. Both make it harder to find all the
+documentation for Orders in one place.
 :::
 
 ## One Concept Per Scenario
@@ -282,9 +332,10 @@ Use a consistent tagging convention across your team:
 
 - [ ] All test data appears in step titles (self-documenting)
 - [ ] Values extracted via `ctx.step.values`, `ctx.step.params`, or `ctx.example`
-- [ ] Descriptions on `feature` and `specification` blocks
+- [ ] Optional `feature` and `specification` descriptions explain why the tested behavior matters
+- [ ] API evidence is allowlisted, attached before failing assertions, and supplements proof
 - [ ] One concept per scenario
-- [ ] Files organized by domain, not by source directory
+- [ ] Related Features and Specifications organized under the same capability
 - [ ] `scenarioOutline` / `ruleOutline` for data variations
 - [ ] `background` for shared setup steps
 - [ ] Consistent tagging convention

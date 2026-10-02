@@ -38,11 +38,11 @@ Every `.http` file uses BDD comments that the generator parses into test structu
 
 ```http
 # Feature: Health Check
-# Description: Verify the server is running and responsive
+# Description: Operators can detect when the public and admin health checks stop responding.
 
 # Scenario: Server is alive and healthy
 
-# When checking the public health endpoint
+# Given the public health endpoint responds
 # @name healthCheck
 GET {{baseUrl}}/health
 
@@ -51,10 +51,19 @@ GET {{baseUrl}}/health
 
 ###
 
-# Then the admin health endpoint is also accessible
+# When the admin health endpoint is checked
 # @name adminHealth
 GET {{baseUrl}}/health
 X-Admin-Token: {{adminToken}}
+
+?? status == 200
+?? body status == healthy
+
+###
+
+# Then the public health endpoint remains available
+# @name healthAfterAdmin
+GET {{baseUrl}}/health
 
 ?? status == 200
 ?? body status == healthy
@@ -65,7 +74,7 @@ X-Admin-Token: {{adminToken}}
 | Comment Pattern | Purpose | Generated Code |
 | --- | --- | --- |
 | `# Feature: Title` | Feature name and `[Feature]` attribute | `[Feature("Title")]` |
-| `# Description: Text` | Feature description | `[Feature("Title", Description = "Text")]` |
+| `# Description: Text` | Why this Feature matters (not a list of HTTP assertions) | `[Feature("Title", Description = "Text")]` |
 | `# Scenario: Title` | Scenario method name | `[Scenario("Title")]` |
 | `# Given step text` | BDD step | `Given("step text", ctx => { ... });` |
 | `# When step text` | BDD step | `When("step text", ctx => { ... });` |
@@ -88,7 +97,7 @@ X-Admin-Token: {{adminToken}}
 
 ```http
 # Feature: Widget API
-# Description: Full CRUD validation for the /api/widgets endpoints
+# Description: Clients can create, retrieve, update, and delete a widget through the documented HTTP flow.
 
 # Scenario: Create, read, update, and delete a widget
 
@@ -243,6 +252,56 @@ run.AssertStep("createWidget", step =>
 });
 ```
 
+### Showing Request and Response Evidence
+
+The `.http` file is the **authored request**, and `.Response.json` is the
+**expected contract** (including files seeded by capture mode). Neither is an
+attachment of the actual exchange; generated Journeys do not automatically
+attach requests or responses to the Viewer.
+
+For a reader-facing record, keep safe request JSON and expected response shape
+in an optional step Markdown description (see `resources/features.md`). Attach
+only allowlisted, non-sensitive fields from the actual response when they
+clarify the result. `JourneyResult.Steps` provides reached `StepResult` objects
+with `StatusCode` and `ResponseBody`, but not a structured request body; the
+request comes from the authored `.http` file. For example, in the user-owned
+`.Journey.cs` scaffold, inside its `Given` step:
+
+```csharp
+// Requires using System.Text.Json;
+if (run.Steps.TryGetValue("createWidget", out var observed))
+{
+    AttachJson(new { status = observed.StatusCode }, "Create widget HTTP status");
+
+    if (observed.ResponseBody is { Length: > 0 } body)
+    {
+        using var json = JsonDocument.Parse(body);
+        if (json.RootElement.ValueKind == JsonValueKind.Object &&
+            json.RootElement.TryGetProperty("type", out var type) &&
+            type.ValueKind == JsonValueKind.String)
+        {
+            AttachJson(new { type = type.GetString() }, "Widget response type");
+        }
+    }
+}
+
+run.AssertStep("createWidget", step =>
+{
+    var expected = _server.LoadResponseFile("api/widgets", "createWidget");
+    Assert.False(string.IsNullOrWhiteSpace(step.ResponseBody),
+        "Step 'createWidget' has a response contract but returned no body");
+    JsonAssertions.IsComparable(step.ResponseBody, expected, _propertyRules, "createWidget");
+});
+```
+
+Attach **before** `AssertStep` or `JsonAssertions.IsComparable` so a failing
+HTTP assertion or contract comparison does not skip the evidence. A response
+without JSON still records the safe status before parsing fails; do not attach
+raw `run.Output`, `step.Output`, headers, tokens, or entire unreviewed bodies.
+`AssertStep` can include raw httpYac output in failure messages; use safe
+test data and restrict access to logs and exports. Evidence supplements the
+real assertions; it does not replace them.
+
 ---
 
 ## Auto-Generating Contracts with Capture Mode
@@ -264,6 +323,9 @@ dotnet path/to/JourneyGenerator.dll capture ./journeys \
 - Add `--overwrite` (or `-p:LiveDocCaptureOverwrite=true`) to regenerate all
 - Skips non-JSON responses and empty bodies
 - The developer must **review captured responses** to verify correctness before committing
+- Captured contracts can contain tokens or personal data; redact or replace
+  sensitive values before committing or sharing them. Capture mode creates
+  contract files, not Viewer attachments.
 
 **MSBuild properties:**
 - `LiveDocCaptureVars`: httpYac variables (`--var key=value --var key2=value2`)
@@ -387,7 +449,7 @@ using MyProject.Specs.Journeys;
 
 namespace MyProject.Specs.Journeys.Api;
 
-[Feature("Widget API", Description = "Full CRUD validation")]
+[Feature("Widget API", Description = "Clients can create, retrieve, update, and delete a widget through the documented HTTP flow.")]
 [Collection(JourneyServerFixtureCollection.Name)]
 public class Widgets_Journey : FeatureTest
 {
@@ -456,6 +518,18 @@ application startup and shutdown.
 - `api/ai-services/_ai-services.http` → `Api/AiServices.Journey.cs` (namespace `.Api`)
 - `00-health-check/_00-health-check.http` → `HealthCheck.Journey.cs` (root namespace)
 - Numeric prefixes are stripped from class names
+- By default the base namespace is `$(RootNamespace).Journeys`, which appears
+  as a Journeys group in the Viewer. To put generated tests alongside manual
+  Features and Specifications under Orders, set
+  `<LiveDocJourneyBaseNamespace>$(RootNamespace)</LiveDocJourneyBaseNamespace>`
+  and set `LiveDocJourneyInfrastructureNamespace` to the actual namespace
+  containing `JourneyServerFixture` (for example,
+  `$(RootNamespace).Journeys`). The latter controls the generated `using`
+  and shared collection; changing the base alone would break a fixture kept
+  in the original namespace. Place a Journey at
+  `orders/checkout/_checkout.http`. Its generated
+  namespace ends in `.Orders`. Changing an existing generated namespace
+  changes report paths and identities; treat it as a deliberate migration.
 
 ---
 
@@ -535,6 +609,8 @@ protected override Dictionary<string, string> GetHttpYacVariables()
 - [ ] `# @name` appears after the BDD comment and before the HTTP method line
 - [ ] `###` separates every HTTP request
 - [ ] `.Response.json` files match the `@name` exactly: `{name}.Response.json`
+- [ ] `# Description:` explains the Journey purpose without claiming untested effects
+- [ ] Captured contracts and any attached request/response fields are reviewed for secrets
 - [ ] `property-rules.txt` covers all dynamic fields (timestamps, IDs, ports, etc.)
 - [ ] `LiveDocJourneysEnabled` is `true` in the test project `.csproj`
 - [ ] httpYac is installed (`npm install --save-dev httpyac`)

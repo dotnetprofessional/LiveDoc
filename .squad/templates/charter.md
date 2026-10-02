@@ -34,8 +34,8 @@
 ## Model
 
 - **Preferred:** auto
-- **Rationale:** Use `gpt-5.6-sol` or `claude-opus-4.8` whenever the task requires substantive reasoning. Lightweight models are only for mechanical work.
-- **Fallback:** Switch to the other flagship reasoning model first; the coordinator handles fallback automatically
+- **Rationale:** Coordinator selects by task: coding uses `gpt-6.1-sol` with high reasoning, trivial work uses `gpt-6-luna` with high reasoning, and design uses `claude-sonnet-5.5` with automatic reasoning effort
+- **Fallback:** Standard chain — the coordinator handles fallback automatically
 
 ## Collaboration
 

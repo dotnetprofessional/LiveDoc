@@ -85,6 +85,7 @@ Access commands via the **Command Palette** (`Ctrl+Shift+P` / `Cmd+Shift+P`).
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import LibraryCodeBlock from '@site/src/components/LibraryCodeBlock';
 
 <Tabs>
   <TabItem value="marketplace" label="VS Code Marketplace" default>
@@ -97,15 +98,13 @@ import TabItem from '@theme/TabItem';
   </TabItem>
   <TabItem value="vsix" label="From VSIX (local build)">
 
-```bash
-# Build the extension
+<LibraryCodeBlock library="vscode" language="bash">{`# Build the extension
 cd packages/vscode
 pnpm install
 pnpm run package
 
 # Install the generated .vsix file
-code --install-extension livedoc-0.0.1.vsix
-```
+code --install-extension livedoc-vscode-{{libraryVersion}}.vsix`}</LibraryCodeBlock>
 
   </TabItem>
 </Tabs>

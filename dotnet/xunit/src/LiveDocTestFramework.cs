@@ -178,13 +178,7 @@ public class LiveDocMessageSink : IMessageSink
         var methodName = testMethod.Name;
         var durationMs = (long)(executionTime * 1000);
 
-        // Derive assembly simple name — IAssemblyInfo.Name may return full name with version or DLL path
-        var rawAssemblyName = testCase.TestMethod.TestClass.TestCollection.TestAssembly.Assembly.Name;
-        // Handle both "Name.dll" paths and "Name, Version=..." full names
-        var assemblyName = rawAssemblyName.Contains(',')
-            ? rawAssemblyName.Split(',')[0].Trim()
-            : System.IO.Path.GetFileNameWithoutExtension(rawAssemblyName);
-        var path = Reporter.LiveDocTestRunReporter.DerivePathFromNames(className, assemblyName);
+        var path = Reporter.LiveDocTestRunReporter.DerivePathFromNames(className);
 
         if (isFeature || isSpec)
         {

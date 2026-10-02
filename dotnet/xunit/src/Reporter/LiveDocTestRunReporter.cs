@@ -1495,45 +1495,29 @@ public class LiveDocTestRunReporter : IDisposable
 
     /// <summary>
     /// Derives a navigation path from a test class type.
-    /// Strips the assembly name prefix and converts namespace separators to slashes.
-    /// E.g., SweDevTools.LiveDoc.xUnit.Tests.WritingFeatures.Scenario.MySpec → WritingFeatures/Scenario/MySpec.cs
+    /// Preserves the declared namespace as folders, independent of assembly identity.
+    /// The class name remains a file leaf and does not become a navigation folder.
     /// </summary>
     public static string DerivePath(Type testClass)
     {
         var fullName = testClass.FullName ?? testClass.Name;
-        var assemblyName = testClass.Assembly.GetName().Name ?? "";
-        return DerivePathFromNames(fullName, assemblyName);
+        return DerivePathFromNames(fullName);
     }
 
     /// <summary>
-    /// Derives a navigation path from class and assembly name strings.
+    /// Derives a navigation path from a fully qualified class name.
     /// Used by MessageSink which has ITypeInfo instead of Type.
     /// </summary>
-    public static string DerivePathFromNames(string fullClassName, string assemblyName)
+    public static string DerivePathFromNames(string fullClassName)
     {
-        var relativeName = fullClassName;
-
-        if (!string.IsNullOrWhiteSpace(assemblyName))
-        {
-            var marker = assemblyName + ".";
-
-            if (relativeName.StartsWith(marker, StringComparison.Ordinal))
-            {
-                relativeName = relativeName.Substring(marker.Length);
-            }
-            else
-            {
-                var markerIndex = relativeName.IndexOf(marker, StringComparison.Ordinal);
-                if (markerIndex >= 0)
-                {
-                    relativeName = relativeName.Substring(markerIndex + marker.Length);
-                }
-            }
-        }
-
-        // Convert dots to slashes
-        return relativeName.Replace('.', '/') + ".cs";
+        return fullClassName.Replace('.', '/') + ".cs";
     }
+
+    /// <summary>
+    /// Compatibility overload. Assembly identity does not affect namespace navigation.
+    /// </summary>
+    public static string DerivePathFromNames(string fullClassName, string assemblyName)
+        => DerivePathFromNames(fullClassName);
 
     private static string ComputeHash(string input)
     {

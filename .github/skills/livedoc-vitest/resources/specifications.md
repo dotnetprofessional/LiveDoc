@@ -32,7 +32,7 @@ Individual test cases with direct assertions:
 specification("Calculator Operations", () => {
     rule("Adding '5' and '3' returns '8'", (ctx) => {
         const [a, b, expected] = ctx.rule.values; // [5, 3, 8]
-        expect(a + b).toBe(expected);
+        expect(add(a, b)).toBe(expected);
     });
 });
 ```
@@ -101,7 +101,8 @@ ruleOutline(`Applying <operation:multiply> with factor <factor:3>
     |    10 |       30 |
     `, (ctx) => {
     expect(ctx.rule.params.operation).toBe("multiply");
-    expect(ctx.example.input * ctx.rule.params.factor).toBe(ctx.example.expected);
+    expect(applyOperation(ctx.rule.params.operation, ctx.example.input, ctx.rule.params.factor))
+        .toBe(ctx.example.expected);
 });
 ```
 
@@ -110,7 +111,8 @@ ruleOutline(`Applying <operation:multiply> with factor <factor:3>
 ```typescript
 specification(`Email Validation
     @validation
-    Rules for validating email addresses across formats.
+    Helps callers reject the malformed address shapes covered
+    by the rules below before using an address.
     `, (ctx) => {
     // rules...
 });
@@ -119,6 +121,60 @@ specification(`Email Validation
 - **First line** = title
 - **Lines starting with `@`** = tags
 - **Remaining lines** = description
+
+Descriptions are optional. Use them for why the tested contract matters, not
+an inventory of rules. A Specification can document a business-owned policy
+such as shipping rates when exact rules serve the reader better than a
+workflow; a technical contract can have a developer-facing purpose without
+claiming an untested business outcome. Rule titles, example rows, and
+assertions show the proof.
+
+## API Request and Response Evidence
+
+`ctx.rule.attachJSON(data, title)` adds an attachment to the Rule's execution.
+Record a safe authored request and selected fields from the **actual**
+response before potentially failing assertions. This makes both successful
+and failing contracts easier to inspect without leaking the full exchange:
+
+```typescript
+import { expect } from "vitest";
+import { specification, rule } from "@swedevtools/livedoc-vitest";
+
+specification(`Widget API
+    Clients can rely on a stable response when creating a widget.
+`, () => {
+    rule("Creating widget 'sample' returns status '201' and name 'sample'", async (ctx) => {
+        const [name, expectedStatus, expectedName] = ctx.rule.values;
+        const baseUrl = process.env.API_BASE_URL;
+        if (!baseUrl) throw new Error("API_BASE_URL must point to an isolated test server");
+
+        const request = { name };
+        ctx.rule.attachJSON(request, "Create widget request (safe fields)");
+        const response = await fetch(`${baseUrl}/api/widgets`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+        });
+        ctx.rule.attachJSON({ status: response.status }, "Create widget HTTP status");
+
+        const body: unknown = await response.json();
+        if (typeof body !== "object" || body === null ||
+            !("name" in body) || typeof body.name !== "string") {
+            throw new Error("Create widget response is missing a string name");
+        }
+        ctx.rule.attachJSON({ name: body.name }, "Widget response name (safe field)");
+        expect(response.status).toBe(expectedStatus);
+        expect(body.name).toBe(expectedName);
+    });
+});
+```
+
+Use only reviewed, non-sensitive fields in these objects. Do not attach
+authorization headers, cookies, tokens, personal data, or an unreviewed full
+response. Attachments supplement the assertion; they do not establish
+correctness on their own. Browser features can additionally attach meaningful
+screenshots with `screenshot(page(), ctx)`; a screenshot does not replace a
+behavioral assertion.
 
 ## Async Rules
 
@@ -153,7 +209,8 @@ specification("Test", async (ctx) => { /* ❌ NOT ALLOWED */ });
 ## Validation Checklist
 
 - [ ] All test data appears in rule title strings (self-documenting)
-- [ ] Descriptions provided on `specification` blocks
+- [ ] If provided, specification descriptions explain why the tested contract matters without overclaiming
+- [ ] API attachments select safe fields before assertions and do not replace them
 - [ ] Values extracted via `ctx.rule.values`, `ctx.rule.params`, or `ctx.example`
 - [ ] Async only on `rule` callbacks, not `specification`
 - [ ] File name ends in `.Spec.ts`

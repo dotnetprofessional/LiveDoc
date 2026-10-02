@@ -4,22 +4,24 @@ import { useStore } from '../store';
 import { renderTitle, stripLeadingKindLabel } from '../lib/title-utils';
 import { cn } from '../lib/utils';
 import { useMemo } from 'react';
-import { buildGroupedNavTree, findNavPath } from '../lib/nav-tree';
+import { buildGroupedNavTree, navItemPath, projectNavTree } from '../lib/nav-tree';
 import { ScenarioBlock } from './ScenarioBlock';
 import { ContainerHeader } from './nodeviews/ContainerHeader';
 import { ChildrenList } from './nodeviews/ChildrenList';
 import { FailureSummary } from './nodeviews/FailureSummary';
 import { OutlineNodeView } from './nodeviews/OutlineNodeView';
 import { statusFromStats } from '../lib/status-utils';
+import { isNativeTestKind } from '../lib/kind-presentation';
+import { TestDataTables } from './nodeviews/TestDataTables';
 
 interface NodeViewProps {
   node: TestCase | AnyTest;
 }
 
 export function NodeView({ node }: NodeViewProps) {
-  const { navigate, audienceMode, getCurrentRun } = useStore();
+  const { navigate, audienceMode, getVisibleRun } = useStore();
 
-  const runState = getCurrentRun();
+  const runState = getVisibleRun();
   const run = runState?.run;
   const kind = String((node as any).kind ?? '').toLowerCase();
   const isBusiness = audienceMode === 'business';
@@ -33,6 +35,7 @@ export function NodeView({ node }: NodeViewProps) {
 
   // Build nav tree for breadcrumbs
   const navTree = useMemo(() => run ? buildGroupedNavTree(run.documents ?? []) : [], [run?.documents]);
+  const projection = useMemo(() => projectNavTree(navTree), [navTree]);
 
   // Given any node (Rule/Scenario/Step/etc), find the owning top-level container (Feature/Specification/Suite)
   // by scanning documents.
@@ -113,15 +116,13 @@ export function NodeView({ node }: NodeViewProps) {
   // Get breadcrumbs
   const breadcrumbs = useMemo(() => {
     if (containerTestCase) {
-      const path = findNavPath(navTree, containerTestCase.id);
-      return path || [];
+      return projection.breadcrumbs(containerTestCase.id);
     }
     if (isContainer) {
-      const path = findNavPath(navTree, node.id);
-      return path || [];
+      return projection.breadcrumbs(node.id);
     }
     return [];
-  }, [navTree, containerTestCase, node.id, isContainer]);
+  }, [projection, containerTestCase, node.id, isContainer]);
 
   const children = isTestCaseNode(node)
     ? ((node.tests ?? []) as AnyTest[])
@@ -149,6 +150,7 @@ export function NodeView({ node }: NodeViewProps) {
   const isSpecificationContainer = containerStyle === 'specification';
   const isRuleView = isSpecificationContainer && kind === 'rule';
   const isRuleOutlineView = isSpecificationContainer && kind === 'ruleoutline';
+  const nativeTest = !isTestCaseNode(node) && isNativeTestKind(node.kind) ? node : undefined;
 
   // Outline rendering and exception UI are now isolated in OutlineNodeView.
 
@@ -176,7 +178,8 @@ export function NodeView({ node }: NodeViewProps) {
   return (
     <div className={cn(hasContainerMeta ? 'space-y-6' : 'space-y-4')}>
       <ContainerHeader
-        breadcrumbs={breadcrumbs.map((b) => ({ id: b.id, title: b.title }))}
+        breadcrumbs={breadcrumbs.map((b) => ({ id: b.id, title: b.title, path: navItemPath(b) }))}
+        containerPath={containerNode?.path}
         isContainer={isContainer}
         navigate={navigate}
         containerTitleWithKind={containerTitleWithKind || containerTitle}
@@ -277,6 +280,30 @@ export function NodeView({ node }: NodeViewProps) {
         </div>
       )}
 
+      {nativeTest && (
+        <div className="space-y-3">
+          <ScenarioBlock
+            label="Test"
+            title={renderTitle(nativeTest.title)}
+            status={nativeTest.execution.status}
+            description={nativeTest.description}
+            tags={nativeTest.tags}
+            attachments={nativeTest.execution.attachments}
+            showDurations={!isBusiness}
+            showErrorStack={!isBusiness}
+            tone="scenario"
+            duration={nativeTest.execution.duration}
+          />
+          <TestDataTables tables={nativeTest.dataTables} />
+          {nativeTest.execution.status === 'skipped' && nativeTest.execution.error?.message && (
+            <section className="rounded-lg border bg-muted/20 p-4">
+              <h3 className="text-sm font-semibold mb-2">Skip reason</h3>
+              <p className="text-sm whitespace-pre-wrap break-words">{nativeTest.execution.error.message}</p>
+            </section>
+          )}
+        </div>
+      )}
+
       {/* ========== SCENARIO OUTLINE SECTION ========== */}
       {feature && !isTestCaseNode(node) && kind === 'scenariooutline' && (
         <OutlineNodeView
@@ -336,6 +363,7 @@ export function NodeView({ node }: NodeViewProps) {
         filterTags={[]}
         navigate={navigate}
         isSpecificationContainer={isSpecificationContainer}
+        containerKind={containerNode?.kind}
       />
     </div>
   );

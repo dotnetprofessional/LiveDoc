@@ -1,5 +1,5 @@
 import type { AnyTest, ExecutionResult, TestCase } from '@swedevtools/livedoc-schema';
-import { Calendar, ChevronRight, Clock, FileText, Globe, HelpCircle, AlertCircle, CheckCircle2, Tag, XCircle } from 'lucide-react';
+import { Calendar, ChevronRight, Clock, Globe, HelpCircle, AlertCircle, CheckCircle2, Tag, XCircle } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
 import { Separator } from './ui/separator';
@@ -9,6 +9,7 @@ import { Markdown } from './Markdown';
 import { cn } from '../lib/utils';
 import { useStore } from '../store';
 import { StatusProgressBar } from './ProgressBar';
+import { getKindPresentation } from '../lib/kind-presentation';
 
 interface NodeDisplayProps {
   node: TestCase | AnyTest;
@@ -20,11 +21,12 @@ interface NodeDisplayProps {
 }
 
 export function NodeDisplay({ node, variant, size = 'lg', showStats = true, onClick, contextLabel }: NodeDisplayProps) {
-  const { audienceMode, getCurrentRun } = useStore();
-  const run = getCurrentRun();
+  const { audienceMode, getVisibleRun } = useStore();
+  const run = getVisibleRun();
   
-  const kindLabel = String((node as any).kind ?? 'Item');
-  const Icon = FileText;
+  const presentation = getKindPresentation(node.kind);
+  const kindLabel = presentation.label;
+  const Icon = presentation.icon;
 
   const isScenarioLike = /scenario|background/i.test(kindLabel);
 

@@ -70,6 +70,8 @@ export function groupByStep(items: GalleryItem[]): StepGroup[] {
     const item = items[i];
     const stepIndex = item.stepIndex;
 
+    if (stepIndex === undefined) continue;
+
     if (seenSteps.has(stepIndex)) {
       // Add to existing group
       const group = groups.find((g) => g.stepIndex === stepIndex);

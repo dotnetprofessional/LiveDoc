@@ -1,0 +1,5 @@
+### 2026-09-25T22-54-16: xUnit main-suite area tag taxonomy
+**By:** Simon
+**What:** xUnit main-suite area tag taxonomy
+**References:** dotnet/xunit/tests/ReportingOutput/Authoritative_Result_Output_Spec.cs, dotnet/xunit/tests/ReportingOutput/Fixtures/ResultProbe/ResultProbe.cs
+**Why:** Tag the 48 source spec files (49 runnable classes) at class level by stable domain: attachments, tags, attributes, validation, values, getting-started, journeys, reporting, coverage, features, scenarios, scenario-outlines, steps, rules, rule-outlines, specifications. Keep fixture-only tags intact; generated Journey files stay untagged because they are generator-owned and excluded from the source spec audit. The reporting export regression also has method-level scenario-outlines and attachments tags merged with reporting. Query with xUnit Category=<tag>. The ResultProbe fixture's Given/When/Then flows are valid to keep its export free of unintended ruleViolations.

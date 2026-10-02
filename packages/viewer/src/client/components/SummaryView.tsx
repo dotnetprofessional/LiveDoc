@@ -302,9 +302,9 @@ export function SummaryView({ run }: SummaryViewProps) {
               <span className="text-sm font-medium text-muted-foreground">Target</span>
               <Badge variant="secondary" className="font-bold">{runModel.environment || 'Default'}</Badge>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">Last verified</span>
-              <span className="text-sm font-bold">{new Date(runModel.timestamp).toLocaleTimeString()}</span>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <span className="shrink-0 text-sm font-medium text-muted-foreground">Last verified</span>
+              <span className="ml-auto min-w-0 text-right text-sm font-bold">{new Date(runModel.timestamp).toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-muted-foreground">{durationLabel}</span>
@@ -556,7 +556,7 @@ function QualitySignal({
   tone: SignalTone;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 bg-card px-3 py-4 sm:block">
+    <div role="group" aria-label={label} className="flex min-w-0 items-center gap-3 bg-card px-3 py-4 sm:block">
       <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
         <Icon className={cn('h-4 w-4', signalToneClass[tone])} />
         <span className="truncate">{label}</span>

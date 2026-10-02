@@ -62,7 +62,12 @@ dotnet test --logger LiveDoc
 
 That's it. Auto-discovery detects the Viewer and streams results as each test completes. Open `http://localhost:3100` in your browser to see results appear in real time.
 
-The viewer organizes results by namespace hierarchy — mirroring the folder structure described in [Best Practices](./best-practices.mdx#namespace-organization).
+The viewer organizes results by the full declared namespace hierarchy,
+independently of the assembly name, not by physical folders alone. Every
+namespace segment is retained; class names and Feature/Specification titles
+remain document leaves rather than navigation folders. Align source folders
+and namespaces so developers and readers see the same capability structure,
+as described in [Best Practices](./best-practices.mdx#namespace-organization).
 
 :::tip Zero config
 No assembly attributes, no `.runsettings` files, no environment variables needed for local development. Auto-discovery handles everything.
@@ -96,6 +101,28 @@ dotnet tool install --global dotnet-coverage
 No `coverlet.collector` dependency is required for the recommended Microsoft
 Code Coverage command. See the shared [Code Coverage guide](../../viewer/guides/code-coverage.mdx)
 for XPlat/Coverlet, custom runsettings, thresholds, diagnostics, and module scope.
+
+---
+
+## Inspect Ordinary Facts and Theories
+
+You can adopt living documentation incrementally. With standard-test reporting
+enabled through the [test framework integration](../reference/configuration.mdx),
+ordinary xUnit Facts and Theory cases appear beside Features and Specifications.
+Open their test container, then select a test row—even when it passed or was
+skipped—to inspect its result. Each published Theory case keeps its own
+parameterized title, stable ID, and execution status.
+
+The Viewer accepts both `Standard` and `Container` document kinds in existing
+saved reports and static exports. You do not need to rewrite persisted JSON,
+add Feature/Specification attributes to ordinary tests, or change the producer's
+document kind. Namespace folders, project/run selection, filters, and deep links
+continue to use the original report identities.
+
+Failed tests show their reported errors; skipped tests show the reason when
+the reporter supplied one. Evidence recorded in `execution.attachments`,
+including captured output files, uses the same attachment gallery as authored
+tests. The Viewer does not invent output or reasons missing from the report.
 
 ---
 

@@ -10,6 +10,63 @@ Use the `[next release]` section for changes that have not yet been promoted int
 
 - Updated the bundled `@hono/node-server` runtime to 1.19.17 to address GHSA-92pp-h63x-v22m and GHSA-frvp-7c67-39w9.
 - Updated Vite to 6.4.3 to address development-server path traversal and file access advisories.
+
+## [0.4.0] - 2026-10-02
+
+This release brings together the local testing updates documented in `0.3.3` through `0.3.9`.
+
+### Added
+
+- Remember which Features, Specifications, and standard Tests to include. Excluded tests disappear from navigation, search, failures, and test metrics without changing stored reports; duration and coverage remain invocation-wide.
+- Add a keyboard-accessible, remembered desktop sidebar width and framework-neutral common-root shortening while preserving full paths, meaningful branches, and existing links.
+- Support native Test results in Standard and Container documents, including Fact/Theory arguments, statuses, skip reasons, failures, and evidence. Keep tests without additional details inline.
+- Show Rule and individual outline-example attachments, with titled galleries, JSON search, Mermaid previews, and pointer-anchored Ctrl-wheel zoom.
+- Add confirmed project/run deletion, including grouped-source disclosure and retryable partial failures.
+
+### Fixed
+
+- Preserve canonical standard-test identities and saved links while displaying shorter, framework-neutral method names.
+- Execute standalone HTML bundles as ES modules so exported reports render correctly.
+- Keep JSON keys aligned across sibling value types, preserve inline and fenced Markdown, and bind outline descriptions only to the selected example.
+
+### Changed
+
+- Package only the CLI and required Server/Schema runtime closure alongside compiled browser assets, reducing the distribution footprint.
+
+## [0.3.9] - 2026-10-02 (local testing)
+
+- Add remembered inclusion checkboxes for Features, Specifications, and standard tests. Apply the selection to navigation, search, failure lists, and test metrics without changing stored reports; run duration and coverage remain invocation-wide.
+- Keep standard tests without additional details inline, while retaining drill-down for arguments, descriptions, evidence, skip reasons, violations, and failures.
+- Shorten qualified standard-test names to their method name in every Viewer framework, preserving argument text, authored titles, canonical IDs, and saved links.
+
+## [0.3.8] - 2026-10-02 (local testing)
+
+- Hide shared, unbranched folder prefixes in navigation, folder listings, and breadcrumbs for all report frameworks, including xUnit and Vitest. Keep meaningful branches, direct documents, canonical paths, saved links, filters, and test totals intact; full paths remain available in navigation and heading tooltips. This is a Viewer display change only; SDK exporters and stored report paths are unchanged.
+- Add a keyboard-accessible draggable divider to desktop navigation. Remember the preferred sidebar width locally, constrain it to 240–600 pixels while leaving at least 480 pixels for results, and retain the mobile navigation drawer.
+
+## [0.3.7] - 2026-10-02 (local testing)
+
+- Rebuild the local testing package with the current Standard/Container and native Fact/Theory support, standalone HTML export fix, pointer-anchored image and Mermaid zoom, and JSON attachment alignment and floating search. Retain the `0.3.6` release history below.
+
+## [0.3.6] - 2026-10-01 (local testing)
+
+- Corrected standalone HTML exports to execute the Viewer bundle as an ES module, so native-test navigation and results render in exported reports.
+
+- Show persisted xUnit `Standard` documents alongside `Container`, Feature, and Specification documents in navigation, folder listings, search, and contextual deep links without rewriting reports or totals. Native Fact and individual Theory results now open at every status, with Test labels, durations, skip reasons, failure details, typed data tables, and attachment galleries.
+- Zoom image and Mermaid previews with Ctrl + mouse wheel without changing browser page zoom. Keep the point under the pointer stable while panning, retain Fit and toolbar controls, and leave ordinary scrolling and non-zoomable previews native.
+- Search JSON attachment keys and values from a compact floating panel, including collapsed branches. Matching fields are highlighted with wrapping previous/next navigation, keyboard shortcuts, and automatic reveal of the active result; copy and download still include the complete attachment. Keep the panel responsive on narrow screens, and retain match navigation in older browsers without text-highlight support.
+- Align JSON attachment key text across scalar, collection, empty, and null siblings using a shared disclosure gutter. Keep nested indentation consistent at desktop and mobile widths, with browser regressions measuring the text itself in collapsed and expanded states.
+
+## [0.3.5] - 2026-09-30 (local testing)
+
+- Include the local date alongside the time in the dashboard Environment card's Last verified value, matching the dashboard header and allowing the longer value to wrap on narrow screens.
+- Add confirmed permanent deletion to the project and run selectors. A grouped project deletes each source project across environments, while a grouped run deletes its disclosed physical runs; partial failures remain visible and retryable, and selections refresh after success.
+- Replace the custom JSON attachment tree with a React 19-compatible, keyboard-accessible JSON viewer; root properties and nested arrays now have consistent indentation while raw invalid JSON and attachment actions remain available.
+- Show Scenario Outline example attachments in the Viewer list indicator and selected-example gallery, keeping step and row evidence scoped to the correct example.
+- Restore visible attachment titles, MIME types, sizes, and gallery positions in the shared preview header, alongside step descriptions even on narrow screens.
+
+## [0.3.3] - 2026-09-28 (local testing)
+
 - Show attachments recorded directly on Rules and on the selected Rule Outline example, including image, JSON, text, and file previews without mixing evidence from other rows.
 - Added attachment indicators to test listings, with direct access to Rule evidence and counts for Scenarios and Rule Outlines.
 - Added collapsible, syntax-highlighted JSON attachment previews and Mermaid diagram previews with source, download, fit, zoom, and scroll controls for large sequence diagrams.

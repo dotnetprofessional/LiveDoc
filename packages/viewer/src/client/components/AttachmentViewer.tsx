@@ -1,6 +1,9 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useIsPresent } from 'framer-motion';
+import { JsonView, darkStyles } from 'react-json-view-lite';
+import 'react-json-view-lite/dist/index.css';
+import './attachment-json.css';
 import {
   X, ChevronLeft, ChevronRight, Copy, Check,
   FileText, FileCode, FileJson, Download, AlertTriangle,
@@ -10,8 +13,12 @@ import {
 import type { Status } from '@swedevtools/livedoc-schema';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
+import { JsonSearchPanel } from './JsonSearchPanel';
+import { useJsonSearch, type JsonSearch } from '../hooks/useJsonSearch';
+import {
+  isJsonValue, isJsonCollection, jsonFieldElement, jsonHitRanges, type JsonValue,
+} from '../lib/json-search';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { groupByStep, findGroupAtIndex, jumpToAdjacentGroup } from '../utils/gallery';
 import type { GalleryItem, StepGroup } from '../utils/gallery';
 
@@ -43,20 +50,25 @@ export interface AttachmentViewerProps {
 export function AttachmentContentMetadata({
   item,
   fallbackMimeType,
+  position,
 }: {
   item: AttachmentItem;
   fallbackMimeType: string;
+  position?: string;
 }) {
+  const size = item.base64 ? estimateSize(item.base64) : undefined;
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      {item.title && (
-        <span className="truncate text-xs font-semibold text-white/90">
-          {item.title}
-        </span>
-      )}
-      <span className="hidden shrink-0 text-xs font-medium text-white/70 sm:inline">
-        {item.mimeType || fallbackMimeType}
+    <div className="flex min-w-0 flex-col gap-0.5" title={item.title}>
+      <span className="line-clamp-2 break-all text-sm font-semibold leading-snug text-white/90">
+        {item.title || 'Untitled attachment'}
       </span>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-white/75">
+        <span className="max-w-full break-all">{item.mimeType || fallbackMimeType}</span>
+        {size && <span aria-label={`Attachment size ${size}`} className="whitespace-nowrap">
+          {size}
+        </span>}
+        {position && <span className="whitespace-nowrap tabular-nums">{position}</span>}
+      </div>
     </div>
   );
 }
@@ -121,7 +133,8 @@ function decodeBase64(b64: string): string {
 /** Estimate human-readable file size from base64 length. */
 function estimateSize(b64: string | undefined): string {
   if (!b64) return 'Unknown size';
-  const bytes = Math.ceil((b64.length * 3) / 4);
+  const padding = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+  const bytes = Math.max(0, Math.floor((b64.length * 3) / 4) - padding);
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -159,14 +172,6 @@ function useCopyToClipboard(resetKey?: number) {
   return { copied, copy, copyError };
 }
 
-// ---------------------------------------------------------------------------
-// JSON Syntax Highlighter
-// ---------------------------------------------------------------------------
-
-interface JsonHighlightProps {
-  text: string;
-}
-
 interface PreviewSize {
   width: number;
   height: number;
@@ -177,150 +182,38 @@ interface ScalablePreviewProps {
   scale: number;
   onSizeChange: (size: PreviewSize | undefined) => void;
   onViewportChange: (size: PreviewSize | undefined) => void;
+  onZoomChange: (value: number | null) => void;
 }
 
-function JsonHighlight({ text }: JsonHighlightProps) {
-  const tokens = useMemo(() => tokenizeJson(text), [text]);
-  return (
-    <code>
-      {tokens.map((tok, i) => (
-        <span key={i} className={tok.className}>{tok.text}</span>
-      ))}
-    </code>
-  );
+const minimumPreviewZoom = 0.05;
+const maximumPreviewZoom = 4;
+const zoomStep = 1.5;
+
+function clampPreviewZoom(value: number): number {
+  return Math.min(maximumPreviewZoom, Math.max(minimumPreviewZoom, value));
 }
 
-interface Token {
-  text: string;
-  className: string;
+function scaledPreviewZoom(scale: number, factor: number): number {
+  return clampPreviewZoom(scale * factor);
 }
 
-function tokenizeJson(json: string): Token[] {
-  const tokens: Token[] = [];
-  const regex = /("(?:[^"\\]|\\.)*")\s*:|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b|(true|false)\b|(null)\b|([{}[\]:,])|(\s+)/g;
-  let match;
-  let lastIndex = 0;
-
-  while ((match = regex.exec(json)) !== null) {
-    if (match.index > lastIndex) {
-      tokens.push({ text: json.slice(lastIndex, match.index), className: '' });
-    }
-    lastIndex = regex.lastIndex;
-
-    if (match[1] !== undefined) {
-      tokens.push({ text: match[1], className: 'text-sky-300' });
-    } else if (match[2] !== undefined) {
-      tokens.push({ text: match[2], className: 'text-emerald-300' });
-    } else if (match[3] !== undefined) {
-      tokens.push({ text: match[3], className: 'text-amber-300' });
-    } else if (match[4] !== undefined) {
-      tokens.push({ text: match[4], className: 'text-violet-300' });
-    } else if (match[5] !== undefined) {
-      tokens.push({ text: match[5], className: 'text-rose-300/70 italic' });
-    } else if (match[6] !== undefined) {
-      tokens.push({ text: match[6], className: 'text-zinc-400' });
-    } else if (match[7] !== undefined) {
-      tokens.push({ text: match[7], className: '' });
-    }
-  }
-
-  if (lastIndex < json.length) {
-    tokens.push({ text: json.slice(lastIndex), className: '' });
-  }
-
-  return tokens;
-}
-
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-function JsonNode({
-  value,
-  path,
-  label,
-  isArrayIndex = false,
-  depth = 0,
-  trailingComma = false,
-}: {
-  value: JsonValue;
-  path: string;
-  label?: string;
-  isArrayIndex?: boolean;
-  depth?: number;
-  trailingComma?: boolean;
-}) {
-  const prefix = label === undefined ? null : (
-    <>
-      <span className={isArrayIndex ? 'text-zinc-400' : 'text-sky-300'}>
-        {isArrayIndex ? label : JSON.stringify(label)}
-      </span>
-      <span className="text-zinc-400">: </span>
-    </>
-  );
-
-  if (value === null || typeof value !== 'object') {
-    return (
-      <div className="min-w-max leading-6">
-        {prefix}<JsonHighlight text={JSON.stringify(value)} />
-        {trailingComma && <span className="text-zinc-400">,</span>}
-      </div>
-    );
-  }
-
-  return <JsonCollection value={value} path={path} prefix={prefix} depth={depth} trailingComma={trailingComma} />;
-}
-
-function JsonCollection({
-  value,
-  path,
-  prefix,
-  depth,
-  trailingComma,
-}: {
-  value: JsonValue[] | { [key: string]: JsonValue };
-  path: string;
-  prefix: React.ReactNode;
-  depth: number;
-  trailingComma: boolean;
-}) {
-  const [expanded, setExpanded] = useState(depth === 0);
-  const array = Array.isArray(value);
-  const entries: [string, JsonValue][] = array
-    ? value.map((entry, index) => [String(index), entry])
-    : Object.entries(value);
-  const kind = array ? 'array' : 'object';
-  const close = array ? ']' : '}';
-
-  return (
-    <Collapsible open={expanded} onOpenChange={setExpanded}>
-      <CollapsibleTrigger asChild>
-        <Button variant="ghost" size="sm"
-          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${path} ${kind}`}
-          className="h-7 min-w-max justify-start gap-1.5 px-1 font-mono text-[13px] text-zinc-200 hover:bg-white/[0.08] hover:text-white focus-visible:ring-sky-400">
-          <ChevronRight className={cn('size-3.5 text-zinc-400 transition-transform', expanded && 'rotate-90')} aria-hidden="true" />
-          {prefix}
-          <span className="text-zinc-200">{array ? '[' : '{'}</span>
-          {!expanded && (
-            <span className="text-zinc-400">… {entries.length} {array ? 'items' : 'properties'} {close}{trailingComma ? ',' : ''}</span>
-          )}
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="ml-2 border-l border-white/10 pl-4">
-        {entries.map(([key, entry], index) => (
-          <JsonNode
-            key={key}
-            label={key}
-            isArrayIndex={array}
-            path={array ? `${path}[${key}]` : `${path}.${key}`}
-            value={entry}
-            depth={depth + 1}
-            trailingComma={index < entries.length - 1}
-          />
-        ))}
-      </CollapsibleContent>
-      {expanded && <div className="leading-6 text-zinc-200">{close}{trailingComma ? ',' : ''}</div>}
-    </Collapsible>
-  );
-}
+const jsonStyles = {
+  ...darkStyles,
+  container: `${darkStyles.container} livedoc-json-tree !bg-transparent [overflow-wrap:anywhere]`,
+  basicChildStyle: 'livedoc-json-row',
+  childFieldsContainer: 'livedoc-json-children border-l border-white/10',
+  label: 'livedoc-json-label mr-1 text-sky-300',
+  stringValue: 'livedoc-json-value text-emerald-300',
+  numberValue: 'livedoc-json-value text-amber-300',
+  booleanValue: 'livedoc-json-value text-violet-300',
+  nullValue: 'livedoc-json-value text-rose-300',
+  punctuation: 'livedoc-json-punctuation text-zinc-300',
+  collapseIcon: `${darkStyles.collapseIcon} livedoc-json-disclosure rounded text-zinc-300 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-sky-400`,
+  expandIcon: `${darkStyles.expandIcon} livedoc-json-disclosure rounded text-zinc-300 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-sky-400`,
+  collapsedContent: `${darkStyles.collapsedContent} text-zinc-400`,
+  quotesForFieldNames: true,
+  stringifyStringValues: true,
+};
 
 // ---------------------------------------------------------------------------
 // Slide animation variants (direction-aware)
@@ -401,12 +294,12 @@ function StepContext({ item }: { item: AttachmentItem }) {
         {stepPosition(item.stepIndex, item.stepCount)}
       </span>
       {item.stepKeyword && (
-        <span className={cn('hidden shrink-0 text-sm font-semibold capitalize min-[480px]:inline',
+        <span className={cn('shrink-0 text-xs font-semibold capitalize sm:text-sm',
           keywordColors[item.stepKeyword.toLowerCase()] || 'text-white/75')}>
           {item.stepKeyword}
         </span>
       )}
-      {item.stepTitle && <span className="hidden min-w-0 truncate text-sm text-white/75 sm:inline">
+      {item.stepTitle && <span className="line-clamp-2 min-w-0 break-words text-xs text-white/75 sm:text-sm">
         {item.stepTitle}
       </span>}
       {item.stepStatus && <span className="shrink-0">{statusIcons[item.stepStatus]}</span>}
@@ -457,7 +350,7 @@ function ImageRenderer({
 }
 
 function ScalablePreview({
-  src, alt, kind, intrinsicSize, onImageError, size, scale, onSizeChange, onViewportChange,
+  src, alt, kind, intrinsicSize, onImageError, size, scale, onSizeChange, onViewportChange, onZoomChange,
 }: {
   src: string;
   alt: string;
@@ -470,28 +363,102 @@ function ScalablePreview({
   const pointerRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [canPan, setCanPan] = useState(false);
+  const [loadedSrc, setLoadedSrc] = useState<string>();
+  const isPresent = useIsPresent();
+  const zoomRef = useRef({ scale, onZoomChange });
+  const anchorRef = useRef<{ x: number; y: number; imageX: number; imageY: number } | null>(null);
+  const [anchoredLayout, setAnchoredLayout] = useState<{
+    left: number; top: number; width: number; height: number; scrollLeft: number; scrollTop: number;
+  }>();
+
+  useLayoutEffect(() => {
+    zoomRef.current = { scale, onZoomChange };
+    const anchor = anchorRef.current;
+    const viewport = viewportRef.current;
+    const image = imageRef.current;
+    if (!anchor || !viewport || !image) {
+      setAnchoredLayout(undefined);
+      return;
+    }
+    anchorRef.current = null;
+    const bounds = image.getBoundingClientRect();
+    const viewportBounds = viewport.getBoundingClientRect();
+    const ratioX = viewportBounds.width / viewport.offsetWidth;
+    const ratioY = viewportBounds.height / viewport.offsetHeight;
+    const width = bounds.width / ratioX;
+    const height = bounds.height / ratioY;
+    const desiredLeft = (anchor.x - viewportBounds.left) / ratioX - viewport.clientLeft - anchor.imageX * width;
+    const desiredTop = (anchor.y - viewportBounds.top) / ratioY - viewport.clientTop - anchor.imageY * height;
+    const left = Math.max(16, desiredLeft);
+    const top = Math.max(16, desiredTop);
+    const scrollLeft = left - desiredLeft;
+    const scrollTop = top - desiredTop;
+    // Keep space for the anchor even when the image fits: centering alone would move it.
+    setAnchoredLayout({
+      left, top, scrollLeft, scrollTop,
+      width: Math.max(viewport.clientWidth, left + width + 16, scrollLeft + viewport.clientWidth),
+      height: Math.max(viewport.clientHeight, top + height + 16, scrollTop + viewport.clientHeight),
+    });
+  }, [scale, onZoomChange]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || !anchoredLayout) return;
+    viewport.scrollLeft = anchoredLayout.scrollLeft;
+    viewport.scrollTop = anchoredLayout.scrollTop;
+    setCanPan(viewport.scrollWidth > viewport.clientWidth + 1 || viewport.scrollHeight > viewport.clientHeight + 1);
+  }, [anchoredLayout]);
 
   useEffect(() => {
     return () => onSizeChange(undefined);
   }, [onSizeChange]);
 
   useEffect(() => {
-    if (intrinsicSize) onSizeChange(intrinsicSize);
-  }, [intrinsicSize, onSizeChange]);
-
-  useEffect(() => {
-    if (intrinsicSize) return;
     const image = imageRef.current;
     if (!image) return;
     const measureImage = () => {
       if (image.naturalWidth && image.naturalHeight) {
-        onSizeChange({ width: image.naturalWidth, height: image.naturalHeight });
+        onSizeChange(intrinsicSize ?? { width: image.naturalWidth, height: image.naturalHeight });
+        setLoadedSrc(src);
       }
     };
     image.addEventListener('load', measureImage);
     if (image.complete) measureImage();
     return () => image.removeEventListener('load', measureImage);
   }, [src, intrinsicSize, onSizeChange]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || loadedSrc !== src || !isPresent) return;
+    const wheel = (event: WheelEvent) => {
+      const image = imageRef.current;
+      if (!event.ctrlKey || !image?.complete || !image.naturalWidth || !image.naturalHeight) return;
+      event.preventDefault();
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? viewport.clientHeight : 1;
+      const delta = Math.max(-100, Math.min(100, event.deltaY * unit));
+      if (!Number.isFinite(delta) || delta === 0) return;
+      const current = zoomRef.current;
+      if (delta > 0 && current.scale <= minimumPreviewZoom
+          || delta < 0 && current.scale >= maximumPreviewZoom) return;
+      const next = scaledPreviewZoom(current.scale, Math.pow(zoomStep, -delta / 100));
+      if (next === current.scale) return;
+      const bounds = image.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      anchorRef.current = {
+        x: event.clientX, y: event.clientY,
+        imageX: (event.clientX - bounds.left) / bounds.width,
+        imageY: (event.clientY - bounds.top) / bounds.height,
+      };
+      current.scale = next;
+      current.onZoomChange(next);
+    };
+    viewport.addEventListener('wheel', wheel, { passive: false });
+    return () => {
+      viewport.removeEventListener('wheel', wheel);
+      anchorRef.current = null;
+    };
+  }, [loadedSrc, src, isPresent]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -523,8 +490,10 @@ function ScalablePreview({
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <div ref={viewportRef} role="region" aria-label={`${kind === 'diagram' ? 'Mermaid diagram' : 'Image'} viewport`}
-        aria-description="Drag to pan when zoomed; use arrow keys to scroll."
-        title={canPan ? 'Drag to pan' : undefined}
+        aria-description={loadedSrc === src
+          ? 'Ctrl + mouse wheel to zoom. Drag to pan when zoomed; use arrow keys to scroll.'
+          : 'Use arrow keys to scroll.'}
+        title={loadedSrc === src ? 'Ctrl + mouse wheel to zoom; drag to pan when zoomed' : undefined}
         tabIndex={0}
         className={cn(
           "min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain bg-zinc-900/95",
@@ -554,13 +523,21 @@ function ScalablePreview({
         onPointerCancel={stopPanning}
         onLostPointerCapture={stopPanning}
         onDragStart={(event) => event.preventDefault()}>
-        <div className="inline-flex h-max min-h-full w-max min-w-full items-center justify-center p-4">
+        <div className="inline-flex h-max min-h-full w-max min-w-full items-center justify-center p-4"
+          style={anchoredLayout ? {
+            position: 'relative', width: anchoredLayout.width, height: anchoredLayout.height,
+          } : undefined}>
           <img ref={imageRef} src={src} alt={alt} draggable={false} className="block max-w-none shrink-0 rounded-lg"
             style={size || intrinsicSize ? {
               width: (intrinsicSize ?? size)!.width * scale,
               height: (intrinsicSize ?? size)!.height * scale,
+              ...(anchoredLayout ? { position: 'absolute', left: anchoredLayout.left, top: anchoredLayout.top } as const : {}),
             } : undefined}
-            onError={onImageError} />
+            onError={() => {
+              setLoadedSrc(undefined);
+              onSizeChange(undefined);
+              onImageError?.();
+            }} />
         </div>
       </div>
     </div>
@@ -569,7 +546,7 @@ function ScalablePreview({
 
 interface JsonContent {
   formatted: string;
-  parsed: JsonValue | null;
+  parsed: JsonValue;
   error: string | null;
 }
 
@@ -577,15 +554,81 @@ function readJsonContent(base64: string | undefined): JsonContent {
   if (!base64) return { formatted: '', parsed: null, error: 'No data available' };
   const raw = decodeBase64(base64);
   try {
-    const parsed = JSON.parse(raw) as JsonValue;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isJsonValue(parsed)) throw new Error('Not a JSON value');
     return { formatted: JSON.stringify(parsed, null, 2), parsed, error: null };
   } catch {
     return { formatted: raw, parsed: null, error: 'Invalid JSON — showing raw content' };
   }
 }
 
-function JsonRenderer({ content, direction, crossingStepBoundary, maximized }: { content: JsonContent; direction: number; crossingStepBoundary: boolean; maximized: boolean }) {
+function JsonRenderer({ content, direction, crossingStepBoundary, maximized, search }: {
+  content: JsonContent; direction: number; crossingStepBoundary: boolean; maximized: boolean; search: JsonSearch;
+}) {
   const { formatted, parsed, error } = content;
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const expansionRef = useRef(new WeakMap<object, boolean>());
+  const active = search.hits[search.active];
+  const reveal = useMemo(() => new Set<object>(active?.field.ancestors),
+    [active, search.revision]);
+  const shouldExpandNode = useCallback((level: number, value: unknown) => {
+    if (typeof value !== 'object' || value === null) return level === 0;
+    if (reveal.has(value)) {
+      expansionRef.current.set(value, true);
+      return true;
+    }
+    return expansionRef.current.get(value) ?? level === 0;
+  }, [reveal]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || error) return;
+    const highlights = typeof CSS !== 'undefined' && 'highlights' in CSS && typeof Highlight !== 'undefined'
+      ? CSS.highlights : undefined;
+    const matches = highlights ? new Highlight() : undefined;
+    const selected = highlights ? new Highlight() : undefined;
+    if (selected) selected.priority = 1;
+    let scrolled = false;
+    let frame = 0;
+    const update = () => {
+      matches?.clear();
+      selected?.clear();
+      for (const hit of search.hits) {
+        const element = jsonFieldElement(viewport, hit.field);
+        if (!element) continue;
+        const ranges = jsonHitRanges(element, hit);
+        for (const range of ranges) {
+          matches?.add(range);
+          if (hit === active) selected?.add(range);
+        }
+        if (hit === active && !scrolled) {
+          const bounds = ranges[0]?.getBoundingClientRect() ?? element.getBoundingClientRect();
+          const container = viewport.getBoundingClientRect();
+          if (bounds.top < container.top + 12 || bounds.bottom > container.bottom - 12) {
+            viewport.scrollTop += bounds.top - container.top - viewport.clientHeight / 2;
+          }
+          scrolled = true;
+        }
+      }
+      if (matches && selected && highlights) {
+        highlights.set('livedoc-json-match', matches);
+        highlights.set('livedoc-json-active', selected);
+      }
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    const observer = new MutationObserver(schedule);
+    observer.observe(viewport, { childList: true, subtree: true });
+    schedule();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+      if (highlights?.get('livedoc-json-match') === matches) highlights?.delete('livedoc-json-match');
+      if (highlights?.get('livedoc-json-active') === selected) highlights?.delete('livedoc-json-active');
+    };
+  }, [search.hits, active, search.revision, error]);
 
   const variants = crossingStepBoundary ? stepCrossFadeVariants : slideVariants;
   const transition = crossingStepBoundary ? stepCrossFadeTransition : slideTransition;
@@ -604,13 +647,19 @@ function JsonRenderer({ content, direction, crossingStepBoundary, maximized }: {
       exit="exit"
       transition={transition}
     >
-      <div role="region" className="flex-1 overflow-auto bg-zinc-900/95 p-4 text-[13px] font-mono" aria-label="JSON preview">
+      <div ref={viewportRef} role="region" className="min-w-0 flex-1 overflow-auto overscroll-contain bg-zinc-900/95 p-4 text-[13px] font-mono" aria-label="JSON preview">
         {error && <p role="alert" className="mb-3 flex items-center gap-2 text-xs text-amber-300">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />{error}
         </p>}
         {error
           ? <pre className="leading-relaxed whitespace-pre text-zinc-300">{formatted}</pre>
-          : <JsonNode value={parsed!} path="$" />}
+          : isJsonCollection(parsed)
+            ? <JsonView data={parsed} style={jsonStyles} shouldExpandNode={shouldExpandNode}
+                beforeExpandChange={({ value, newExpandValue }: { value: unknown; newExpandValue: boolean }) => {
+                  if (typeof value === 'object' && value !== null) expansionRef.current.set(value, newExpandValue);
+                  return true;
+                }} />
+            : <code className="livedoc-json-value break-all text-zinc-200">{formatted}</code>}
       </div>
     </motion.div>
   );
@@ -928,16 +977,16 @@ function ZoomControls({
       <Button variant="ghost" size="sm" aria-label={`Fit ${kind}`} title={`Fit ${kind}`}
         aria-pressed={zoom === null} onClick={() => onZoomChange(null)}
         className={cn(buttonClass, zoom === null && selectedClass)}>Fit</Button>
-      <Button variant="ghost" size="icon" aria-label="Zoom out" title="Zoom out"
-        disabled={scale <= 0.05} onClick={() => onZoomChange(Math.max(0.05, scale / 1.5))}
+      <Button variant="ghost" size="icon" aria-label="Zoom out" title="Zoom out · Ctrl + mouse wheel"
+        disabled={scale <= minimumPreviewZoom} onClick={() => onZoomChange(scaledPreviewZoom(scale, 1 / zoomStep))}
         className={buttonClass}>
         <Minus aria-hidden="true" />
       </Button>
       <span role="status" aria-live="polite" className="w-10 shrink-0 text-center text-xs font-semibold tabular-nums text-white/85">
         {Math.round(scale * 100)}%
       </span>
-      <Button variant="ghost" size="icon" aria-label="Zoom in" title="Zoom in"
-        disabled={scale >= 4} onClick={() => onZoomChange(Math.min(4, Math.max(0.05, scale * 1.5)))}
+      <Button variant="ghost" size="icon" aria-label="Zoom in" title="Zoom in · Ctrl + mouse wheel"
+        disabled={scale >= maximumPreviewZoom} onClick={() => onZoomChange(scaledPreviewZoom(scale, zoomStep))}
         className={buttonClass}>
         <Plus aria-hidden="true" />
       </Button>
@@ -999,7 +1048,7 @@ function downloadAttachment(item: AttachmentItem) {
 
 function HeaderBar({
   item, category, currentIndex, total, onClose, isPlaying, onTogglePlay, hasStepContext,
-  maximized, onToggleMaximize, zoomControls, copyText, copyLabel, showSource, onToggleSource,
+  maximized, onToggleMaximize, zoomControls, copyText, copyLabel, showSource, onToggleSource, jsonSearch,
 }: {
   item: AttachmentItem;
   category: ContentCategory;
@@ -1016,6 +1065,7 @@ function HeaderBar({
   copyLabel: string;
   showSource: boolean;
   onToggleSource: () => void;
+  jsonSearch?: JsonSearch;
 }) {
   const { copied, copy, copyError } = useCopyToClipboard(currentIndex);
   const actions: HeaderAction[] = [];
@@ -1058,18 +1108,13 @@ function HeaderBar({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.08, duration: 0.25 }}
     >
-      <div className="flex min-w-0 items-center gap-2" title={item.title}>
-        {item.stepIndex !== undefined
-          ? <StepContext item={item} />
-          : <AttachmentContentMetadata item={item} fallbackMimeType="application/octet-stream" />}
-        {item.stepIndex === undefined && total > 1 && (
-          <span className="shrink-0 text-xs font-medium tabular-nums text-white/70">
-            {currentIndex + 1} / {total}
-          </span>
-        )}
+      <div className="col-start-1 row-start-1 min-w-0">
+        <AttachmentContentMetadata item={item} fallbackMimeType="application/octet-stream"
+          position={total > 1 ? `${currentIndex + 1} / ${total}` : undefined} />
       </div>
 
       <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-0.5">
+        {jsonSearch && <JsonSearchPanel search={jsonSearch} />}
         <div className="hidden items-center gap-0.5 sm:flex">
           {zoomControls && <ZoomControls {...zoomControls} />}
           <HeaderActions actions={actions} compact={false} />
@@ -1089,8 +1134,13 @@ function HeaderBar({
           </Button>
         </DialogPrimitive.Close>
       </div>
+      {item.stepIndex !== undefined && (
+        <div className="col-span-2 min-w-0 border-t border-white/10 pt-1.5">
+          <StepContext item={item} />
+        </div>
+      )}
       {zoomControls && (
-        <div className="col-span-2 row-start-2 flex items-center justify-center gap-1 sm:hidden">
+        <div className="col-span-2 flex items-center justify-center gap-1 sm:hidden">
           <ZoomControls {...zoomControls} />
           <HeaderActions actions={actions} compact />
         </div>
@@ -1156,7 +1206,11 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
   const [previewViewportSize, setPreviewViewportSize] = useState<PreviewSize>();
   const [previewZoom, setPreviewZoom] = useState<number | null>(null);
   const [showMermaidSource, setShowMermaidSource] = useState(false);
+  const changePreviewZoom = useCallback((value: number | null) => {
+    setPreviewZoom(value === null ? null : clampPreviewZoom(value));
+  }, []);
   const openerRef = useRef<HTMLElement | null>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
   const hasMultiple = attachments.length > 1;
 
   // Detect step context
@@ -1191,6 +1245,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
     () => category === 'json' ? readJsonContent(current.base64) : undefined,
     [category, current?.base64]
   );
+  const jsonSearch = useJsonSearch(jsonContent?.parsed ?? null, `${currentIndex}:${current?.base64 ?? ''}:${open}`);
   const textContent = useMemo(
     () => category === 'text' && current.base64 ? decodeBase64(current.base64) : '',
     [category, current?.base64]
@@ -1283,8 +1338,20 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f'
+          && jsonContent && !jsonContent.error && e.target instanceof Node
+          && galleryRef.current?.contains(e.target)) {
+        e.preventDefault();
+        setIsPlaying(false);
+        jsonSearch.setOpen(true);
+        return;
+      }
+      if (e.target instanceof HTMLElement
+          && e.target.closest('input, textarea, select, [contenteditable="true"], [aria-label="Search JSON"][role="dialog"]')) return;
       if (e.key.startsWith('Arrow') && e.target instanceof HTMLElement
           && e.target.closest('[aria-label="Mermaid diagram viewport"], [aria-label="Image viewport"]')) return;
+      if (e.target instanceof HTMLElement && e.target.closest('[role="tree"]')) return;
       if (e.key === 'ArrowRight' && hasMultiple) { e.preventDefault(); goNext(); }
       if (e.key === 'ArrowLeft' && hasMultiple) { e.preventDefault(); goPrev(); }
       if (e.key === '[' && hasStepContext) { e.preventDefault(); jumpToPrevStep(); }
@@ -1296,7 +1363,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
       }
       if (e.key === 'Home') { e.preventDefault(); goToStart(); }
       if (e.key === 'End') { e.preventDefault(); goToEnd(); }
-      if ((e.key === 'f' || e.key === 'F') && !(e.target instanceof HTMLElement
+      if (!e.ctrlKey && !e.metaKey && (e.key === 'f' || e.key === 'F') && !(e.target instanceof HTMLElement
         && e.target.closest('input, textarea, select, [contenteditable="true"]'))) {
         e.preventDefault();
         setMaximized((value) => !value);
@@ -1304,7 +1371,11 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, hasMultiple, hasStepContext, goNext, goPrev, jumpToPrevStep, jumpToNextStep, togglePlay, goToStart, goToEnd]);
+  }, [open, hasMultiple, hasStepContext, goNext, goPrev, jumpToPrevStep, jumpToNextStep, togglePlay, goToStart, goToEnd, jsonContent, jsonSearch]);
+
+  useEffect(() => {
+    if (jsonSearch.open) setIsPlaying(false);
+  }, [jsonSearch.open]);
 
   if (attachments.length === 0) return null;
 
@@ -1327,6 +1398,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
     scale: previewScale,
     onSizeChange: setPreviewSize,
     onViewportChange: setPreviewViewportSize,
+    onZoomChange: changePreviewZoom,
   };
 
   return (
@@ -1369,6 +1441,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                 }}
               >
                 <motion.div
+                  ref={galleryRef}
                   className={cn(
                     "fixed z-50 flex min-h-0 flex-col overflow-hidden bg-zinc-950 text-white",
                     maximized
@@ -1410,9 +1483,10 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                     copyLabel={copyLabel}
                     showSource={showMermaidSource}
                     onToggleSource={() => setShowMermaidSource((value) => !value)}
+                    jsonSearch={jsonContent && !jsonContent.error ? jsonSearch : undefined}
                     zoomControls={(category === 'image' || category === 'mermaid') && previewSize && previewViewportSize
                       ? { kind: category === 'mermaid' ? 'diagram' : 'image',
-                          scale: previewScale, zoom: previewZoom, onZoomChange: setPreviewZoom }
+                          scale: previewScale, zoom: previewZoom, onZoomChange: changePreviewZoom }
                       : undefined}
                   />
 
@@ -1451,6 +1525,7 @@ export function AttachmentViewer({ attachments, initialIndex = 0, open, onOpenCh
                         <JsonRenderer 
                           key={`json-${currentIndex}`} 
                           content={jsonContent}
+                          search={jsonSearch}
                           direction={direction}
                           crossingStepBoundary={crossingStepBoundary}
                           maximized={maximized}

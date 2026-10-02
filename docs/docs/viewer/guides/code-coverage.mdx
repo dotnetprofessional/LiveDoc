@@ -4,6 +4,8 @@ title: "Code Coverage"
 description: "Collect line and branch coverage from Vitest or xUnit and explore it by module in the LiveDoc Viewer."
 ---
 
+import LibraryCodeBlock from '@site/src/components/LibraryCodeBlock';
+
 # Code Coverage
 
 <p className="intro">
@@ -139,14 +141,12 @@ For another artifact location, configure `coverage.artifactPath` on
 A normal LiveDoc xUnit project needs the package, the .NET test SDK, xUnit, and
 the Visual Studio runner:
 
-```xml
-<ItemGroup>
+<LibraryCodeBlock library="xunit" language="xml">{`<ItemGroup>
   <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
   <PackageReference Include="xunit" Version="2.9.3" />
   <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
-  <PackageReference Include="SweDevTools.LiveDoc.xUnit" Version="0.3.0" />
-</ItemGroup>
-```
+  <PackageReference Include="SweDevTools.LiveDoc.xUnit" Version="{{libraryVersion}}" />
+</ItemGroup>`}</LibraryCodeBlock>
 
 `SweDevTools.LiveDoc.xUnit` includes the `LiveDocCoverage` VSTest collector and
 attachment processor. You do not need `coverlet.collector` for the recommended

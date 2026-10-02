@@ -5,7 +5,7 @@
 ### Example 1: Create a new BDD feature spec
 > "Create a test for the shopping cart checkout flow"
 
-→ This involves writing a `.Spec.ts` file using `feature`, `scenario`, `given`/`when`/`then` from `@swedevtools/livedoc-vitest`.
+→ Read `resources/test-strategy.md` and `resources/bdd-features.md`. Write a `.Spec.ts` file using `feature`, `scenario`, and Given/When/Then. The Feature description explains why the tested checkout behavior matters; scenario steps show the proof.
 
 ### Example 2: Add a scenario outline with examples
 > "Add data-driven tests for email validation"
@@ -20,7 +20,7 @@
 ### Example 4: Convert a plain vitest test to LiveDoc specification pattern
 > "Rewrite these unit tests as a LiveDoc specification with rules"
 
-→ This involves using `specification` and `rule`/`ruleOutline` from `@swedevtools/livedoc-vitest`.
+→ Read `resources/test-strategy.md` and `resources/specifications.md`. Write a purpose-first `specification` with `rule`/`ruleOutline` for the contract and its evidence.
 
 ### Example 5: Modify an existing spec file
 > "Add a new scenario to UserAuth.Spec.ts for password reset"
@@ -30,14 +30,19 @@
 ### Example 6: Write a browser test with Playwright
 > "Write a Playwright test that checks the viewer homepage loads correctly"
 
-→ Read `resources/web-testing.md` to confirm a real browser is required, then use `useBrowser` and `screenshot` from `@swedevtools/livedoc-vitest/playwright`. Assert behavior before attaching evidence.
+→ Read `resources/web-testing.md` to confirm a real browser is required, then use `useBrowser` and `screenshot` from `@swedevtools/livedoc-vitest/playwright`. Assert behavior and capture meaningful passing or failing states; capture a failure screenshot before a potentially failing assertion.
 
-### Example 7: Verify responsive browser geometry
+### Example 7: Document an API exchange
+> "Attach the API request and response to a LiveDoc test"
+
+→ Read `resources/specifications.md` (or `resources/bdd-features.md` for a journey). Attach only safe request and allowlisted response fields before an assertion that may fail. Keep expected values in titles or descriptions; an attachment is evidence, not proof.
+
+### Example 8: Verify responsive browser geometry
 > "Verify that the mobile action exposes at least a 44px touch target"
 
 → Use a real browser and measure rendered geometry. A jsdom assertion or CSS class check cannot observe this claim.
 
-### Example 8: Validate an incremental change by tag
+### Example 9: Validate an incremental change by tag
 > "Run only the checkout and pricing behavior and patch the Viewer"
 
 → Read `resources/partial-testing.md`. Select `@checkout` and `@pricing`, publish the invocation as `partial`, and preserve the latest full baseline.

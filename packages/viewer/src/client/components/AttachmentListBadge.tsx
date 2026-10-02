@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { Paperclip } from 'lucide-react';
-import type { AnyTest, RuleOutlineTest, ScenarioTest } from '@swedevtools/livedoc-schema';
+import type { AnyTest, RuleOutlineTest, ScenarioOutlineTest, ScenarioTest } from '@swedevtools/livedoc-schema';
 import { AttachmentViewer } from './AttachmentViewer';
 import { Button } from './ui/button';
+import { isNativeTestKind } from '../lib/kind-presentation';
 
 export function AttachmentListBadge({ node }: { node: AnyTest }) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const kind = String(node.kind).toLowerCase();
 
-  if (kind === 'rule') {
+  if (kind === 'rule' || isNativeTestKind(node.kind)) {
     const attachments = node.execution?.attachments ?? [];
     if (attachments.length === 0) return null;
 
-    const label = `View ${attachments.length} attachment${attachments.length === 1 ? '' : 's'} for rule ${node.title}`;
+    const label = `View ${attachments.length} attachment${attachments.length === 1 ? '' : 's'} for ${isNativeTestKind(node.kind) ? 'test' : 'rule'} ${node.title}`;
     return (
       <>
         <Button
@@ -34,10 +35,12 @@ export function AttachmentListBadge({ node }: { node: AnyTest }) {
 
   let count = 0;
   let label = '';
-  if (kind === 'ruleoutline') {
-    const outline = node as RuleOutlineTest;
+  if (kind === 'ruleoutline' || kind === 'scenariooutline') {
+    const outline = node as RuleOutlineTest | ScenarioOutlineTest;
     const rowIds = new Set(outline.examples?.flatMap((table) => table.rows.map((row) => row.rowId)) ?? []);
-    const templateSteps = outline.template?.children ?? outline.template?.steps ?? outline.steps ?? [];
+    const templateSteps = outline.kind === 'RuleOutline'
+      ? outline.template?.children ?? outline.template?.steps ?? outline.steps ?? []
+      : outline.steps;
     const stepIds = new Set(templateSteps.map((step) => step.id));
     const rowsWithEvidence = new Set<number>();
     for (const entry of outline.exampleResults ?? []) {
@@ -47,7 +50,7 @@ export function AttachmentListBadge({ node }: { node: AnyTest }) {
       if (entry.result.attachments?.length) rowsWithEvidence.add(rowId);
     }
     count = rowsWithEvidence.size;
-    label = `${count} example${count === 1 ? '' : 's'} with attachments in rule outline ${node.title}`;
+    label = `${count} example${count === 1 ? '' : 's'} with attachments in ${kind === 'ruleoutline' ? 'rule' : 'scenario'} outline ${node.title}`;
   } else if (kind === 'scenario') {
     const scenario = node as ScenarioTest;
     count = (scenario.execution?.attachments?.length ?? 0)

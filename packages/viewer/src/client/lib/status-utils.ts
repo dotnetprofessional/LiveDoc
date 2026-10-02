@@ -1,4 +1,5 @@
-import type { Statistics, Status } from '@swedevtools/livedoc-schema';
+import type { AnyTest, Statistics, Status } from '@swedevtools/livedoc-schema';
+import { isNativeTestKind } from './kind-presentation';
 
 /**
  * Computes aggregate status from statistics.
@@ -16,9 +17,10 @@ export function statusFromStats(stats: Statistics | undefined): Status | undefin
 /**
  * Determines if a test item should allow drill-down navigation.
  * - Scenarios and Outlines always have sub-content to display
- * - Rules and standard Tests only allow drill-down if failed (to view exception details)
+ * - Native Tests only drill down when there are details beyond list metadata
+ * - Rules only allow drill-down if failed (to view exception details)
  */
-export function shouldAllowDrillDown(kind: string, status: Status | undefined): boolean {
+export function shouldAllowDrillDown(kind: string, status: Status | undefined, node?: AnyTest): boolean {
   // Outlines always have drill-down (examples as sub-tests)
   if (kind === 'ScenarioOutline' || kind === 'RuleOutline') {
     return true;
@@ -29,8 +31,21 @@ export function shouldAllowDrillDown(kind: string, status: Status | undefined): 
     return true;
   }
 
-  // Rules and standard Tests: only allow drill-down if failed (to see exception)
-  if (kind === 'Rule' || kind === 'Test') {
+  if (isNativeTestKind(kind)) {
+    return Boolean(
+      node?.description?.trim() ||
+      node?.dataTables?.length ||
+      node?.execution.error?.message?.trim() ||
+      node?.execution.error?.stack?.trim() ||
+      node?.execution.error?.code?.trim() ||
+      node?.execution.error?.lineNumber !== undefined ||
+      node?.execution.attachments?.length ||
+      node?.ruleViolations?.length
+    ) || status === 'failed' || status === 'timedOut';
+  }
+
+  // Preserve the existing compact Rule listing.
+  if (kind === 'Rule') {
     return status === 'failed' || status === 'timedOut';
   }
 

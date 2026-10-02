@@ -44,14 +44,15 @@ Do not generate a LiveDoc test when the claim or observable boundary is unclear.
 
 ## Feature or Specification?
 
-Choose in this order:
+Choose by the claim's shape:
 
-1. **Would a product stakeholder read this to understand behavior?** Use a Feature.
-2. **Is it a multi-step user or operator journey?** Use a Feature.
-3. **Is it one technical input/output contract or implementation-independent rule?** Use a Specification.
+1. **Do preconditions, action, and outcome tell a meaningful user or operator journey?** Use a Feature.
+2. **Is this an independently verifiable policy or contract best shown through exact rules and examples?** Use a Specification, even if a product stakeholder owns or reads it.
 
-The runtime instrument is separate from the report pattern. A browser Feature
-and an in-process Feature can both be valid; the claim determines the boundary.
+The reader influences the wording, not a business-versus-technical split.
+The runtime instrument is separate from the report pattern: a browser Feature
+and an in-process Feature can both be valid; an HTTP contract can be a
+Specification. The claim determines the observable boundary.
 
 ## Phrase the Present-Day Promise
 
@@ -65,6 +66,30 @@ and an in-process Feature can both be valid; the claim determines the boundary.
 | --- | --- | --- |
 | The shell uses class `h-7` | The chip is accessible | Under a coarse pointer, the chip exposes at least a `44`px target |
 | Function calls helper `normalizeV2` | Formatting works | Input `'abc'` produces canonical output `'ABC'` |
+
+## Purpose Before Proof
+
+Name the behavior in a Feature or Specification title. Use the optional
+description (lines after the title and tags) to explain *why* it matters;
+Scenario steps, Rule titles, example rows, and assertions show *what* was
+checked. This is an authoring convention, not runtime validation.
+
+| Container | Inventory (avoid) | Purpose within the tested boundary |
+| --- | --- | --- |
+| Shipping Feature | "Tests country and total branches" | "Avoids assigning the wrong delivery tier for the tested destinations and totals." |
+| Email Specification | "Valid and invalid address formats" | "Helps callers reject the malformed address shapes covered by these rules before using an address." |
+| Widget API Feature | "POST and GET tests" | "Clients can create and retrieve a widget through the documented HTTP flow." |
+
+Technical Specifications still need an understandable contract purpose;
+business-owned policies should explain why their exact rules matter. Do not
+invent a workflow. An in-process validator does not
+prove that messages were delivered. An HTTP contract does not prove that a
+customer saw the result. State only outcomes observed by the test. Optional
+Scenario/Rule descriptions may clarify scope, not replace specific titles.
+
+Before publishing, ask: Can a reader understand *why* the behavior matters?
+Can they find the proof in titles and assertions? Does every outcome claim
+match the observed boundary?
 
 ## Make Failures Diagnosable
 
@@ -89,6 +114,7 @@ Before completion:
 - [ ] For critical behavior, the test has been observed failing for the intended defect.
 - [ ] The failure was behavioral, not a syntax/import/setup failure.
 - [ ] Existing failures are separated from failures introduced by the change.
+- [ ] Container descriptions explain purpose without claiming untested outcomes.
 
 Use Stryker or another specialist tool for automated mutation testing. LiveDoc
 does not implement its own mutation engine.
@@ -99,5 +125,9 @@ Not every native Vitest test should become a LiveDoc test. Keep low-level harnes
 checks, exhaustive generated cases, performance tests, and infrastructure probes
 in the native runner unless their result has durable reader value.
 
-Organize LiveDoc files by product surface. The directory structure is the
-Viewer's table of contents; keep test instrument details below that level.
+Organize LiveDoc files by product capability. The directory structure is the
+Viewer's table of contents in a full run: put both
+`Orders\Checkout.Spec.ts` (Feature) and
+`Orders\Pricing\ShippingRates.Spec.ts` (Specification) under Orders, not
+separate Features and Specs roots. Readers can move from the workflow to
+its detailed calculations without switching sections.

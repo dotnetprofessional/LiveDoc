@@ -61,7 +61,9 @@ LiveDoc provides two complementary patterns for writing executable specification
 
 ### The BDD Pattern
 
-For behavior that stakeholders care about — user journeys, business rules, acceptance criteria — LiveDoc supports the full [**Gherkin vocabulary**](https://cucumber.io/docs/gherkin/reference/): Feature, Scenario, Given, When, Then.
+For user journeys and acceptance criteria, LiveDoc supports the full
+[**Gherkin vocabulary**](https://cucumber.io/docs/gherkin/reference/):
+Feature, Scenario, Given, When, Then.
 
 ```
 Feature: Shopping Cart Checkout
@@ -79,7 +81,9 @@ The examples above use the [Gherkin](https://cucumber.io/docs/gherkin/reference/
 
 ### The Specification Pattern
 
-For technical components, algorithms, and APIs where Given/When/Then adds ceremony without value, LiveDoc offers the **Specification pattern** — inspired by MSpec (Machine.Specifications):
+For precise business rules as well as technical components, algorithms, and
+APIs where Given/When/Then adds ceremony without value, LiveDoc offers the
+**Specification pattern** — inspired by MSpec (Machine.Specifications):
 
 ```
 Specification: Email Validator

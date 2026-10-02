@@ -33,9 +33,12 @@ prefer an in-process host for speed, isolation, and diagnostics.
 
 ## Feature or Specification?
 
-1. A stakeholder-readable multi-step workflow → Feature.
-2. A single technical rule or contract → Specification.
-3. The instrument does not decide the pattern; audience and claim do.
+1. A user or operator workflow that benefits from Given/When/Then → Feature.
+2. An independently verifiable business policy or technical contract best
+   shown through precise rules and examples → Specification.
+3. Product stakeholders may read both. The claim's shape, not a
+   business-versus-technical audience split or the test instrument, decides
+   the pattern.
 
 ## Isolation and Lifecycle
 
@@ -54,8 +57,37 @@ prefer an in-process host for speed, isolation, and diagnostics.
 - Test the goal rather than memorializing an old defect.
 - Avoid revision rounds, team names, and construction history.
 - Use one outline row per independent claim.
-- Keep namespaces organized by product/domain surface because they form the
-  Viewer table of contents.
+- Keep both Features and Specifications under the same product capability
+  namespace: `MyApp.Tests.Orders` for Checkout and
+  `MyApp.Tests.Orders.Pricing` for Shipping rates. The complete declared
+  namespace forms the Viewer table of contents, regardless of assembly name; do not
+  default to separate `Features.Orders` and `Specs.Orders` roots.
+
+## Purpose Before Proof
+
+Name the behavior in the Feature or Specification title. Use its optional
+`Description` to explain *why* the behavior matters to a reader; use Scenario
+steps, Rule titles, example rows, and assertions to show *what* was checked.
+Journey `# Description:` supplies the Feature description, not a list of HTTP
+methods. Descriptions are an authoring convention, not a runtime requirement.
+
+| Container | Inventory (avoid) | Purpose within the tested boundary |
+| --- | --- | --- |
+| Shipping Feature | "Covers country and total branches" | "Avoids assigning the wrong delivery tier for the tested destinations and totals." |
+| Email Specification | "Valid and invalid format cases" | "Helps callers reject the malformed address shapes covered by these rules before using an address." |
+| Widget Journey | "Full CRUD validation" | "Clients can create, retrieve, update, and delete a widget through the documented HTTP flow." |
+
+A technical Specification still needs an understandable contract purpose;
+a business-owned Specification should say why its precise rule matters to
+readers. Neither needs to invent a workflow. A shipping calculation does not
+prove that the price was shown in a UI. A response contract does not prove that
+a payment settled or that a downstream service received an event. State those
+outcomes only when tests observe them. Scenario/Rule descriptions can add
+scope or context but should not repeat or inflate their titles.
+
+Before publishing, ask: Can a reader tell *why* this matters without opening
+the code? Can they find the actual proof in the titles and assertions? Does
+every stated outcome match the observed boundary?
 
 ## False-Green Completion Gate
 
@@ -68,6 +100,7 @@ prefer an in-process host for speed, isolation, and diagnostics.
 - [ ] Processes, streams, ports, files, and fixtures are released.
 - [ ] Critical behavior has been observed failing for the intended defect.
 - [ ] Failure output identifies the broken claim and does not expose secrets.
+- [ ] Container descriptions explain purpose without claiming outcomes the tests do not establish.
 
 Use Stryker.NET for automated mutation testing. LiveDoc may document its outcome
 but does not replace the mutation engine.

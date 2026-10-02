@@ -16,44 +16,43 @@ these practices to get the most out of the framework.
 
 ## Namespace Organization for Report Hierarchy {#namespace-organization}
 
-The C# namespace of each test class determines its position in the
-LiveDoc Viewer tree. The reporter strips the assembly name prefix and
-converts namespace segments into a folder-like hierarchy.
+The full declared C# namespace of each test class determines its position in
+the LiveDoc Viewer tree. Every namespace segment is retained, independently
+of the assembly name, and becomes part of the folder-like hierarchy. Put Features
+and Specifications for the same capability together; the pattern is not an
+audience restriction.
 
 ### Recommended Structure
 
-```
-MyApp.Tests/
-├── Checkout/                    → "Checkout" node in viewer
-│   ├── CartTests.cs             → Checkout/CartTests.cs
-│   └── PaymentTests.cs          → Checkout/PaymentTests.cs
-├── Shipping/                    → "Shipping" node in viewer
-│   └── ShippingCostsTests.cs    → Shipping/ShippingCostsTests.cs
-└── Auth/                        → "Auth" node in viewer
-    ├── LoginTests.cs            → Auth/LoginTests.cs
-    └── RegistrationTests.cs     → Auth/RegistrationTests.cs
-```
-
-```csharp
-// ✅ GOOD: Grouped by domain area
-namespace MyApp.Tests.Checkout;
-
-[Feature("Shopping Cart")]
-public class CartTests : FeatureTest { ... }
+```text
+MyApp
+└── Tests
+    ├── Orders
+    │   ├── CheckoutFeature.cs
+    │   └── Pricing
+    │       ├── ShippingRatesSpecification.cs
+    │       └── DiscountsSpecification.cs
+    └── Accounts
+        └── RegistrationFeature.cs
 ```
 
-```csharp
-// ❌ BAD: Flat namespace produces a flat, hard-to-navigate list
-namespace MyApp.Tests;
+Declare `MyApp.Tests.Orders` for `CheckoutFeature` and
+`MyApp.Tests.Orders.Pricing` for both pricing Specifications. This puts
+Checkout and its detailed pricing rules under **MyApp → Tests → Orders** in
+the Viewer, whether the assembly is named `MyApp.Tests` or something else.
+Class names form `.cs` document leaves; class names and Feature/Specification
+titles do not introduce additional navigation folders. A class with no
+namespace remains a document at the root.
 
-[Feature("Shopping Cart")]
-public class CartTests : FeatureTest { ... }
-```
+Physical folders alone do not set the report path; a flat `MyApp.Tests` namespace
+would produce a flat list, while `MyApp.Tests.Features.Orders` and
+`MyApp.Tests.Specifications.Orders` would split Orders in two.
 
 :::tip
-Mirror your domain boundaries — align namespace segments with bounded
-contexts or feature areas. This produces a viewer tree that maps to how
-your team talks about the system.
+Align source folders and namespaces with business capabilities. A product
+manager can read an Orders Feature and then inspect the associated
+Specification's precise rules without leaving Orders. See
+[Test Organization](../../concepts/test-organization.mdx).
 :::
 
 ---
@@ -128,29 +127,32 @@ They appear in the Viewer without changing test pass/fail status.
 
 ---
 
-## Use the Description Attribute {#descriptions}
+## Explain Purpose in Descriptions {#descriptions}
 
-Add `Description` to container attributes (`[Feature]`, `[Specification]`)
-and optionally to test attributes. Descriptions appear in the formatted
-output and viewer, providing context that is otherwise lost.
+Prefer `Description` on container attributes (`[Feature]`,
+`[Specification]`) when it gives readers a reason to care; the property
+remains optional. Describe the purpose **within the behavior the tests
+actually prove**, not the list of branches, endpoints, or tests. Titles,
+steps, Rules, and assertions carry the technical proof. Optional Scenario or
+Rule descriptions can clarify scope without inflating the claim.
 
 ```csharp
 [Feature("Shopping Cart", Description = @"
-    Business rules for the shopping cart checkout flow.
-    Covers GST calculation, shipping tiers, and discount codes.")]
+    Keeps checkout totals predictable for the cart
+    and shipping cases covered below.")]
 public class CartTests : FeatureTest
 {
     public CartTests(ITestOutputHelper output) : base(output) { }
 
-    [Scenario(Description = "Validates that Australian orders over $100 receive free shipping")]
+    [Scenario(Description = "Covers the Australian shipping threshold; other destinations are separate cases.")]
     public void Free_shipping_in_Australia() { ... }
 }
 ```
 
 ```csharp
 [Specification("Email Validation", Description = @"
-    Rules for validating email addresses across common formats.
-    Includes edge cases for international domains.")]
+    Helps callers reject malformed addresses before
+    using them in the flows covered by these rules.")]
 public class EmailSpec : SpecificationTest
 {
     public EmailSpec(ITestOutputHelper output) : base(output) { }
@@ -161,19 +163,19 @@ public class EmailSpec : SpecificationTest
 
 ## Choosing BDD vs. Specification {#bdd-vs-specification}
 
-LiveDoc supports two patterns. Choose based on your audience and the
-type of behavior you're testing:
+LiveDoc supports two patterns. Choose based on how best to prove the claim,
+not on whether a product manager or developer wants to read it:
 
 | Aspect          | BDD / Gherkin                          | Specification / MSpec                  |
 | --------------- | -------------------------------------- | -------------------------------------- |
 | **Base class**  | `FeatureTest`                          | `SpecificationTest`                    |
 | **Attributes**  | `[Feature]`, `[Scenario]`              | `[Specification]`, `[Rule]`            |
-| **Audience**    | Business + Technical                   | Technical                              |
-| **Best for**    | User journeys, acceptance tests        | Unit rules, edge cases, algorithms     |
+| **Reader's focus** | Following a workflow                 | Inspecting exact rules and examples   |
+| **Best for**    | User journeys, acceptance tests        | Domain policies, contracts, edge cases |
 | **Verbosity**   | Higher (Given/When/Then steps)         | Lower (direct assertions)             |
 | **Data-driven** | `[ScenarioOutline]` + `[Example]`      | `[RuleOutline]` + `[Example]`          |
 
-### Use BDD when stakeholders will read the tests
+### Use BDD when a workflow benefits from a narrative
 
 ```csharp
 [Feature("User Registration")]
@@ -190,10 +192,10 @@ public class RegistrationTests : FeatureTest
 }
 ```
 
-### Use Specification when tests are developer-focused
+### Use Specification when direct rules communicate more clearly
 
 ```csharp
-[Specification("Calculator Operations", Description = "Core arithmetic rules")]
+[Specification("Calculator Operations", Description = "Callers can rely on the arithmetic results covered by these rules.")]
 public class CalculatorSpec : SpecificationTest
 {
     public CalculatorSpec(ITestOutputHelper output) : base(output) { }
@@ -306,31 +308,27 @@ state between tests.
 
 ---
 
-## One Assertion Per Rule {#one-assertion}
+## One Independent Claim Per Rule {#one-assertion}
 
-In the Specification pattern, each `[Rule]` should test a single,
-focused assertion. This produces clear pass/fail reporting and readable
-specification documents.
+In the Specification pattern, each `[Rule]` should report one independent
+contract claim. Multiple assertions are appropriate when they jointly prove
+that claim; unrelated input cases deserve separate Rules or an outline row
+each. That keeps failures specific without forcing one assertion per method.
 
 ```csharp
-// ✅ GOOD: One assertion per rule — clear and focused
-[Rule("Adding '2' and '3' returns '5'")]
-public void Addition()
+// ✅ GOOD: One claim whose amount and currency both matter
+[Rule("Parsing 'USD 12.50' yields currency 'USD' and amount '12.50'")]
+public void Parse_money()
 {
-    var (a, b, expected) = Rule.Values.As<int, int, int>();
-    Assert.Equal(expected, a + b);
-}
-
-[Rule("Adding '0' and '0' returns '0'")]
-public void Addition_identity()
-{
-    var (a, b, expected) = Rule.Values.As<int, int, int>();
-    Assert.Equal(expected, a + b);
+    var (input, currency, amount) = Rule.Values.As<string, string, decimal>();
+    var parsed = ParseMoney(input);
+    Assert.Equal(currency, parsed.Currency);
+    Assert.Equal(amount, parsed.Amount);
 }
 ```
 
 ```csharp
-// ❌ BAD: Multiple assertions in one rule — unclear which failed
+// ❌ BAD: Independent cases collapsed into one reported result
 [Rule("Addition works correctly")]
 public void Addition()
 {
@@ -339,6 +337,9 @@ public void Addition()
     Assert.Equal(-1, -3 + 2);
 }
 ```
+
+For separate cases, use `[RuleOutline("Adding '<a>' and '<b>' returns
+'<expected>'")]` and a distinct `[Example]` for each input pair.
 
 ---
 
@@ -349,10 +350,10 @@ keeps files focused and maps cleanly to the viewer's tree structure.
 
 ```csharp
 // ✅ GOOD: One feature per class
-[Feature("Shopping Cart", Description = "Rules for adding/removing cart items")]
+[Feature("Shopping Cart", Description = "Keeps cart contents consistent when items are added or removed.")]
 public class ShoppingCartTests : FeatureTest { ... }
 
-[Feature("Checkout", Description = "Rules for the checkout payment flow")]
+[Feature("Checkout", Description = "Keeps checkout totals consistent with cart contents and discounts.")]
 public class CheckoutTests : FeatureTest { ... }
 ```
 
@@ -372,11 +373,11 @@ public class ShoppingTests : FeatureTest
 - [ ] **Namespaces** mirror domain boundaries for clean viewer hierarchy
 - [ ] **Step titles** contain all inputs and expected outputs
 - [ ] **Gherkin structure** uses one primary Given, When, and Then with And/But continuations
-- [ ] **Descriptions** added to `[Feature]` and `[Specification]` attributes
+- [ ] **Descriptions**, when provided, explain purpose without claiming untested outcomes
 - [ ] **Values extracted** via `ctx.Step.Values` or `ctx.Step.Params` — never hardcoded
 - [ ] **Constructor** accepts `ITestOutputHelper` and passes to `base(output)`
 - [ ] **One feature/specification** per class
-- [ ] **One assertion** per `[Rule]`
+- [ ] **One independent claim** per `[Rule]`; related assertions may prove it together
 - [ ] **Pattern chosen** appropriately: BDD for stakeholders, Specification for developers
 
 ---

@@ -17,16 +17,17 @@ self-documenting value extraction.
 
 | Aspect | BDD (`[Feature]` / `[Scenario]`) | Specification (`[Specification]` / `[Rule]`) |
 | --- | --- | --- |
-| **Audience** | Business + Technical | Technical |
+| **Reader's focus** | Following a workflow | Inspecting exact rules and examples |
 | **Verbosity** | Higher (Given/When/Then steps) | Lower (direct assertions) |
-| **Best for** | User stories, workflows, acceptance tests | Unit tests, algorithms, edge cases |
+| **Best for** | Workflows, acceptance tests | Domain policies, contracts, algorithms, edge cases |
 | **Data-driven** | `[ScenarioOutline]` + `[Example]` | `[RuleOutline]` + `[Example]` |
 | **Collaboration** | Discovery workshops, BDD sessions | Code reviews, developer specs |
 
 :::tip Mix and match
-You can use both patterns in the same project. Use `[Feature]` for acceptance
-tests where stakeholders need to read the output, and `[Specification]` for
-developer-focused unit tests.
+You can use both patterns under the same business capability. Use `[Feature]`
+for workflows and `[Specification]` for exact rules and calculations, even
+when product stakeholders need to read those rules. The namespace places
+both in the same Viewer section; see [Test Organization](../../concepts/test-organization.mdx).
 :::
 
 ---
@@ -41,8 +42,8 @@ using Xunit.Abstractions;
 namespace MyProject.Tests.Math;
 
 [Specification("Calculator Operations", Description = @"
-    Core arithmetic rules for the calculator module.
-    Uses the specification pattern for clean unit tests.
+    Callers can rely on the arithmetic results
+    covered by these rules.
 ")]
 public class CalculatorSpec : SpecificationTest
 {
@@ -246,8 +247,8 @@ using Xunit.Abstractions;
 namespace MyProject.Tests.Validation;
 
 [Specification("Email Validation Rules", Description = @"
-    Rules for validating email addresses across different formats.
-    Includes edge cases for international domains and special characters.
+    Helps callers reject the malformed address shapes checked
+    below before using an address.
 ")]
 public class EmailValidationSpec : SpecificationTest
 {
@@ -255,11 +256,16 @@ public class EmailValidationSpec : SpecificationTest
     {
     }
 
-    [Rule("Empty emails are always invalid")]
+    [Rule("Empty email '' is invalid")]
     public void Empty_email_is_invalid()
     {
-        Assert.False(IsValidEmail(""));
-        Assert.False(IsValidEmail(null!));
+        Assert.False(IsValidEmail(Rule.Values[0].AsString()));
+    }
+
+    [Rule("Null email is invalid")]
+    public void Null_email_is_invalid()
+    {
+        Assert.False(IsValidEmail(null));
     }
 
     [Rule("Email '<email:user@example.com>' is valid")]

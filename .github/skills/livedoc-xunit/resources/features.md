@@ -48,8 +48,8 @@ public class ShippingCostsTests : FeatureTest { ... }
 
 // Title + description (strongly encouraged)
 [Feature("Shipping Costs", Description = @"
-    Business rules for calculating shipping fees
-    based on customer country and order total.
+    Avoids assigning the wrong delivery tier for the
+    destinations and order totals covered below.
 ")]
 public class ShippingCostsTests : FeatureTest { ... }
 ```
@@ -58,6 +58,10 @@ public class ShippingCostsTests : FeatureTest { ... }
 | ------------- | -------- | -------- | ------------------------------- |
 | `name`        | `string` | No       | Feature title (defaults to formatted class name) |
 | `Description` | `string` | No       | Multi-line description text     |
+
+Use the description for the purpose of the Feature, not an inventory of
+scenarios. Keep claims within what those scenarios actually observe; the
+title, steps, and assertions carry the technical proof.
 
 ### `[Scenario]` — Method Attribute (single test)
 
@@ -438,8 +442,8 @@ using Xunit.Abstractions;
 namespace MyApp.Tests.Checkout;
 
 [Feature("Shopping Cart Checkout", Description = @"
-    Validates the complete checkout flow including
-    cart totals, tax calculation, and payment processing.
+    Keeps cart totals and discounts predictable before
+    an order is placed.
 ")]
 public class CheckoutTests : FeatureTest
 {
@@ -523,9 +527,10 @@ All exceptions include the step title and available values/params for easy debug
 ## Attachments and Evidence
 
 Feature scenarios can call `Attach`, `AttachScreenshot`, `AttachFile`, or
-`AttachJson` after asserting the behavior. Read `resources/evidence.md` for the
-supported APIs and redaction rules. Evidence supplements an assertion; it never
-replaces one.
+`AttachJson` to document meaningful states. Capture sanitized evidence before
+an assertion that may fail, or after a successful assertion. Read
+`resources/evidence.md` for the APIs and redaction rules; attachments never
+replace behavioral assertions.
 
 ---
 
@@ -541,7 +546,7 @@ replaces one.
 ## Validation Checklist
 
 - [ ] Class inherits `FeatureTest` and has `[Feature]` attribute
-- [ ] `Description` provided on `[Feature]` attribute
+- [ ] If provided, `[Feature]` `Description` explains why the covered behavior matters without overclaiming
 - [ ] Constructor accepts `ITestOutputHelper` and passes to `base(output)`
 - [ ] Each scenario method has `[Scenario]` or `[ScenarioOutline]` attribute
 - [ ] Each scenario has a Given in itself or its Background, plus a When and Then in the scenario; additional steps use And/But

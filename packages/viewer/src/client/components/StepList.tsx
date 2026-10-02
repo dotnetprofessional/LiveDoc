@@ -363,7 +363,7 @@ function computeColumnAlign(rows: NormalizedCell[][], columnCount: number): Arra
   return align;
 }
 
-function normalizeDataTable(dataTable: DataTable | undefined): NormalizedDataTable | null {
+export function normalizeDataTable(dataTable: DataTable | undefined): NormalizedDataTable | null {
   if (!dataTable) return null;
 
   const headers = (dataTable.headers ?? []).map((h) => String(h ?? ''));

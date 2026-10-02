@@ -19,33 +19,38 @@ Before diving in, here's when to reach for each pattern:
 
 | Aspect | BDD (`feature` / `scenario`) | Specification (`specification` / `rule`) |
 | --- | --- | --- |
-| **Best for** | User stories, acceptance tests, workflows | Technical rules, domain logic, algorithms |
-| **Audience** | Business + technical stakeholders | Developers |
+| **Best for** | Workflows, acceptance tests | Precise domain policies, contracts, algorithms |
+| **Reader's focus** | Following a narrative | Inspecting exact rules and examples |
 | **Structure** | Given / When / Then steps | Direct assertions |
 | **Verbosity** | Higher (structured steps) | Lower (compact rules) |
 | **Data-driven** | `scenarioOutline` + Examples | `ruleOutline` + Examples |
 
 :::tip Mix and match
-You can use **both patterns** in the same project. Use `feature` for acceptance
-tests and `specification` for unit-level specs:
+You can use **both patterns** under the same capability. A product manager can
+read the Checkout Feature, then inspect the detailed Shipping rates rules:
 
+```text
+tests
+├── Accounts
+│   └── PasswordValidation.Spec.ts    specification("Password Validation Rules")
+└── Orders
+    ├── Checkout.Spec.ts              feature("Checkout")
+    └── Pricing
+        └── ShippingRates.Spec.ts     specification("Shipping rates")
 ```
-tests/
-├── features/           # BDD specs
-│   └── Checkout.Spec.ts
-└── specs/              # Technical specs
-    └── Validation.Spec.ts
-```
+
+See [Test Organization](../../concepts/test-organization.mdx) for the
+equivalent xUnit namespace structure.
 :::
 
 ---
 
 ## Your First Specification
 
-Create `tests/PasswordValidation.Spec.ts`:
+Create `tests/Accounts/PasswordValidation.Spec.ts`:
 
 ```typescript
-// tests/PasswordValidation.Spec.ts
+// tests/Accounts/PasswordValidation.Spec.ts
 import { specification, rule } from '@swedevtools/livedoc-vitest';
 
 // Simple password validator for demonstration
@@ -58,14 +63,13 @@ function isValidPassword(password: string): { valid: boolean; reason?: string } 
 
 specification(`Password Validation Rules
   @security @validation
-  Business rules for acceptable passwords
+  Helps callers reject weak passwords before accepting them.
 `, () => {
 
   rule("Passwords must be at least '8' characters long", (ctx) => {
     const minLength = ctx.step.values[0]; // 8
-    expect(isValidPassword('short').valid).toBe(false);
-    expect(isValidPassword('a'.repeat(minLength)).valid).toBe(false); // still missing number + uppercase
-    expect(isValidPassword('Abcdefg1').valid).toBe(true);
+    expect(isValidPassword(`A1${'a'.repeat(minLength - 3)}`).valid).toBe(false);
+    expect(isValidPassword(`A1${'a'.repeat(minLength - 2)}`).valid).toBe(true);
   });
 
   rule('Passwords must contain at least one number', () => {
@@ -98,7 +102,7 @@ rules under a single heading.
 ```typescript
 specification(`Password Validation Rules
   @security @validation
-  Business rules for acceptable passwords
+  Helps callers reject weak passwords before accepting them.
 `, () => {
   // rules go here
 });
@@ -307,7 +311,7 @@ function isValidEmail(email: string): boolean {
 
 specification(`Email Validation
   @validation
-  Rules for validating email addresses
+  Helps callers reject malformed addresses before using them.
 `, () => {
 
   rule('Valid emails contain exactly one @ symbol', () => {
@@ -321,7 +325,7 @@ specification(`Email Validation
     expect(isValidEmail('user@example')).toBe(false);
   });
 
-  ruleOutline(`Common email formats are validated correctly
+  ruleOutline(`Email '<email>' has validity '<valid>'
     Examples:
     | email                | valid |
     | alice@example.com    | true  |

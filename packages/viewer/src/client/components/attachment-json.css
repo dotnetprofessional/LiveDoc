@@ -1,0 +1,46 @@
+.livedoc-json-tree {
+  --json-gutter: 1.75rem;
+  --json-indent: 1.75rem;
+  line-height: 1.75rem;
+}
+
+/* Every upstream property slot reserves the same gutter, including leaves. */
+.livedoc-json-tree .livedoc-json-row {
+  position: relative;
+  margin: 0;
+  padding: 0.125rem 0 0.125rem var(--json-gutter);
+}
+
+.livedoc-json-tree .livedoc-json-disclosure {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--json-gutter);
+  height: var(--json-gutter);
+  margin: 0;
+}
+
+/* Start each child group from the row edge, not its padded text column. */
+.livedoc-json-tree .livedoc-json-children {
+  margin: 0;
+  margin-inline-start: calc(-1 * var(--json-gutter));
+  padding: 0;
+  padding-inline-start: calc(var(--json-indent) - 1px);
+}
+
+.livedoc-json-label::highlight(livedoc-json-match),
+.livedoc-json-value::highlight(livedoc-json-match),
+.livedoc-json-punctuation::highlight(livedoc-json-match) {
+  background-color: rgb(251 191 36 / 35%);
+  color: white;
+}
+
+.livedoc-json-label::highlight(livedoc-json-active),
+.livedoc-json-value::highlight(livedoc-json-active),
+.livedoc-json-punctuation::highlight(livedoc-json-active) {
+  background-color: #38bdf8;
+  color: #082f49;
+}

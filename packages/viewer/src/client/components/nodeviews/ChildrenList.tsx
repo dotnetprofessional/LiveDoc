@@ -5,6 +5,7 @@ import { Badge } from '../ui/badge';
 import { shouldAllowDrillDown } from '../../lib/status-utils';
 import { ListRowMetadata } from '../ListRowMetadata';
 import { cn } from '../../lib/utils';
+import { getKindPresentation } from '../../lib/kind-presentation';
 
 export interface ChildrenListProps {
   children: AnyTest[] | undefined;
@@ -13,6 +14,7 @@ export interface ChildrenListProps {
   filterTags: string[];
   navigate: (kind: 'group' | 'node', id: string) => void;
   isSpecificationContainer: boolean;
+  containerKind?: string;
 }
 
 export function ChildrenList({
@@ -22,6 +24,7 @@ export function ChildrenList({
   filterTags,
   navigate,
   isSpecificationContainer,
+  containerKind,
 }: ChildrenListProps) {
   if (!showCards || !children || children.length === 0) return null;
 
@@ -35,7 +38,9 @@ export function ChildrenList({
   if (visibleChildren.length === 0) return null;
 
   const Icon = FileText;
-  const childrenLabel = isSpecificationContainer ? 'Rules' : 'Scenarios';
+  const childrenLabel = containerKind
+    ? getKindPresentation(containerKind).childrenLabel ?? 'Tests'
+    : isSpecificationContainer ? 'Rules' : 'Scenarios';
 
   const getOutlineCount = (child: any): number | undefined => {
     const statsTotal = child?.statistics?.total;
@@ -61,7 +66,7 @@ export function ChildrenList({
           {visibleChildren.map((child: any) => {
             const kind = String(child.kind ?? '');
             const status = child.execution?.status as Status | undefined;
-            const canDrillDown = shouldAllowDrillDown(kind, status);
+            const canDrillDown = shouldAllowDrillDown(kind, status, child);
             const content = (
               <>
                 <Icon className="w-4 h-4 text-muted-foreground shrink-0" />

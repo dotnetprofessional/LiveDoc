@@ -114,11 +114,8 @@ using TeaShop;
 namespace TeaShop.Tests.Shipping;
 
 [Feature("Beautiful Tea Shipping Costs", Description = @"
-    Business Rules:
-    - Australian customers pay GST (10%)
-    - Overseas customers don't pay GST
-    - Australian customers get free shipping for orders $100 and above
-    - Overseas customers all pay the same shipping rate regardless of order size
+    Avoids incorrect tax amounts and delivery tiers for
+    the destinations and totals tested below.
 ")]
 public class ShippingCostsTests : FeatureTest
 {
@@ -130,8 +127,8 @@ public class ShippingCostsTests : FeatureTest
 }
 ```
 
-The `Description` captures the business rules right in the test class —
-anyone reading the code or the test output immediately understands the context.
+The `Description` tells readers why these calculations matter; the scenario
+steps and example rows below show the actual thresholds and results.
 
 ---
 
@@ -252,8 +249,8 @@ for data-driven testing:
 ```csharp
 [ScenarioOutline(nameof(Calculate_GST_and_shipping),
     Description = @"
-    Validates all combinations of country, order total, expected GST,
-    and expected shipping rate in a single outline.
+    Covers the listed Australian and overseas destinations;
+    other regions need their own examples.
 ")]
 [Example("Australia", 99.99, 9.999, "Standard Domestic")]
 [Example("Australia", 100.00, 10.00, "Free")]
@@ -413,11 +410,8 @@ using TeaShop;
 namespace TeaShop.Tests.Shipping;
 
 [Feature("Beautiful Tea Shipping Costs", Description = @"
-    Business Rules:
-    - Australian customers pay GST (10%)
-    - Overseas customers don't pay GST
-    - Australian customers get free shipping for orders $100 and above
-    - Overseas customers all pay the same shipping rate regardless of order size
+    Avoids incorrect tax amounts and delivery tiers for
+    the destinations and totals tested below.
 ")]
 public class ShippingCostsTests : FeatureTest
 {

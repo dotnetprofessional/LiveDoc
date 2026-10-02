@@ -1374,5 +1374,5 @@ This keeps the contract explicit, minimizes server ambiguity, and fixes the curr
 ### 2026-07-18T18:57:19Z: Latest Model Preference
 
 **By:** Garry Mc  
-**What:** Use the latest GPT-5.6 Sol and Claude Opus 4.8 models whenever agent work requires substantive reasoning.  
+**What:** Use the latest GPT-6.1 Sol and Claude Sonnet 5.5 models whenever agent work requires substantive reasoning.  
 **Rationale:** User request — captured for team memory.

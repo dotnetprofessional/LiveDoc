@@ -308,97 +308,15 @@ For read-only queries, use the explore agent: `agent_type: "explore"` with `"You
 
 ### Per-Agent Model Selection
 
-Before spawning an agent, determine which model to use. Check these layers in order — first match wins:
+Resolve model and reasoning effort before every spawn using `.squad/templates/model-selection-reference.md`, the shared source of truth for selection precedence, role mapping, fallbacks, and spawn parameters.
 
-**Layer 1 — User Override:** Did the user specify a model? ("use opus", "save costs", "use gpt-5.6-sol for this"). If yes, use that model. Session-wide directives persist until contradicted. This project's standing directive is to use `gpt-5.6-sol` or `claude-opus-4.8` whenever substantive reasoning is required.
+| Task | Default Model | Reasoning Effort |
+|------|---------------|------------------|
+| Coding, debugging, tests, or code review | `gpt-6.1-sol` | `high` |
+| Trivial or mechanical work | `gpt-6-luna` | `high` |
+| Design, UX, architecture, planning, or prompt design | `claude-sonnet-5.5` | `auto` |
 
-**Layer 2 — Charter Preference:** Does the agent's charter have a `## Model` section with `Preferred` set to a specific model (not `auto`)? If yes, use that model.
-
-**Layer 3 — Task-Aware Auto-Selection:** Use the governing principle: **flagship models for reasoning; lightweight models only for mechanical work.** Match the agent's task to determine output type, then select accordingly:
-
-| Task Output | Model | Tier | Rule |
-|-------------|-------|------|------|
-| Implementation, refactoring, debugging, or test design | `gpt-5.6-sol` | Flagship | Use the latest GPT reasoning model for technical execution. |
-| Architecture, review, security analysis, planning, or prompt design | `claude-opus-4.8` | Flagship | Use the latest Claude reasoning model for judgment and synthesis. |
-| Independent second opinion on reasoning-heavy work | Other flagship model | Flagship | Use `claude-opus-4.8` after GPT, or `gpt-5.6-sol` after Claude. |
-| Visual/design work requiring image analysis | `claude-opus-4.8` | Flagship | Vision and design judgment require the latest Claude model. |
-| Mechanical operations with no substantive judgment | `claude-haiku-4.5` | Fast | Reserve lightweight models for logging, file moves, version bumps, and similar operations. |
-
-**Role-to-model mapping** (applying the reasoning-first principle):
-
-| Role | Default Model | Why | Override When |
-|------|--------------|-----|---------------|
-| Core Dev / Backend / Frontend | `gpt-5.6-sol` | Implementation and debugging require strong technical reasoning | Architecture or review → `claude-opus-4.8` |
-| Tester / QA | `gpt-5.6-sol` | Test design and failure analysis require technical reasoning | Reviewer gate or risk analysis → `claude-opus-4.8` |
-| Lead / Architect | `claude-opus-4.8` | Architecture, synthesis, and review require broad reasoning | Deep implementation debugging → `gpt-5.6-sol` |
-| Prompt Engineer | `claude-opus-4.8` | Prompt and agent design are reasoning-heavy executable artifacts | Implementation validation → `gpt-5.6-sol` |
-| Copilot SDK Expert | `gpt-5.6-sol` | Technical analysis often leads directly to implementation | Architecture or review → `claude-opus-4.8` |
-| Designer / Visual | `claude-opus-4.8` | Vision-capable flagship model required | — (never downgrade for visual reasoning) |
-| DevRel / Writer | `claude-opus-4.8` | Use flagship reasoning for substantive documentation | Mechanical text updates → `claude-haiku-4.5` |
-| Scribe / Logger | `claude-haiku-4.5` | Mechanical file operations only | Escalate rather than reason |
-| Git / Release | `claude-haiku-4.5` | Mechanical changelogs, tags, and version bumps | Release judgment → `claude-opus-4.8` |
-
-**Task complexity adjustments** (apply at most ONE — no cascading):
-- **Use `claude-opus-4.8`:** architecture proposals, reviewer gates, security audits, multi-agent coordination, and visual analysis.
-- **Use `gpt-5.6-sol`:** implementation, complex debugging, refactoring, and test design.
-- **Use the other flagship model:** independent review, disputed conclusions, or a second reasoning perspective.
-- **Bump DOWN to fast/cheap:** only for typo fixes, renames, boilerplate, changelogs, version bumps, and similarly mechanical work.
-
-**Layer 4 — Default:** If uncertain whether a task requires reasoning, use `gpt-5.6-sol`. Use `claude-haiku-4.5` only when the task is clearly mechanical.
-
-**Fallback chains — when a model is unavailable:**
-
-If a spawn fails because the selected model is unavailable (plan restriction, org policy, rate limit, deprecation, or any other reason), silently retry with the next model in the chain. Do NOT tell the user about fallback attempts. Maximum 3 retries before jumping to the nuclear fallback.
-
-```
-Claude reasoning: claude-opus-4.8 → gpt-5.6-sol → claude-opus-4.7 → claude-opus-4.6 → (omit model param)
-GPT reasoning:    gpt-5.6-sol → claude-opus-4.8 → gpt-5.6-terra → gpt-5.6-luna → (omit model param)
-Fast/mechanical:  claude-haiku-4.5 → gpt-5.4-mini → gpt-5-mini → (omit model param)
-```
-
-`(omit model param)` = call the `task` tool WITHOUT the `model` parameter. The platform uses its built-in default. This is the nuclear fallback — it always works.
-
-**Fallback rules:**
-- If the user specified a provider ("use Claude"), fall back within that provider only before hitting nuclear
-- Never fall back UP in tier — a mechanical task should not land on a flagship model
-- Log fallbacks to the orchestration log for debugging, but never surface to the user unless asked
-
-**Passing the model to spawns:**
-
-Pass the resolved model as the `model` parameter on every `task` tool call:
-
-```
-agent_type: "general-purpose"
-model: "{resolved_model}"
-mode: "background"
-description: "{emoji} {Name}: {brief task summary}"
-prompt: |
-  ...
-```
-
-Always set `model` explicitly for reasoning-heavy spawns so the standing model directive is enforceable.
-
-If you've exhausted the fallback chain and reached nuclear fallback, omit the `model` parameter entirely.
-
-**Spawn output format — show the model choice:**
-
-When spawning, include the model in your acknowledgment:
-
-```
-🔧 Fenster (gpt-5.6-sol · reasoning) — refactoring auth module
-🎨 Redfoot (claude-opus-4.8 · vision) — designing color system
-📋 Scribe (claude-haiku-4.5 · fast) — logging session
-⚡ Keaton (claude-opus-4.8 · reasoning) — reviewing proposal
-📝 McManus (claude-haiku-4.5 · fast) — updating docs
-```
-
-Include tier annotation only when the model was bumped or a specialist was chosen. Default-tier spawns just show the model name.
-
-**Valid models (current platform catalog):**
-
-Flagship reasoning: `gpt-5.6-sol`, `claude-opus-4.8`
-Reasoning fallbacks: `gpt-5.6-terra`, `gpt-5.6-luna`, `claude-opus-4.7`, `claude-opus-4.6`, `claude-sonnet-5`
-Fast/mechanical: `claude-haiku-4.5`, `gpt-5.4-mini`, `gpt-5-mini`
+Honor explicit model and effort overrides before these defaults. Pass the resolved `model` and non-automatic `reasoning_effort` as tool parameters; for session launches use `kickoff.model` and `kickoff.reasoning_effort`. Leave design effort unset unless explicitly overridden. Large coding tasks stay on Sol high; non-code work is not automatically trivial.
 
 ### Client Compatibility
 
@@ -708,7 +626,8 @@ After each batch of agent work:
 
 ```
 agent_type: "general-purpose"
-model: "claude-haiku-4.5"
+model: "gpt-6-luna"
+reasoning_effort: "high"
 mode: "background"
 description: "📋 Scribe: Log session & merge decisions"
 prompt: |

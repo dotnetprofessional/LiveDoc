@@ -1,7 +1,7 @@
 ---
 name: livedoc-vitest
 description: Expert guidance for writing and modifying BDD/Gherkin and MSpec-style tests using the @swedevtools/livedoc-vitest framework. Generates self-documenting TypeScript specs with correct API usage, value extraction, and living documentation patterns.
-sdk_version: 0.3.1
+sdk_version: 0.3.3
 ---
 
 # LiveDoc Vitest Test Author
@@ -10,13 +10,13 @@ sdk_version: 0.3.1
 
 ## Version Check
 
-This skill targets **@swedevtools/livedoc-vitest v0.3.1**. Before writing tests, verify the installed version matches:
+This skill targets **@swedevtools/livedoc-vitest v0.3.3**. Before writing tests, verify the installed version matches:
 
 ```bash
 npm ls @swedevtools/livedoc-vitest   # or: pnpm ls @swedevtools/livedoc-vitest
 ```
 
-If the installed version differs from `0.3.1`, tell the developer: *"Your LiveDoc skill files target v0.3.1 but you have vX.Y.Z installed. Run `npx livedoc-vitest-setup` to update the skill files, or check the changelog for breaking changes."*
+If the installed version differs from `0.3.3`, tell the developer: *"Your LiveDoc skill files target v0.3.3 but you have vX.Y.Z installed. Run `npx livedoc-vitest-setup` to update the skill files, or check the changelog for breaking changes."*
 
 ## Use this skill when
 - Creating or modifying `.Spec.ts` test files using `@swedevtools/livedoc-vitest`
@@ -53,9 +53,15 @@ If the installed version differs from `0.3.1`, tell the developer: *"Your LiveDo
 
 ## Workflow
 
+### Keep the project list intentional
+
+Configure one canonical project name for routine test runs rather than inventing a new name per agent invocation. Use temporary project names only when isolation is intentional. After an isolated run, clean up **only the exact temporary project or run you created** through the server API: `DELETE /api/v1/projects/{project}` removes that project's persisted runs across environments; `DELETE /api/v1/runs/{runId}` removes one completed run. Both return `{"success":true}` on success; a missing ID returns 404, and an active run returns 409. Neither DELETE requires a JSON body. Do not silently delete a user's existing project or a logical grouped name that represents multiple source projects; ask for explicit confirmation before permanent cleanup.
+
+Example: `await fetch(serverUrl + "/api/v1/projects/" + encodeURIComponent(temporaryProject), { method: "DELETE" })` (inspect the response status before accepting cleanup).
+
 1. Read `resources/test-strategy.md` and apply the two-question litmus.
 2. Choose the lowest trustworthy boundary and an independent oracle.
-3. Select Feature or Specification based on audience and journey shape.
+3. Select Feature for a meaningful workflow narrative or Specification for an independently verifiable rule, including business policies; write a purpose-first description within the observed boundary.
 4. For web claims, read `resources/web-testing.md`; do not use class names as appearance proxies.
 5. Implement one reported row per independent claim using the matching syntax resource.
 6. Review `resources/anti-patterns.md`.
@@ -76,7 +82,9 @@ If the installed version differs from `0.3.1`, tell the developer: *"Your LiveDo
 ```typescript
 import { feature, scenario, given, when, Then as then } from "@swedevtools/livedoc-vitest";
 
-feature("Shipping Costs", () => {
+feature(`Shipping Costs
+    Keeps delivery tiers consistent for the destinations and totals covered below.
+`, () => {
     scenario("Free shipping for Australian orders over $100", () => {
         let cart: ShoppingCart;
 
@@ -102,15 +110,17 @@ feature("Shipping Costs", () => {
 
 ### 2. Specifications (`resources/specifications.md`)
 
-**Use when**: Testing APIs, utilities, algorithms, data-driven edge cases. Developer-only audience. Direct assertions in rules — no Given/When/Then ceremony.
+**Use when**: Documenting precise domain policies, API contracts, utilities, algorithms, or data-driven edge cases. Product stakeholders may inspect business-owned rules; direct assertions need no Given/When/Then ceremony.
 
 ```typescript
 import { specification, rule, ruleOutline } from "@swedevtools/livedoc-vitest";
 
-specification("Calculator Operations", () => {
+specification(`Calculator Operations
+    Callers can rely on the arithmetic results covered by these rules.
+`, () => {
     rule("Adding '5' and '3' returns '8'", (ctx) => {
         const [a, b, expected] = ctx.rule.values;
-        expect(a + b).toBe(expected);
+        expect(add(a, b)).toBe(expected);
     });
 
     ruleOutline(`Discount calculations
@@ -119,8 +129,8 @@ specification("Calculator Operations", () => {
         |   100 |       10 |       90 |
         |   200 |       25 |      150 |
         `, (ctx) => {
-        const result = ctx.example.price - (ctx.example.price * ctx.example.discount / 100);
-        expect(result).toBe(ctx.example.expected);
+        expect(applyDiscount(ctx.example.price, ctx.example.discount))
+            .toBe(ctx.example.expected);
     });
 });
 ```
@@ -154,17 +164,23 @@ when("navigating to the homepage", async (ctx) => {
 
 ### Folder Structure = Report Hierarchy
 
-The **file path** of each `.Spec.ts` file determines the visual tree in the LiveDoc Viewer:
+The **file path** of each `.Spec.ts` file determines its group in the
+LiveDoc Viewer. Keep related Features and Specifications under the same
+business capability; `.Spec.ts` names *both* patterns:
 
+```text
+tests
+├── Accounts
+│   └── Registration.Spec.ts          Feature
+└── Orders
+    ├── Checkout.Spec.ts              Feature
+    └── Pricing
+        └── ShippingRates.Spec.ts     Specification
 ```
-_src/test/
-├── Checkout/           → "Checkout" node in viewer
-│   └── Cart.Spec.ts
-├── Shipping/           → "Shipping" node
-│   └── Costs.Spec.ts
-└── Auth/               → "Auth" node
-    └── Login.Spec.ts
-```
+
+Do not default to separate `Features/Orders` and `Specs/Orders` roots:
+that splits the capability in a full report. A product manager can inspect
+the precise Shipping rates rules beside the Checkout workflow.
 
 ### Import Pattern
 
@@ -223,13 +239,19 @@ Lines after the first line in titles provide descriptions and tags:
 ```typescript
 feature(`Shopping Cart
     @checkout @critical
-    Business rules for the shopping cart checkout flow.
+    Keeps cart totals predictable before an order is placed.
     `, () => { ... });
 ```
 
 - **First line** = title
 - **Lines starting with `@`** = tags (used for filtering)
-- **Remaining lines** = description (appears in reports)
+- **Remaining lines** = optional description (appears in reports)
+
+Use the description to explain *why* the tested behavior matters, not to list
+technical cases. Scenario/Rule titles, example rows, and assertions establish
+*what* was checked. Do not claim UI display, payment processing, or compliance
+from tests that observe only an in-process function or HTTP response. Read
+`resources/test-strategy.md` for examples and review checks.
 
 ### Async Rules
 
@@ -296,6 +318,7 @@ If authentication, permissions, or network access prevents submission, preserve 
 - [ ] The instrument can observe the behavior named in the title.
 - [ ] The intended test was collected and executed.
 - [ ] Values are visible in titles and extracted from context.
+- [ ] Feature/Specification descriptions explain purpose without claiming untested outcomes.
 - [ ] Expected results are independent of production logic.
 - [ ] The test passes alone and in its normal suite.
 - [ ] The LiveDoc report contains zero unintended rule violations.
@@ -310,6 +333,7 @@ If authentication, permissions, or network access prevents submission, preserve 
 - "Create a BDD test for shipping costs" → Read `resources/bdd-features.md`, write feature/scenario
 - "Add data-driven tests for tax" → Read `resources/bdd-features.md`, use scenarioOutline
 - "Write spec tests for email validator" → Read `resources/specifications.md`, write specification/rule
+- "Document an API request and response" → Read `resources/bdd-features.md` or `resources/specifications.md`; attach only selected safe fields before assertions
 - "Write a Playwright test for the login page" → Read `resources/web-testing.md` and `resources/playwright.md`
 - "Verify a responsive touch target" → Use a real browser and measure geometry
 - "Configure LiveDoc reporter output" → Read `resources/reporter-config.md`

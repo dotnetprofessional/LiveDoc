@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect } from 'vitest';
-import { feature, scenario, scenarioOutline, given, when, Then as then, and } from '@swedevtools/livedoc-vitest';
+import { feature, scenario, scenarioOutline, given, when, Then as then, and, specification, rule, ruleOutline } from '@swedevtools/livedoc-vitest';
 import { useBrowser } from '@swedevtools/livedoc-vitest/playwright';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -27,6 +27,359 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await server?.close();
+});
+
+async function observeWheel() {
+  await page().evaluate(() => {
+    document.addEventListener('wheel', (event) => {
+      document.documentElement.dataset.observedWheel = JSON.stringify({
+        prevented: event.defaultPrevented, ctrl: event.ctrlKey, trusted: event.isTrusted,
+      });
+    });
+  });
+}
+
+async function settlePreview() {
+  await page().evaluate(async () => {
+    await Promise.all(document.getAnimations().filter((animation) =>
+      animation.effect?.getComputedTiming().iterations !== Infinity).map((animation) => animation.finished.catch(() => {})));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+}
+
+async function openWheelAttachment(title: string) {
+  await page().setViewportSize({ width: 1280, height: 720 });
+  await page().goto(`${baseUrl}?wheel-cases`, { waitUntil: 'domcontentloaded' });
+  await observeWheel();
+  await page().getByRole('button', { name: 'Open attachment gallery' }).click();
+  if (title !== 'large-image.svg') await page().getByRole('button', { name: title, exact: true }).click();
+  const region = page().getByRole('region', { name: title.endsWith('.mmd') ? 'Mermaid diagram viewport' : 'Image viewport' });
+  await region.locator('img').evaluate((image: HTMLImageElement) => image.decode());
+  await settlePreview();
+  await page().getByRole('button', { name: 'Actual size' }).click();
+  await settlePreview();
+  return region;
+}
+
+async function actualWheel(target: ReturnType<ReturnType<typeof page>['locator']>, delta: number, ctrl = true) {
+  const bounds = (await target.boundingBox())!;
+  await page().evaluate(() => { delete document.documentElement.dataset.observedWheel; });
+  await page().mouse.move(bounds.x + bounds.width * 0.4, bounds.y + bounds.height * 0.45);
+  if (ctrl) await page().keyboard.down('Control');
+  try {
+    await page().mouse.wheel(0, delta);
+    await page().waitForFunction(() => document.documentElement.dataset.observedWheel !== undefined);
+  } finally {
+    if (ctrl) await page().keyboard.up('Control');
+  }
+  await settlePreview();
+  return page().evaluate(() => JSON.parse(document.documentElement.dataset.observedWheel!) as {
+    prevented: boolean; ctrl: boolean; trusted: boolean;
+  });
+}
+
+async function pageMetrics() {
+  return page().evaluate(() => ({
+    scale: window.visualViewport!.scale, width: window.innerWidth, height: window.innerHeight,
+    clientWidth: document.documentElement.clientWidth, pageX: window.scrollX, pageY: window.scrollY,
+    pixelRatio: window.devicePixelRatio,
+  }));
+}
+
+specification(`Attachment modifier-wheel zoom
+  Readers can inspect images and Mermaid diagrams without changing the page zoom.
+  Browser rules use a 1280 by 720 desktop viewport and trusted mouse input.
+`, () => {
+  ruleOutline(`Ctrl-wheel <delta>px changes <title> from '100'% to <percent>% with dimension factor <factor> within '0.003' and prevents page zoom
+    Examples:
+    | title             | delta | percent | factor |
+    | large-image.svg   | -100  | 150     | 1.5    |
+    | large-image.svg   | 100   | 67      | 0.666667 |
+    | large-sequence.mmd | -100 | 150     | 1.5    |
+    | large-sequence.mmd | 100  | 67      | 0.666667 |
+  `, async (ctx) => {
+    const region = await openWheelAttachment(ctx.example.title as string);
+    const before = (await region.locator('img').boundingBox())!;
+    const metrics = await pageMetrics();
+    const wheel = await actualWheel(region, ctx.example.delta as number);
+    const after = (await region.locator('img').boundingBox())!;
+    expect(wheel).toEqual({ prevented: true, ctrl: true, trusted: true });
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent())
+      .toBe(`${ctx.example.percent}%`);
+    const tolerance = ctx.rule.values[1] as number;
+    expect(Math.abs(after.width / before.width - (ctx.example.factor as number))).toBeLessThan(tolerance);
+    expect(Math.abs(after.height / before.height - (ctx.example.factor as number))).toBeLessThan(tolerance);
+    expect(await pageMetrics()).toEqual(metrics);
+  });
+
+  ruleOutline(`Ctrl-wheel zoom on <title> keeps the image point beneath the pointer within '1.5' CSS pixels after panning '300'px horizontally and '350'px vertically, starting fitted <fit>
+    Examples:
+    | title             | delta | fit |
+    | large-image.svg   | -100  | false |
+    | large-image.svg   | 100   | false |
+    | large-sequence.mmd | -100 | false |
+    | large-sequence.mmd | 100  | false |
+    | large-image.svg   | -100 | true |
+    | large-image.svg   | 100 | true |
+    | large-sequence.mmd | -100 | true |
+    | large-sequence.mmd | 100 | true |
+  `, async (ctx) => {
+    const [tolerance, left, top] = ctx.rule.values as number[];
+    const region = await openWheelAttachment(ctx.example.title as string);
+    if (ctx.example.fit) {
+      await page().getByRole('button', { name: ctx.example.title === 'large-image.svg' ? 'Fit image' : 'Fit diagram' }).click();
+      await settlePreview();
+    }
+    await region.evaluate((element, offsets) => {
+      element.scrollLeft = offsets.left; element.scrollTop = offsets.top;
+    }, { left, top });
+    const viewport = (await region.boundingBox())!;
+    const pointer = { x: viewport.x + viewport.width * 0.4, y: viewport.y + viewport.height * 0.45 };
+    const before = (await region.locator('img').boundingBox())!;
+    const point = { x: (pointer.x - before.x) / before.width, y: (pointer.y - before.y) / before.height };
+    await actualWheel(region, ctx.example.delta as number);
+    const after = (await region.locator('img').boundingBox())!;
+    expect(Math.abs(after.x + point.x * after.width - pointer.x)).toBeLessThan(tolerance);
+    expect(Math.abs(after.y + point.y * after.height - pointer.y)).toBeLessThan(tolerance);
+  });
+
+  ruleOutline(`Unmodified wheel '100'px scrolls <title> without prevention or changing '100'% zoom
+    Examples:
+    | title |
+    | large-image.svg |
+    | large-sequence.mmd |
+  `, async (ctx) => {
+    const [delta, percent] = ctx.rule.values as number[];
+    const region = await openWheelAttachment(ctx.example.title as string);
+    const wheel = await actualWheel(region, delta, false);
+    await page().waitForFunction((name) => document.querySelector(`[aria-label="${name}"]`)!.scrollTop > 0,
+      await region.getAttribute('aria-label'));
+    expect(wheel).toEqual({ prevented: false, ctrl: false, trusted: true });
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${percent}%`);
+  });
+
+  ruleOutline(`After Ctrl-wheel '-100'px zoom, <title> still pans by dragging '80'px left and '60'px up within '1.5'px, and keyboard 'Enter' on Fit restores the complete preview
+    Examples:
+    | title |
+    | large-image.svg |
+    | large-sequence.mmd |
+  `, async (ctx) => {
+    const [delta, left, top, tolerance, key] = ctx.rule.values as [number, number, number, number, string];
+    const region = await openWheelAttachment(ctx.example.title as string);
+    await actualWheel(region, delta);
+    const before = await region.evaluate((element) => ({ left: element.scrollLeft, top: element.scrollTop }));
+    const bounds = (await region.boundingBox())!;
+    const origin = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+    await page().mouse.move(origin.x, origin.y);
+    await page().mouse.down();
+    await page().mouse.move(origin.x - left, origin.y - top);
+    await page().mouse.up();
+    const after = await region.evaluate((element) => ({ left: element.scrollLeft, top: element.scrollTop }));
+    expect(Math.abs(after.left - before.left - left)).toBeLessThan(tolerance);
+    expect(Math.abs(after.top - before.top - top)).toBeLessThan(tolerance);
+    const fit = page().getByRole('button', { name: ctx.example.title === 'large-image.svg' ? 'Fit image' : 'Fit diagram' });
+    await fit.press(key);
+    await settlePreview();
+    expect(await fit.getAttribute('aria-pressed')).toBe('true');
+    const image = (await region.locator('img').boundingBox())!;
+    expect(image.x).toBeGreaterThanOrEqual(bounds.x);
+    expect(image.y).toBeGreaterThanOrEqual(bounds.y);
+    expect(image.x + image.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+    expect(image.y + image.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+  });
+
+  ruleOutline(`Ctrl-wheel <delta>px at the <percent>% zoom limit on <title> remains prevented without page zoom or dimension changes
+    Examples:
+    | title | control | percent | delta |
+    | large-image.svg | Zoom in | 400 | -100 |
+    | large-image.svg | Zoom out | 5 | 100 |
+    | large-sequence.mmd | Zoom in | 400 | -100 |
+    | large-sequence.mmd | Zoom out | 5 | 100 |
+  `, async (ctx) => {
+    const region = await openWheelAttachment(ctx.example.title as string);
+    const control = page().getByRole('button', { name: ctx.example.control as string, exact: true });
+    while (await control.isEnabled()) await control.click();
+    await settlePreview();
+    const before = (await region.locator('img').boundingBox())!;
+    const metrics = await pageMetrics();
+    const wheel = await actualWheel(region, ctx.example.delta as number);
+    const after = (await region.locator('img').boundingBox())!;
+    expect(wheel.prevented).toBe(true);
+    expect(after.width).toBe(before.width);
+    expect(after.height).toBe(before.height);
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent())
+      .toBe(`${ctx.example.percent}%`);
+    expect(await pageMetrics()).toEqual(metrics);
+  });
+
+  rule("A '100000'px square image fitted at '1'% stays '1000'px wide when Ctrl-wheel scrolls down '100'px below the manual minimum", async (ctx) => {
+    const [naturalWidth, percent, width, delta] = ctx.rule.values as number[];
+    await openWheelAttachment('large-image.svg');
+    await page().getByRole('button', { name: 'oversized-image.svg', exact: true }).click();
+    const region = page().getByRole('region', { name: 'Image viewport' });
+    await region.locator('img').evaluate((image: HTMLImageElement) => image.decode());
+    await settlePreview();
+    expect(await region.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(naturalWidth);
+    const metrics = await pageMetrics();
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${percent}%`);
+    await expect.poll(async () => (await region.locator('img').boundingBox())!.width).toBe(width);
+    expect((await actualWheel(region, delta)).prevented).toBe(true);
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${percent}%`);
+    expect((await region.locator('img').boundingBox())!.width).toBe(width);
+    expect(await pageMetrics()).toEqual(metrics);
+  });
+
+  ruleOutline(`After leaving an image, Ctrl-wheel '-100'px over <target> stays native for <title>
+    Examples:
+    | title | target |
+    | tree.json | JSON preview |
+    | long-log.txt | Text preview |
+    | report.pdf | header |
+    | broken.mmd | Mermaid source |
+    | invalid-image.png | Image viewport |
+    | large-sequence.mmd | Mermaid source |
+    | large-image.svg | header |
+  `, async (ctx) => {
+    await openWheelAttachment('large-image.svg');
+    if (ctx.example.title !== 'large-image.svg') {
+      await page().getByRole('button', { name: ctx.example.title as string, exact: true }).click();
+    }
+    if (ctx.example.title === 'large-sequence.mmd') {
+      await page().getByRole('button', { name: 'View source', exact: true }).click();
+    }
+    const target = ctx.example.target === 'header'
+      ? page().getByRole('dialog').locator('header')
+      : page().getByLabel(ctx.example.target as string, { exact: true });
+    await target.waitFor({ state: 'visible' });
+    await settlePreview();
+    expect((await actualWheel(target, ctx.rule.values[0] as number)).prevented).toBe(false);
+  });
+
+  rule("Changing 'large-image.svg' to 'second-image.svg' and reopening starts fitted; one Ctrl-wheel '-100'px then zooms '100'% to '150'%", async (ctx) => {
+    const [first, second, delta, start, end] = ctx.rule.values as [string, string, number, number, number];
+    await openWheelAttachment(first);
+    await page().getByRole('button', { name: second, exact: true }).click();
+    const region = page().getByRole('region', { name: 'Image viewport' });
+    await region.locator('img').evaluate((image: HTMLImageElement) => image.decode());
+    await settlePreview();
+    expect(await page().getByRole('button', { name: 'Fit image' }).getAttribute('aria-pressed')).toBe('true');
+    await page().getByRole('button', { name: 'Close viewer' }).click();
+    await page().getByRole('dialog').waitFor({ state: 'hidden' });
+    await page().getByRole('button', { name: 'Open attachment gallery' }).click();
+    await page().getByRole('button', { name: 'Actual size' }).click();
+    await settlePreview();
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${start}%`);
+    expect((await actualWheel(region, delta)).prevented).toBe(true);
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${end}%`);
+  });
+
+  rule("A loading '1800' by '1400' image leaves Ctrl-wheel '-100'px native until decoded, then zooms '100'% to '150'%", async (ctx) => {
+    const [width, height, delta, start, end] = ctx.rule.values as number[];
+    let release!: () => void;
+    const loaded = new Promise<void>((resolve) => { release = resolve; });
+    await page().route('**/wheel-loading.svg', async (route) => {
+      await loaded;
+      await route.fulfill({ contentType: 'image/svg+xml', body:
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="blue"/></svg>` });
+    });
+    try {
+      await openWheelAttachment('large-image.svg');
+      await page().getByRole('button', { name: 'loading-image.svg', exact: true }).click();
+      const region = page().getByRole('region', { name: 'Image viewport' });
+      await region.getByRole('img', { name: 'loading-image.svg' }).waitFor({ state: 'attached' });
+      await settlePreview();
+      expect((await actualWheel(region, delta)).prevented).toBe(false);
+      release();
+      await region.locator('img').evaluate((image: HTMLImageElement) => image.decode());
+      await page().getByRole('button', { name: 'Actual size' }).click();
+      await settlePreview();
+      expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${start}%`);
+      expect((await actualWheel(region, delta)).prevented).toBe(true);
+      expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${end}%`);
+    } finally {
+      release();
+      await page().unrouteAll({ behavior: 'wait' });
+    }
+  });
+
+  rule("'10' continuous Ctrl-wheel '-10'px inputs zoom an image from '100'% to '150'% without changing page scale", async (ctx) => {
+    const [count, delta, start, end] = ctx.rule.values as number[];
+    const region = await openWheelAttachment('large-image.svg');
+    const bounds = (await region.boundingBox())!;
+    const metrics = await pageMetrics();
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${start}%`);
+    await page().mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page().keyboard.down('Control');
+    try {
+      for (let i = 0; i < count; i++) await page().mouse.wheel(0, delta);
+      await expect.poll(async () => page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent())
+        .toBe(`${end}%`);
+    } finally {
+      await page().keyboard.up('Control');
+    }
+    expect(await pageMetrics()).toEqual(metrics);
+  });
+
+  rule("While 'large-sequence.mmd' is rendering, Ctrl-wheel '-100'px stays native; the decoded preview then zooms '100'% to '150'%", async (ctx) => {
+    const [title, delta, start, end] = ctx.rule.values as [string, number, number, number];
+    await openWheelAttachment('large-image.svg');
+    let release!: () => void;
+    const loaded = new Promise<void>((resolve) => { release = resolve; });
+    await page().route(/\/mermaid\.js(?:\?|$)/, async (route) => {
+      await loaded;
+      await route.continue();
+    });
+    try {
+      await page().getByRole('button', { name: title, exact: true }).click();
+      const status = page().getByText('Rendering Mermaid diagram…', { exact: true });
+      await status.waitFor({ state: 'visible' });
+      await settlePreview();
+      expect((await actualWheel(status, delta)).prevented).toBe(false);
+      release();
+      const region = page().getByRole('region', { name: 'Mermaid diagram viewport' });
+      await region.locator('img').evaluate((image: HTMLImageElement) => image.decode());
+      await page().getByRole('button', { name: 'Actual size' }).click();
+      await settlePreview();
+      expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${start}%`);
+      expect((await actualWheel(region, delta)).prevented).toBe(true);
+      expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent()).toBe(`${end}%`);
+    } finally {
+      release();
+      await page().unrouteAll({ behavior: 'wait' });
+    }
+  });
+
+  ruleOutline(`DOM Ctrl-wheel <delta> in <mode> units renders <percent>% from '100'% with dimension factor <factor> within '0.003', without page zoom
+    These supplemental DOM inputs cover wheel units that browser mouse APIs cannot select.
+    Examples:
+    | mode  | delta | percent | factor |
+    | pixel | -10000 | 150 | 1.5 |
+    | line  | -6.25 | 150 | 1.5 |
+    | page  | -1 | 150 | 1.5 |
+    | pixel | 0 | 100 | 1 |
+    | pixel | -1 | 100 | 1.004063 |
+  `, async (ctx) => {
+    const region = await openWheelAttachment('large-image.svg');
+    const metrics = await pageMetrics();
+    const before = (await region.locator('img').boundingBox())!;
+    const prevented = await region.evaluate((element, input) => {
+      const bounds = element.getBoundingClientRect();
+      const event = new WheelEvent('wheel', {
+        bubbles: true, cancelable: true, ctrlKey: true,
+        deltaY: input.delta, deltaMode: input.mode === 'line' ? 1 : input.mode === 'page' ? 2 : 0,
+        clientX: bounds.x + bounds.width / 2, clientY: bounds.y + bounds.height / 2,
+      });
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    }, { delta: ctx.example.delta as number, mode: ctx.example.mode as string });
+    await settlePreview();
+    const after = (await region.locator('img').boundingBox())!;
+    expect(prevented).toBe(true);
+    expect(await page().getByRole('toolbar', { name: /zoom/ }).getByRole('status').textContent())
+      .toBe(`${ctx.example.percent}%`);
+    expect(Math.abs(after.width / before.width - (ctx.example.factor as number))).toBeLessThan(ctx.rule.values[1] as number);
+    expect(await pageMetrics()).toEqual(metrics);
+  });
 });
 
 feature('Mermaid Attachment Previews', () => {
@@ -378,18 +731,21 @@ feature('Mermaid Attachment Previews', () => {
           ctx.step.values[0] as string).waitFor();
       });
 
-      then("exactly '1' header precedes the preview and the 'document is synchronized' step remains accessible", async (ctx) => {
+      then("exactly '1' header shows 'large-sequence.mmd', 'text/vnd.mermaid', '1 / 2', and 'the document is synchronized' above the preview", async (ctx) => {
         const dialog = page().getByRole('dialog');
         const header = dialog.locator('header');
         expect(await header.count()).toBe(ctx.step.values[0]);
         expect(await header.getByLabel('Passed').isVisible()).toBe(true);
-        expect(await header.textContent()).not.toContain('large-sequence.mmd');
+        for (const detail of ctx.step.values.slice(1) as string[]) {
+          expect(await header.getByText(detail, { exact: true }).isVisible()).toBe(true);
+        }
+        expect(await header.getByText(/^\d+(?:\.\d+)? (?:B|KB|MB)$/).isVisible()).toBe(true);
         expect(await dialog.getByRole('heading', { name: 'large-sequence.mmd' }).count()).toBe(1);
         const descriptionId = await dialog.getAttribute('aria-describedby');
         expect(descriptionId).toBeTruthy();
         const description = await page().evaluate((id) => document.getElementById(id!)?.textContent, descriptionId);
-        expect(description).toContain(ctx.step.values[1]);
-        expect(description).toContain('text/vnd.mermaid');
+        expect(description).toContain(ctx.step.values[4]);
+        expect(description).toContain(ctx.step.values[2]);
         const headerBox = (await header.boundingBox())!;
         const previewBox = (await page().getByRole('region', { name: 'Mermaid diagram viewport' }).boundingBox())!;
         expect(previewBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height - 1);
@@ -417,6 +773,59 @@ feature('Mermaid Attachment Previews', () => {
         expect(dialogBox.height).toBe(720);
         expect(await page().getByRole('dialog').locator('header').count()).toBe(1);
         expect(await page().getByRole('button', { name: 'Restore viewer' }).isVisible()).toBe(true);
+      });
+    });
+
+    scenario("Switching to 'tree.json' updates the shared header to 'application/json', '2 / 2', and 'the result is inspected'", () => {
+      given("a gallery with 'large-sequence.mmd' and 'tree.json' on separate steps", async () => {
+        await page().goto(`${baseUrl}?step-context`);
+        await page().getByRole('button', { name: 'Open attachment gallery' }).click();
+      });
+
+      when("advancing from 'large-sequence.mmd' to 'tree.json'", async (ctx) => {
+        await page().getByRole('button', { name: 'Next attachment' }).click();
+        await page().getByRole('dialog').locator('header').getByText(ctx.step.values[1] as string, { exact: true }).waitFor();
+      });
+
+      then("the header shows 'tree.json', 'application/json', '2 / 2', 'the result is inspected', and its size but not 'large-sequence.mmd'", async (ctx) => {
+        const header = page().getByRole('dialog').locator('header');
+        for (const detail of ctx.step.values.slice(0, 4) as string[]) {
+          expect(await header.getByText(detail, { exact: true }).isVisible()).toBe(true);
+        }
+        expect(await header.getByText(/^\d+(?:\.\d+)? (?:B|KB|MB)$/).isVisible()).toBe(true);
+        expect(await header.getByLabel('Failed').isVisible()).toBe(true);
+        expect(await header.getByText(ctx.step.values[4] as string, { exact: true }).count()).toBe(0);
+      });
+    });
+
+    scenarioOutline(`Shared headers retain file type, size, and gallery position for direct attachments
+      Examples:
+      | width | title              | mimeType           | position |
+      | 320   | tree.json          | application/json   | 11 / 18  |
+      | 320   | markdown.md        | text/markdown      | 8 / 18   |
+      | 320   | report.pdf         | application/pdf    | 16 / 18  |
+      | 320   | preview.png        | image/png          | 15 / 18  |
+      | 1280  | large-sequence.mmd | text/vnd.mermaid   | 7 / 18   |
+      `, () => {
+      given('a <width>px gallery with <title>', async (ctx) => {
+        await page().setViewportSize({ width: ctx.example.width as number, height: 720 });
+        await page().goto(baseUrl);
+        await page().getByRole('button', { name: 'Open attachment gallery' }).click();
+      });
+
+      when('selecting <title>', async (ctx) => {
+        await page().getByRole('button', { name: ctx.example.title as string }).click();
+      });
+
+      then('its header shows <title>, <mimeType>, readable size, and <position> without horizontal overflow', async (ctx) => {
+        const header = page().getByRole('dialog').locator('header');
+        expect(await header.count()).toBe(1);
+        for (const detail of [ctx.example.title, ctx.example.mimeType, ctx.example.position] as string[]) {
+          expect(await header.getByText(detail, { exact: true }).isVisible()).toBe(true);
+        }
+        expect(await header.getByText(/^\d+(?:\.\d+)? (?:B|KB|MB)$/).isVisible()).toBe(true);
+        expect(await page().evaluate(() => document.documentElement.scrollWidth))
+          .toBeLessThanOrEqual(ctx.example.width as number);
       });
     });
 

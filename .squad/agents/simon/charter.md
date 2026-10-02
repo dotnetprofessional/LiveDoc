@@ -41,7 +41,7 @@
 ## Model
 
 - **Preferred:** auto
-- **Rationale:** Use `gpt-5.6-sol` for implementation and debugging reasoning, or `claude-opus-4.8` for architecture and review reasoning. Lightweight models are only for mechanical work.
+- **Rationale:** Use `gpt-6.1-sol` for implementation and debugging reasoning, or `claude-sonnet-5.5` for architecture and review reasoning. Lightweight models are only for mechanical work.
 - **Fallback:** Switch to the other flagship reasoning model first; the coordinator handles fallback automatically
 
 ## Collaboration

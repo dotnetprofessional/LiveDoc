@@ -29,6 +29,17 @@ specification('Attachment Viewer Metadata', () => {
     expect(markup).toContain(fallbackMimeType);
   });
 
+  rule("Base64 'YQ==' shows an attachment size of '1 B' without counting padding", (ctx) => {
+    const [base64, expectedSize] = ctx.rule.values as [string, string];
+    const markup = renderToStaticMarkup(createElement(AttachmentContentMetadata, {
+      item: { base64 },
+      fallbackMimeType: 'text/plain',
+    }));
+
+    expect(markup).toContain(`Attachment size ${expectedSize}`);
+    expect(markup).toContain(`>${expectedSize}</span>`);
+  });
+
   rule("An attachment on step '2' of '3' retains the full scenario count when only one step has attachments", (ctx) => {
     const [stepNumber, totalSteps] = ctx.rule.values as [number, number];
     const steps: StepTest[] = [

@@ -69,14 +69,14 @@ feature("User Dashboard", () => {
 Lines after the first line in titles provide descriptions and tags:
 
 ```typescript
-feature(`Shopping Cart Checkout
+feature(`Shipping Costs
     @checkout @critical
-    Business rules for the shopping cart checkout flow.
-    Covers GST calculation, shipping tiers, and discount codes.
+    Keeps delivery tiers consistent for the order totals
+    and destinations covered by the scenarios below.
     `, (ctx) => {
 
     scenario(`Free shipping for large orders
-        Orders over $100 qualify for free shipping in Australia.
+        This scenario covers Australian orders at the tested threshold.
         `, (ctx) => {
         // steps...
     });
@@ -87,7 +87,10 @@ feature(`Shopping Cart Checkout
 - **Lines starting with `@`** = tags (used for filtering)
 - **Remaining lines** = description (appears in output and reports)
 
-**Always add descriptions** to `feature` blocks for context. Optionally to `scenario` blocks.
+Prefer a purpose-first description on a `feature` block: explain why the
+behavior matters, not which cases or implementation paths run. Description
+lines are optional; scenario descriptions can clarify scope without repeating
+or inflating the steps and assertions.
 
 ## Value Extraction
 
@@ -181,6 +184,18 @@ ctx.step.attach(base64Data, { mimeType: "image/png", kind: "image", title: "Char
 
 Read attachments: `ctx.step.attachments` (read-only array)
 
+### Documenting an API Exchange
+
+For HTTP features, put safe authored request/expected JSON in a step doc
+string or data table when it explains the contract; keep inputs and expected
+values in the step titles. `ctx.step.attachJSON()` records evidence
+from the **actual** response only when you call it; requests and responses
+are not attached automatically. Allowlist fields rather than attaching raw
+headers, tokens, cookies, or full unreviewed bodies. Attach before assertions
+that might fail so the evidence remains on a failed step; assertions still
+decide whether the behavior passed. For compact HTTP contracts, a
+`specification`/`rule` may be a better fit; see `resources/specifications.md`.
+
 ## Async Rules
 
 - **Only step callbacks support `async`** (`given`, `when`, `then`, `and`, `but`)
@@ -224,7 +239,8 @@ scenario("Test", async (ctx) => { /* ❌ NOT ALLOWED */ });
 ## Validation Checklist
 
 - [ ] All test data appears in step title strings (self-documenting)
-- [ ] Descriptions provided on `feature` blocks for context
+- [ ] If provided, feature descriptions explain purpose within what the scenarios prove
+- [ ] Attached API evidence contains only reviewed, non-sensitive fields and supplements assertions
 - [ ] Values extracted via `ctx.step.values`, `ctx.step.params`, or `ctx.example`
 - [ ] `Then` imported as uppercase, aliased to lowercase `then`
 - [ ] Async only on step callbacks
