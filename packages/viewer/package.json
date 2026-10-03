@@ -40,7 +40,7 @@
     "@swedevtools/livedoc-schema": "workspace:*",
     "@swedevtools/livedoc-server": "workspace:*",
     "commander": "^12.1.0",
-    "hono": "^4.12.25",
+    "hono": "^4.13.7",
     "open": "^10.2.0",
     "ws": "^8.21.0",
     "zod": "^3.24.3"
