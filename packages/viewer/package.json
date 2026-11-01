@@ -43,7 +43,7 @@
     "hono": "^4.13.7",
     "open": "^10.2.0",
     "ws": "^8.21.0",
-    "zod": "^3.24.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
