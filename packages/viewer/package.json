@@ -36,7 +36,7 @@
     "pack:local": "pnpm pack --config.node-linker=hoisted"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.17",
+    "@hono/node-server": "^2.1.3",
     "@swedevtools/livedoc-schema": "workspace:*",
     "@swedevtools/livedoc-server": "workspace:*",
     "commander": "^12.1.0",

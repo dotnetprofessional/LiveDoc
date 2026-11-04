@@ -42,7 +42,7 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.17",
+    "@hono/node-server": "^2.1.3",
     "@swedevtools/livedoc-schema": "workspace:*",
     "commander": "^12.1.0",
     "hono": "^4.13.7",
